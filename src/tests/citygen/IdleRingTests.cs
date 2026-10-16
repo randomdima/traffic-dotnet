@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.CityGen;
@@ -41,11 +42,25 @@ public class IdleRingTests
     [Fact]
     public void NoCarOnTheRingComesToAStandstill()
     {
+        var (slowestMps, heldBy, _) = Ran.Value;
+        for (var car = 0; car < slowestMps.Length; car++)
+        {
+            Assert.True(
+                slowestMps[car] > Config.Driving.StopSpeedMps,
+                $"car {car} ({IdlePlan.PartOf(car)}) got down to {slowestMps[car]:F2} m/s, held by {heldBy[car]}");
+        }
+    }
+
+    /// <summary>
+    /// <b>One run of the ring for both cases</b>, which ran the same five minutes of the same map: the slowest each car
+    /// ever got past the settle and what was holding it there — so a failure names the car, the figure and the term
+    /// rather than the tick it happened to be caught on — and where each stands at the end.
+    /// </summary>
+    static readonly Lazy<(float[] SlowestMps, DrivingHold[] HeldBy, Vector2[] EndedAtM)> Ran = new(() =>
+    {
         using var world = new TownWorld(Towns.Of(IdlePlan.Name), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
 
-        // The slowest each car ever got and what was holding it there, so a failure names the car, the
-        // figure and the term rather than the tick it happened to be caught on.
         var slowestMps = new float[world.Cars.Count];
         var heldBy = new DrivingHold[world.Cars.Count];
         Array.Fill(slowestMps, float.PositiveInfinity);
@@ -64,13 +79,8 @@ public class IdleRingTests
             }
         }
 
-        for (var car = 0; car < world.Cars.Count; car++)
-        {
-            Assert.True(
-                slowestMps[car] > Config.Driving.StopSpeedMps,
-                $"car {car} ({IdlePlan.PartOf(car)}) got down to {slowestMps[car]:F2} m/s, held by {heldBy[car]}");
-        }
-    }
+        return (slowestMps, heldBy, world.Cars.PositionM[..world.Cars.Count]);
+    });
 
     /// <summary>
     /// <b>The escort keeps station with what it is escorting</b> — it is held under its charge's own pace
@@ -85,12 +95,9 @@ public class IdleRingTests
     [Fact]
     public void TheEscortIsStillWithItsChargeADozenLapsLater()
     {
-        using var world = new TownWorld(Towns.Of(IdlePlan.Name), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(Ticks);
-
-        var apartM = ApartOnTheRingM(world, IdlePlan.Escorted - 1, IdlePlan.Escorted)
-            + ApartOnTheRingM(world, IdlePlan.Escorted, IdlePlan.Escorted + 1);
+        var endedAtM = Ran.Value.EndedAtM;
+        var apartM = ApartOnTheRingM(endedAtM, IdlePlan.Escorted - 1, IdlePlan.Escorted)
+            + ApartOnTheRingM(endedAtM, IdlePlan.Escorted, IdlePlan.Escorted + 1);
 
         Assert.True(
             apartM < IdlePlan.RingM(Config) * 0.25f,
@@ -98,6 +105,5 @@ public class IdleRingTests
     }
 
     /// <summary>How far apart two of the ring's cars stand, straight across rather than along the road.</summary>
-    static float ApartOnTheRingM(TownWorld world, int car, int other) =>
-        (world.Cars.PositionM[car] - world.Cars.PositionM[other]).Length();
+    static float ApartOnTheRingM(Vector2[] positionM, int car, int other) => (positionM[car] - positionM[other]).Length();
 }

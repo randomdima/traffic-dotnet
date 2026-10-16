@@ -33,14 +33,26 @@ namespace TrafficSimulation.Tests.Agents.Service;
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P2)]
-public class ServiceVehicleTests
+public class ServiceVehicleTests(ServiceVehicleTests.AtRest atRest) : IClassFixture<ServiceVehicleTests.AtRest>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
+
+    /// <summary>
+    /// The built city stood up and never ticked, for the cases that only read it: standing that town is a second
+    /// apiece.
+    /// </summary>
+    /// <remarks><b>Nothing handed it may tick it or write to it</b>; a case that does stands its own.</remarks>
+    public sealed class AtRest : IDisposable
+    {
+        internal TownWorld World { get; } = new(Towns.Built, Config);
+
+        public void Dispose() => World.Dispose();
+    }
 
     [Fact]
     public void EveryServiceVehicleStandsAtItsBuildingWithItsCrewAboard()
     {
-        using var world = new TownWorld(Towns.Built, Config);
+        var world = atRest.World;
 
         var stood = 0;
         for (var car = 0; car < world.Cars.Count; car++)
@@ -148,7 +160,7 @@ public class ServiceVehicleTests
     [Fact]
     public void EveryCrewWearsItsOwnUniformAndNobodyElseWearsOne()
     {
-        using var world = new TownWorld(Towns.Built, Config);
+        var world = atRest.World;
         var looks = PersonCatalog.Shared;
 
         // <b>Read off the vehicles and not off who is sitting in one</b> (SRV-3): a crew rides in a crew seat, and
@@ -199,7 +211,7 @@ public class ServiceVehicleTests
     [Fact]
     public void NoServiceVehicleStandsFurtherFromItsBuildingThanAWalk()
     {
-        using var world = new TownWorld(Towns.Built, Config);
+        var world = atRest.World;
 
         for (var car = 0; car < world.Cars.Count; car++)
         {

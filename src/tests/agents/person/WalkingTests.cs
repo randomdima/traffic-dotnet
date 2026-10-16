@@ -24,7 +24,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P4)]
-public class WalkingTests
+public class WalkingTests(WalkingTests.Settled settled) : IClassFixture<WalkingTests.Settled>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
@@ -70,7 +70,7 @@ public class WalkingTests
     [Fact]
     public void AWalkerOutOfDoorsHoldsTheGroundItStandsOn()
     {
-        using var world = Walking(out var afoot);
+        var world = settled.Read(out var afoot);
 
         foreach (var person in afoot)
         {
@@ -127,7 +127,7 @@ public class WalkingTests
     [Fact]
     public void WhatAWalkerPlansBeginsInFrontOfIt()
     {
-        using var world = Walking(out var afoot);
+        var world = settled.Read(out var afoot);
 
         var planned = 0;
         foreach (var person in afoot)
@@ -157,7 +157,7 @@ public class WalkingTests
     [Fact]
     public void ABodyOnNoWayOfTheNetworkPlansNothing()
     {
-        using var world = Walking(out _);
+        var world = settled.Read(out _);
 
         var claims = world.Occupancy;
         foreach (var way in claims.OccupiedWays)
@@ -189,7 +189,7 @@ public class WalkingTests
     [Fact]
     public void ABodyThatIsWalkingIsWalkingARoute()
     {
-        using var world = Walking(out _);
+        var world = settled.Read(out _);
 
         var walking = 0;
         for (var person = 0; person < world.People.Count; person++)
@@ -212,7 +212,7 @@ public class WalkingTests
     [Fact]
     public void AWalkerStandsOnTheWayOfItsRouteItHasTaken()
     {
-        using var world = Walking(out var afoot);
+        var world = settled.Read(out var afoot);
 
         foreach (var person in afoot)
         {
@@ -239,7 +239,7 @@ public class WalkingTests
     [Fact]
     public void TheWalkDrawnForAWalkerSetsOffTheWayTheBodyIsWalking()
     {
-        using var world = Walking(out var afoot);
+        var world = settled.Read(out var afoot);
 
         var drawn = 0;
         foreach (var person in afoot)
@@ -273,7 +273,7 @@ public class WalkingTests
     [Fact]
     public void AWalkerIsOfferedBothWaysAlongThePavement()
     {
-        using var world = Walking(out var afoot);
+        var world = settled.Read(out var afoot);
 
         var entries = new RouteEntry[2];
         foreach (var person in afoot)
@@ -339,7 +339,7 @@ public class WalkingTests
     [Fact]
     public void AWalkerPlansEveryWayAtOneRung()
     {
-        using var world = Walking(out _);
+        var world = settled.Read(out _);
 
         var claims = world.Occupancy;
         var planned = 0;
@@ -741,9 +741,15 @@ public class WalkingTests
     /// </summary>
     static TownWorld Walking(out List<int> afoot)
     {
+        var world = Settle(out afoot);
+        SomebodyIsAfoot(afoot);
+        return world;
+    }
+
+    static TownWorld Settle(out List<int> afoot)
+    {
         var world = Stood(out _);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(SettleTicks);
+        new SimLoop<TownWorld>(world, Config).Advance(SettleTicks);
 
         afoot = [];
         for (var person = 0; person < world.People.Count; person++)
@@ -754,8 +760,35 @@ public class WalkingTests
             afoot.Add(person);
         }
 
-        Assert.True(afoot.Count > 0, "no walker of the town got out of a door and onto the pavement");
         return world;
+    }
+
+    static void SomebodyIsAfoot(List<int> afoot) =>
+        Assert.True(afoot.Count > 0, "no walker of the town got out of a door and onto the pavement");
+
+    /// <summary>
+    /// <see cref="Walking"/>'s town settled once, for the cases that only read it — eight settles of the same
+    /// town were a third of a second apiece.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing handed it may write to it</b>: tick it, stand a body in it, lay its claims again or decide an
+    /// agent. A case that does settles a town of its own through <see cref="Walking"/>.
+    /// </remarks>
+    public sealed class Settled : IDisposable
+    {
+        readonly TownWorld _world;
+        readonly List<int> _afoot;
+
+        public Settled() => _world = Settle(out _afoot);
+
+        internal TownWorld Read(out List<int> afoot)
+        {
+            SomebodyIsAfoot(_afoot);
+            afoot = _afoot;
+            return _world;
+        }
+
+        public void Dispose() => _world.Dispose();
     }
 
     /// <summary>

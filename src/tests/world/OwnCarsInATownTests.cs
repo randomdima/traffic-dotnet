@@ -2,7 +2,6 @@ using System.Numerics;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Town;
@@ -55,37 +54,37 @@ public class OwnCarsInATownTests
 
     /// <summary>A trip walked is to a door within a walk of where it set off.</summary>
     [Fact]
-    public void AWalkedTripIsToADoorWithinAWalk() => Assert.Empty(Watched.Value.WalkedTooFar);
+    public void AWalkedTripIsToADoorWithinAWalk() => Assert.Empty(Watched.WalkedTooFar);
 
     /// <summary>The walk to a car is to a car within a walk.</summary>
     [Fact]
-    public void AWalkToTheCarIsToACarWithinAWalk() => Assert.Empty(Watched.Value.CarTooFar);
+    public void AWalkToTheCarIsToACarWithinAWalk() => Assert.Empty(Watched.CarTooFar);
 
     /// <summary>Whoever drives a trip drives it in their own car, at the wheel.</summary>
     [Fact]
     public void ADrivenTripIsDrivenInTheirOwnCar()
     {
-        Assert.True(Watched.Value.Driven > 0, "nobody of the town drove anywhere, so nothing was asked");
-        Assert.Empty(Watched.Value.NotTheirCar);
+        Assert.True(Watched.Driven > 0, "nobody of the town drove anywhere, so nothing was asked");
+        Assert.Empty(Watched.NotTheirCar);
     }
 
     /// <summary>And the bay they get out at is within a walk of the door they drove for.</summary>
     [Fact]
     public void ADrivenTripEndsInABayWithinAWalkOfTheDoor()
     {
-        Assert.True(Watched.Value.GotOut > 0, "nobody of the town got out of a car they had parked, so nothing was asked");
-        Assert.Empty(Watched.Value.ParkedTooFar);
+        Assert.True(Watched.GotOut > 0, "nobody of the town got out of a car they had parked, so nothing was asked");
+        Assert.Empty(Watched.ParkedTooFar);
     }
 
-    static readonly Lazy<Watch> Watched = new(() => Watch.Run(WatchedTicks));
+    static Watch Watched => BuiltTownWatched.People;
 
     /// <summary>
     /// Ten minutes: past the longest first dwell, and long enough after it for a walk to a car, a drive and the walk
     /// from the bay.
     /// </summary>
-    static readonly int WatchedTicks = (int)(600f / Config.TickSeconds);
+    internal static readonly int WatchedTicks = (int)(600f / Config.TickSeconds);
 
-    sealed class Watch
+    internal sealed class Watch
     {
         public readonly List<string> WalkedTooFar = [];
         public readonly List<string> CarTooFar = [];
@@ -97,25 +96,17 @@ public class OwnCarsInATownTests
         readonly TownWorld _world;
         readonly TripStage[] _was;
 
-        Watch(TownWorld world)
+        internal Watch(TownWorld world)
         {
             _world = world;
             _was = new TripStage[world.People.Count];
             for (var person = 0; person < world.People.Count; person++) _was[person] = world.People.Stage[person];
         }
 
-        public static Watch Run(int ticks)
+        /// <summary>Everybody of the town as they stand after a tick.</summary>
+        internal void SawEverybody()
         {
-            using var world = new TownWorld(Towns.Built, Config);
-            var loop = new SimLoop<TownWorld>(world, Config);
-            var watch = new Watch(world);
-            for (var tick = 0; tick < ticks; tick++)
-            {
-                loop.Advance(1);
-                for (var person = 0; person < world.People.Count; person++) watch.Saw(person);
-            }
-
-            return watch;
+            for (var person = 0; person < _world.People.Count; person++) Saw(person);
         }
 
         void Saw(int person)

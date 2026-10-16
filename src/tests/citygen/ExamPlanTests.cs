@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Exam;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -21,6 +22,14 @@ public class ExamPlanTests
     static readonly SimConfig Config = SimConfig.Shipped();
 
     static readonly Lazy<ExamLattice> Lattice = new(() => ExamLattice.Of(Config));
+
+    /// <summary>
+    /// The map and its lanes, laid once for the class. <b>Its own and not <c>Towns.Of</c>'s</b>: another class reads that
+    /// one's geometry indexes at the same moment, and they are not re-entrant (<see cref="TownGeometryCollection"/>).
+    /// </summary>
+    static readonly Lazy<CityPlan> Plan = new(() => ExamPlan.Lay(Config));
+
+    static readonly Lazy<RoadGraph> Roads = new(() => RoadGraph.Build(Plan.Value, Config));
 
     /// <summary>
     /// <b>A card is staged at the shape it is about</b>: a crossroads or a ring where four roads meet, a T on
@@ -75,7 +84,7 @@ public class ExamPlanTests
     public void EveryStagedCarStandsInALaneAndIsSentToOne()
     {
         var lattice = Lattice.Value;
-        var roads = RoadGraph.Build(ExamPlan.Lay(Config), Config);
+        var roads = Roads.Value;
         for (var card = 0; card < lattice.Cards; card++)
         {
             for (var driver = 0; driver < lattice.Card(card).Drivers.Length; driver++)
@@ -97,8 +106,8 @@ public class ExamPlanTests
     public void EveryWalkRoundACornerIsOnThePavement()
     {
         var lattice = Lattice.Value;
-        var plan = ExamPlan.Lay(Config);
-        var roads = RoadGraph.Build(plan, Config);
+        var plan = Plan.Value;
+        var roads = Roads.Value;
         var ends = plan.Paving(Config).RoadEnds(Config);
         var clearM = Config.LaneOffsetM + (Config.PersonDiameterM * 0.5f);
         for (var card = 0; card < lattice.Cards; card++)
@@ -137,8 +146,8 @@ public class ExamPlanTests
     [Fact]
     public void EveryLitJunctionHoldsEveryLaneArrivingAtItAtABar()
     {
-        var plan = ExamPlan.Lay(Config);
-        var roads = RoadGraph.Build(plan, Config);
+        var plan = Plan.Value;
+        var roads = Roads.Value;
         var paving = plan.Paving(Config);
         var bars = StopBars.Lay(paving.Lanes, Crossings.Lay(plan, Config, paving.RoadEnds(Config).HeldM), Config);
         var barred = new bool[roads.LaneCount];

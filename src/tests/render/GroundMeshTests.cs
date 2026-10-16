@@ -888,9 +888,7 @@ public class GroundMeshTests
     [Fact]
     public void ALineStandsBetweenOneBayAndTheNext()
     {
-        var config = SimConfig.Shipped();
-        var plan = Towns.LayFresh(Towns.Brief(Towns.CitySeed, buildings: BuildingsWithLots));
-        var quads = Quads(GroundMesh.Build(plan, config));
+        var (plan, quads) = WithLots.Value;
         var parks = plan.CarParks;
 
         // The staging and not the claim: a brief that stopped laying lots would leave every case below
@@ -929,9 +927,7 @@ public class GroundMeshTests
     [Fact]
     public void NoLineStandsOnTheOutsideOfARank()
     {
-        var config = SimConfig.Shipped();
-        var plan = Towns.LayFresh(Towns.Brief(Towns.CitySeed, buildings: BuildingsWithLots));
-        var quads = Quads(GroundMesh.Build(plan, config));
+        var (plan, quads) = WithLots.Value;
         var parks = plan.CarParks;
 
         Assert.True(parks.Count > 0, "the town staged here lays no car park");
@@ -1027,6 +1023,16 @@ public class GroundMeshTests
 
     /// <summary>Enough buildings that the town counts car parks off them, which is <c>CarParkTests</c>' figure.</summary>
     const int BuildingsWithLots = 48;
+
+    /// <summary>
+    /// That town and the marks its ground paints, laid once for both claims about bays: neither writes to them, and
+    /// each laid and cut the same town.
+    /// </summary>
+    static readonly Lazy<(CityPlan Plan, List<Vector2[]> Quads)> WithLots = new(() =>
+    {
+        var plan = Towns.LayFresh(Towns.Brief(Towns.CitySeed, buildings: BuildingsWithLots));
+        return (plan, Quads(GroundMesh.Build(plan, SimConfig.Shipped())));
+    });
 
     /// <summary>The middle of one road's line, which for a bay is the middle of its apron and space together.</summary>
     static Vector2 Middle(CityPlan plan, int road)

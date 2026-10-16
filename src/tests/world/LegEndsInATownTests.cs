@@ -7,7 +7,6 @@ using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
@@ -36,7 +35,7 @@ public class LegEndsInATownTests
     /// its leg by turning round.
     /// </summary>
     [Fact]
-    public void ACarLeavesABayOntoTheLaneItsRouteSetsOffDown() => Assert.Empty(Watched.Value.LeftTheWrongWay);
+    public void ACarLeavesABayOntoTheLaneItsRouteSetsOffDown() => Assert.Empty(Watched.LeftTheWrongWay);
 
     /// <summary>
     /// <b>A car that comes onto the street of the bay it was sent to turns into it before it leaves that street</b>
@@ -44,7 +43,7 @@ public class LegEndsInATownTests
     /// bay it was aimed at — and went round the block, to pass it again.
     /// </summary>
     [Fact]
-    public void ACarTurnsIntoItsBayTheFirstTimeItComesOntoItsStreet() => Assert.Empty(Watched.Value.DroveByTheBay);
+    public void ACarTurnsIntoItsBayTheFirstTimeItComesOntoItsStreet() => Assert.Empty(Watched.DroveByTheBay);
 
     /// <summary>
     /// SRV-5: <b>a patrol that comes to the place on its beat stops on it</b>, and draws the next from there. A leg
@@ -52,19 +51,19 @@ public class LegEndsInATownTests
     /// again, every lap, until its clock ran out.
     /// </summary>
     [Fact]
-    public void APatrolStopsOnThePlaceItWasSentTo() => Assert.Empty(Watched.Value.DroveThroughThePlace);
+    public void APatrolStopsOnThePlaceItWasSentTo() => Assert.Empty(Watched.DroveThroughThePlace);
 
-    static readonly Lazy<Watch> Watched = new(() => Watch.Run(WatchedTicks));
+    static Watch Watched => BuiltTownWatched.Legs;
 
     /// <summary>
     /// Past the latest a patrol first sets out, and long enough after it for a car sent round a block to its bay to
     /// have come back onto its street — which, in this town, is what the shorter watch never saw.
     /// </summary>
-    static readonly int WatchedTicks = (int)((Config.Service.FirstBeatAfterMaxS + WatchedAfterTheBeatS) / Config.TickSeconds);
+    internal static readonly int WatchedTicks = (int)((Config.Service.FirstBeatAfterMaxS + WatchedAfterTheBeatS) / Config.TickSeconds);
 
     const float WatchedAfterTheBeatS = 360f;
 
-    sealed class Watch
+    internal sealed class Watch
     {
         public readonly List<string> LeftTheWrongWay = [];
         public readonly List<string> DroveByTheBay = [];
@@ -78,7 +77,7 @@ public class LegEndsInATownTests
         readonly bool[] _reachedThePlace;
         readonly bool[] _stoodOnThePlace;
 
-        Watch(TownWorld world)
+        internal Watch(TownWorld world)
         {
             _world = world;
             var cars = world.Cars.Count;
@@ -93,25 +92,17 @@ public class LegEndsInATownTests
             Array.Fill(_placeM, new Vector2(float.NaN));
         }
 
-        public static Watch Run(int ticks)
+        /// <summary>Every car of the town as it stands after a tick.</summary>
+        internal void SawEveryCar()
         {
-            using var world = new TownWorld(Towns.Built, Config);
-            var loop = new SimLoop<TownWorld>(world, Config);
-            var watch = new Watch(world);
-            for (var tick = 0; tick < ticks; tick++)
+            for (var car = 0; car < _world.Cars.Count; car++)
             {
-                loop.Advance(1);
-                for (var car = 0; car < world.Cars.Count; car++)
-                {
-                    watch.LeavingItsBay(car);
-                    watch.OnItsBaysStreet(car);
-                    watch.OnItsBeat(car);
-                    watch._wasDoing[car] = world.Cars.Action[car];
-                    watch._wasOnLane[car] = world.Cars.LaneOf(car);
-                }
+                LeavingItsBay(car);
+                OnItsBaysStreet(car);
+                OnItsBeat(car);
+                _wasDoing[car] = _world.Cars.Action[car];
+                _wasOnLane[car] = _world.Cars.LaneOf(car);
             }
-
-            return watch;
         }
 
         void LeavingItsBay(int car)

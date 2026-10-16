@@ -28,12 +28,40 @@ namespace TrafficSimulation.Tests.World;
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P2)]
-public class ATownThatMovesTests
+public class ATownThatMovesTests(ATownThatMovesTests.AMinuteOn run) : IClassFixture<ATownThatMovesTests.AMinuteOn>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>A minute of town time, which is long enough for a car to be somewhere other than where it was put.</summary>
     static int AMinute => (int)MathF.Ceiling(60f / Config.TickSeconds);
+
+    /// <summary>
+    /// The city stood up and run its minute once for both cases, with where each car was stood before it: they stood
+    /// and ran the same town and only read it after.
+    /// </summary>
+    /// <remarks>
+    /// Run on first ask, so each case's questions of the plan are still asked before it; a run that raises raises in
+    /// both cases, as each run did.
+    /// </remarks>
+    public sealed class AMinuteOn : IDisposable
+    {
+        readonly Lazy<(TownWorld World, Vector2[] StoodAtM)> _run = new(() =>
+        {
+            var world = new TownWorld(Towns.Of(Towns.City), Config);
+            var stoodAtM = new Vector2[world.Cars.Count];
+            for (var car = 0; car < world.Cars.Count; car++) stoodAtM[car] = world.Cars.PositionM[car];
+
+            new SimLoop<TownWorld>(world, Config).Advance(AMinute);
+            return (world, stoodAtM);
+        });
+
+        internal (TownWorld World, Vector2[] StoodAtM) Value => _run.Value;
+
+        public void Dispose()
+        {
+            if (_run.IsValueCreated) _run.Value.World.Dispose();
+        }
+    }
 
     [Fact]
     public void AGeneratedCityStandsItsCarsOnLanesAndTheyAreDrivingAMinuteLater()
@@ -41,13 +69,8 @@ public class ATownThatMovesTests
         var plan = Towns.Of(Towns.City);
         Assert.True(plan.Spawns.Count > 0, "the generator stood nothing up at all");
 
-        using var world = new TownWorld(plan, Config);
-        Assert.True(world.Cars.Count > 0, "the town stood no car up");
-
-        var stoodAtM = new Vector2[world.Cars.Count];
-        for (var car = 0; car < world.Cars.Count; car++) stoodAtM[car] = world.Cars.PositionM[car];
-
-        new SimLoop<TownWorld>(world, Config).Advance(AMinute);
+        var (world, stoodAtM) = run.Value;
+        Assert.True(stoodAtM.Length > 0, "the town stood no car up");
 
         var moved = 0;
         for (var car = 0; car < world.Cars.Count; car++)
@@ -80,8 +103,7 @@ public class ATownThatMovesTests
         Assert.Equal(0, plan.Buildings.Count);
         Assert.Equal(0, plan.Crosswalks.Count);
 
-        using var world = new TownWorld(plan, Config);
-        new SimLoop<TownWorld>(world, Config).Advance(AMinute);
+        var world = run.Value.World;
 
         // Every one of them answered, over a town that has none of what it is about.
         Assert.Equal(0, world.Parking.BayCount);
