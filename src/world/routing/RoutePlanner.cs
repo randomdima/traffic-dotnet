@@ -271,39 +271,59 @@ internal sealed class RoutePlanner
         return link;
     }
 
+    /// <remarks>
+    /// The entry is carried in hand and written once where it settles, each entry it passes moved down a slot — the
+    /// same comparisons and the same heap as swapping it up a level at a time, for half the writes.
+    /// </remarks>
     void SiftUp(int at)
     {
+        var link = _heapLink[at];
+        var keyM = _heapKeyM[at];
         while (at > 0)
         {
             var parent = (at - 1) / 2;
-            if (_heapKeyM[parent] <= _heapKeyM[at]) break;
+            if (_heapKeyM[parent] <= keyM) break;
 
-            Swap(at, parent);
+            Move(parent, at);
             at = parent;
         }
+
+        Settle(at, link, keyM);
     }
 
+    /// <inheritdoc cref="SiftUp"/>
     void SiftDown(int at)
     {
+        var link = _heapLink[at];
+        var keyM = _heapKeyM[at];
         while (true)
         {
             var left = at * 2 + 1;
             if (left >= _heapCount) break;
 
             var smallest = left + 1 < _heapCount && _heapKeyM[left + 1] < _heapKeyM[left] ? left + 1 : left;
-            if (_heapKeyM[at] <= _heapKeyM[smallest]) break;
+            if (keyM <= _heapKeyM[smallest]) break;
 
-            Swap(at, smallest);
+            Move(smallest, at);
             at = smallest;
         }
+
+        Settle(at, link, keyM);
     }
 
-    void Swap(int left, int right)
+    void Move(int from, int to)
     {
-        (_heapLink[left], _heapLink[right]) = (_heapLink[right], _heapLink[left]);
-        (_heapKeyM[left], _heapKeyM[right]) = (_heapKeyM[right], _heapKeyM[left]);
-        _heapAt[_heapLink[left]] = left;
-        _heapAt[_heapLink[right]] = right;
+        var link = _heapLink[from];
+        _heapLink[to] = link;
+        _heapKeyM[to] = _heapKeyM[from];
+        _heapAt[link] = to;
+    }
+
+    void Settle(int at, int link, float keyM)
+    {
+        _heapLink[at] = link;
+        _heapKeyM[at] = keyM;
+        _heapAt[link] = at;
     }
 
     const int NotInHeap = -1;
