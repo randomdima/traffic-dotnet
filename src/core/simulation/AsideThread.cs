@@ -19,7 +19,7 @@ namespace TrafficSimulation.Core.Simulation;
 /// only fences between them. A browser's runtime has one thread, and a caller there runs the job itself.
 /// </para>
 /// <para>
-/// <b>Not a pair of <see cref="ManualResetEventSlim"/>s</b>, because the first wait that cannot spin through and has to
+/// <b>Not a pair of <c>ManualResetEventSlim</c>s</b>, because the first wait that cannot spin through and has to
 /// block allocates — the event's lock and the runtime's waiter for that lock, and for the thread — and a caller that
 /// always found its run finished first meets that wait on whichever tick the machine is slow, inside the steady state.
 /// Here both sides wait on one gate this type owns, and each blocks on it once, for no time, before its first run:
@@ -30,7 +30,7 @@ namespace TrafficSimulation.Core.Simulation;
 internal sealed class AsideThread(Action job, string name) : IDisposable
 {
     /// <summary>
-    /// How long a wait spins before it blocks: <see cref="ManualResetEventSlim"/>'s own figure, because a step is about
+    /// How long a wait spins before it blocks: <c>ManualResetEventSlim</c>'s own figure, because a step is about
     /// as long as the work beside it and a wake from a block costs more than the spin.
     /// </summary>
     const int SpinsBeforeBlocking = 35;
