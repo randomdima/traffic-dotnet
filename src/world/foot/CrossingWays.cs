@@ -198,41 +198,51 @@ internal sealed class CrossingWays
         }
 
         var reading = new Reading(pavement, courses, boundary, walk, config);
-        var refused = 0;
 
         // <b>The mouths first and the junctions after</b>: two to a crossing, each the place its paint stops
-        // at one end, and it is where they stand that says how many junctions a town has (WLK-3).
+        // at one end, and it is where they stand that says how many junctions a town has (WLK-3). Each crossing
+        // writes its own two slots, so they are read on every core.
         var mouths = new Mouth[crossings.Count * 2];
         var stands = new bool[mouths.Length];
-        for (var at = 0; at < crossings.Count; at++)
+        var refusedAt = new bool[crossings.Count];
+        InChunks.Over(crossings.Count, reading.Another, (own, at) =>
         {
-            if (crossings.DepthM[at] <= 0f || crossings.SpanM[at] <= 0f) continue;
+            if (crossings.DepthM[at] <= 0f || crossings.SpanM[at] <= 0f) return;
 
             // Both ends before either of them: a crossing whose far mouth stands nowhere is a way over the
             // road to nowhere, so the near one is not laid either.
-            if (!reading.Mouth(crossings, at, TheNearEnd, out mouths[At(at, TheNearEnd)])
-                || !reading.Mouth(crossings, at, TheFarEnd, out mouths[At(at, TheFarEnd)]))
+            if (!own.Mouth(crossings, at, TheNearEnd, out mouths[At(at, TheNearEnd)])
+                || !own.Mouth(crossings, at, TheFarEnd, out mouths[At(at, TheFarEnd)]))
             {
-                refused++;
-                continue;
+                refusedAt[at] = true;
+                return;
             }
 
             stands[At(at, TheNearEnd)] = true;
             stands[At(at, TheFarEnd)] = true;
-        }
+        });
 
+        var refused = 0;
+        foreach (var crossing in refusedAt) refused += crossing ? 1 : 0;
+
+        // Where each junction hands over is its own place's to write, so it too is read on every core and
+        // reported a place at a time, in order.
         var places = Places(mouths, stands, config.Road.FootNodeMergeM, config.Grid.Main);
+        var missingAt = new int[places.Count];
+        var offAtM = new float[places.Count];
+        InChunks.Over(
+            places.Count, reading.Another, (own, at) => missingAt[at] = own.HandsOver(places[at], mouths, out offAtM[at]));
+
         var unreached = 0;
         var unreachedAtM = Vector2.Zero;
         var unreachedOffM = 0f;
-        foreach (var place in places)
+        for (var at = 0; at < places.Count; at++)
         {
-            var missing = reading.HandsOver(place, mouths, out var offM);
-            unreached += missing;
-            if (missing == 0) continue;
+            unreached += missingAt[at];
+            if (missingAt[at] == 0) continue;
 
-            unreachedAtM = place.CentreM;
-            unreachedOffM = offM;
+            unreachedAtM = places[at].CentreM;
+            unreachedOffM = offAtM[at];
         }
 
         // The paint, laid once the places are settled: what a lane of the walk could not be reached from is

@@ -953,49 +953,59 @@ internal sealed class WalkingNetwork
     /// keeps the whole of it. Turning round on the spot is not a way off: it decides nothing about how far a
     /// lane is walked, and counted it pulled a lane's start back behind the corner landing bodies on it.
     /// </para>
+    /// <para>
+    /// Each end is its own stretch's alone, read off lanes nothing writes, so the ends are weighed on every core.
+    /// </para>
     /// </remarks>
     static float[] Margins(FootGraph foot, Lanes offset, float[] laneOffsetM, SimConfig config, bool leaving)
     {
         var takenM = new float[foot.EdgeCount];
-        for (var edge = 0; edge < foot.EdgeCount; edge++)
-        {
-            var atM = float.PositiveInfinity;
-            var wantedM = 0f;
-            var anythingToLay = false;
-
-            // <b>The end asked about is the end this is, and the lanes at it are the ones that reach it</b>
-            // (WLK-8): a lane is walked one way, so what arrives at its start is the node's arrivals and not
-            // its departures read backwards.
-            var node = leaving ? foot.ToNode(edge) : foot.FromNode(edge);
-            foreach (var other in leaving ? foot.EdgesOut(node) : foot.EdgesIn(node))
-            {
-                atM = MathF.Min(atM, MathF.Min(offset.LengthM[edge], offset.LengthM[other]) * 0.5f);
-
-                // Where every way through this end is already one line with the lane, the end gives up
-                // nothing: a corner there would be the same line laid again, at the price of the points it
-                // costs a walk to hold. One way through that is not makes the end a place, and then even
-                // the ways that were one line hand over at it.
-                var from = leaving ? edge : other;
-                var to = leaving ? other : edge;
-                if (SamePlace(offset.Of(from), offset.LengthM[from], offset.Of(to))) continue;
-
-                anythingToLay = true;
-                if (RunsStraightOn(offset.Of(from), offset.LengthM[from], offset.Of(to))) continue;
-
-                wantedM = MathF.Max(
-                    wantedM,
-                    foot.KindOf(edge) == FootEdgeKind.Crossing || foot.KindOf(other) == FootEdgeKind.Crossing
-                        ? foot.BandM(other) * 0.5f
-                        : TurnedOnM(offset, from, to, laneOffsetM[edge]));
-            }
-
-            // Never less than the turn itself needs, or a step between two lanes of one line has no room
-            // to be rounded over.
-            var marginM = MathF.Max(2f * config.WalkerTightestTurnM, wantedM);
-            takenM[edge] = float.IsFinite(atM) && anythingToLay ? MathF.Min(marginM, atM) : 0f;
-        }
+        var leastM = 2f * config.WalkerTightestTurnM;
+        InChunks.Over(
+            foot.EdgeCount, static () => 0,
+            (_, edge) => takenM[edge] = MarginOf(foot, offset, laneOffsetM, leastM, edge, leaving));
 
         return takenM;
+    }
+
+    /// <summary>What one end of one stretch gives up of its lane (<see cref="Margins"/>).</summary>
+    /// <param name="leastM">The least an end with a corner gives up: the room the turn itself needs.</param>
+    static float MarginOf(FootGraph foot, Lanes offset, float[] laneOffsetM, float leastM, int edge, bool leaving)
+    {
+        var atM = float.PositiveInfinity;
+        var wantedM = 0f;
+        var anythingToLay = false;
+
+        // <b>The end asked about is the end this is, and the lanes at it are the ones that reach it</b>
+        // (WLK-8): a lane is walked one way, so what arrives at its start is the node's arrivals and not
+        // its departures read backwards.
+        var node = leaving ? foot.ToNode(edge) : foot.FromNode(edge);
+        foreach (var other in leaving ? foot.EdgesOut(node) : foot.EdgesIn(node))
+        {
+            atM = MathF.Min(atM, MathF.Min(offset.LengthM[edge], offset.LengthM[other]) * 0.5f);
+
+            // Where every way through this end is already one line with the lane, the end gives up
+            // nothing: a corner there would be the same line laid again, at the price of the points it
+            // costs a walk to hold. One way through that is not makes the end a place, and then even
+            // the ways that were one line hand over at it.
+            var from = leaving ? edge : other;
+            var to = leaving ? other : edge;
+            if (SamePlace(offset.Of(from), offset.LengthM[from], offset.Of(to))) continue;
+
+            anythingToLay = true;
+            if (RunsStraightOn(offset.Of(from), offset.LengthM[from], offset.Of(to))) continue;
+
+            wantedM = MathF.Max(
+                wantedM,
+                foot.KindOf(edge) == FootEdgeKind.Crossing || foot.KindOf(other) == FootEdgeKind.Crossing
+                    ? foot.BandM(other) * 0.5f
+                    : TurnedOnM(offset, from, to, laneOffsetM[edge]));
+        }
+
+        // Never less than the turn itself needs, or a step between two lanes of one line has no room
+        // to be rounded over.
+        var marginM = MathF.Max(leastM, wantedM);
+        return float.IsFinite(atM) && anythingToLay ? MathF.Min(marginM, atM) : 0f;
     }
 
     /// <summary>
