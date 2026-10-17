@@ -85,6 +85,11 @@ internal static partial class TracedStreets
         public Carriage Unedged(bool withTheRoad) => withTheRoad
             ? this with { WidthM = WidthM - RoadsideWithM, RoadsideWithM = 0f }
             : this with { WidthM = WidthM - RoadsideAgainstM, RoadsideAgainstM = 0f };
+
+        /// <remarks>Written out: the record's own would print <see cref="Turned"/>, which prints its own, without end.</remarks>
+        public override string ToString() =>
+            $"{Lanes} {WidthM:F1} m, roadsides {RoadsideWithM:F1}/{RoadsideAgainstM:F1} m, off {CentreOffsetM:F1} m, level {Level}" +
+            (Circulates ? ", circulating" : "") + (Shared ? ", shared" : "");
     }
 
     /// <summary>

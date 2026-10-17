@@ -32,4 +32,10 @@ internal readonly record struct RoadLanes(byte With, byte Against)
     public RoadLanes Turned => new(Against, With);
 
     public RoadFlow Flow => Against == 0 ? RoadFlow.WithTheRoad : With == 0 ? RoadFlow.AgainstTheRoad : RoadFlow.BothWays;
+
+    /// <remarks>
+    /// <b>Written out and not generated</b>: the record's own would print <see cref="Turned"/>, which prints its own, and
+    /// a road's lanes printed anywhere overflowed the stack.
+    /// </remarks>
+    public override string ToString() => $"{With}+{Against}";
 }

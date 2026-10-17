@@ -783,18 +783,39 @@ public class TracedPlanTests
     }
 
     /// <summary>
-    /// <b>And one a street meets keeps its own</b>: the stretch of
-    /// <see cref="AStretchWhoseLanesChangeAndChangeBackIsLaidInTheLanesEitherSide"/> with a street leaving it halfway
-    /// along is a lane each way on both sides of the junction there.
+    /// <b>And so is one a street meets</b>, the street running straight on through the junction: the stretch of
+    /// <see cref="AStretchWhoseLanesChangeAndChangeBackIsLaidInTheLanesEitherSide"/> with a street leaving it halfway along
+    /// is two lanes each way on both sides of the junction there, and the street leaving keeps its own.
     /// </summary>
     [Fact]
-    public void AStretchAStreetMeetsKeepsItsOwnLanes()
+    public void AStretchAStreetMeetsIsLaidInTheLanesEitherSideToo()
     {
         var plan = Laid([100, 500, 450, 500, 500, 500, 550, 500, 900, 500, 500, 100], EachWay(2,0, 1), EachWay(1,1, 2, 3), EachWay(2,3, 4), Way(5, 2));
 
         var junction = Array.FindIndex(plan.Junctions.CentreM, centreM => Vector2.Distance(centreM, new Vector2(500f, 500f)) < 1e-3f);
-        var arms = Enumerable.Range(0, plan.Roads.Count).Where(road => plan.Roads.FromJunction[road] == junction || plan.Roads.ToJunction[road] == junction);
-        Assert.All(arms, road => Assert.Equal(2, plan.Roads.LanesOn(road)));
+        var lanes = Enumerable.Range(0, plan.Roads.Count)
+            .Where(road => plan.Roads.FromJunction[road] == junction || plan.Roads.ToJunction[road] == junction)
+            .Select(road => plan.Roads.LanesOn(road)).Order();
+        Assert.Equal([2, 4, 4], lanes);
+    }
+
+    /// <summary>
+    /// <b>A block whose roadsides come and go between two that hold them is laid with them</b>, a street meeting it at
+    /// either end: a street with a roadside at each kerb along two blocks and none along the block between, a street
+    /// leaving at each end of that block, has a roadside at each kerb along all three.
+    /// </summary>
+    [Fact]
+    public void ABlockBareBetweenTwoKerbedIsKerbedToo()
+    {
+        var plan = Laid([100, 500, 450, 500, 550, 500, 900, 500, 450, 100, 550, 100], Edged(0, 1), Way(1, 2), Edged(2, 3), Way(4, 1), Way(5, 2));
+
+        var (one, other) = (JunctionAt(new Vector2(450f, 500f)), JunctionAt(new Vector2(550f, 500f)));
+        var block = Enumerable.Range(0, plan.Roads.Count).Single(road =>
+            (plan.Roads.FromJunction[road], plan.Roads.ToJunction[road]) == (one, other) ||
+            (plan.Roads.FromJunction[road], plan.Roads.ToJunction[road]) == (other, one));
+        Assert.Equal((RoadsideM, RoadsideM), (plan.Roads.RoadsideM(block, true), plan.Roads.RoadsideM(block, false)));
+
+        int JunctionAt(Vector2 atM) => Array.FindIndex(plan.Junctions.CentreM, centreM => Vector2.Distance(centreM, atM) < 1e-3f);
     }
 
     /// <summary>

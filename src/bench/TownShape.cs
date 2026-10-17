@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Statics;
 
 namespace TrafficSimulation.Bench;
@@ -349,6 +350,113 @@ internal static class TownShape
         rows.Sort((one, other) => one.LengthM.CompareTo(other.LengthM));
         var every = Math.Max(1, rows.Count / Listed);
         for (var row = 0; row < rows.Count; row += every) Console.WriteLine(rows[row].Row);
+    }
+
+    /// <summary>
+    /// <b>Where a street's width changes and changes back</b>: every road run on straight through the junction at either
+    /// end — the arm nearest straight ahead, each the other's, within <see cref="RoadFigures.TurnStraightToleranceDeg"/>
+    /// and on one level — and every road between two of the same width whose own width differs, with what differs: the
+    /// lanes, the roadsides, or both.
+    /// </summary>
+    public static void Widths(string map, SimConfig config)
+    {
+        const int Listed = 30;
+
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var roads = plan.Roads;
+        var onward = Onward(plan, config);
+
+        var (changes, flips, flippedM) = (0, 0, 0f);
+        var kinds = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        var rows = new List<(float LengthM, string Row)>();
+        for (var road = 0; road < roads.Count; road++)
+        {
+            var before = onward[JunctionArms.End(road, atTo: false)];
+            var after = onward[JunctionArms.End(road, atTo: true)];
+            if (after >= 0 && MathF.Abs(roads.WidthM[JunctionArms.Road(after)] - roads.WidthM[road]) > LineTolerance.OnePlaceM) changes++;
+            if (before < 0 || after < 0) continue;
+
+            var (one, other) = (JunctionArms.Road(before), JunctionArms.Road(after));
+            if (one == road || other == road) continue;
+            if (MathF.Abs(roads.WidthM[one] - roads.WidthM[other]) > LineTolerance.OnePlaceM) continue;
+            if (MathF.Abs(roads.WidthM[one] - roads.WidthM[road]) <= LineTolerance.OnePlaceM) continue;
+
+            var lanes = roads.LanesOn(one) != roads.LanesOn(road);
+            var sides = Sides(one) != Sides(road);
+            var kind = lanes && sides ? "lanes and roadsides" : lanes ? "lanes" : sides ? "roadsides" : "neither";
+            kinds[kind] = kinds.GetValueOrDefault(kind) + 1;
+            flips++;
+
+            var lengthM = Spline.TotalLengthM(roads.SegmentsOf(road));
+            flippedM += lengthM;
+            var atM = Spline.SampleAt(roads.SegmentsOf(road), lengthM * 0.5f).PositionM;
+            rows.Add((lengthM, $"  {road,6}{atM.X,8:F0}{atM.Y,8:F0}{lengthM,8:F1}  {roads.WidthM[one],5:F1} > {roads.WidthM[road],5:F1}  " +
+                               $"{roads.LanesWithTheRoad(road)}+{roads.LanesAgainstTheRoad(road)} {Sides(road)} sides  between " +
+                               $"{roads.LanesWithTheRoad(one)}+{roads.LanesAgainstTheRoad(one)} {Sides(one)} sides   {kind}"));
+        }
+
+        Console.WriteLine($"{plan.Name}  {flips} roads differ in width from the same width either side, {flippedM / 1000f:F1} km; " +
+                          $"{changes} changes of width where a street runs straight on");
+        Console.WriteLine("  kind   " + string.Join("  ", kinds.Select(kind => $"{kind.Key}: {kind.Value}")));
+        rows.Sort((a, b) => b.LengthM.CompareTo(a.LengthM));
+        var every = Math.Max(1, rows.Count / Listed);
+        for (var row = 0; row < rows.Count; row += every) Console.WriteLine(rows[row].Row);
+
+        int Sides(int road) => (roads.RoadsideM(road, true) > 0f ? 1 : 0) + (roads.RoadsideM(road, false) > 0f ? 1 : 0);
+    }
+
+    /// <summary>
+    /// For every road end, the end of the road a street runs on into straight through that junction, or −1: the arm
+    /// nearest straight ahead, each the other's, within the straight-on tolerance and on one level.
+    /// </summary>
+    static int[] Onward(CityPlan plan, SimConfig config)
+    {
+        var roads = plan.Roads;
+        var onward = new int[roads.Count * 2];
+        Array.Fill(onward, -1);
+        var leastCos = MathF.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
+        var at = new List<int>[plan.Junctions.Count];
+        for (var junction = 0; junction < at.Length; junction++) at[junction] = [];
+        for (var road = 0; road < roads.Count; road++)
+        {
+            if (roads.IsABay(road)) continue;
+
+            at[roads.FromJunction[road]].Add(JunctionArms.End(road, atTo: false));
+            at[roads.ToJunction[road]].Add(JunctionArms.End(road, atTo: true));
+        }
+
+        foreach (var ends in at)
+        {
+            for (var one = 0; one < ends.Count; one++)
+            {
+                var other = Straightest(one);
+                if (other >= 0 && Straightest(other) == one &&
+                    roads.LevelOf(JunctionArms.Road(ends[one])) == roads.LevelOf(JunctionArms.Road(ends[other])))
+                {
+                    onward[ends[one]] = ends[other];
+                }
+            }
+
+            int Straightest(int arm)
+            {
+                var (best, mostCos) = (-1, leastCos);
+                for (var other = 0; other < ends.Count; other++)
+                {
+                    var cos = -Vector2.Dot(Out(ends[arm]), Out(ends[other]));
+                    if (other != arm && cos >= mostCos) (best, mostCos) = (other, cos);
+                }
+
+                return best;
+            }
+        }
+
+        return onward;
+
+        Vector2 Out(int end)
+        {
+            var line = roads.SegmentsOf(JunctionArms.Road(end));
+            return JunctionArms.AtTo(end) ? -Heading.Unit(line[^1].HeadingAtRad(line[^1].LengthM)) : line[0].StartUnit;
+        }
     }
 
     /// <summary>What kept one two-armed junction, and the two junctions the run through it would join.</summary>

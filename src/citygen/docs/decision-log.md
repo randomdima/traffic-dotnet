@@ -1,5 +1,23 @@
 # CityGen — decision log
 
+## 2026-10-17 — a street's width is held even across the junctions it runs straight through
+
+**The owner found `OdesaOsm`'s roads changing width back and forth.** `TracedStreets.Streets` stops a street at every
+junction another street meets, so a block read a lane narrower, or without the roadsides its neighbours were read
+with, was a street of its own and nothing evened it. An avenue now runs on straight through every junction — the arm
+nearest straight ahead, each the other's, of any street's class, OSM changing a street's class at a district's edge —
+and after the streets are evened, a stretch within `TracedLanesHeldM` whose lanes and kerbs differ from the same either
+side takes theirs (`ProfileHeldThrough`), and a kerb whose roadside comes and goes between two alike takes theirs
+(`RoadsidesHeldThrough`), each widening only where it keeps clear of every other road.
+
+- **This reverses "a stretch a street meets keeps its own lanes"**, which held lanes only through junctions nothing but
+  a yard's way meets; its test now asks the opposite.
+- **What moved**: a road whose width differs from the same width either side, 93 → 61 (`--bench widths`); a width
+  change where a street runs straight on, 1 086 → 983. What is left is mostly a two-way block between one-way blocks,
+  which is how OSM has them, and stretches longer than a block.
+- **`RoadLanes`, `Carriage` and `Along` print themselves by hand**: the records' generated `ToString` printed their own
+  `Turned`, which printed its own, and overflowed the stack the first time one was logged.
+
 ## 2026-10-15 — a front is seated on the face's true nearest, searched outward from the place
 
 **The owner asked for the open's remaining speed-ups, buildings moving among them.** `ZoneBuildings.Face.Nearest` took

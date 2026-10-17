@@ -172,7 +172,11 @@ cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a s
   even along each stretch of it driven the same ways: **a single roadside stands beside the kerb the stretch holds
   more of its roadside along**; a stretch of roadside shorter than `SimConfig.CityGen.TracedRoadsideShortestM` along a
   longer one is not laid, and **the rest is carried on along the whole of it**, every road it is carried along laid
-  as though measured wide enough to hold it — except one whose kerb or walk that would stand on another road's
+  as though measured wide enough to hold it — **and across the junctions it runs straight on through too**: run on
+  through every junction into the arm nearest straight ahead, of whatever street's class, a stretch within
+  `SimConfig.CityGen.TracedLanesHeldM` whose lanes and kerbs differ from the same either side is laid as they are, and
+  one whose roadside at a kerb comes and goes between two that hold it, or that do not, as they are at that kerb —
+  except one whose kerb or walk that would stand on another road's
   carriageway. The buildings stand back with the walk.
 - **A roadside is lane zero** (`CityPlan.RoadArrays.RoadsideWithM`, `LaneLines.IsRoadside`, TER-4d): a lane of its
   road between the kerb lane and the kerb, as wide as the strip, parted from the lanes by a solid line and joined to

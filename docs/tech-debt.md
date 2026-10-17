@@ -471,6 +471,10 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **The 80 stubs left between two boxes** (`--bench close`'s `stubs`) are 52 a roundabout's ring, which is never
   gathered (GEN-19), and 28 one-way or two-way roads whose ends are on a bridge or a ring. None is listed as a fault;
   a picture of each kind is what would say whether any is.
+- **A block between two whose single roadside stands at opposite kerbs keeps its own width** (OdesaOsm 2605,21009,
+  road 2+2 bare between two 2+2 with one roadside; `--bench widths` lists 61 such roads in all): `RoadsidesHeldThrough`
+  evens a kerb at a time, and `Roadsides` puts a single roadside on one side per street, not per avenue. Choosing that
+  side along the avenue closes the case; the rest are one-way blocks between two-way ones and stretches past a block.
 - **The kerb has a cusp where a roadside begins at a slip's joint** (OdesaOsm 1811,12175): the roadside's taper is
   declined when the box is too short to ease in over (`RoadsideLanes.Tapered`), and the kerb steps round the strip's
   square end. Easing it in along the lane past the box, where the box has no room, closes it.

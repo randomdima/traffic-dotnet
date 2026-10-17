@@ -20,6 +20,9 @@ internal static partial class TracedStreets
         public Along Turned => this with { Forward = !Forward };
 
         public void Lay(Carriage carriage) => Road.Carriage = Forward ? carriage : carriage.Turned;
+
+        /// <remarks>Written out: the record's own would print <see cref="Turned"/>, which prints its own, without end.</remarks>
+        public override string ToString() => $"{Road.Highway} {LengthM:F0} m {(Forward ? "forward" : "back")}, {Carriage}";
     }
 
     /// <summary>A street's roads in the order it runs, and whether it starts and ends at a junction three or more meet at.</summary>
@@ -57,7 +60,121 @@ internal static partial class TracedStreets
 
             foreach (var stretch in DrivenAlikeAlong(street.Roads)) Roadsides(stretch, centreM, carriageways, config);
         }
+
+        foreach (var avenue in Streets(roads, centreM, config, throughJunctions: true))
+        {
+            ProfileHeldThrough(avenue.Roads, figures.TracedLanesHeldM, centreM, carriageways, config);
+            RoadsidesHeldThrough(avenue.Roads, figures.TracedLanesHeldM, centreM, carriageways, config);
+        }
     }
+
+    /// <summary>
+    /// <b>A stretch of an avenue whose profile changes and changes back is laid in the carriageway either side of it</b>
+    /// (<see cref="CityGenFigures.TracedLanesHeldM"/>): an avenue being a street run on through junctions as well
+    /// (<see cref="Streets"/>), and a profile its lanes and which of its kerbs carries a roadside. The longer of the two
+    /// roads either side gives its carriageway, where those two are alike, the stretch is driven the ways they are, and
+    /// every road of it laid wider still keeps clear of every other road (<see cref="KeepsClear"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>The streets stop at every junction a street meets</b>, so a block measured a lane narrower than the blocks
+    /// either side, or read with roadsides where they were read without, is a street of its own and nothing else evens
+    /// it. Across a junction, one block that differs from both its neighbours is what a width read way by way gives —
+    /// the street narrows and widens again for a block on the map and on no street.
+    /// </remarks>
+    static void ProfileHeldThrough(List<Along> avenue, float heldM, List<Vector2> centreM, Carriageways carriageways, SimConfig config)
+    {
+        for (var first = 1; first + 1 < avenue.Count; first++)
+        {
+            var profile = Profile(avenue[first - 1].Carriage);
+            if (Profile(avenue[first].Carriage) == profile) continue;
+
+            var lengthM = 0f;
+            for (var last = first; last + 1 < avenue.Count; last++)
+            {
+                lengthM += avenue[last].LengthM;
+                if (lengthM > heldM || !DrivenAlike(avenue[last].Carriage.Lanes, profile.Lanes)) break;
+                if (Profile(avenue[last + 1].Carriage) != profile) continue;
+
+                var (before, after) = (avenue[first - 1], avenue[last + 1]);
+                var held = before.LengthM >= after.LengthM ? before.Carriage : after.Carriage;
+                if (Fits(first, last, held))
+                {
+                    for (var step = first; step <= last; step++) avenue[step].Lay(Kept(avenue[step].Carriage, held));
+                }
+
+                first = last;
+                break;
+            }
+        }
+
+        bool Fits(int first, int last, Carriage held)
+        {
+            for (var step = first; step <= last; step++)
+            {
+                if (held.WidthM <= avenue[step].Carriage.WidthM) continue;
+
+                var laid = Kept(avenue[step].Carriage, held);
+                if (!KeepsClear(avenue[step].Road, avenue[step].Forward ? laid : laid.Turned, centreM, carriageways, config)) return false;
+            }
+
+            return true;
+        }
+
+        // Its own line and the level it is on, the neighbours' lanes, roadsides and width.
+        static Carriage Kept(Carriage own, Carriage held) => held with { CentreOffsetM = own.CentreOffsetM, Level = own.Level };
+    }
+
+    /// <summary>
+    /// <b>A stretch of an avenue whose roadside at one kerb comes and goes and comes back is laid as the kerbs either side
+    /// of it are</b> (<see cref="CityGenFigures.TracedLanesHeldM"/>), whatever its lanes: a roadside either side gives it
+    /// theirs where it stays clear of every other road (<see cref="KeepsClear"/>), and none either side takes its own off.
+    /// What a profile cannot even (<see cref="ProfileHeldThrough"/>) because the street changes the ways it is driven
+    /// across the stretch, the kerb still can.
+    /// </summary>
+    static void RoadsidesHeldThrough(List<Along> avenue, float heldM, List<Vector2> centreM, Carriageways carriageways, SimConfig config)
+    {
+        foreach (var withTheStreet in (ReadOnlySpan<bool>)[true, false])
+        {
+            for (var first = 1; first + 1 < avenue.Count; first++)
+            {
+                var edged = avenue[first - 1].Carriage.RoadsideM(withTheStreet) > 0f;
+                if (avenue[first].Carriage.RoadsideM(withTheStreet) > 0f == edged) continue;
+
+                var lengthM = 0f;
+                for (var last = first; last + 1 < avenue.Count; last++)
+                {
+                    lengthM += avenue[last].LengthM;
+                    if (lengthM > heldM) break;
+                    if (avenue[last + 1].Carriage.RoadsideM(withTheStreet) > 0f != edged) continue;
+
+                    var stripM = MathF.Max(avenue[first - 1].Carriage.RoadsideM(withTheStreet), avenue[last + 1].Carriage.RoadsideM(withTheStreet));
+                    var laid = new Carriage[last - first + 1];
+                    var fits = true;
+                    for (var step = first; step <= last && fits; step++)
+                    {
+                        var own = avenue[step].Carriage;
+                        laid[step - first] = edged
+                            ? own.RoadsideM(withTheStreet) > 0f ? own : own.Edged(withTheStreet, stripM)
+                            : own.Unedged(withTheStreet);
+                        fits = !edged || laid[step - first].WidthM <= own.WidthM ||
+                               KeepsClear(avenue[step].Road, avenue[step].Forward ? laid[step - first] : laid[step - first].Turned, centreM, carriageways, config);
+                    }
+
+                    if (fits)
+                    {
+                        for (var step = first; step <= last; step++) avenue[step].Lay(laid[step - first]);
+                    }
+
+                    first = last;
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>What a street's width is laid out of: its lanes each way and which of its two kerbs carries a roadside.</summary>
+    static (RoadLanes Lanes, bool With, bool Against) Profile(Carriage carriage) =>
+        (carriage.Lanes, carriage.RoadsideWithM > 0f, carriage.RoadsideAgainstM > 0f);
 
     /// <summary>
     /// A street cut wherever it changes the ways it is driven — run one way, both, or the other — each stretch evened
@@ -82,7 +199,12 @@ internal static partial class TracedStreets
     /// nearest straight ahead from the other, within <see cref="RoadFigures.TurnStraightToleranceDeg"/> — and only on
     /// one level, round a roundabout or off it.
     /// </summary>
-    static List<Street> Streets(List<Road> roads, List<Vector2> centreM, SimConfig config)
+    /// <param name="throughJunctions">
+    /// Whether a street runs on straight through a junction other streets meet at too, where neither arm is of no street's
+    /// class (<see cref="Minor"/>) — whatever class each is, OSM's classes changing along one street at a district's edge:
+    /// an avenue rather than a street, read for its profile (<see cref="ProfileHeldThrough"/>).
+    /// </param>
+    static List<Street> Streets(List<Road> roads, List<Vector2> centreM, SimConfig config, bool throughJunctions = false)
     {
         var at = new List<(Road Road, bool AtTo)>[centreM.Count];
         for (var junction = 0; junction < at.Length; junction++) at[junction] = [];
@@ -117,7 +239,13 @@ internal static partial class TracedStreets
             {
                 var other = Straightest(outOf, one, leastCos);
                 if (other < one || Straightest(outOf, other, leastCos) != one) continue;
-                if (!Alike(arms[one].Road, arms[other].Road) || !OnlyMinorBeside(arms, one, other)) continue;
+                if (!Alike(arms[one].Road, arms[other].Road)) continue;
+                if (throughJunctions
+                        ? Minor(arms[one].Road.Highway) || Minor(arms[other].Road.Highway)
+                        : !OnlyMinorBeside(arms, one, other))
+                {
+                    continue;
+                }
 
                 Joined(arms[one], arms[other]);
             }
