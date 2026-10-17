@@ -105,6 +105,8 @@ internal sealed class Survey
             }
         }
 
+        Noded(ways, placedM, leaving);
+
         var leavesTheMap = new bool[placedM.Count];
         foreach (var point in leaving) leavesTheMap[point] = true;
 
@@ -155,6 +157,218 @@ internal sealed class Survey
             Props = map.Props,
             Lots = map.Lots,
         };
+    }
+
+    /// <summary>How finely the ways' legs are filed when their crossings are looked for (<see cref="Noded"/>).</summary>
+    const double NodedCellM = 50.0;
+
+    /// <summary>
+    /// <b>Two ways on the ground that cross between their points share a point where they cross</b>, put into both: the
+    /// crossing a mapper drew with no node, which OSM's validators report as one highway intersecting another. Left so,
+    /// one road's lanes run across the other's carriageway with nothing joining them, and its traffic drives through the
+    /// other's as though it were not there.
+    /// </summary>
+    /// <remarks>
+    /// <b>A bridge is on a level of its own</b> and crosses what is under it by being over it. A crossing within
+    /// <see cref="LineTolerance.OnePlaceM"/> of a point either way already has takes that point; two ways that only touch
+    /// at an end each, or run along one line, have nothing to cross at. A way ending on another's carriageway joins it too
+    /// (<see cref="AlmostJoined"/>).
+    /// </remarks>
+    internal static void Noded(List<SurveyWay> ways, List<Vector2D> placedM, List<int> leaving)
+    {
+        var cells = new Dictionary<(long X, long Y), List<(int Way, int Leg)>>();
+        for (var way = 0; way < ways.Count; way++)
+        {
+            if (ways[way].Bridge) continue;
+
+            var points = ways[way].Points;
+            for (var leg = 1; leg < points.Length; leg++)
+            {
+                var (fromM, toM) = (placedM[points[leg - 1]], placedM[points[leg]]);
+                for (var x = Cell(Math.Min(fromM.X, toM.X)); x <= Cell(Math.Max(fromM.X, toM.X)); x++)
+                {
+                    for (var y = Cell(Math.Min(fromM.Y, toM.Y)); y <= Cell(Math.Max(fromM.Y, toM.Y)); y++)
+                    {
+                        if (!cells.TryGetValue((x, y), out var filed)) cells[(x, y)] = filed = [];
+                        filed.Add((way, leg));
+                    }
+                }
+            }
+        }
+
+        // Each way's crossings as (leg, share along it, point), put in once every pair has been asked.
+        var crossings = new List<(int Leg, double Along, int Point)>[ways.Count];
+        var seen = new HashSet<(int, int, int, int)>();
+        foreach (var filed in cells.Values)
+        {
+            for (var one = 0; one < filed.Count; one++)
+            {
+                for (var other = one + 1; other < filed.Count; other++)
+                {
+                    var (a, b) = (filed[one], filed[other]);
+                    if (a.Way == b.Way || !seen.Add((a.Way, a.Leg, b.Way, b.Leg))) continue;
+
+                    var (pa, pb) = (ways[a.Way].Points, ways[b.Way].Points);
+                    var (a0, a1, b0, b1) = (pa[a.Leg - 1], pa[a.Leg], pb[b.Leg - 1], pb[b.Leg]);
+                    if (a0 == b0 || a0 == b1 || a1 == b0 || a1 == b1) continue;
+                    if (!Crosses(placedM[a0], placedM[a1], placedM[b0], placedM[b1], out var alongA, out var alongB)) continue;
+
+                    var atM = new Vector2D(
+                        placedM[a0].X + ((placedM[a1].X - placedM[a0].X) * alongA), placedM[a0].Y + ((placedM[a1].Y - placedM[a0].Y) * alongA));
+                    var point = Nearest(atM, a0, a1, b0, b1);
+                    if (point < 0)
+                    {
+                        point = placedM.Count;
+                        placedM.Add(atM);
+                    }
+
+                    if (point != a0 && point != a1) (crossings[a.Way] ??= []).Add((a.Leg, alongA, point));
+                    if (point != b0 && point != b1) (crossings[b.Way] ??= []).Add((b.Leg, alongB, point));
+                }
+            }
+        }
+
+        AlmostJoined(ways, placedM, cells, crossings, leaving);
+
+        for (var way = 0; way < ways.Count; way++)
+        {
+            if (crossings[way] is not { } added) continue;
+
+            added.Sort((one, other) => one.Leg != other.Leg ? one.Leg.CompareTo(other.Leg) : one.Along.CompareTo(other.Along));
+            var points = ways[way].Points;
+            var noded = new List<int>(points.Length + added.Count) { points[0] };
+            var next = 0;
+            for (var leg = 1; leg < points.Length; leg++)
+            {
+                for (; next < added.Count && added[next].Leg == leg; next++)
+                {
+                    if (noded[^1] != added[next].Point) noded.Add(added[next].Point);
+                }
+
+                if (noded[^1] != points[leg]) noded.Add(points[leg]);
+            }
+
+            ways[way] = ways[way] with { Points = [.. noded] };
+        }
+
+        int Nearest(Vector2D atM, params ReadOnlySpan<int> ends)
+        {
+            foreach (var end in ends)
+            {
+                if (Math.Sqrt(((placedM[end].X - atM.X) * (placedM[end].X - atM.X)) + ((placedM[end].Y - atM.Y) * (placedM[end].Y - atM.Y))) <
+                    LineTolerance.OnePlaceM)
+                {
+                    return end;
+                }
+            }
+
+            return -1;
+        }
+
+        static long Cell(double atM) => (long)Math.Floor(atM / NodedCellM);
+    }
+
+    /// <summary>
+    /// <b>A way ending on another's carriageway joins it there</b>: an end no other way shares, short of a way on the
+    /// ground by no more than the two carriageways' half-widths — so the end's own tarmac already stands on the other's —
+    /// is put into that way at the nearest place along it. OSM's validators report it as an almost-junction; left so, a
+    /// dead end is laid butting into the road beside it, its lanes ending on the other's and joined to nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>None at a place the way leaves the map</b>, which is the map's edge and not an end, nor on a bridge, nor onto
+    /// the way's own legs.
+    /// </remarks>
+    static void AlmostJoined(
+        List<SurveyWay> ways, List<Vector2D> placedM, Dictionary<(long X, long Y), List<(int Way, int Leg)>> cells,
+        List<(int Leg, double Along, int Point)>?[] crossings, List<int> leaving)
+    {
+        var uses = new Dictionary<int, int>();
+        foreach (var way in ways)
+        {
+            foreach (var point in way.Points) uses[point] = uses.GetValueOrDefault(point) + 1;
+        }
+
+        foreach (var added in crossings)
+        {
+            if (added is null) continue;
+
+            foreach (var (_, _, point) in added) uses[point] = uses.GetValueOrDefault(point) + 1;
+        }
+
+        var leaves = new HashSet<int>(leaving);
+        for (var way = 0; way < ways.Count; way++)
+        {
+            if (ways[way].Bridge) continue;
+
+            foreach (var atStart in (ReadOnlySpan<bool>)[true, false])
+            {
+                var points = ways[way].Points;
+                var end = atStart ? points[0] : points[^1];
+                if (uses[end] > 1 || leaves.Contains(end)) continue;
+
+                var endM = placedM[end];
+                var (best, bestLeg, bestAlong, bestM) = (-1, 0, 0.0, double.MaxValue);
+                for (var dx = -1; dx <= 1; dx++)
+                for (var dy = -1; dy <= 1; dy++)
+                {
+                    if (!cells.TryGetValue((Cell(endM.X) + dx, Cell(endM.Y) + dy), out var filed)) continue;
+
+                    foreach (var (other, leg) in filed)
+                    {
+                        if (other == way) continue;
+
+                        var reachM = (ways[way].CarriagewayM + ways[other].CarriagewayM) * 0.5;
+                        var (fromM, toM) = (placedM[ways[other].Points[leg - 1]], placedM[ways[other].Points[leg]]);
+                        var (runX, runY) = (toM.X - fromM.X, toM.Y - fromM.Y);
+                        var lengthSq = (runX * runX) + (runY * runY);
+                        if (lengthSq <= 0.0) continue;
+
+                        var along = Math.Clamp((((endM.X - fromM.X) * runX) + ((endM.Y - fromM.Y) * runY)) / lengthSq, 0.0, 1.0);
+                        var (offX, offY) = (fromM.X + (runX * along) - endM.X, fromM.Y + (runY * along) - endM.Y);
+                        var apartM = Math.Sqrt((offX * offX) + (offY * offY));
+                        if (apartM <= reachM && apartM < bestM) (best, bestLeg, bestAlong, bestM) = (other, leg, along, apartM);
+                    }
+                }
+
+                if (best < 0) continue;
+
+                // The end moved onto the other's line, a point of the other's where it lands on one, a point of its own
+                // put into the other's leg where it does not: the other's line keeps its course and the end comes to it.
+                var otherPoints = ways[best].Points;
+                int onto;
+                if (bestAlong <= 0.0) onto = otherPoints[bestLeg - 1];
+                else if (bestAlong >= 1.0) onto = otherPoints[bestLeg];
+                else
+                {
+                    var (fromM, toM) = (placedM[otherPoints[bestLeg - 1]], placedM[otherPoints[bestLeg]]);
+                    onto = placedM.Count;
+                    placedM.Add(new Vector2D(fromM.X + ((toM.X - fromM.X) * bestAlong), fromM.Y + ((toM.Y - fromM.Y) * bestAlong)));
+                    (crossings[best] ??= []).Add((bestLeg, bestAlong, onto));
+                }
+
+                var joined = (int[])points.Clone();
+                if (atStart) joined[0] = onto;
+                else joined[^1] = onto;
+                ways[way] = ways[way] with { Points = joined };
+                uses[onto] = uses.GetValueOrDefault(onto) + 1;
+            }
+        }
+
+        static long Cell(double atM) => (long)Math.Floor(atM / NodedCellM);
+    }
+
+    /// <summary>Where two straights cross, as a share of each along it, where they cross between their ends.</summary>
+    static bool Crosses(Vector2D a0, Vector2D a1, Vector2D b0, Vector2D b1, out double alongA, out double alongB)
+    {
+        var (runA, runB) = (new Vector2D(a1.X - a0.X, a1.Y - a0.Y), new Vector2D(b1.X - b0.X, b1.Y - b0.Y));
+        var across = (runA.X * runB.Y) - (runA.Y * runB.X);
+        (alongA, alongB) = (0.0, 0.0);
+        if (Math.Abs(across) < 1e-12) return false;
+
+        var apart = new Vector2D(b0.X - a0.X, b0.Y - a0.Y);
+        alongA = ((apart.X * runB.Y) - (apart.Y * runB.X)) / across;
+        alongB = ((apart.X * runA.Y) - (apart.Y * runA.X)) / across;
+        return alongA is >= 0.0 and <= 1.0 && alongB is >= 0.0 and <= 1.0;
     }
 
     /// <summary>The rectangle a traced map lays its roads in, in the engine's own axes.</summary>

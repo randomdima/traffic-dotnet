@@ -757,6 +757,36 @@ public class TracedPlanTests
     }
 
     /// <summary>
+    /// <b>A roadside measured onto another road's carriageway is taken off</b>: a street read with a roadside at each
+    /// kerb and a street of a lane each way drawn 8 m beside it, so the one's roadside stands on the other's lanes, keeps
+    /// the roadside on its far kerb and loses the one on the near.
+    /// </summary>
+    [Fact]
+    public void ARoadsideOnAnotherRoadIsTakenOff()
+    {
+        var plan = Laid([100, 500, 900, 500, 100, 508, 900, 508], Edged(0, 1), Way(2, 3));
+
+        var edged = Enumerable.Range(0, plan.Roads.Count).Single(road => plan.Roads.WidthM[road] > 2 * LaneM);
+        Assert.Equal(RoadsideM, plan.Roads.RoadsideM(edged, true) + plan.Roads.RoadsideM(edged, false));
+    }
+
+    /// <summary>
+    /// <b>A dual carriageway's halves drawn over each other are moved apart until they meet</b>: two ways of two lanes one
+    /// way each, driven against each other and drawn 5 m apart, are laid with their lines a carriageway's width apart.
+    /// </summary>
+    [Fact]
+    public void TwoHalvesDrawnOverEachOtherAreMovedApartUntilTheyMeet()
+    {
+        var plan = Laid([100, 500, 900, 500, 900, 505, 100, 505], Carried(2, 0, LaneM, 0f, 0, 1), Carried(2, 0, LaneM, 0f, 2, 3));
+
+        var middles = Enumerable.Range(0, plan.Roads.Count)
+            .Select(road => Spline.SampleAt(plan.Roads.SegmentsOf(road), Spline.TotalLengthM(plan.Roads.SegmentsOf(road)) * 0.5f).PositionM.Y)
+            .Order().ToArray();
+        Assert.Equal(2, middles.Length);
+        Assert.Equal(2 * LaneM, middles[1] - middles[0], 0.05f);
+    }
+
+    /// <summary>
     /// <b>A stretch whose lanes change and change back is laid in the lanes either side of it</b>
     /// (<see cref="CityGenFigures.TracedLanesHeldM"/>): a street of two lanes each way mapped with one each way along
     /// 100 m of it, nothing meeting it there, is one road of two each way.

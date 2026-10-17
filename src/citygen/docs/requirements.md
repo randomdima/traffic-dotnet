@@ -177,7 +177,14 @@ cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a s
   `SimConfig.CityGen.TracedLanesHeldM` whose lanes and kerbs differ from the same either side is laid as they are, and
   one whose roadside at a kerb comes and goes between two that hold it, or that do not, as they are at that kerb —
   except one whose kerb or walk that would stand on another road's
-  carriageway. The buildings stand back with the walk.
+  carriageway. The buildings stand back with the walk. **A roadside measured onto another road's carriageway is taken
+  off** — imagery reads a width across whatever is paved there, a neighbour's lanes included — and **two carriageways
+  over each other along most of the shorter are moved apart until they meet** (`SimConfig.CityGen.TracedPartedAlongShare`),
+  each its middle off its line by half: by no more than a lane, or no more than the narrower carriageway for a dual
+  carriageway's two halves, which are never one over the other.
+- **What OSM's mappers left unjoined is joined where it plainly meets** (`Survey.Noded`): two ways on the ground crossing
+  between their points share a point there, and a way ending on another's carriageway, short of it by no more than
+  the two half-widths, is carried onto it. A bridge crosses what is under it by being over it.
 - **A roadside is lane zero** (`CityPlan.RoadArrays.RoadsideWithM`, `LaneLines.IsRoadside`, TER-4d): a lane of its
   road between the kerb lane and the kerb, as wide as the strip, parted from the lanes by a solid line and joined to
   nothing — no movement leaves or reaches it, no junction counts it among its lanes, and nothing is routed, stood or

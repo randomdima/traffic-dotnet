@@ -298,6 +298,56 @@ public class SurveyTests
         Assert.Equal((1, 1, 0), (way.LanesForward, way.LanesBackward, way.LanesShared));
     }
 
+    /// <summary>
+    /// <b>Two ways crossing between their points share a point where they cross</b>, put into both: a street west to east
+    /// and one north to south over it, drawn with no node at the crossing, each come out three points long through
+    /// one point at (500, 500).
+    /// </summary>
+    [Fact]
+    public void TwoWaysCrossingWithNoNodeShareOneWhereTheyCross()
+    {
+        var (ways, placedM) = Noded([(100, 500), (900, 500), (500, 100), (500, 900)], [0, 1], [2, 3]);
+
+        Assert.Equal(3, ways[0].Points.Length);
+        Assert.Equal(ways[0].Points[1], ways[1].Points[1]);
+        Assert.Equal(new Vector2D(500, 500), placedM[ways[0].Points[1]]);
+    }
+
+    /// <summary>
+    /// <b>A way ending on another's carriageway joins it there</b>: a street north to south stopping 3 m short of a
+    /// street west to east, both a lane each way, ends on a point of that street's, which runs through it.
+    /// </summary>
+    [Fact]
+    public void AWayEndingOnAnothersCarriagewayJoinsIt()
+    {
+        var (ways, placedM) = Noded([(100, 500), (900, 500), (500, 100), (500, 497)], [0, 1], [2, 3]);
+
+        Assert.Equal(new Vector2D(500, 500), placedM[ways[1].Points[^1]]);
+        Assert.Equal(ways[1].Points[^1], ways[0].Points[1]);
+    }
+
+    /// <summary>And one stopping further off than the two carriageways' half-widths stays a dead end.</summary>
+    [Fact]
+    public void AWayEndingShortOfAnothersCarriagewayStaysADeadEnd()
+    {
+        var (ways, _) = Noded([(100, 500), (900, 500), (500, 100), (500, 490)], [0, 1], [2, 3]);
+
+        Assert.Equal((2, 3), (ways[0].Points.Length, ways[1].Points[^1]));
+    }
+
+    /// <summary>The ways given, each a lane each way, over the places given, put through <see cref="Survey.Noded"/>.</summary>
+    static (List<SurveyWay> Ways, List<Vector2D> PlacedM) Noded((double X, double Y)[] places, params int[][] ways)
+    {
+        var placedM = places.Select(place => new Vector2D(place.X, place.Y)).ToList();
+        var laid = ways.Select(points => new SurveyWay
+        {
+            Highway = "residential", LanesForward = 1, LanesBackward = 1, LanesShared = 0, CarriagewayM = 2 * LaneM,
+            CentreOffsetM = 0f, Points = points,
+        }).ToList();
+        Survey.Noded(laid, placedM, []);
+        return (laid, placedM);
+    }
+
     static float LaneM => SimConfig.Shipped().CityGen.TracedLaneWidthM;
 
     static float RoadsideM => SimConfig.Shipped().CityGen.TracedRoadsideWidthM;

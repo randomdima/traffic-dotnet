@@ -1,5 +1,20 @@
 # CityGen — decision log
 
+## 2026-10-17 — what the source data got wrong, joined, taken off or parted
+
+**The owner asked for corrupt source data behind weird junctions and redundant lanes to be found and fixed.**
+`--bench faults` lists roads on one level that cross away from any junction and carriageways that run over each other.
+
+- **Ways crossing with no node, and ends left on another's carriageway, are joined** (`Survey.Noded`). OdesaOsm has 3
+  such crossings — each an end lying on another way's leg — and 14 almost-junctions: dead ends 475 → 461. The
+  crossings `--bench faults` still lists are slips inside a wide carriageway's measured width, not crossings.
+- **A roadside measured onto another road is taken off** (`TracedStreets.OffOthers`): a dual carriageway's half or a
+  street beside another, read across its neighbour's lanes off imagery.
+- **Two carriageways over each other are parted** (`TracedStreets.Parted`): carriageways over each other for 10 m or
+  more, 44 → 25. A share of each road's own length was tried and parted worse (30): a road moved off one partner onto
+  another. What is left is listed in [tech-debt](../../../docs/tech-debt.md): a street drawn twice, and halves
+  converging into each other along part of a road.
+
 ## 2026-10-17 — a street's width is held even across the junctions it runs straight through
 
 **The owner found `OdesaOsm`'s roads changing width back and forth.** `TracedStreets.Streets` stops a street at every

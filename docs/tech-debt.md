@@ -471,6 +471,16 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **The 80 stubs left between two boxes** (`--bench close`'s `stubs`) are 52 a roundabout's ring, which is never
   gathered (GEN-19), and 28 one-way or two-way roads whose ends are on a bridge or a ring. None is listed as a fault;
   a picture of each kind is what would say whether any is.
+- **A street drawn twice in OSM is laid twice** (OdesaOsm 9300,5234: ways 716666621 Лісова and 205208659 run 3.8 m apart
+  for 150 m, both a lane each way): two carriageways over each other, four lanes painted on a street of two. It is the
+  only such case `--bench faults` finds (two-way roads over each other by more than a lane along most of the shorter);
+  the other hits are pieces inside a junction cluster. Merging the two ways in OSM closes it; dropping one in the
+  importer would need its side streets re-attached at both ends.
+- **A dual carriageway's halves converging into each other short of where they join are laid one over the other**
+  along the converging stretch (OdesaOsm 3874,4971, ways 485394562 and 973057281, 58 m of 261 m): the lanes of the two
+  ways interleave and no lane line is painted. `TracedStreets.Parted` moves a road's middle by one figure along all of
+  it and parts only roads over each other along most of their length; a middle that varies along a road, or a road cut
+  where its twin starts to converge, closes it. `--bench faults` lists 25 carriageways over each other in all.
 - **A block between two whose single roadside stands at opposite kerbs keeps its own width** (OdesaOsm 2605,21009,
   road 2+2 bare between two 2+2 with one roadside; `--bench widths` lists 61 such roads in all): `RoadsidesHeldThrough`
   evens a kerb at a time, and `Roadsides` puts a single roadside on one side per street, not per avenue. Choosing that

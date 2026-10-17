@@ -384,6 +384,9 @@ internal static class Program
             case "connectors":
                 ConnectorShape.Run(map ?? Options.TracedMap, config);
                 return 0;
+            case "faults":
+                RoadFaults.Run(map ?? Options.TracedMap, config);
+                return 0;
             case "widths":
                 TownShape.Widths(map ?? Options.TracedMap, config);
                 return 0;

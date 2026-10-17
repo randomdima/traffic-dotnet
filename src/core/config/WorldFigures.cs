@@ -692,6 +692,13 @@ internal sealed class CityGenFigures
     public float TracedLanesHeldM { get; init; } = 150f;
 
     /// <summary>
+    /// <b>How much of the shorter of two roads must run alongside the other, their carriageways over each other, for the
+    /// two to be parted</b> (GEN-57, <c>TracedStreets.Parted</c>): two carriageways drawn a little too close along most of
+    /// their length, and not a slip road running in beside a street for the last of its own.
+    /// </summary>
+    public float TracedPartedAlongShare { get; init; } = 0.8f;
+
+    /// <summary>
     /// <b>How far short of a junction a traced street that loses lanes into it keeps them</b> (GEN-57): a street losing
     /// lanes no further than this from it runs into it in the lanes it had.
     /// </summary>

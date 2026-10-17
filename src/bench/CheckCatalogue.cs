@@ -56,6 +56,7 @@ internal static class CheckCatalogue
         new("zones", "How close a traced town's zones build it to the place's own buildings, kind by kind and square by square", Quoted(config => ZoneFidelity.Run("OdesaOsm", config, null))),
         new("close", "Every road between two junctions of three arms or more standing nearer than a traced map lays two", Quoted(config => TownShape.Close("OdesaOsm", config))),
         new("connectors", "What shape a town's movements came out, and every one that stops being a corner", Quoted(config => ConnectorShape.Run("OdesaOsm", config))),
+        new("faults", "Every pair of roads on one level that cross with no junction, or whose carriageways run over each other", Quoted(config => RoadFaults.Run("OdesaOsm", config))),
         new("widths", "Every road whose width differs from the same width either side, where a street runs straight on", Quoted(config => TownShape.Widths("OdesaOsm", config))),
         new("zebras", "Every pair of a town's zebras painted over each other, and where", Quoted(config => ZebraShape.Run("OdesaOsm", config))),
     ];

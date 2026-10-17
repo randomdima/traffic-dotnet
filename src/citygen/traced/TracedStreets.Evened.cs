@@ -66,6 +66,154 @@ internal static partial class TracedStreets
             ProfileHeldThrough(avenue.Roads, figures.TracedLanesHeldM, centreM, carriageways, config);
             RoadsidesHeldThrough(avenue.Roads, figures.TracedLanesHeldM, centreM, carriageways, config);
         }
+
+        foreach (var road in roads) OffOthers(road, centreM, carriageways, config);
+        Parted(roads, centreM, carriageways, config);
+    }
+
+    /// <summary>
+    /// <b>Two carriageways drawn over each other along most of their length are moved apart until they meet</b>, each half
+    /// the way: two roads on one level running alongside each other, within the straight-on tolerance, their carriageways
+    /// over each other along <see cref="CityGenFigures.TracedPartedAlongShare"/> or more of the shorter, by no more than a
+    /// lane (<see cref="CityGenFigures.TracedLaneWidthM"/>) on the median — or by no more than the narrower carriageway,
+    /// where the two are a dual carriageway's halves, one way each and driven against each other: OSM draws those
+    /// converging into each other short of where they join, and they are never one over the other. Each road's middle is
+    /// moved off its surveyed line (<see cref="Carriage.CentreOffsetM"/>), its line kept.
+    /// </summary>
+    /// <remarks>
+    /// <b>A dual carriageway's two halves are drawn by their middles and measured by their widths</b>: drawn a few metres
+    /// too close, the two lay their lanes over each other — a block of tarmac painted twice, its lines crossing. More than a
+    /// lane over each other is not two carriageways drawn close but one road drawn twice or a road running into another,
+    /// and is left as surveyed; so is a slip running in beside a street for the last of its length.
+    /// </remarks>
+    static void Parted(List<Road> roads, List<Vector2> centreM, Carriageways carriageways, SimConfig config)
+    {
+        var leastCos = MathF.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
+        var samples = new Dictionary<Road, int>();
+        var over = new Dictionary<(Road Road, Road Other), (int Count, List<float> OverM, float SideSum)>();
+        var alongside = new List<(Road Road, float RightM)>();
+        foreach (var road in roads)
+        {
+            if (road.Carriage.Level != CityPlan.RoadArrays.Ground || road.Carriage.Circulates) continue;
+
+            var (fromM, toM) = (centreM[road.From], centreM[road.To]);
+            var discM = config.JunctionRadiusAcrossM(road.Carriage.WidthM);
+            var pointsM = road.PointsM;
+            for (var leg = 1; leg < pointsM.Count; leg++)
+            {
+                var runM = pointsM[leg] - pointsM[leg - 1];
+                var legM = runM.Length();
+                if (legM <= 0f) continue;
+
+                var along = runM / legM;
+                var right = new Vector2(-along.Y, along.X);
+                var steps = (int)MathF.Ceiling(legM / WalkStepM);
+                for (var step = 0; step < steps; step++)
+                {
+                    var atM = pointsM[leg - 1] + (runM * ((step + 0.5f) / steps));
+                    if (Vector2.Distance(atM, fromM) < discM || Vector2.Distance(atM, toM) < discM) continue;
+
+                    samples[road] = samples.GetValueOrDefault(road) + 1;
+                    carriageways.Alongside(atM + (right * road.Carriage.CentreOffsetM), along, road, leastCos, alongside);
+                    foreach (var (other, rightM) in alongside)
+                    {
+                        if (other.Carriage.Circulates) continue;
+
+                        if (!over.TryGetValue((road, other), out var pair)) pair = (0, [], 0f);
+                        pair.OverM.Add(((road.Carriage.WidthM + other.Carriage.WidthM) * 0.5f) - MathF.Abs(rightM));
+                        over[(road, other)] = (pair.Count + 1, pair.OverM, pair.SideSum + MathF.Sign(rightM));
+                    }
+                }
+            }
+        }
+
+        var moveM = new Dictionary<Road, float>();
+        foreach (var ((road, other), (count, overM, sideSum)) in over)
+        {
+            if (!over.TryGetValue((other, road), out var back)) continue;
+
+            var shorter = samples[road] <= samples[other] ? (Count: count, Of: samples[road]) : (Count: back.Count, Of: samples[other]);
+            if (shorter.Count < shorter.Of * config.CityGen.TracedPartedAlongShare) continue;
+
+            overM.Sort();
+            var medianM = overM[overM.Count / 2];
+            var mostM = Twins(road, other) ? MathF.Min(road.Carriage.WidthM, other.Carriage.WidthM) : config.CityGen.TracedLaneWidthM;
+            if (medianM <= 0f || medianM > mostM) continue;
+
+            // Away from the other: to the left where it stands to the right, and the other the same from its side.
+            moveM[road] = moveM.GetValueOrDefault(road) - (MathF.Sign(sideSum) * medianM * 0.5f);
+        }
+
+        foreach (var (road, byM) in moveM) road.Carriage = road.Carriage with { CentreOffsetM = road.Carriage.CentreOffsetM + byM };
+
+        // Two one-way roads driven against each other: a dual carriageway's two halves, which are never one over the other.
+        static bool Twins(Road one, Road other)
+        {
+            if (one.Carriage.Lanes.Flow == RoadFlow.BothWays || other.Carriage.Lanes.Flow == RoadFlow.BothWays) return false;
+
+            var (oneRun, otherRun) = (one.PointsM[^1] - one.PointsM[0], other.PointsM[^1] - other.PointsM[0]);
+            var sameWay = Vector2.Dot(oneRun, otherRun) > 0f;
+            return (one.Carriage.Lanes.Flow == other.Carriage.Lanes.Flow) != sameWay;
+        }
+    }
+
+    /// <summary>
+    /// <b>A roadside standing on another road's carriageway is taken off</b>, kerb by kerb: where the middle of the strip
+    /// stands on another road on its level along <see cref="CityGenFigures.TracedRoadsideShortestM"/> of the road or more —
+    /// or along half of it, on a road shorter than twice that — its junctions' discs apart.
+    /// </summary>
+    /// <remarks>
+    /// <b>A width read off imagery is read across whatever is paved there</b> (<see cref="Survey"/>): one half of a dual
+    /// carriageway drawn close to the other, or a street drawn beside another, is measured across its neighbour's lanes,
+    /// and what it was measured wider than its own lanes is laid as roadside on them — two carriageways run into each
+    /// other, a block of tarmac with lanes painted twice. <see cref="KeepsClear"/> keeps a roadside carried along a street
+    /// off another road; this is the same for one measured where it stands.
+    /// </remarks>
+    static void OffOthers(Road road, List<Vector2> centreM, Carriageways carriageways, SimConfig config)
+    {
+        if (road.Carriage.Level != CityPlan.RoadArrays.Ground || road.Carriage.Circulates) return;
+
+        var lengthM = LengthOf(road);
+        var leastM = MathF.Min(config.CityGen.TracedRoadsideShortestM, lengthM * 0.5f);
+        foreach (var withTheRoad in (ReadOnlySpan<bool>)[true, false])
+        {
+            var stripM = road.Carriage.RoadsideM(withTheRoad);
+            if (stripM <= 0f) continue;
+
+            var side = withTheRoad ? config.RoadSideSign : -config.RoadSideSign;
+            var outM = (road.Carriage.WidthM - stripM) * 0.5f * side;
+            if (OnOthersM(road, outM, centreM, carriageways, config) >= leastM) road.Carriage = road.Carriage.Unedged(withTheRoad);
+        }
+    }
+
+    /// <summary>
+    /// How far along a road the place <paramref name="outM"/> to the right of its carriageway's middle stands on another
+    /// road's carriageway, its junctions' discs apart.
+    /// </summary>
+    static float OnOthersM(Road road, float outM, List<Vector2> centreM, Carriageways carriageways, SimConfig config)
+    {
+        var (fromM, toM) = (centreM[road.From], centreM[road.To]);
+        var discM = config.JunctionRadiusAcrossM(road.Carriage.WidthM);
+        var onM = 0f;
+        var pointsM = road.PointsM;
+        for (var leg = 1; leg < pointsM.Count; leg++)
+        {
+            var runM = pointsM[leg] - pointsM[leg - 1];
+            var legM = runM.Length();
+            if (legM <= 0f) continue;
+
+            var right = new Vector2(-runM.Y, runM.X) / legM;
+            var steps = (int)MathF.Ceiling(legM / WalkStepM);
+            for (var step = 0; step < steps; step++)
+            {
+                var atM = pointsM[leg - 1] + (runM * ((step + 0.5f) / steps));
+                if (Vector2.Distance(atM, fromM) < discM || Vector2.Distance(atM, toM) < discM) continue;
+
+                if (carriageways.Holds(atM + (right * (road.Carriage.CentreOffsetM + outM)), road)) onM += legM / steps;
+            }
+        }
+
+        return onM;
     }
 
     /// <summary>
@@ -564,6 +712,37 @@ internal static partial class TracedStreets
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// <b>Every other road on its level running alongside a place on a road</b> — within <paramref name="leastCos"/>
+        /// of its heading either way — and whose carriageway reaches over the road's own there: each with how far its
+        /// carriageway's middle stands to the right of the place's, the road's own middle given.
+        /// </summary>
+        public void Alongside(Vector2 middleM, Vector2 along, Road road, float leastCos, List<(Road Road, float RightM)> into)
+        {
+            into.Clear();
+            if (!_cells.TryGetValue(Cell(middleM), out var here)) return;
+
+            foreach (var (other, leg) in here)
+            {
+                if (other == road || other.Carriage.Level != road.Carriage.Level) continue;
+
+                var (fromM, toM) = (other.PointsM[leg - 1], other.PointsM[leg]);
+                var runM = toM - fromM;
+                var legM = runM.Length();
+                if (legM <= 0f || MathF.Abs(Vector2.Dot(runM / legM, along)) < leastCos) continue;
+
+                var offM = new Vector2(-runM.Y, runM.X) / legM * other.Carriage.CentreOffsetM;
+                var along01 = Vector2.Dot(middleM - fromM - offM, runM) / (legM * legM);
+                if (along01 is < 0f or > 1f) continue;
+
+                var rightM = Vector2.Dot(fromM + offM + (runM * along01) - middleM, new Vector2(-along.Y, along.X));
+                if (MathF.Abs(rightM) >= (road.Carriage.WidthM + other.Carriage.WidthM) * 0.5f) continue;
+                if (into.Exists(seen => seen.Road == other)) continue;
+
+                into.Add((other, rightM));
+            }
         }
 
         static (int X, int Y) Cell(Vector2 atM) => ((int)MathF.Floor(atM.X / CellM), (int)MathF.Floor(atM.Y / CellM));
