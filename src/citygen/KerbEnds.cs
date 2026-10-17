@@ -360,8 +360,8 @@ internal sealed class KerbEnds
     /// <b>The places a town's walks cross, and the places its traffic is held</b> — the same list, but for a
     /// road whose two stations stand closer than <see cref="RoadFigures.CrossedOnceBelowM"/>: that one is crossed
     /// once midway between them and held at each of its two kerb ends (WLK-10a); and but for a station another's
-    /// paint would be painted across, which is held at its kerb end and not crossed (WLK-10b,
-    /// <see cref="Unpainted"/>).
+    /// band would be painted across, which is not crossed, or painted beside, which is crossed on that band stretched
+    /// and held behind it (WLK-10b, <see cref="Painted"/>).
     /// </summary>
     /// <remarks>
     /// <para>
