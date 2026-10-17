@@ -26,8 +26,8 @@ public class LaneArrowsTests
     public void AnArrowIsPaintedOnEveryLaneThatHoldsAtABarAndOnNoOther()
     {
         var config = SimConfig.Shipped();
-        var (lanes, bars) = Painted(config);
-        var arrows = LaneArrows.Lay(lanes, bars, config);
+        var (lanes, bars, zebras) = Painted(config);
+        var arrows = LaneArrows.Lay(lanes, bars, zebras, config);
 
         var wanted = new HashSet<int>();
         foreach (var lane in bars.Lane)
@@ -41,6 +41,53 @@ public class LaneArrowsTests
     }
 
     /// <summary>
+    /// <b>No arrow is painted over a zebra</b> (TER-6a): the room behind a bar ends at the nearest band across the
+    /// road, so a street crossed midway (WLK-10a) has no arrow between its bar and the zebra in its middle unless a
+    /// whole one fits. Staged with the fixture's streets welded up to <see cref="WeldedBelowM"/>, which crosses
+    /// some of them midway, with arrows <see cref="LongM"/> long.
+    /// </summary>
+    [Fact]
+    public void NoArrowIsPaintedOverAZebra()
+    {
+        var config = new SimConfig { Road = new RoadFigures { CrossedOnceBelowM = WeldedBelowM, LaneArrowLengthM = LongM } };
+        var plan = Towns.Of(Towns.Fixture);
+        var paving = plan.Paving(SimConfig.Shipped());
+        var ends = KerbEnds.Of(paving, config);
+        var lanes = paving.Lanes;
+        var bars = StopBars.Lay(lanes, Crossings.Lay(plan, config, ends.HeldM), config);
+        var zebras = Crossings.Lay(plan, config, ends.CrossedM);
+        var arrows = LaneArrows.Lay(lanes, bars, zebras, config);
+        var tailToTipM = config.Road.LaneArrowLengthM;
+
+        for (var arrow = 0; arrow < arrows.Count; arrow++)
+        {
+            var lane = arrows.Lane[arrow];
+            var arcs = lanes.ArcsOf(lane);
+            var lengthM = lanes.LaneLengthM[lane];
+            for (var zebra = 0; zebra < zebras.Count; zebra++)
+            {
+                if (zebras.Road[zebra] != lanes.LaneRoad[lane] || zebras.DepthM[zebra] <= 0f) continue;
+
+                var atM = Spline.ProjectM(arcs, zebras.CentreM[zebra], lengthM * 0.5f, lengthM);
+                var halfM = zebras.DepthM[zebra] * 0.5f;
+                Assert.False(
+                    atM + halfM > arrows.FromM[arrow] && atM - halfM < arrows.FromM[arrow] + tailToTipM,
+                    $"the arrow on lane {lane} from {arrows.FromM[arrow]:F1} m is painted over the zebra at {atM:F1} m");
+            }
+        }
+
+        // The staging and not the claim: laid blind to the zebras, some arrow has to have stood on one.
+        var none = Crossings.Lay(plan, config, ReadOnlySpan<KerbNodes>.Empty);
+        Assert.True(LaneArrows.Lay(lanes, bars, none, config).Count > arrows.Count);
+    }
+
+    /// <summary>A figure the fixture's streets are crossed once below, wide enough to weld some and not others.</summary>
+    const float WeldedBelowM = 60f;
+
+    /// <summary>An arrow long enough to reach from a welded street's bar to the middle of it.</summary>
+    const float LongM = 30f;
+
+    /// <summary>
     /// <b>An arrow says every turn its lane offers and no other</b> (TER-6a): one branch per kind of
     /// movement, so a lane offered two ways round to the same hand is one branch and a lane offered all
     /// three is one arrow of three rather than a glyph of its own.
@@ -49,8 +96,8 @@ public class LaneArrowsTests
     public void AnArrowSaysEveryTurnItsLaneOffersAndNoOther()
     {
         var config = SimConfig.Shipped();
-        var (lanes, bars) = Painted(config);
-        var arrows = LaneArrows.Lay(lanes, bars, config);
+        var (lanes, bars, zebras) = Painted(config);
+        var arrows = LaneArrows.Lay(lanes, bars, zebras, config);
 
         var asked = new int[3];
         for (var arrow = 0; arrow < arrows.Count; arrow++)
@@ -81,8 +128,8 @@ public class LaneArrowsTests
     public void AnArrowStandsASetbackBehindItsBar()
     {
         var config = SimConfig.Shipped();
-        var (lanes, bars) = Painted(config);
-        var arrows = LaneArrows.Lay(lanes, bars, config);
+        var (lanes, bars, zebras) = Painted(config);
+        var arrows = LaneArrows.Lay(lanes, bars, zebras, config);
 
         var behind = new Dictionary<int, int>();
         for (var bar = 0; bar < bars.Count; bar++) behind[bars.Lane[bar]] = bar;
@@ -113,8 +160,8 @@ public class LaneArrowsTests
     public void EveryArrowIsTheSameLengthDownItsLane()
     {
         var config = SimConfig.Shipped();
-        var (lanes, bars) = Painted(config);
-        var arrows = LaneArrows.Lay(lanes, bars, config);
+        var (lanes, bars, zebras) = Painted(config);
+        var arrows = LaneArrows.Lay(lanes, bars, zebras, config);
 
         var halfHeadM = config.Road.LaneArrowHeadWidthM * 0.5f;
         var headM = config.Road.LaneArrowHeadLengthM;
@@ -153,8 +200,8 @@ public class LaneArrowsTests
     public void AnArrowStaysOnTheLaneItIsPaintedOn()
     {
         var config = SimConfig.Shipped();
-        var (lanes, bars) = Painted(config);
-        var arrows = LaneArrows.Lay(lanes, bars, config);
+        var (lanes, bars, zebras) = Painted(config);
+        var arrows = LaneArrows.Lay(lanes, bars, zebras, config);
 
         var halfHeadM = config.Road.LaneArrowHeadWidthM * 0.5f;
         var headM = config.Road.LaneArrowHeadLengthM;
@@ -210,13 +257,13 @@ public class LaneArrowsTests
         yield return atM + (along * headM);
     }
 
-    /// <summary>The lanes of the fixture and the bars on them, which is what an arrow is laid off.</summary>
-    static (LaneLines Lanes, StopBars Bars) Painted(SimConfig config)
+    /// <summary>The lanes of the fixture, the bars on them and the zebras across them, which is what an arrow is laid off.</summary>
+    static (LaneLines Lanes, StopBars Bars, Crossings Zebras) Painted(SimConfig config)
     {
         var plan = Towns.Of(Towns.Fixture);
         var lanes = plan.Paving(config).Lanes;
         var crossings = Crossings.Lay(plan, config, FootConnectors.Lay(plan, config).Crossed());
-        return (lanes, StopBars.Lay(lanes, crossings, config));
+        return (lanes, StopBars.Lay(lanes, crossings, config), crossings);
     }
 
     /// <summary>How finely a branch's ribbon is walked to find how far across the lane it ever reaches.</summary>

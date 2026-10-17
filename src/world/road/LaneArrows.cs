@@ -39,7 +39,7 @@ namespace TrafficSimulation.World.Road;
 /// <para>
 /// <b>Read off the lane and its bar</b>: the lane says what may be driven off it and how wide the ground is,
 /// and the bar says where the paint in front of the arrow stands (<see cref="StopBars.AlongM"/>), so an arm
-/// with no crossing carries no bar and no arrow either.
+/// with no crossing carries no bar and no arrow either; the zebras say where the paint behind it would.
 /// </para>
 /// </remarks>
 internal sealed class LaneArrows
@@ -89,9 +89,12 @@ internal sealed class LaneArrows
     /// </summary>
     /// <remarks>
     /// <b>A lane with no room for a whole arrow behind its bar carries none</b>, rather than a shortened one:
-    /// the glyph is read at a glance and a stub of it reads as a different glyph.
+    /// the glyph is read at a glance and a stub of it reads as a different glyph. <b>The room is clear road</b>:
+    /// back to the lane's start, or to the nearest band of <paramref name="zebras"/> painted across its road — the
+    /// zebra a short street is crossed by midway (WLK-10a), or the one at its far end — since an arrow laid over a
+    /// zebra is two marks painted into one.
     /// </remarks>
-    public static LaneArrows Lay(LaneLines lanes, StopBars bars, SimConfig config)
+    public static LaneArrows Lay(LaneLines lanes, StopBars bars, Crossings zebras, SimConfig config)
     {
         var figures = config.Road;
         var lengthM = figures.LaneArrowLengthM;
@@ -110,12 +113,13 @@ internal sealed class LaneArrows
         var offered = new bool[Turns];
         var said = new LaneTurn[Turns];
         var bent = new (float ArcM, float Curvature, float AdvanceM)[Turns];
+        var acrossRoad = AcrossEachRoad(zebras);
         for (var bar = 0; bar < bars.Count; bar++)
         {
             var at = bars.Lane[bar];
             var tipM = bars.AlongM[bar] - (bars.ThicknessM[bar] * 0.5f) - figures.LaneArrowSetbackM;
             var tailM = tipM - lengthM;
-            if (tailM <= 0f) continue;
+            if (tailM <= 0f || PaintedBetween(lanes, zebras, acrossRoad, at, tailM, tipM)) continue;
 
             Array.Clear(offered);
             Array.Clear(turnRad);
@@ -161,6 +165,42 @@ internal sealed class LaneArrows
 
         return new LaneArrows(
             [.. lane], [.. fromM], [.. forkM], [.. branchAt], [.. branch], [.. branchTurn]);
+    }
+
+    /// <summary>
+    /// <b>Whether a band painted across a lane's road reaches into the stretch of the lane from
+    /// <paramref name="tailM"/> to <paramref name="tipM"/></b>, each band read in the lane's own metres at its middle
+    /// and taken half its depth either way.
+    /// </summary>
+    static bool PaintedBetween(LaneLines lanes, Crossings zebras, Dictionary<int, List<int>> acrossRoad, int lane, float tailM, float tipM)
+    {
+        if (!acrossRoad.TryGetValue(lanes.LaneRoad[lane], out var across)) return false;
+
+        var arcs = lanes.ArcsOf(lane);
+        var lengthM = lanes.LaneLengthM[lane];
+        foreach (var crossing in across)
+        {
+            var atM = Spline.ProjectM(arcs, zebras.CentreM[crossing], lengthM * 0.5f, lengthM);
+            var halfM = zebras.DepthM[crossing] * 0.5f;
+            if (atM + halfM > tailM && atM - halfM < tipM) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The painted bands across each road, by road.</summary>
+    static Dictionary<int, List<int>> AcrossEachRoad(Crossings zebras)
+    {
+        var across = new Dictionary<int, List<int>>();
+        for (var crossing = 0; crossing < zebras.Count; crossing++)
+        {
+            if (zebras.DepthM[crossing] <= 0f) continue;
+
+            if (!across.TryGetValue(zebras.Road[crossing], out var onRoad)) across[zebras.Road[crossing]] = onRoad = [];
+            onRoad.Add(crossing);
+        }
+
+        return across;
     }
 
     /// <summary>

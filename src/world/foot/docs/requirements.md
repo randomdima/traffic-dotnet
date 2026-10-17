@@ -98,7 +98,9 @@ by no town (below).
 crossed once, midway between them.** Two zebras a walker can stand between are one zebra in the wrong two
 places: cut by the same rule every other street's ends are, a short street leaves a choice between
 crossings neither of which is where anybody would cross. The one band is the pair welded: it stands between
-the two ends, belongs to neither, and the traffic meets it whichever way it drives.
+the two ends, belongs to neither, and the traffic meets it whichever way it drives. **A street with no middle a
+band fits in is crossed nowhere**: a road between two boxes a few metres apart, its band reaching into either,
+is a stretch of the junction's mouth and not a street, and is held at its kerb ends with no paint between them.
 
 **Nothing else follows the paint.** A street crossed once is still held at both of its ends
 ([TER-6](../../road/docs/requirements.md)), and since a station is a station because a zebra stands at it,
@@ -106,6 +108,16 @@ the hold there goes to the end of the road's own kerb — a bar left at the stat
 carriageway's width out from the box it is held for. **So the kerb ends hand the road two answers**: where
 the walk crosses, and what each end of each street is held behind — the same list everywhere but on a
 street crossed once, the second carrying whether there is paint at the place at all.
+
+**WLK-10b** `P4` **No zebra is painted across another.** Where two crossings' bands would reach more than a
+stripe (`Road.ZebraStripeWidthM`) into each other with their ways across turned further apart than
+`Road.ZebrasOneBandWithinDeg`, only one is painted: a station at a street's end before a weld midway along one
+(WLK-10a), and of those the one across the wider carriageway. Two streets meeting at a sharp angle, a slip
+road beside its street and two boxes a few metres apart each put a station where the other's paint is, and
+stripes crossing stripes are no crossing anybody can read. **The one not painted is a kerb end**, as a
+street crossed once is: the walk is not cut there and its traffic is held at the end of its own kerb. Two
+bands turned less than that apart are a dual carriageway's two halves crossed at one station, and are
+painted both, as the one band they read as.
 
 **WLK-15** `P4` **Each end of a zebra is a junction cut into the walk beside the road; it stands between the
 lanes of that walk, hands over at a point per connected lane, and every lane at it is connected to every

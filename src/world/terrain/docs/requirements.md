@@ -192,7 +192,11 @@ that the lanes a walker is held on stand on the concrete these strike.
 carriageway, junction and car park, and the pockets the town's own pieces leave between them: a movement
 narrower than the arm it leaves, a car park set back off the street it fronts, a street meeting a wider
 street. Such a pocket is not a bay of concrete: a kerb drawn round it steps and chamfers at every mouth
-while the walk beyond runs smoothly past, and the band comes out a different width at each.
+while the walk beyond runs smoothly past, and the band comes out a different width at each. **Nor is a
+patch the movements through a box leave between them an island**: a hole in the driven ground standing
+wholly inside one junction's disc, or one no road's kerb runs along, is tarmac, and so is any ground standing
+in it — kerbed, it is a crumb of concrete in the middle of the junction that nobody laid. A median and an
+island between roads run along a lane's own edge and are kept.
 
 **TER-3c.6** `P6` **A pavement is a ring and has no ends.** The boundary of the driven ground closes on
 itself — one ring round the outside of the town and one round every block it encloses — so the concrete laid

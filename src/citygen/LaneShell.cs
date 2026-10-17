@@ -52,15 +52,69 @@ internal static class LaneShell
     /// reads it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>No ring narrower than a kerb on the whole is kept</b> (<see cref="BandShell.WithoutRingsNarrowerThan"/>): turns
     /// drawn tight at their corners leave hairs of ground between three of them that no band covers, which a kerb could
     /// not be laid round and the town drives over as it would the tarmac either side.
+    /// </para>
+    /// <para>
+    /// <b>Nor any hole on the ground standing wholly inside one junction's disc, or that no road's kerb runs along</b>
+    /// (<see cref="BandShell.WithoutHoles"/>, TER-3c.7): the movements through a box leave patches between them that no
+    /// band covers, and kerbed they are chunks of concrete scattered over the junction that nobody laid. The disc takes
+    /// those that touch a lane's end; the kerb those of a box wider than its disc. A block, a median and an island
+    /// between roads reach past the disc and have a lane running along some stretch of their edge, and are kept.
+    /// </para>
     /// </remarks>
     public static BandShell Of(Paving paving, SimConfig config, byte level)
     {
         var (lines, widthM) = Bands(paving, config, level);
-        return BandShell.Of(lines, widthM, lines.Length == paving.DrivenCount ? paving.DrivenLines(config) : Indexed(lines, config))
+        var shell = BandShell.Of(lines, widthM, lines.Length == paving.DrivenCount ? paving.DrivenLines(config) : Indexed(lines, config))
             .WithoutRingsNarrowerThan(config.Road.KerbWidthM);
+        if (level != CityPlan.RoadArrays.Ground) return shell;
+
+        var junctions = paving.Of.Junctions;
+        var widestM = junctions.RadiusM.Length == 0 ? 0f : junctions.RadiusM.Max();
+        return shell.WithoutHoles(ring => InsideABox(junctions, widestM, ring) || !AlongAKerb(paving, config, ring));
+    }
+
+    /// <summary>Whether a ring stands wholly inside one junction's disc (<see cref="CityPlan.JunctionArrays.RadiusM"/>).</summary>
+    static bool InsideABox(CityPlan.JunctionArrays junctions, float widestM, ArcSeg[] ring)
+    {
+        var (leastM, mostM) = (new Vector2(float.MaxValue), new Vector2(float.MinValue));
+        foreach (var arc in ring)
+        {
+            leastM = Vector2.Min(leastM, Vector2.Min(arc.StartM, arc.EndM));
+            mostM = Vector2.Max(mostM, Vector2.Max(arc.StartM, arc.EndM));
+        }
+
+        var middleM = (leastM + mostM) * 0.5f;
+        var reachM = Vector2.Distance(leastM, mostM) * 0.5f;
+        if (reachM > widestM) return false;
+
+        for (var junction = 0; junction < junctions.CentreM.Length; junction++)
+        {
+            if (Vector2.Distance(middleM, junctions.CentreM[junction]) + reachM <= junctions.RadiusM[junction]) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether any piece of a ring runs along a lane's own edge (<see cref="KerbEnds.LaneUnder"/>) — a road's kerb, as
+    /// against the edge of a movement through a box or a band's square end.
+    /// </summary>
+    static bool AlongAKerb(Paving paving, SimConfig config, ArcSeg[] ring)
+    {
+        foreach (var piece in ring)
+        {
+            if (KerbEnds.LaneUnder(paving, config, piece, fromStart: true) >= 0 ||
+                KerbEnds.LaneUnder(paving, config, piece, fromStart: false) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

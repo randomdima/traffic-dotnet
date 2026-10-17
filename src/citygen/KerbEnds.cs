@@ -339,7 +339,7 @@ internal sealed class KerbEnds
         var stands = new List<Stand>();
         foreach (var at in furthest.Values) stands.Add(Stands(reading, marks[at], figures.FootNodeClearM));
 
-        var (heldM, crossedM) = Cut(reading, stands, figures.CrossedOnceBelowM);
+        var (heldM, crossedM) = Cut(reading, stands, figures);
         return (further.ToArray(), nearer.ToArray(), heldM, crossedM);
     }
 
@@ -358,9 +358,10 @@ internal sealed class KerbEnds
 
     /// <summary>
     /// <b>The places a town's walks cross, and the places its traffic is held</b> — the same list, but for a
-    /// road whose two stations stand closer than <paramref name="onceBelowM"/>: that one is crossed once
-    /// midway between them and held at each of its two kerb ends
-    /// (<see cref="RoadFigures.CrossedOnceBelowM"/>, WLK-10a).
+    /// road whose two stations stand closer than <see cref="RoadFigures.CrossedOnceBelowM"/>: that one is crossed
+    /// once midway between them and held at each of its two kerb ends (WLK-10a); and but for a station another's
+    /// paint would be painted across, which is held at its kerb end and not crossed (WLK-10b,
+    /// <see cref="Unpainted"/>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -380,33 +381,115 @@ internal sealed class KerbEnds
     /// </para>
     /// </remarks>
     static (KerbNodes[] HeldM, KerbNodes[] CrossedM) Cut(
-        Reading reading, List<Stand> stands, float onceBelowM)
+        Reading reading, List<Stand> stands, RoadFigures figures)
     {
         var twin = Twins(stands);
-        var heldM = new List<KerbNodes>();
-        var crossedM = new List<KerbNodes>();
+        var welded = new bool[stands.Count];
+        var crossings = new List<(KerbNodes Nodes, int Stand)>();
         for (var at = 0; at < stands.Count; at++)
         {
             var other = twin[at];
-            var welded = other != None
+            welded[at] = other != None
                          && MathF.Abs(SharedM(reading, stands[at], stands[other]) - stands[at].AlongM)
-                         < onceBelowM;
+                         < figures.CrossedOnceBelowM;
 
-            var nodes = Nodes(reading, stands[at], painted: !welded);
-            heldM.Add(nodes);
-            if (!welded)
+            if (!welded[at]) crossings.Add((Nodes(reading, stands[at]), at));
+
+            // Crossed once, at the first of the two the walk reaches — where the band stands on the road and in neither box.
+            else if (other > at && Midway(reading, stands[at], stands[other]) is var midway && OnItsRoad(reading, midway, figures.CrossingDepthM))
+            {
+                crossings.Add((Nodes(reading, midway), None));
+            }
+        }
+
+        var painted = Unpainted(crossings, figures);
+        var heldM = new KerbNodes[stands.Count];
+        for (var at = 0; at < stands.Count; at++) heldM[at] = Nodes(reading, stands[at], painted: !welded[at]);
+
+        var crossedM = new List<KerbNodes>();
+        for (var crossing = 0; crossing < crossings.Count; crossing++)
+        {
+            var (nodes, stand) = crossings[crossing];
+            if (painted[crossing])
             {
                 crossedM.Add(nodes);
                 continue;
             }
 
-            // Crossed once, at the first of the two the walk reaches.
-            if (other < at) continue;
-
-            crossedM.Add(Nodes(reading, Midway(reading, stands[at], stands[other])));
+            if (stand != None) heldM[stand] = Nodes(reading, stands[stand], painted: false);
         }
 
-        return (heldM.ToArray(), crossedM.ToArray());
+        return (heldM, crossedM.ToArray());
+    }
+
+    /// <summary>
+    /// <b>Which crossings are painted, the rest being painted across by one that is</b> (WLK-10b): a station at a
+    /// street's end before a weld midway along one, then the wider carriageway first, each painted unless one
+    /// already painted would be painted across it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Filed by a grid a band's reach on a side</b>, the widest span and the depth together, so a crossing is
+    /// weighed against the painted ones in its own cell and the eight round it and never against the town.
+    /// </remarks>
+    static bool[] Unpainted(List<(KerbNodes Nodes, int Stand)> crossings, RoadFigures figures)
+    {
+        var order = new int[crossings.Count];
+        var widestM = 0f;
+        for (var at = 0; at < order.Length; at++)
+        {
+            order[at] = at;
+            widestM = MathF.Max(widestM, crossings[at].Nodes.SpanM);
+        }
+
+        Array.Sort(order, (one, other) =>
+        {
+            var (a, b) = (crossings[one], crossings[other]);
+            var midway = (a.Stand == None).CompareTo(b.Stand == None);
+            if (midway != 0) return midway;
+
+            var wider = b.Nodes.SpanM.CompareTo(a.Nodes.SpanM);
+            return wider != 0 ? wider : one.CompareTo(other);
+        });
+
+        var cellM = widestM + figures.CrossingDepthM;
+        var filed = new Dictionary<(int X, int Y), List<int>>();
+        var painted = new bool[crossings.Count];
+        foreach (var at in order)
+        {
+            var nodes = crossings[at].Nodes;
+            var centreM = (nodes.NearM + nodes.FarM) * 0.5f;
+            var (x, y) = ((int)MathF.Floor(centreM.X / cellM), (int)MathF.Floor(centreM.Y / cellM));
+            painted[at] = !Across(x, y);
+            if (!painted[at]) continue;
+
+            if (!filed.TryGetValue((x, y), out var cell)) filed[(x, y)] = cell = [];
+            cell.Add(at);
+
+            bool Across(int x, int y)
+            {
+                for (var dx = -1; dx <= 1; dx++)
+                {
+                    for (var dy = -1; dy <= 1; dy++)
+                    {
+                        if (!filed.TryGetValue((x + dx, y + dy), out var near)) continue;
+
+                        foreach (var other in near)
+                        {
+                            if (nodes.PaintedAcross(
+                                    crossings[other].Nodes, figures.CrossingDepthM, figures.ZebraStripeWidthM,
+                                    figures.ZebrasOneBandWithinDeg))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        return painted;
     }
 
     /// <summary>
@@ -447,6 +530,17 @@ internal sealed class KerbEnds
     /// <summary>The place one station stands, on its own lane's line.</summary>
     static Vector2 At(LaneLines lanes, in Stand stand) =>
         Spline.SampleAt(lanes.ArcsOf(stand.Lane), stand.AlongM).PositionM;
+
+    /// <summary>
+    /// <b>Whether a band <paramref name="depthM"/> deep about a station stands on its road's own stretch of lane</b>
+    /// (WLK-10a) and reaches into neither box: a road between two boxes a few metres apart has no middle a zebra fits in.
+    /// </summary>
+    static bool OnItsRoad(Reading reading, in Stand stand, float depthM)
+    {
+        var lanes = reading.Lanes;
+        return stand.AlongM - (depthM * 0.5f) >= lanes.RoadFromM(stand.Lane) &&
+               stand.AlongM + (depthM * 0.5f) <= lanes.RoadToM(stand.Lane);
+    }
 
     /// <summary>The one station between two that stand too close to be two, on the first one's lane.</summary>
     static Stand Midway(Reading reading, in Stand one, in Stand other) =>
@@ -963,7 +1057,36 @@ internal sealed class KerbEnds
 /// </para>
 /// </remarks>
 internal readonly record struct KerbNodes(
-    int Road, KerbCut Cut, Vector2 NearM, Vector2 FarM, bool Painted);
+    int Road, KerbCut Cut, Vector2 NearM, Vector2 FarM, bool Painted)
+{
+    /// <summary>How far across the carriageway the walk runs here.</summary>
+    public float SpanM => Vector2.Distance(NearM, FarM);
+
+    /// <summary>
+    /// <b>Whether the bands laid across these and another's points, each <paramref name="depthM"/> deep, would be
+    /// painted over each other</b> (WLK-10b): each reaching more than <paramref name="intoM"/> into the other while
+    /// their ways across turn more than <paramref name="oneBandWithinDeg"/> apart.
+    /// </summary>
+    public bool PaintedAcross(in KerbNodes other, float depthM, float intoM, float oneBandWithinDeg)
+    {
+        var (across, otherAcross) = (Vector2.Normalize(FarM - NearM), Vector2.Normalize(other.FarM - other.NearM));
+        if (MathF.Abs(Vector2.Dot(across, otherAcross)) >= MathF.Cos(float.DegreesToRadians(oneBandWithinDeg))) return false;
+
+        var apart = ((other.NearM + other.FarM) - (NearM + FarM)) * 0.5f;
+        ReadOnlySpan<Vector2> axes = [across, Heading.RightOf(across), otherAcross, Heading.RightOf(otherAcross)];
+        foreach (var axis in axes)
+        {
+            var reachM = ReachM(across, SpanM, depthM, axis) + ReachM(otherAcross, other.SpanM, depthM, axis);
+            if (MathF.Abs(Vector2.Dot(apart, axis)) > reachM - intoM) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>Half of one band's extent along a direction: its span across and its depth along the road.</summary>
+    static float ReachM(Vector2 across, float spanM, float depthM, Vector2 axis) =>
+        ((MathF.Abs(Vector2.Dot(across, axis)) * spanM) + (MathF.Abs(Vector2.Dot(Heading.RightOf(across), axis)) * depthM)) * 0.5f;
+}
 
 /// <summary>
 /// <b>Which cut of a road one station is</b>: the one at the end the road was drawn from, the one at the end

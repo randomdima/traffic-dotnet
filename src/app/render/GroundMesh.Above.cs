@@ -58,7 +58,7 @@ internal sealed partial class GroundMesh
     /// </para>
     /// </remarks>
     void Above(
-        CityPlan plan, Paving paving, SimConfig config, Crossings held, StopBars bars, LaneArrows arrows,
+        CityPlan plan, Paving paving, SimConfig config, Crossings held, Crossings crossed, StopBars bars, LaneArrows arrows,
         CentrelineRuns runs, Crossings surveyed)
     {
         var rings = paving.Above(config);
@@ -72,7 +72,8 @@ internal sealed partial class GroundMesh
         Shell(line, Surface.Tarmac, Plain);
         KerbAbove(line, Landings(paving.Lanes), plan.WorldSizeM, kerbM * 0.5f, kerbM);
 
-        LaneDashes(runs, plan, config, held, Paint, above);
+        LaneDashes(runs, plan, config, held, crossed, Paint, above);
+        RoadsideLines(plan, config, held, crossed, Paint, above);
         Zebras(surveyed, plan, config, Paint, above);
         Bars(bars, paving.Lanes, Paint, above);
         Arrows(paving.Lanes, arrows, config, Paint, above);

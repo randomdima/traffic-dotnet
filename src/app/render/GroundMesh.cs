@@ -554,7 +554,7 @@ internal sealed partial class GroundMesh
         // that say what they are holding for (TER-6a). Laid again for the arrows, the two would be free to
         // disagree about where the bar stands.
         var bars = StopBars.Lay(paving.Lanes, held, config);
-        var arrows = LaneArrows.Lay(paving.Lanes, bars, config);
+        var arrows = LaneArrows.Lay(paving.Lanes, bars, crossed, config);
         var runs = CentrelineRuns.Lay(plan, config);
         var surveyed = Crossings.Of(plan);
         mesh.EndsMs = Stopwatch.GetElapsedTime(endsFrom).TotalMilliseconds;
@@ -563,8 +563,8 @@ internal sealed partial class GroundMesh
         // laid with the bridge, over the bodies on the ground, and what is painted on the road under it is not.
         const byte ground = CityPlan.RoadArrays.Ground;
         var marks = mesh.Starting();
-        mesh.LaneDashes(runs, plan, config, held, Paint, ground);
-        mesh.RoadsideLines(plan, config, held, Paint, ground);
+        mesh.LaneDashes(runs, plan, config, held, crossed, Paint, ground);
+        mesh.RoadsideLines(plan, config, held, crossed, Paint, ground);
         mesh.BayStrokes(plan, config, Paint);
         mesh.Zebras(crossed, plan, config, Paint, ground);
         mesh.Zebras(surveyed, plan, config, Paint, ground);
@@ -575,7 +575,7 @@ internal sealed partial class GroundMesh
         mesh.Laid(GroundPart.Paint, marks);
 
         var above = mesh.Starting();
-        mesh.Above(plan, paving, config, held, bars, arrows, runs, surveyed);
+        mesh.Above(plan, paving, config, held, crossed, bars, arrows, runs, surveyed);
         mesh.Laid(GroundPart.Above, above);
 
         // Grown by doubling and kept for the whole run, the two lists would keep up to as much again as they hold.

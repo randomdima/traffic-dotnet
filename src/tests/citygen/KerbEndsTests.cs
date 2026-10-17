@@ -93,6 +93,73 @@ public class KerbEndsTests
         Assert.InRange(worstM, 0f, FramesM);
     }
 
+    /// <summary>
+    /// <b>Two bands are painted across each other only where each reaches more than the margin into the other and
+    /// their ways across turn further apart than the figure</b> (WLK-10b): a station 6 m wide crossed by one turned
+    /// 45° through its middle is; the same turned 5° is a dual carriageway's two halves read as one band, and the
+    /// 45° one moved clear of the first band's depth is two crossings.
+    /// </summary>
+    [Fact]
+    public void ABandIsPaintedAcrossAnotherOnlyWhereTheyOverlapAtAnAngle()
+    {
+        const float depthM = 4f;
+        const float intoM = 0.5f;
+        const float oneBandWithinDeg = 10f;
+        var straight = Station(Vector2.Zero, 0f);
+
+        Assert.True(straight.PaintedAcross(Station(Vector2.Zero, 45f), depthM, intoM, oneBandWithinDeg));
+        Assert.False(straight.PaintedAcross(Station(Vector2.Zero, 5f), depthM, intoM, oneBandWithinDeg));
+        Assert.False(straight.PaintedAcross(Station(new Vector2(0f, 6f), 45f), depthM, intoM, oneBandWithinDeg));
+
+        // A station 6 m across, centred on a place and turned off the x axis.
+        static KerbNodes Station(Vector2 centreM, float turnDeg)
+        {
+            var across = new Vector2(MathF.Cos(float.DegreesToRadians(turnDeg)), MathF.Sin(float.DegreesToRadians(turnDeg))) * 3f;
+            return new KerbNodes(0, KerbCut.AtTheNearEnd, centreM - across, centreM + across, Painted: true);
+        }
+    }
+
+    /// <summary>
+    /// <b>No zebra the fixture paints is painted across another</b> (WLK-10b), at the shipped figures.
+    /// </summary>
+    [Fact]
+    public void NoStationOfTheFixtureIsPaintedAcrossAnother()
+    {
+        var config = SimConfig.Shipped();
+        var crossed = Towns.Of(Towns.Fixture).Paving(config).RoadEnds(config).CrossedM;
+        var road = config.Road;
+        for (var one = 0; one < crossed.Length; one++)
+        {
+            for (var other = one + 1; other < crossed.Length; other++)
+            {
+                Assert.False(
+                    crossed[one].PaintedAcross(crossed[other], road.CrossingDepthM, road.ZebraStripeWidthM, road.ZebrasOneBandWithinDeg),
+                    $"the zebra across road {crossed[one].Road} is painted across the one across road {crossed[other].Road}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>A street with no middle a band fits in is crossed nowhere, and still held at its kerb ends</b> (WLK-10a):
+    /// staged with the fixture's streets welded at <see cref="WideM"/> under bands deeper than any of them is long, so
+    /// every weld is one whose band would reach into a box.
+    /// </summary>
+    [Fact]
+    public void AStreetWithNoMiddleABandFitsInIsCrossedNowhere()
+    {
+        var plan = Towns.Of(Towns.Fixture);
+        var paving = plan.Paving(SimConfig.Shipped());
+        var config = new SimConfig { Road = new RoadFigures { CrossedOnceBelowM = WideM, CrossingDepthM = DeeperThanAnyStreetM } };
+        var ends = KerbEnds.Of(paving, config);
+
+        var welded = Cuts(ends.HeldM).Where(road => road.Value.TrueForAll(one => !one.Painted)).Select(road => road.Key).ToList();
+        Assert.NotEmpty(welded);
+        Assert.DoesNotContain(ends.CrossedM.ToArray(), one => one.Cut == KerbCut.Midway);
+    }
+
+    /// <summary>Deeper than any street of the fixture is long.</summary>
+    const float DeeperThanAnyStreetM = 1000f;
+
     /// <summary>Where one station stands in the metres of its road's own line.</summary>
     static float AlongM(ReadOnlySpan<ArcSeg> arcs, float lengthM, KerbNodes cut) =>
         Spline.ProjectM(arcs, (cut.NearM + cut.FarM) * 0.5f, lengthM * 0.5f, lengthM);

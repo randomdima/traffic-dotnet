@@ -23,13 +23,16 @@ internal sealed partial class GroundMesh
     /// </para>
     /// <para>
     /// <b>And where it stops short of the paint at either end is the run's too</b>
-    /// (<see cref="CentrelineRuns.PaintedM"/>). A run ends at a junction that forks and a crossing stands
-    /// only at one, so its two ends are the only places its line meets other paint.
+    /// (<see cref="CentrelineRuns.PaintedM"/>). A run ends at a junction that forks and a crossing stands at one
+    /// — or midway down a road too short to be crossed twice (WLK-10a), which the line is parted round
+    /// (<see cref="LineRound"/>).
     /// </para>
     /// </remarks>
+    /// <param name="crossings">What each arm holds behind, which the line stops short of at its two ends.</param>
+    /// <param name="zebras">The paint the walk crosses on, whose bands midway down a road the line is parted round.</param>
     /// <param name="level">The level whose runs are laid: a run never crosses from one to the other (<see cref="CentrelineRuns"/>).</param>
     void LaneDashes(
-        CentrelineRuns runs, CityPlan plan, SimConfig config, Crossings crossings, Vector3 tint, byte level)
+        CentrelineRuns runs, CityPlan plan, SimConfig config, Crossings crossings, Crossings zebras, Vector3 tint, byte level)
     {
         var dashM = config.Road.LaneDashLengthM;
         var pitchM = dashM + config.Road.LaneDashGapM;
@@ -41,15 +44,66 @@ internal sealed partial class GroundMesh
             if (plan.Roads.LevelOf(runs.RoadsOf(run)[0]) != level) continue;
 
             var (fromM, toM) = runs.PaintedM(run, crossings, config);
-            if (runs.IsUnbroken(run))
-            {
-                if (toM > fromM) DashRun(runs.Of(run), fromM, toM, toM - fromM, toM - fromM, halfWidthM, tint);
-            }
-            else
-            {
-                DashRun(runs.Of(run), fromM, toM, dashM, pitchM, halfWidthM, tint);
-            }
+            var unbroken = runs.IsUnbroken(run);
+            LineRound(
+                runs.Of(run), runs.RoadsOf(run), zebras, config, fromM, toM, unbroken ? 0f : dashM, pitchM, halfWidthM, tint);
         }
+    }
+
+    /// <summary>
+    /// <b>One line from <paramref name="fromM"/> to <paramref name="toM"/>, parted round every band painted midway down
+    /// a road it runs along</b> (WLK-10a, TER-6): each a bar's setback clear of the band's edge either side, as a line
+    /// stops short of the paint at a road's end. A <paramref name="dashM"/> of nought is a line unbroken.
+    /// </summary>
+    void LineRound(
+        ReadOnlySpan<ArcSeg> arcs, ReadOnlySpan<int> roads, Crossings zebras, SimConfig config, float fromM, float toM,
+        float dashM, float pitchM, float halfWidthM, Vector3 tint)
+    {
+        var lengthM = Spline.TotalLengthM(arcs);
+        var clearM = config.Road.StopBarSetbackM;
+        var pieceFromM = fromM;
+        foreach (var (lowM, highM) in Midways(arcs, lengthM, roads, zebras, clearM))
+        {
+            if (highM <= pieceFromM || lowM >= toM) continue;
+
+            LinePiece(arcs, pieceFromM, MathF.Min(lowM, toM), dashM, pitchM, halfWidthM, tint, config.Road.LaneDashLengthM);
+            pieceFromM = MathF.Max(pieceFromM, highM);
+        }
+
+        LinePiece(arcs, pieceFromM, toM, dashM, pitchM, halfWidthM, tint, pieceFromM > fromM ? config.Road.LaneDashLengthM : 0f);
+    }
+
+    /// <summary>
+    /// One unparted stretch of a line, dashed or — at a <paramref name="dashM"/> of nought — unbroken, and none at all
+    /// shorter than <paramref name="leastM"/>: what parting a line round a band leaves between the band and a bar is a
+    /// stub that reads as a stray dash.
+    /// </summary>
+    void LinePiece(
+        ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float dashM, float pitchM, float halfWidthM, Vector3 tint, float leastM)
+    {
+        if (toM - fromM <= leastM || toM <= fromM) return;
+
+        if (dashM <= 0f) DashRun(arcs, fromM, toM, toM - fromM, toM - fromM, halfWidthM, tint);
+        else DashRun(arcs, fromM, toM, dashM, pitchM, halfWidthM, tint);
+    }
+
+    /// <summary>Where along a line each band painted midway down one of its roads reaches, <paramref name="clearM"/> wider either side, in order along it.</summary>
+    static List<(float LowM, float HighM)> Midways(
+        ReadOnlySpan<ArcSeg> arcs, float lengthM, ReadOnlySpan<int> roads, Crossings zebras, float clearM)
+    {
+        var reach = new List<(float LowM, float HighM)>();
+        foreach (var road in roads)
+        {
+            var at = zebras.At(road, atTo: false);
+            if (at == Crossings.None || !zebras.Midway[at] || zebras.DepthM[at] <= 0f) continue;
+
+            var atM = Spline.ProjectM(arcs, zebras.CentreM[at], lengthM * 0.5f, lengthM);
+            var halfM = (zebras.DepthM[at] * 0.5f) + clearM;
+            reach.Add((atM - halfM, atM + halfM));
+        }
+
+        reach.Sort();
+        return reach;
     }
 
     /// <summary>
@@ -62,7 +116,7 @@ internal sealed partial class GroundMesh
     /// junction the way a lane line is — the turns out of the kerb lane sweep over the box past it.
     /// </remarks>
     /// <param name="level">The level whose lines are laid: a roadside is its road's.</param>
-    void RoadsideLines(CityPlan plan, SimConfig config, Crossings crossings, Vector3 tint, byte level)
+    void RoadsideLines(CityPlan plan, SimConfig config, Crossings crossings, Crossings zebras, Vector3 tint, byte level)
     {
         var roads = plan.Roads;
         var halfWidthM = config.Road.PaintLineWidthM * 0.5f;
@@ -82,7 +136,7 @@ internal sealed partial class GroundMesh
                 Spline.OffsetInto(line, roads.RoadsideLineM(road, withTheRoad) * sideSign, edge);
                 var (fromM, toM) = CentrelineRuns.PaintedM(
                     edge, JunctionArms.End(road, atTo: false), JunctionArms.End(road, atTo: true), crossings, config);
-                if (toM > fromM) DashRun(edge, fromM, toM, toM - fromM, toM - fromM, halfWidthM, tint);
+                LineRound(edge, [road], zebras, config, fromM, toM, 0f, 0f, halfWidthM, tint);
             }
         }
     }

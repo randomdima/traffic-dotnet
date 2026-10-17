@@ -384,6 +384,9 @@ internal static class Program
             case "connectors":
                 ConnectorShape.Run(map ?? Options.TracedMap, config);
                 return 0;
+            case "zebras":
+                ZebraShape.Run(map ?? Options.TracedMap, config);
+                return 0;
         }
 
         if (CheckCatalogue.TryFind(name, out var check)) return Kept(check.Run(config));

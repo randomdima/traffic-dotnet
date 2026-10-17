@@ -211,8 +211,8 @@ internal static class ConnectorShape
 
     /// <summary>
     /// <b>Ground inside a junction's box no movement covers</b>: every ring of the driven ground's boundary standing
-    /// wholly inside one junction's disc, which is a hole the box keeps — a kerbed island where the movements round it
-    /// leave a patch between them.
+    /// wholly inside one junction's disc — a kerbed island where the movements round it leave a patch between them,
+    /// which the driven ground fills (<c>LaneShell</c>, TER-3c.7), so any counted here is one that filling missed.
     /// </summary>
     static void HolesInBoxes(CityPlan plan, SimConfig config)
     {

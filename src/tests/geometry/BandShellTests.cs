@@ -93,6 +93,21 @@ public class BandShellTests
         for (var ring = 0; ring < held.Chains.Length; ring++) Assert.Equal(held.Chains[ring], cutTwice.Chains[ring]);
     }
 
+    /// <summary>
+    /// <b>A hole filled takes the ground standing in it along</b>: four bands round a square leave a hole, and a short
+    /// band in the middle of it a piece of ground of its own — which, the hole gone, is a crumb with nothing round it.
+    /// A hole kept keeps its piece.
+    /// </summary>
+    [Fact]
+    public void AHoleFilledTakesTheGroundStandingInItAlong()
+    {
+        var shell = Shell([Across(-20f), Across(20f), Along(-20f), Along(20f), [new ArcSeg(new Vector2(-3f, 0f), 0f, 6f, 0f)]]);
+
+        Assert.Equal(3, shell.Chains.Length);
+        Assert.Equal(3, shell.WithoutHoles(_ => false).Chains.Length);
+        Assert.Equal(1, shell.WithoutHoles(_ => true).Chains.Length);
+    }
+
     static float BoundaryM(BandShell shell)
     {
         var lengthM = 0f;

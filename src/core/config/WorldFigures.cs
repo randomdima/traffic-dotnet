@@ -108,6 +108,13 @@ internal sealed class RoadFigures
     public float CrossedOnceBelowM { get; init; } = 25f;
 
     /// <summary>
+    /// <b>How far apart two crossings' ways across may turn and still be painted over each other as one band</b>
+    /// (WLK-10b): within it their stripes run side by side, as a dual carriageway's two halves crossed at one
+    /// station are; beyond it they cross each other, and the one of the two the walk needs less is not painted.
+    /// </summary>
+    public float ZebrasOneBandWithinDeg { get; init; } = 10f;
+
+    /// <summary>
     /// <b>How far off the end of a zebra a walk may stand and still be the pavement that zebra is reached
     /// on</b> (WLK-15): the crossing is cut into every course passing within this of where its paint ends,
     /// and into nothing at all where the nearest of them stands further off than that.

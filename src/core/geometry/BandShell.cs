@@ -224,6 +224,55 @@ internal sealed partial class BandShell
     }
 
     /// <summary>
+    /// <b>The same shape with every hole <paramref name="filled"/> says of filled</b> — handed each hole's ring where it
+    /// stands in the world — and every piece of ground standing inside one of those holes, which goes with it: it was
+    /// the hole's, and alone it is a crumb of ground a kerb would be struck round.
+    /// </summary>
+    public BandShell WithoutHoles(Func<ArcSeg[], bool> filled)
+    {
+        var holes = new List<int>();
+        for (var ring = 0; ring < _chains.Length; ring++)
+        {
+            if (Spline.EnclosedM2(_chains[ring]) < 0.0 && filled(_worldChains[ring])) holes.Add(ring);
+        }
+
+        if (holes.Count == 0) return this;
+
+        var kept = new List<ArcSeg[]>(_chains.Length);
+        for (var ring = 0; ring < _chains.Length; ring++)
+        {
+            if (holes.Contains(ring)) continue;
+
+            var inAHole = false;
+            if (Spline.EnclosedM2(_chains[ring]) > 0.0)
+            {
+                foreach (var hole in holes) inAHole |= Within(_chains[hole], _chains[ring][0].StartM);
+            }
+
+            if (!inAHole) kept.Add(_chains[ring]);
+        }
+
+        return new BandShell([.. kept], _loose, _originM, _grid);
+    }
+
+    /// <summary>Whether a place stands inside a ring, read off the ring's own corners by the crossing count.</summary>
+    static bool Within(ReadOnlySpan<ArcSeg> ring, Vector2 pointM)
+    {
+        var inside = false;
+        for (var at = 0; at < ring.Length; at++)
+        {
+            var (fromM, toM) = (ring[at].StartM, ring[at].EndM);
+            if ((fromM.Y > pointM.Y) != (toM.Y > pointM.Y) &&
+                pointM.X < fromM.X + ((pointM.Y - fromM.Y) / (toM.Y - fromM.Y) * (toM.X - fromM.X)))
+            {
+                inside = !inside;
+            }
+        }
+
+        return inside;
+    }
+
+    /// <summary>
     /// <b>The merged shape moved off itself</b> (<see cref="ArcOutset"/>), at one distance and one corner
     /// radius. What goes in is <see cref="Chains"/> and never <see cref="Loose"/>: an outset is a fact
     /// about a closed shape, and a run with two ends has no outside.

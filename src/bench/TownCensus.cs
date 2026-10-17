@@ -164,7 +164,7 @@ internal static class TownCensus
                           $"{Mean(bars.ThicknessM):F2} m thick");
         // What an arrow says is what its lane offers (TER-6a), so the spread over the three is the town's
         // own reading of how much choice a driver holding at a bar has.
-        var arrows = LaneArrows.Lay(plan.Paving(config).Lanes, bars, config);
+        var arrows = LaneArrows.Lay(plan.Paving(config).Lanes, bars, crossings, config);
         Console.WriteLine($"  lane arrows    {arrows.Count,7}  {Saying(arrows, 1)} say one way, " +
                           $"{Saying(arrows, 2)} two, {Saying(arrows, 3)} three; " +
                           $"{Bending(arrows):F0}° of turn at the sharpest branch");
