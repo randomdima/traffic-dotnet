@@ -484,7 +484,7 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   cars parked at the kerbs and running the round (GEN-4n) a third as many are on the road at once, and the same run has
   no ring — which hides the lock rather than closing it. Tracing one ring to the claim that should have been yielded closes it.
 - **The fleet steers wider than the town lays its turns** (the same run: 38 cars driven off their line, 24 of them in
-  a box, 48 legs given up): the turn room (`SimConfig.JunctionTurnRoomM`) is the config car's 3.94 m circle, and most variants' is wider,
+  a box, 48 legs given up; 7 off their line with the cars parked at the kerbs, a third as many on the road): the turn room (`SimConfig.JunctionTurnRoomM`) is the config car's 3.94 m circle, and most variants' is wider,
   4.0 to 5.4 m (a pickup 4.9, the APC 5.4); `--bench connectors` lists 681 near-side and 161 far-side movements tighter
   even than 3.94 m, kept above the 2.4 m cornering floor. Sizing the turn room for the fleet's widest common circle — a
   figure the catalog would hand down to the town — closes it.
@@ -496,14 +496,22 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **A car's round finds no bay in a town whose car parks stand far apart and that has no roadside** (CAR-8,
   `TownWorld.SetOffForAnotherBay`): it draws a place within `Driving.RoundReachM` (600 m) and asks for a free place within
   a walk of it, so on OdesaOsm with its car parks alone 2 of 5 000 cars drove in two minutes. Its kerbs (GEN-4n) are
-  what the round finds there now, and only 24 of 859 parked in a car park; drawing the round's place off the places
+  what the round finds there now, and only 24 of 1 133 parked in a car park; drawing the round's place off the places
   within reach rather than off a drawn point closes it, and would send more of them to the car parks.
-- **A route that asks a car to move across at the end of a lane with no room left to do it holds the car there for
-  good** (OdesaOsm 119,19315, 2060,12186, 1362,22132; `--bench stuck` 120 s with kerb parking, 2026-10-17): four cars
-  wait "looking to change lanes" at a lane's end and 88 queue behind them. A re-route from where it waits asks for the
-  same move across, since a lane change is priced at a car length (`Driving.LaneSwitchPriceCarLengths`) however little
-  lane is left. The touring cars never had a route to hit it; cars on a round do. A search that prices a move across by
-  the lane left to make it in — or a car that gives the move up and drives on its own lane's way after a wait — closes it.
+- **A move across is priced at a car length however little lane is left to make it in** (`Driving.LaneSwitchPriceCarLengths`):
+  a route still asks a car for a move across at a lane's end that has no room for one, and the car drives on past it
+  and is routed again (CAR-53, `TownWorld.DriveOnPastTheMoveAcross`; 11–21 a 120 s run on OdesaOsm). Pricing a move
+  across by the lane left to make it in closes it, and the detour with it.
+- **A body read off its wheels reaches past its band by half the lattice's diagonal** (`RibbonAtlas.UnderWheels`, 0.35 m
+  at the 0.5 m step): a car whose wheels stand within that of the next way is read on it. A car parked at a kerb is laid
+  over its place instead (GEN-4n), but one standing a hair off its place, and a car on a lane's edge, are read across
+  the line. Reading a wheel against the bands rather than off the nearest lattice point closes it.
+- **A vehicle wider than a roadside never parks at a kerb** (GEN-4n): the pickups and the APC run the round to car parks
+  only, and a traced map's spawn stands none of them at a kerb, so its car count falls short by their share.
+- **One car was wrecked in the 120 s run with no other car wrecked beside it** (OdesaOsm 4032.9,13934.5, car 9, tick
+  2 999, coming off a box onto lane 896 at 8 m/s, 2026-10-17): what it struck is not said — a parked car laid over its
+  kerb place and swept by a turn out of the box, a prop, or a wall. A shot at that tick did not stand the car there;
+  the probe naming what a lone wreck touched closes it.
 - **A traced town hands its people no car at a kerb** (PER-29, `TownWorld.HandThemTheirCar`): an owner is handed a car
   only where a painted bay stands free within a walk of their door, so on OdesaOsm almost nobody owns one, though a kerb
   runs past most doors. Handing the free kerb place nearest the door (GEN-4n) closes it — at 40 000 people, that many

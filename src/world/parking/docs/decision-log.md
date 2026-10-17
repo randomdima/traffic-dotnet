@@ -4,6 +4,33 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-17 — a car at the kerb is laid over its place, stands against the kerb, and is never held at a lane's end
+
+**A review of the kerb parking and the 120 s probe after it** (OdesaOsm, 5 000 cars) found what the first cut got wrong.
+
+- **A car parked at the kerb is laid over the stretch its place takes, not where its wheels are read.** Its wheels are
+  at its sides (a half-track of 0.95 m on a 1.94 m car), the roadside is 2.2 m, and a wheel is read on the lattice point
+  nearest it, half a 0.5 m step's diagonal off — so a car parked square was read in the lane beside about one time in
+  three, and the traffic queued behind a parked car: 88 of 95 standing cars at the end of the run. Refusing every place
+  a wheel could be misread at refused nearly all of them (219 cars drove). Laying the parked body over its place —
+  still its own body's claim on the ground it is on — took the standing to one. **A car its manoeuvre left with a corner
+  in the lane is read by its wheels**: laid over its place alone it was a body the traffic drove into, eight wrecks.
+- **A car stands against the kerb**, by its own width, as a driver parks: the furthest from the traffic the strip lets
+  it be. A car wider than the roadside parks at no kerb, and none at a stretch whose line stands too near the lane.
+- **The manoeuvre reads the kerb by the body as it is turned**: read round the half-diagonal, as the lanes a bay is
+  worked off are, every station of a car driving up the kerb lane stood over the roadside, and the cars parked either
+  side of a gap refused the slide into it — 1 724 asks withdrawn of 4 567; now 164.
+- **A car that cannot move across for its route drives on** (CAR-53): four cars stood for good at lanes' ends asking for
+  a move across with no lane left to make it in, and a route laid again from there asked for it again.
+- **Smaller**: no kerb along a bend tighter than a car parks along (`SimConfig.KerbCurvatureMax`); a round's next place
+  at least a block's walk away (a car was sent to the gap beside its own); a retarget holds its old place while it looks,
+  so it is not offered the same gap under a new number; a search opens a gap only where it hands it back; a car on a
+  roadside with no place gets one, or takes the lane beside; the car parks' bays start a zebra past the box's edge and not
+  the aisle line's end, where a car turning in was already past its stop; an entrance is not refused for the street it
+  joins.
+- **What it came to over 120 s**: 1 133 parkings (1 109 at a kerb), 3 legs given up, 1 wreck, 1 car standing at the end
+  (behind a walker's claim at a zebra), no ring.
+
 ## 2026-10-17 — a car parks alongside a kerb, in a gap the bodies there leave, and in no slot
 
 **The owner asked for cars to park both in the car parks and on the roadside where one runs, the roadside held by

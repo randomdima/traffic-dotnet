@@ -398,7 +398,7 @@ internal sealed partial class TownWorld
         // stood.
         if (bay < 0 && _plan.Spawns.OnARoadside(spawn))
         {
-            bay = KerbPlaceUnder(positionM, Cars.BuildOfVariant(variant).LengthM);
+            bay = KerbPlaceUnder(positionM, Cars.BuildOfVariant(variant));
             if (bay < 0) return;
         }
 

@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.Agents.Car.Control;
 
 namespace TrafficSimulation.World.Town;
@@ -63,8 +64,10 @@ internal sealed partial class TownWorld
         var place = DrawnDownTheRoad(SetsOffFrom(car), _config.Driving.RoundReachM, ref draw);
         if (!place.IsSomewhere) return;
 
+        // Never a place a walk from where it stands: a car that moves on moves somewhere, and one sent to the gap beside its
+        // own stood in the lane manoeuvring out to manoeuvre straight back in.
         var bay = FreeBayOff(place, PointOf(place), _config.PersonWalkWorthM, car);
-        if (bay < 0 || bay == _parking.BayOf(car)) return;
+        if (bay < 0 || bay == _parking.BayOf(car) || Vector2.Distance(_parking.CentreM(bay), Cars.PositionM[car]) < _config.PersonWalkWorthM) return;
 
         RoundsSetOff++;
         SendTo(car, _parking.CentreM(bay), bay);

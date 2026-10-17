@@ -249,7 +249,15 @@ internal static class BayManoeuvre
         var along = Heading.Unit(alongRad);
         var abeamM = onM + (along * Vector2.Dot(at - onM, along));
         if (!Beside(start, new Pose(abeamM, alongRad), out var sideSign, out _, out var besideM, out var deltaRad)
-            || !S(besideM, deltaRad, radiusM, runOutM, out var firstRad, out var secondRad, out _))
+            || !S(besideM, deltaRad, radiusM, runOutM, out var firstRad, out var secondRad, out var runM))
+        {
+            return Shape.None;
+        }
+
+        // Laid again to the place on the line the first one ran out abeam of: a line not quite alongside the car stands
+        // further off or nearer there than abeam of where the S begins.
+        if (!Beside(start, new Pose(abeamM + (along * runM), alongRad), out sideSign, out _, out besideM, out deltaRad)
+            || !S(besideM, deltaRad, radiusM, runOutM, out firstRad, out secondRad, out _))
         {
             return Shape.None;
         }

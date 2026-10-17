@@ -110,6 +110,7 @@ internal sealed partial class TownWorld
 
             case CarAction.Switch:
                 _switching.Decide(car, sinceLastDecisionS);
+                if (_switching.HasNoRoomToMoveAcross(car)) DriveOnPastTheMoveAcross(car);
                 return;
 
             case CarAction.Park:
@@ -222,6 +223,17 @@ internal sealed partial class TownWorld
 
         // A car waiting at its bay for the street its way in needs has no road to route round: laid again, the route
         // ends where it stands. What holds it is at the bay, so the bay is what is given up.
+        // A car waiting to move across for its route has a route laid again from where it waits ask for the same move
+        // across, so it drives on past it instead (CAR-53): through the junction its own lane leads to, routed again from there.
+        if (Cars.Action[car] == CarAction.Switch && !Cars.Pass[car].Begun && Cars.Reroutes[car] < _config.Patience.ReroutesPerLeg)
+        {
+            Cars.Reroutes[car]++;
+            DriveOnPastTheMoveAcross(car);
+            ReroutesTaken++;
+            _driveProgress.Restart(car);
+            return;
+        }
+
         var waitsAtItsBay = Cars.Action[car] == CarAction.Park && !Manoeuvres.IsBegun(car);
         if (!waitsAtItsBay && Cars.Reroutes[car] < _config.Patience.ReroutesPerLeg && MarkTheWayBlocked(car))
         {

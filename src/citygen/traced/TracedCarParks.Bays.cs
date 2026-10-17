@@ -24,8 +24,8 @@ internal static partial class TracedCarParks
     /// <para>
     /// <b>A bay is laid where all of it stands in a car park's outline, its far node on the map, and nothing else stands</b>: clear of every
     /// junction's disc, every other road's carriageway and every bay already laid, on a stretch of aisle straight enough
-    /// to square one to (<see cref="SimConfig.CarParkCurvatureMax"/>), and past where the aisle's lanes end by a zebra
-    /// struck across it (<see cref="SimConfig.CarParkRankClearM"/>). So the ranks stop short of every junction, and the
+    /// to square one to (<see cref="SimConfig.CarParkCurvatureMax"/>), and past the edge of the box at each end of the
+    /// aisle by a zebra struck across it (<see cref="SimConfig.CarParkRankClearM"/>). So the ranks stop short of every junction, and the
     /// walk between two ranks back to back (<see cref="CityGenFigures.CarParkIslandM"/>) runs out to the zebras there.
     /// </para>
     /// </remarks>
@@ -67,7 +67,12 @@ internal static partial class TracedCarParks
             var aisleM = Spline.TotalLengthM(line);
             var kerbM = roads.WidthM[aisle] * 0.5f;
             var before = bayLines.Count;
-            for (var alongM = clearM; alongM <= aisleM - clearM; alongM += bayM)
+            // From the edge of the box at each end and not the line's end: the aisle's line runs to the junction, its lanes
+            // only from the box's edge, and a rank begun nearer than a zebra past that is one a car turning in off the
+            // junction is already past the place to stop for.
+            var rankFromM = laid.Junctions.RadiusM[roads.FromJunction[aisle]] + clearM;
+            var rankToM = aisleM - laid.Junctions.RadiusM[roads.ToJunction[aisle]] - clearM;
+            for (var alongM = rankFromM; alongM <= rankToM; alongM += bayM)
             {
                 var at = Spline.SampleAt(line, alongM);
                 if (MathF.Abs(at.Curvature) > curvatureMost

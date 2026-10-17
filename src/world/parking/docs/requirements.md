@@ -213,8 +213,16 @@ either side (`KerbStretches`). Nothing is laid along it for parking.
   place of the register like a painted bay — claimed for the leg (GEN-4g), occupied once parked — worked off the kerb
   lane beside it, and **closed once nobody holds it**; one a search offered and nobody claimed is the kerb's again the
   next tick.
-- **What holds the kerb is the body**: a car standing at the kerb holds the roadside under its wheels by the same
-  claim every body holds the way it stands on (TER-4c.2), and that claim is what the next car's gap is read off.
+- **What holds the kerb is the body**: a car standing at the kerb holds the roadside by the same claim every body holds
+  the way it stands on (TER-4c.2), and that claim is what the next car's gap is read off. **It is laid over the stretch
+  its place takes and not where its wheels are read** (`TownWorld.StandsAtItsKerb`), while all of the body stands clear
+  of the lane beside: a car's wheels are at its sides, a roadside is barely wider than a car, and a wheel read off the
+  lattice reaches past a band's edge, so a car parked square read as standing in the lane about one time in three and
+  the traffic queued behind it. A car left with a corner in the lane is read by its wheels, so the traffic sees it.
+- **Against the kerb**, as a driver parks (`TownWorld.AgainstTheKerbM`), by the car's own width; a car wider than the
+  roadside parks at no kerb, and none at a stretch where the roadside's line stands so near the lane that it would
+  stand in it. **Nor along a bend** a car's length laid as a chord stands off by more than
+  `SimConfig.CityGen.CarParkOffLaneMaxM` (`SimConfig.KerbCurvatureMax`).
 - **In and out is a slide and not a turn** (GEN-4f, `BayManoeuvre.AlongsideIn`, `…BackIn`, `…Out`): forwards on an S
   where the car comes up to the gap with room behind it, or on past it and back in on an S in reverse; out on an S
   onto the lane, backing up `SimConfig.Driving.KerbBackUpM` first where what stands in front leaves too little room.
@@ -222,7 +230,11 @@ either side (`KerbStretches`). Nothing is laid along it for parking.
   roadside too**: a body already at the kerb refuses it there, as a body in the lane does.
 - **Its way in is on the kerb's side** (GEN-4e), away from the traffic.
 - **The kerb is searched beside the place's own street and the way back down it**, and a car parks at whichever of
-  the kerb or a painted bay stands nearer where it is going.
+  the kerb or a painted bay stands nearer where it is going. A search opens the gap it found only where it hands it
+  back, and asking whether a car could park somewhere opens none.
+- **A car standing on a roadside with no place opened for it** — a manoeuvre given up half way, a body shoved out of its
+  own — is given one where it stands, where all of it is at the kerb; otherwise it takes the lane beside as the road
+  under it (CAR-9).
 
 **GEN-4g** `P4` **Which bay a leg is aimed at is a claim, and it lives in a register.** It is a hold on no
 piece of road, and it is a register because it has to be: the hold is taken when a leg is sent to the bay

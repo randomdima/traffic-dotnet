@@ -29,7 +29,7 @@ internal sealed class KerbStretches
     readonly int[] _firstOfLane;
     readonly int[] _ofLane;
 
-    KerbStretches(int[] roadside, int[] beside, float[] fromM, float[] toM, int[] firstOfLane, int[] ofLane)
+    KerbStretches(int[] roadside, int[] beside, float[] fromM, float[] toM, int[] firstOfLane, int[] ofLane, Dictionary<int, int> laneBeside)
     {
         _roadside = roadside;
         _beside = beside;
@@ -37,8 +37,11 @@ internal sealed class KerbStretches
         _toM = toM;
         _firstOfLane = firstOfLane;
         _ofLane = ofLane;
-        for (var stretch = roadside.Length - 1; stretch >= 0; stretch--) _firstOfRoadside[roadside[stretch]] = stretch;
+        _laneBeside = laneBeside;
     }
+
+    /// <summary>A town with no kerb to park along, which is every town before its kerbs are laid.</summary>
+    public static KerbStretches None => new([], [], [], [], [0], [], []);
 
     public int Count => _roadside.Length;
 
@@ -57,21 +60,13 @@ internal sealed class KerbStretches
     /// <summary>The stretches worked off a street lane, each once.</summary>
     public ReadOnlySpan<int> BesideLane(int lane) => _ofLane.AsSpan(_firstOfLane[lane], _firstOfLane[lane + 1] - _firstOfLane[lane]);
 
-    /// <summary>The stretch of a roadside that holds a metre of it, or −1.</summary>
-    public int Holding(int roadside, float atM)
-    {
-        if (!_firstOfRoadside.TryGetValue(roadside, out var first)) return -1;
+    /// <summary>
+    /// <b>The kerb lane a roadside lies beside</b>, whether or not anything of it may be parked along — or −1: what a car
+    /// standing on the roadside takes as the road under it (CAR-9), the roadside being no lane it is driven down.
+    /// </summary>
+    public int LaneBeside(int roadside) => _laneBeside.TryGetValue(roadside, out var lane) ? lane : -1;
 
-        for (var stretch = first; stretch < _roadside.Length && _roadside[stretch] == roadside; stretch++)
-        {
-            if (atM >= _fromM[stretch] && atM <= _toM[stretch]) return stretch;
-        }
-
-        return -1;
-    }
-
-    /// <summary>The first stretch of each roadside that has any: a roadside's stretches stand one after another.</summary>
-    readonly Dictionary<int, int> _firstOfRoadside = [];
+    readonly Dictionary<int, int> _laneBeside;
 
     /// <summary>
     /// <b>Every roadside's parkable stretches</b>: its own run (<see cref="RoadGraph.RoadsideFromM"/>), less
@@ -83,7 +78,9 @@ internal sealed class KerbStretches
     /// How far the lane beside a stretch runs on before it and past it, which the stretch is cut back to: a car
     /// stopping for it, and one pulling out of it, each have that much of the lane.
     /// </param>
-    public static KerbStretches Build(RoadGraph roads, TownWays ways, WayCrossings marks, float clearM, float leastM, float laneRunM)
+    /// <param name="curvatureMax">The most a roadside may bend under a car parked along it, past which it carries none.</param>
+    public static KerbStretches Build(
+        RoadGraph roads, TownWays ways, WayCrossings marks, float clearM, float leastM, float laneRunM, float curvatureMax)
     {
         var lanesOfRoad = new Dictionary<int, List<int>>();
         for (var lane = 0; lane < roads.LaneCount; lane++)
@@ -101,6 +98,7 @@ internal sealed class KerbStretches
         var fromM = new List<float>();
         var toM = new List<float>();
         var perLane = new List<int>?[roads.LaneCount];
+        var laneBeside = new Dictionary<int, int>();
         var taken = new List<(float FromM, float ToM)>();
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
@@ -108,13 +106,15 @@ internal sealed class KerbStretches
 
             var runFromM = roads.RoadsideFromM(lane) + clearM;
             var runToM = roads.RoadsideToM(lane) - clearM;
-            if (runToM - runFromM < leastM) continue;
+            var lane0 = BesideTheRoadside(roads, lane, (roads.RoadsideFromM(lane) + roads.RoadsideToM(lane)) * 0.5f, kerbLanes);
+            if (lane0 < 0) continue;
+
+            laneBeside[lane] = lane0;
 
             // Never beside a lane that only ends (RoadGraph.DrivesOn): a car parked there leaves onto a lane it cannot
             // turn round on, and one coming to park drives to the end of it. Nor beside one nothing enters but the far
             // side of a dead end, which a car gets to only by driving down that dead end first.
-            var lane0 = BesideTheRoadside(roads, lane, (runFromM + runToM) * 0.5f, kerbLanes);
-            if (lane0 < 0 || !roads.DrivesOn(lane0) || !entered[lane0]) continue;
+            if (runToM - runFromM < leastM || !roads.DrivesOn(lane0) || !entered[lane0]) continue;
 
             var roadsideArcs = roads.ArcsOf(lane);
             var besideArcs = roads.ArcsOf(lane0);
@@ -126,6 +126,15 @@ internal sealed class KerbStretches
 
             taken.Clear();
             foreach (ref readonly var mark in marks.Of(ways.OfRoadLane(lane))) taken.Add((mark.MineFromM - clearM, mark.MineToM + clearM));
+
+            // A bend tighter than a car parks along is no kerb to park at, a half car either side of it.
+            var arcFromM = 0f;
+            foreach (ref readonly var arc in roadsideArcs)
+            {
+                if (MathF.Abs(arc.Curvature) > curvatureMax) taken.Add((arcFromM - (leastM * 0.5f), arcFromM + arc.LengthM + (leastM * 0.5f)));
+                arcFromM += arc.LengthM;
+            }
+
             taken.Sort();
 
             var atM = runFromM;
@@ -147,7 +156,7 @@ internal sealed class KerbStretches
             firstOfLane[lane + 1] = ofLane.Count;
         }
 
-        return new KerbStretches([.. roadside], [.. beside], [.. fromM], [.. toM], firstOfLane, [.. ofLane]);
+        return new KerbStretches([.. roadside], [.. beside], [.. fromM], [.. toM], firstOfLane, [.. ofLane], laneBeside);
 
         void Add(int onRoadside, int besideLane, float fromAtM, float toAtM)
         {

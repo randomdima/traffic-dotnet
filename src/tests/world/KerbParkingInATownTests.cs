@@ -55,6 +55,25 @@ public class KerbParkingInATownTests
     }
 
     /// <summary>
+    /// <b>A car at the kerb stands within its roadside</b>, its body clear of the lane beside: the traffic queues on a
+    /// body that stands in its lane.
+    /// </summary>
+    [Fact]
+    public void ACarAtTheKerbStandsWithinItsRoadside()
+    {
+        using var world = new TownWorld(TownPlan.Lay(Block(), Config, BuildingSizes.None), Config);
+
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            var roadside = world.Parking.KerbLaneOf(world.Parking.BayOf(car));
+            var arcs = world.Roads.ArcsOf(roadside);
+            Spline.ProjectM(arcs, world.Cars.PositionM[car], world.Roads.LaneLengthM[roadside] * 0.5f, world.Roads.LaneLengthM[roadside], out var offSq);
+            var spareM = (world.Roads.LaneWidthM[roadside] - world.Cars.BuildOf(car).WidthM) * 0.5f;
+            Assert.True(MathF.Sqrt(offSq) <= spareM + LineTolerance.RoundingM, $"car {car} stands {MathF.Sqrt(offSq):F2} m off its roadside's middle, {spareM:F2} m to spare");
+        }
+    }
+
+    /// <summary>
     /// <b>Two cars at one kerb stand a gap apart</b> (<see cref="RoadFigures.KerbParkingGapM"/>): no place is opened over
     /// another, nor within a gap of it.
     /// </summary>

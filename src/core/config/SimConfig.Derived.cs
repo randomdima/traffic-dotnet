@@ -503,6 +503,13 @@ internal sealed partial class SimConfig
     /// </summary>
     public float CarParkEntranceClearM => CityGen.TracedJunctionsMergedM + JunctionRadiusM;
 
+    /// <summary>
+    /// <b>The most a kerb may bend and still be parked along</b> (GEN-4n): the curvature at which a car's length laid as a
+    /// chord stands off the kerb by <see cref="CityGenFigures.CarParkOffLaneMaxM"/> at its middle — the sagitta
+    /// <c>kL²/8</c>, turned round. A car slid in alongside a kerb bending more stands off it, or over it.
+    /// </summary>
+    public float KerbCurvatureMax => 8f * CityGen.CarParkOffLaneMaxM / (Car.LengthM * Car.LengthM);
+
     public float ParkingSpaceLengthM => Car.LengthM + Car.WidthM * Road.ParkingSpaceMarginInCarWidths * 2f;
 
     /// <summary>

@@ -47,6 +47,8 @@ internal sealed class BayStreets
     /// </summary>
     public void MakeRoomForKerbs(int kerbs)
     {
+        if (_kerbRoadside.Length > 0) throw new InvalidOperationException("the room for kerb places is made once, after the painted bays");
+
         var painted = _lane.Length;
         _paintedBays = painted / MostLanes;
         Array.Resize(ref _lane, painted + (kerbs * MostLanes));

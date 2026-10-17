@@ -376,7 +376,7 @@ internal static partial class TracedCarParks
             var along = Vector2.Normalize(hit.Segment.BM - hit.Segment.AM);
             if (MathF.Abs((directionM.X * along.Y) - (directionM.Y * along.X)) < minSquareSin) continue;
             if (junctions.Within(hit.AtM, clearM)) continue;
-            if (!obstacles.ClearAlong(fromM, directionM, hit.LengthM - hit.Segment.HalfM - halfAisleM, halfAisleM)) continue;
+            if (!obstacles.ClearAlong(fromM, directionM, hit.LengthM, halfAisleM, hit.Segment.Road)) continue;
 
             found.Add((new Entrance(rung, atU, hit.Segment.Road, fromM, hit.AtM), hit.LengthM));
         }
@@ -594,14 +594,19 @@ internal static partial class TracedCarParks
             return first;
         }
 
-        /// <summary>Whether a line this far out of a place stands further from every road than that road's half and its own.</summary>
-        public bool ClearAlong(Vector2 fromM, Vector2 directionM, float lengthM, float halfM)
+        /// <summary>
+        /// Whether a line this far out of a place stands further from every road than that road's half and its own — but
+        /// <paramref name="joins"/>, the road it is laid to meet, which it reaches by construction.
+        /// </summary>
+        public bool ClearAlong(Vector2 fromM, Vector2 directionM, float lengthM, float halfM, int joins)
         {
             if (lengthM <= 0f) return true;
 
             var toM = fromM + (directionM * lengthM);
             foreach (var segment in Near(Box.Of([fromM, toM]).Grown(halfM + WidestHalfM)))
             {
+                if (segment.Road == joins) continue;
+
                 for (var atM = 0f; atM <= lengthM; atM += RowM)
                 {
                     var hereM = fromM + (directionM * atM);

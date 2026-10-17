@@ -32,6 +32,7 @@ internal sealed partial class TownWorld
 
         Cars.Driven[car] = true;
         Cars.ClearRoute(car);
+        _drivesOnFrom[car] = CarFleet.NoLane;
         GiveUpTheTurn(car);
         _driveProgress.Restart(car);
 
@@ -79,15 +80,28 @@ internal sealed partial class TownWorld
     /// </summary>
     int TheBayItStandsIn(int car)
     {
+        var atTheKerb = false;
+        var onTheStreet = false;
         foreach (ref readonly var cover in CoversOfCar(car))
         {
             if (_ways.KindOf(cover.Way) != WayKind.Lane) continue;
 
-            var bay = _bayStreets.BayOnArm(_ways.RoadLaneOf(cover.Way));
+            var lane = _ways.RoadLaneOf(cover.Way);
+            atTheKerb |= _roads.IsARoadside(lane);
+            onTheStreet |= _roads.IsAStreetLane(lane);
+            var bay = _bayStreets.BayOnArm(lane);
             if (bay >= 0 && _parking.HoldsTheBody(bay, Cars.PositionM[car])) return bay;
         }
 
-        return ParkingRegistry.NoBay;
+        // <b>A car standing at a kerb with no place opened for it</b> (GEN-4n) — a manoeuvre into one given up half way, a
+        // body shoved out of its own — is given one where it stands, so it leaves the way every car at a kerb does. <b>Only
+        // wholly at the kerb</b>: one with a wheel on the street is in the road, takes it from there, and would otherwise
+        // ask for a way out over the cars queued behind it.
+        if (!atTheKerb || onTheStreet) return ParkingRegistry.NoBay;
+
+        var kerb = KerbPlaceUnder(Cars.PositionM[car], Cars.BuildOf(car));
+        if (kerb >= 0) _parking.Occupy(kerb, car);
+        return kerb;
     }
 
     /// <summary>
@@ -258,10 +272,19 @@ internal sealed partial class TownWorld
             {
                 case WayKind.Lane:
                     var lane = _ways.RoadLaneOf(cover.Way);
+                    var aroundM = (cover.FromM + cover.ToM) * 0.5f;
+                    var windowM = cover.ToM - cover.FromM;
+
+                    // A body at a kerb stands on the road of the lane beside it (GEN-4n), read along that lane whole.
+                    if (_roads.IsARoadside(lane) && _kerbs.LaneBeside(lane) is var beside and >= 0)
+                    {
+                        lane = beside;
+                        (aroundM, windowM) = (_roads.LaneLengthM[lane] * 0.5f, _roads.LaneLengthM[lane]);
+                    }
+
                     if (!_roads.IsAStreetLane(lane)) continue;
 
-                    var aroundM = (cover.FromM + cover.ToM) * 0.5f;
-                    var alongM = Spline.ProjectM(_roads.ArcsOf(lane), rearAxleM, aroundM, cover.ToM - cover.FromM, out var offSq);
+                    var alongM = Spline.ProjectM(_roads.ArcsOf(lane), rearAxleM, aroundM, windowM, out var offSq);
                     if (Vector2.Dot(Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction, forward) <= 0f)
                     {
                         if (_roads.LaneReverse[lane] is not (var back and >= 0)) continue;
@@ -364,8 +387,9 @@ internal sealed partial class TownWorld
     /// <summary>
     /// From the car's side: a bay that cannot be reached or cannot be driven into is given up for the
     /// nearest one that can, near where the car has actually got to — and a car with nowhere to put itself
-    /// keeps driving rather than standing in a lane. <b>Release before taking</b>: a place held by a car
-    /// that has gone elsewhere is a place removed from the town.
+    /// keeps driving rather than standing in a lane. <b>The old place is given back whatever comes of it</b> — by the
+    /// claim on the new one, or by finding none: a place held by a car that has gone elsewhere is a place removed from
+    /// the town.
     /// </summary>
     /// <remarks>
     /// <b>The same handful of searches a leg is drawn with</b> (<see cref="BaysRoutedPerLeg"/>), and for
@@ -374,7 +398,9 @@ internal sealed partial class TownWorld
     /// </remarks>
     bool RetargetTheBay(int car, Vector2 nearM, int avoidBay)
     {
-        GiveUpTheBay(car);
+        // <b>The old place is held while the new one is looked for</b>, so it is not the one found: a kerb place given
+        // back first is the same gap offered again under another number (GEN-4n). Taking the new one gives it back;
+        // finding none does.
 
         // The place changed, so a turn the old route asked for is a turn nothing is asking for. The one the
         // new route needs is claimed where that route reaches its frontage, like any other.
@@ -407,6 +433,7 @@ internal sealed partial class TownWorld
             return true;
         }
 
+        GiveUpTheBay(car);
         return false;
     }
 

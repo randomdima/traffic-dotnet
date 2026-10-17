@@ -257,13 +257,16 @@ internal sealed partial class TownWorld
     int FreeBaysNear(in RoadPlace near, Vector2 ofM, float withinM, int car, Span<int> into)
     {
         var count = FreePaintedBaysNear(near, ofM, withinM, into);
-        var kerb = KerbPlaceNear(near, ofM, withinM, car);
-        if (kerb < 0) return count;
+        var gap = NearestKerbGap(near, ofM, withinM, car);
+        if (gap.Stretch < 0) return count;
 
-        var kerbM = Vector2.Distance(_parking.CentreM(kerb), ofM);
+        // Opened only where it is among what is handed back: a gap nearer nothing is no place to hold.
         var at = count;
-        while (at > 0 && Vector2.Distance(_parking.CentreM(into[at - 1]), ofM) > kerbM) at--;
+        while (at > 0 && Vector2.Distance(_parking.CentreM(into[at - 1]), ofM) > gap.FarM) at--;
         if (at == into.Length) return count;
+
+        var kerb = OpenTheKerb(gap.Stretch, gap.AtM, Cars.BuildOf(car));
+        if (kerb < 0) return count;
 
         var kept = Math.Min(count + 1, into.Length);
         for (var slot = kept - 1; slot > at; slot--) into[slot] = into[slot - 1];
@@ -314,6 +317,16 @@ internal sealed partial class TownWorld
     {
         Span<int> one = stackalloc int[1];
         return FreeBaysNear(near, ofM, withinM, car, one) > 0 ? one[0] : -1;
+    }
+
+    /// <summary>
+    /// <b>Whether a car could park within <paramref name="withinM"/> of a place</b> — a free painted bay, or a gap at a kerb
+    /// (GEN-4n) — asked and nothing opened: a trip drawn is not yet a trip driven.
+    /// </summary>
+    bool HasAPlaceNear(in RoadPlace near, Vector2 ofM, float withinM, int car)
+    {
+        Span<int> one = stackalloc int[1];
+        return FreePaintedBaysNear(near, ofM, withinM, one) > 0 || NearestKerbGap(near, ofM, withinM, car).Stretch >= 0;
     }
 
     /// <summary>
@@ -497,6 +510,13 @@ internal sealed partial class TownWorld
             if (_ways.KindOf(cover.Way) != WayKind.Lane) continue;
 
             var lane = _ways.RoadLaneOf(cover.Way);
+
+            // A body at a kerb is on the road of the lane beside it (GEN-4n).
+            if (_roads.IsARoadside(lane) && _kerbs.LaneBeside(lane) is var beside and >= 0)
+            {
+                return new RoadPlace(beside, Spline.ProjectM(_roads.ArcsOf(beside), atM, _roads.LaneLengthM[beside] * 0.5f, _roads.LaneLengthM[beside]));
+            }
+
             if (!_roads.IsAStreetLane(lane)) continue;
 
             var alongM = Spline.ProjectM(

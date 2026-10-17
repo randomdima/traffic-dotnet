@@ -303,6 +303,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _stoodTick = new StoodTick[drivers];
         _refusedALane = new bool[drivers];
         _tours = new bool[drivers];
+        _drivesOnFrom = new int[drivers];
+        Array.Fill(_drivesOnFrom, CarFleet.NoLane);
         _exitRefusedAtS = new float[drivers];
         Array.Fill(_exitRefusedAtS, float.NegativeInfinity);
         _asksTheRoute = new bool[drivers];

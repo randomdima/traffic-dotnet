@@ -446,7 +446,9 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
             var lengthM = ground.Roads.LaneLengthM[lane];
             var aroundM = each < worked.Length ? streets.AtLaneM(bay, lane) : streets.KerbRoadsideAtM(bay);
             var windowM = toM + build.LengthM;
-            var acrossM = (ground.Roads.LaneWidthM[lane] * 0.5f) + reachM;
+            var halfLaneM = ground.Roads.LaneWidthM[lane] * 0.5f;
+            var acrossM = halfLaneM + reachM;
+            var atTheKerb = each >= worked.Length;
             var leastM = float.PositiveInfinity;
             var mostM = float.NegativeInfinity;
             var firstAtM = float.PositiveInfinity;
@@ -459,8 +461,23 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
                 var alongM = Spline.ProjectM(arcs, centreM, aroundM, windowM, out var offSq);
                 if (offSq > acrossM * acrossM) continue;
 
-                leastM = MathF.Min(leastM, alongM - reachM);
-                mostM = MathF.Max(mostM, alongM + reachM);
+                // <b>The kerb is read by the body as it is turned</b> (GEN-4n): it runs beside the very lane the car drives up,
+                // nearer than a body's half-diagonal, so read round the diagonal every station of the car going by stood
+                // over it, and the cars parked either side of a gap refused the slide into it.
+                var stationReachM = reachM;
+                if (atTheKerb)
+                {
+                    var laneAlong = Spline.SampleAt(arcs, alongM).Direction;
+                    var (sin, cos) = (MathF.Abs(Spline.Cross(on.Direction, laneAlong)), MathF.Abs(Vector2.Dot(on.Direction, laneAlong)));
+                    var (halfLengthM, halfWidthM) = (build.CollisionSizeM.X * 0.5f, build.CollisionSizeM.Y * 0.5f);
+                    var outM = (halfLengthM * sin) + (halfWidthM * cos) + spareM;
+                    if (offSq > (halfLaneM + outM) * (halfLaneM + outM)) continue;
+
+                    stationReachM = (halfLengthM * cos) + (halfWidthM * sin) + spareM;
+                }
+
+                leastM = MathF.Min(leastM, alongM - stationReachM);
+                mostM = MathF.Max(mostM, alongM + stationReachM);
                 firstAtM = MathF.Min(firstAtM, atM);
                 lastAtM = MathF.Max(lastAtM, atM);
             }

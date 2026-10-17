@@ -220,6 +220,20 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
         return IsUnheld(car, step, inward, look.RoomToM) ? look with { Outcome = SwitchOutcome.Asks, Step = step } : look;
     }
 
+    /// <summary>
+    /// <b>Whether a car meaning to move across for its route has come to rest at its line's end with too little of it left
+    /// to step across from rest</b> — the room a step from rest takes (<see cref="WaitAtM"/>), which it had already passed
+    /// when the line was laid: a car that pulled out near a lane's end, or whose route was asked for again there. Asked
+    /// again from where it stands, the route asks for the same move across, so nothing but driving on moves it.
+    /// </summary>
+    public bool HasNoRoomToMoveAcross(int car)
+    {
+        if (Cars.Action[car] != CarAction.Switch || Cars.Pass[car].Begun || Cars.AlongMps[car] > Config.Driving.StopSpeedMps) return false;
+        if (!TheLineStopsToMoveAcross(car, out _)) return false;
+
+        return Cars.Line[car].LengthM - Cars.ProgressM[car] < _fromRestM[car];
+    }
+
     /// <summary>A decision taken as <see cref="Consider"/> worked it out.</summary>
     public void Take(int car, in SwitchLook look)
     {

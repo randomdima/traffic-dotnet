@@ -490,6 +490,14 @@ internal sealed partial class TownWorld
     /// </param>
     int NextLaneOnRoute(int car, int fromLane, ref bool searched)
     {
+        // <b>A car driving on past a move across it had no room for</b> (<see cref="DriveOnPastTheMoveAcross"/>) takes a way
+        // off its own lane, and the route is asked for again from the lane that leads it onto.
+        if (_drivesOnFrom[car] == fromLane)
+        {
+            _drivesOnFrom[car] = CarFleet.NoLane;
+            return LaneTour.NextLane(_roads, _config, fromLane, _closedLanes, ref Cars.Draw[car]);
+        }
+
         var next = Cars.PeekNextRouteLane(car);
 
         // <b>A route that moves across here</b> (CAR-53) is carried on down the lane the car is on, beside it.
@@ -566,6 +574,27 @@ internal sealed partial class TownWorld
     /// from where the body is, the route asked at its end as any laying asks it. Only a car driving the route's own
     /// line is grown — one that has since begun a manoeuvre is on a piece of it, and the flag is let go.
     /// </summary>
+    /// <summary>
+    /// <b>A car at the end of its line with no room left to move across for its route drives on</b> (CAR-53,
+    /// <see cref="Switching.HasNoRoomToMoveAcross"/>): through the junction off its own lane, the way a tour would take it,
+    /// and routed again from the lane that leads onto — what a driver who missed the lane does. Routed again from where it
+    /// stands, it is asked for the same move across.
+    /// </summary>
+    void DriveOnPastTheMoveAcross(int car)
+    {
+        _drivesOnFrom[car] = Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1];
+        Cars.ClearRoute(car);
+        Enter(car, CarAction.Follow);
+        LayLine(car, Cars.Line[car].LaneCount, Cars.ProgressM[car], grows: true);
+        MovesAcrossGivenUp++;
+    }
+
+    /// <summary>The lane each car drives on off past a move across it had no room for, or <see cref="CarFleet.NoLane"/>.</summary>
+    readonly int[] _drivesOnFrom;
+
+    /// <summary>How many cars drove on past a move across their route asked for and their lane had no room left for (CAR-53).</summary>
+    public long MovesAcrossGivenUp { get; private set; }
+
     void LayTheRestOfTheLine(int car)
     {
         if (!_asksTheRoute[car]) return;

@@ -256,7 +256,8 @@ internal static class StuckProbe
             $"passes: cars asked {world.Overtaking.Asked}, withdrew {world.Overtaking.Withdrawn}, made {world.Overtaking.Made}; " +
             $"walkers asked {world.Sidestepping.Asked}, withdrew {world.Sidestepping.Withdrawn}, made {world.Sidestepping.Made}");
         Console.WriteLine(
-            $"lane changes (CAR-53): asked {world.Switching.Asked}, withdrew {world.Switching.Withdrawn}, made {world.Switching.Made}");
+            $"lane changes (CAR-53): asked {world.Switching.Asked}, withdrew {world.Switching.Withdrawn}, made {world.Switching.Made}, " +
+            $"given up for want of room {world.MovesAcrossGivenUp}");
         Console.WriteLine(
             $"manoeuvres at a bay (GEN-4f): asked {world.Bays.Asked}, withdrew {world.Bays.Withdrawn}, " +
             $"begun {world.Bays.Begun} — parked {world.Bays.ParkedNoseIn} nose in and {world.Bays.ParkedBackedIn} backed in " +

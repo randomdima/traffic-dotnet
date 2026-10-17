@@ -1,8 +1,10 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -36,8 +38,58 @@ internal sealed partial class TownWorld
     /// it stands over as it reads them.
     /// </para>
     /// </remarks>
-    void LayTheCarsBody(int car) =>
+    void LayTheCarsBody(int car)
+    {
+        if (StandsAtItsKerb(car, out var atTheKerb))
+        {
+            _occupancy.PlaceBody(car, LaneRoster.Driving, LaidAs(car), LaneRoster.Driving, new ReadOnlySpan<WayCover>(in atTheKerb));
+            return;
+        }
+
         _occupancy.PlaceBody(car, LaneRoster.Driving, LaidAs(car), LaneRoster.Driving, _world.View.CoversOfCar(car));
+    }
+
+    /// <summary>
+    /// <b>Whether a car stands parked in its kerb place, and the roadside it holds there</b> (GEN-4n): the stretch its place
+    /// takes. <b>Laid there and not where its wheels are read</b>: a car's wheels stand at its sides, a roadside is
+    /// barely wider than a car, and the lattice a wheel is read on reaches past a band's edge — so a car parked square
+    /// against the kerb read as standing in the lane beside it about one time in three, and the traffic queued behind it.
+    /// It is still its body's own claim, on the ground its body is on.
+    /// </summary>
+    bool StandsAtItsKerb(int car, out WayCover atTheKerb)
+    {
+        atTheKerb = default;
+        if (Cars.Action[car] != CarAction.Stand) return false;
+
+        var bay = _parking.BayOf(car);
+        if (bay < 0 || !_parking.IsKerb(bay) || !_parking.HoldsTheBody(bay, Cars.PositionM[car])) return false;
+
+        var roadside = _parking.KerbLaneOf(bay);
+        if (!ClearOfTheLaneBeside(car, bay, roadside)) return false;
+
+        atTheKerb = new WayCover(_ways.OfRoadLane(roadside), _parking.KerbFromM(bay), _parking.KerbToM(bay));
+        return true;
+    }
+
+    /// <summary>
+    /// <b>Whether no part of a car's body reaches past its roadside's strip toward the lane beside</b>, read off its pose
+    /// against the strip's line: a car its manoeuvre left a little short of its place stands with a corner in the lane,
+    /// and laid on the roadside alone it would be a body the traffic drives into. Over the kerb is nobody's lane.
+    /// </summary>
+    bool ClearOfTheLaneBeside(int car, int bay, int roadside)
+    {
+        var arcs = _roads.ArcsOf(roadside);
+        var alongM = Spline.ProjectM(arcs, Cars.PositionM[car], _roads.LaneLengthM[roadside] * 0.5f, _roads.LaneLengthM[roadside]);
+        var on = Spline.SampleAt(arcs, alongM);
+        var towardKerb = _parking.WayInM(bay, noseIn: true) - _parking.CentreM(bay);
+        if (towardKerb.LengthSquared() <= 0f) return false;
+
+        var (sin, cos) = (MathF.Abs(Spline.Cross(Cars.Forward[car], on.Direction)), MathF.Abs(Vector2.Dot(Cars.Forward[car], on.Direction)));
+        ref readonly var build = ref Cars.BuildOf(car);
+        var towardLaneM = -Vector2.Dot(Cars.PositionM[car] - on.PositionM, Vector2.Normalize(towardKerb))
+                          + (build.LengthM * 0.5f * sin) + (build.WidthM * 0.5f * cos);
+        return towardLaneM <= (_roads.LaneWidthM[roadside] * 0.5f) + LineTolerance.RoundingM;
+    }
 
     /// <summary>
     /// Which of the town's cars this body's ground is held under — <b>itself, or the vehicle pulling it</b>
