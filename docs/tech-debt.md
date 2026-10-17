@@ -476,6 +476,10 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   only such case `--bench faults` finds (two-way roads over each other by more than a lane along most of the shorter);
   the other hits are pieces inside a junction cluster. Merging the two ways in OSM closes it; dropping one in the
   importer would need its side streets re-attached at both ends.
+- **Movements in a large gathered box loop round** (`--bench connectors`: 42 heading away from both their ends, worst at
+  OdesaOsm 4049,18549, an 8-arm box 45 m across): the lanes into the box end past each other, so a near-side turn is drawn
+  270° the long way. A biarc chosen to turn least was tried and could not help without bends tighter than the turn circle;
+  what closes it is the lanes into a gathered box ending short of where their lines cross (`TracedStreets.Standoffs`).
 - **A dual carriageway's halves converging into each other short of where they join are laid one over the other**
   along the converging stretch (OdesaOsm 3874,4971, ways 485394562 and 973057281, 58 m of 261 m): the lanes of the two
   ways interleave and no lane line is painted. `TracedStreets.Parted` moves a road's middle by one figure along all of

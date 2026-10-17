@@ -19,6 +19,10 @@ opened; they now run once, in `qq osm --mend` (`TracedStreets.Mended`), and the 
 - **A way ending beside another and running alongside it is not ending on it**: the almost-junction join first carried
   the ends of parallel ways onto each other. It takes an end only where its last leg heads into the other road.
 - **Version 7 is still read**, as roads holding no second byte; every generated map is version 7.
+- **Parting stays a road's middle moved off its line by one figure** (`CentreOffsetShare`, map data like the rest). Moving
+  the survey's points place by place, by half of what two carriageways share there, was tried: it parted converging
+  halves locally but left 20 carriageways over each other against 26, took the map to 30 481 points, and was never the
+  same twice — each side moved half, so what was left over was parted again on every mend.
 
 ## 2026-10-17 — what the source data got wrong, joined, taken off or parted
 
