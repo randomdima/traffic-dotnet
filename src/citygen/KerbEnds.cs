@@ -402,36 +402,34 @@ internal sealed class KerbEnds
             }
         }
 
-        var painted = Unpainted(crossings, figures);
         var heldM = new KerbNodes[stands.Count];
         for (var at = 0; at < stands.Count; at++) heldM[at] = Nodes(reading, stands[at], painted: !welded[at]);
 
-        var crossedM = new List<KerbNodes>();
-        for (var crossing = 0; crossing < crossings.Count; crossing++)
+        var (crossedM, stretched) = Painted(crossings, figures);
+        foreach (var (stand, band) in stretched)
         {
-            var (nodes, stand) = crossings[crossing];
-            if (painted[crossing])
-            {
-                crossedM.Add(nodes);
-                continue;
-            }
-
-            if (stand != None) heldM[stand] = Nodes(reading, stands[stand], painted: false);
+            heldM[stand] = band with { Road = heldM[stand].Road, Cut = heldM[stand].Cut };
         }
 
-        return (heldM, crossedM.ToArray());
+        return (heldM, crossedM);
     }
 
     /// <summary>
-    /// <b>Which crossings are painted, the rest being painted across by one that is</b> (WLK-10b): a station at a
-    /// street's end before a weld midway along one, then the wider carriageway first, each painted unless one
-    /// already painted would be painted across it.
+    /// <b>The crossings painted, none across another</b> (WLK-10b): a station at a street's end before a weld midway
+    /// along one, then the wider carriageway first, each painted unless one already painted would be painted across it —
+    /// and one beside an already painted one, turned no further than the figure from it, stretched into that one's band.
     /// </summary>
     /// <remarks>
     /// <b>Filed by a grid a band's reach on a side</b>, the widest span and the depth together, so a crossing is
-    /// weighed against the painted ones in its own cell and the eight round it and never against the town.
+    /// weighed against the painted ones in its own cell and the eight round it and never against the town. A band
+    /// stretched over a second is still filed where its first stood: the second stands within a band of it.
     /// </remarks>
-    static bool[] Unpainted(List<(KerbNodes Nodes, int Stand)> crossings, RoadFigures figures)
+    /// <returns>
+    /// The bands, and for each street's end stretched into another's band the band it was stretched into — what its
+    /// traffic is held behind, its own paint being that band.
+    /// </returns>
+    static (KerbNodes[] CrossedM, List<(int Stand, KerbNodes Band)> Stretched) Painted(
+        List<(KerbNodes Nodes, int Stand)> crossings, RoadFigures figures)
     {
         var order = new int[crossings.Count];
         var widestM = 0f;
@@ -451,21 +449,33 @@ internal sealed class KerbEnds
             return wider != 0 ? wider : one.CompareTo(other);
         });
 
-        var cellM = widestM + figures.CrossingDepthM;
+        var cellM = (widestM * 2f) + figures.CrossingDepthM;
         var filed = new Dictionary<(int X, int Y), List<int>>();
-        var painted = new bool[crossings.Count];
+        var bands = new KerbNodes[crossings.Count];
+        var painted = new List<int>();
+        var into = new List<(int Stand, int Band)>();
         foreach (var at in order)
         {
             var nodes = crossings[at].Nodes;
             var centreM = (nodes.NearM + nodes.FarM) * 0.5f;
             var (x, y) = ((int)MathF.Floor(centreM.X / cellM), (int)MathF.Floor(centreM.Y / cellM));
-            painted[at] = !Across(x, y);
-            if (!painted[at]) continue;
+            var over = Over(x, y);
+            if (over == None)
+            {
+                bands[at] = nodes;
+                painted.Add(at);
+                if (!filed.TryGetValue((x, y), out var cell)) filed[(x, y)] = cell = [];
+                cell.Add(at);
+                continue;
+            }
 
-            if (!filed.TryGetValue((x, y), out var cell)) filed[(x, y)] = cell = [];
-            cell.Add(at);
+            if (!bands[over].OneBand(nodes, figures.ZebrasOneBandWithinDeg)) continue;
 
-            bool Across(int x, int y)
+            bands[over] = bands[over].Spanning(nodes);
+            if (crossings[at].Stand != None) into.Add((crossings[at].Stand, over));
+
+            // The first painted band this one reaches into, or none.
+            int Over(int x, int y)
             {
                 for (var dx = -1; dx <= 1; dx++)
                 {
@@ -475,21 +485,22 @@ internal sealed class KerbEnds
 
                         foreach (var other in near)
                         {
-                            if (nodes.PaintedAcross(
-                                    crossings[other].Nodes, figures.CrossingDepthM, figures.ZebraStripeWidthM,
-                                    figures.ZebrasOneBandWithinDeg))
-                            {
-                                return true;
-                            }
+                            if (nodes.PaintedOver(bands[other], figures.CrossingDepthM, figures.ZebraStripeWidthM)) return other;
                         }
                     }
                 }
 
-                return false;
+                return None;
             }
         }
 
-        return painted;
+        painted.Sort();
+        var crossedM = new KerbNodes[painted.Count];
+        for (var at = 0; at < crossedM.Length; at++) crossedM[at] = bands[painted[at]];
+
+        var stretched = new List<(int Stand, KerbNodes Band)>(into.Count);
+        foreach (var (stand, over) in into) stretched.Add((stand, bands[over]));
+        return (crossedM, stretched);
     }
 
     /// <summary>
@@ -1067,25 +1078,41 @@ internal readonly record struct KerbNodes(
     /// painted over each other</b> (WLK-10b): each reaching more than <paramref name="intoM"/> into the other while
     /// their ways across turn more than <paramref name="oneBandWithinDeg"/> apart.
     /// </summary>
-    public bool PaintedAcross(in KerbNodes other, float depthM, float intoM, float oneBandWithinDeg)
-    {
-        var (across, otherAcross) = (Vector2.Normalize(FarM - NearM), Vector2.Normalize(other.FarM - other.NearM));
-        if (MathF.Abs(Vector2.Dot(across, otherAcross)) >= MathF.Cos(float.DegreesToRadians(oneBandWithinDeg))) return false;
+    public bool PaintedAcross(in KerbNodes other, float depthM, float intoM, float oneBandWithinDeg) =>
+        !OneBand(other, oneBandWithinDeg) && PaintedOver(other, depthM, intoM);
 
-        var apart = ((other.NearM + other.FarM) - (NearM + FarM)) * 0.5f;
-        ReadOnlySpan<Vector2> axes = [across, Heading.RightOf(across), otherAcross, Heading.RightOf(otherAcross)];
-        foreach (var axis in axes)
+    /// <summary>Whether the ways across of this and another turn no more than <paramref name="oneBandWithinDeg"/> apart.</summary>
+    public bool OneBand(in KerbNodes other, float oneBandWithinDeg) =>
+        MathF.Abs(Vector2.Dot(Vector2.Normalize(FarM - NearM), Vector2.Normalize(other.FarM - other.NearM))) >=
+        MathF.Cos(float.DegreesToRadians(oneBandWithinDeg));
+
+    /// <summary>
+    /// <b>Whether the bands laid across these and another's points, each <paramref name="depthM"/> deep, reach more than
+    /// <paramref name="intoM"/> into each other</b>, by separating axes, whichever way each is turned.
+    /// </summary>
+    public bool PaintedOver(in KerbNodes other, float depthM, float intoM) => Band(depthM).Overlaps(other.Band(depthM), intoM);
+
+    /// <summary>The band laid across these points <paramref name="depthM"/> deep, its length the way across.</summary>
+    public OrientedBox Band(float depthM) =>
+        new((NearM + FarM) * 0.5f, Vector2.Normalize(FarM - NearM), SpanM * 0.5f, depthM * 0.5f);
+
+    /// <summary>
+    /// <b>These points stretched across another's</b>, along this station's own way across: the one band two stations
+    /// side by side are painted as (WLK-10b), reaching from whichever of the four points stands furthest either way.
+    /// </summary>
+    public KerbNodes Spanning(in KerbNodes other)
+    {
+        var middleM = (NearM + FarM) * 0.5f;
+        var across = Vector2.Normalize(FarM - NearM);
+        var (leastM, mostM) = (-SpanM * 0.5f, SpanM * 0.5f);
+        foreach (var pointM in (ReadOnlySpan<Vector2>)[other.NearM, other.FarM])
         {
-            var reachM = ReachM(across, SpanM, depthM, axis) + ReachM(otherAcross, other.SpanM, depthM, axis);
-            if (MathF.Abs(Vector2.Dot(apart, axis)) > reachM - intoM) return false;
+            var atM = Vector2.Dot(pointM - middleM, across);
+            (leastM, mostM) = (MathF.Min(leastM, atM), MathF.Max(mostM, atM));
         }
 
-        return true;
+        return this with { NearM = middleM + (across * leastM), FarM = middleM + (across * mostM) };
     }
-
-    /// <summary>Half of one band's extent along a direction: its span across and its depth along the road.</summary>
-    static float ReachM(Vector2 across, float spanM, float depthM, Vector2 axis) =>
-        ((MathF.Abs(Vector2.Dot(across, axis)) * spanM) + (MathF.Abs(Vector2.Dot(Heading.RightOf(across), axis)) * depthM)) * 0.5f;
 }
 
 /// <summary>

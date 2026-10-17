@@ -114,10 +114,11 @@ stripe (`Road.ZebraStripeWidthM`) into each other with their ways across turned 
 `Road.ZebrasOneBandWithinDeg`, only one is painted: a station at a street's end before a weld midway along one
 (WLK-10a), and of those the one across the wider carriageway. Two streets meeting at a sharp angle, a slip
 road beside its street and two boxes a few metres apart each put a station where the other's paint is, and
-stripes crossing stripes are no crossing anybody can read. **The one not painted is a kerb end**, as a
-street crossed once is: the walk is not cut there and its traffic is held at the end of its own kerb. Two
-bands turned less than that apart are a dual carriageway's two halves crossed at one station, and are
-painted both, as the one band they read as.
+stripes crossing stripes are no crossing anybody can read. **The one not painted still holds its traffic
+where its paint would have stood**, behind the band painted across its road, and the walk is not cut there.
+Two bands turned less than that apart are a dual carriageway's two halves, or two one-way ways drawn over
+each other, crossed at one station: **they are painted as one band**, the first stretched across the
+second, whose stripes then run unbroken from kerb to kerb.
 
 **WLK-15** `P4` **Each end of a zebra is a junction cut into the walk beside the road; it stands between the
 lanes of that walk, hands over at a point per connected lane, and every lane at it is connected to every

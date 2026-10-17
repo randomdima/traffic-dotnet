@@ -120,10 +120,11 @@ public class KerbEndsTests
     }
 
     /// <summary>
-    /// <b>No zebra the fixture paints is painted across another</b> (WLK-10b), at the shipped figures.
+    /// <b>No zebra the fixture paints is painted over another</b> (WLK-10b), at the shipped figures: one across is not
+    /// painted, and one beside is the other's band stretched.
     /// </summary>
     [Fact]
-    public void NoStationOfTheFixtureIsPaintedAcrossAnother()
+    public void NoStationOfTheFixtureIsPaintedOverAnother()
     {
         var config = SimConfig.Shipped();
         var crossed = Towns.Of(Towns.Fixture).Paving(config).RoadEnds(config).CrossedM;
@@ -133,10 +134,26 @@ public class KerbEndsTests
             for (var other = one + 1; other < crossed.Length; other++)
             {
                 Assert.False(
-                    crossed[one].PaintedAcross(crossed[other], road.CrossingDepthM, road.ZebraStripeWidthM, road.ZebrasOneBandWithinDeg),
-                    $"the zebra across road {crossed[one].Road} is painted across the one across road {crossed[other].Road}");
+                    crossed[one].PaintedOver(crossed[other], road.CrossingDepthM, road.ZebraStripeWidthM),
+                    $"the zebra across road {crossed[one].Road} is painted over the one across road {crossed[other].Road}");
             }
         }
+    }
+
+    /// <summary>
+    /// <b>Two stations side by side are one band reaching across both</b> (WLK-10b): a station 6 m across stretched over
+    /// one beside it, 4 m further along its own way across, reaches from its own near point to the other's far one.
+    /// </summary>
+    [Fact]
+    public void TwoStationsSideBySideAreOneBandAcrossBoth()
+    {
+        var one = new KerbNodes(0, KerbCut.AtTheNearEnd, new Vector2(-3f, 0f), new Vector2(3f, 0f), Painted: true);
+        var beside = new KerbNodes(1, KerbCut.AtTheNearEnd, new Vector2(1f, 0.5f), new Vector2(7f, 0.5f), Painted: true);
+
+        var band = one.Spanning(beside);
+
+        Assert.Equal((new Vector2(-3f, 0f), new Vector2(7f, 0f)), (band.NearM, band.FarM));
+        Assert.Equal(one.Road, band.Road);
     }
 
     /// <summary>

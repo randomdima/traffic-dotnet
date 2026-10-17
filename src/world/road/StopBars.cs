@@ -75,7 +75,12 @@ internal sealed class StopBars
     /// </summary>
     public ReadOnlySpan<float> AlongM => _alongM;
 
-    public static StopBars Lay(LaneLines lanes, Crossings crossings, SimConfig config)
+    /// <param name="paint">
+    /// The bands the town paints, where they are not what <paramref name="crossings"/> holds behind: a bar standing on
+    /// one, or within a setback of it, is stood back behind it instead — another road's zebra spanning this one's end,
+    /// as where two roads converge on a box side by side, being paint a driver holds short of like any other.
+    /// </param>
+    public static StopBars Lay(LaneLines lanes, Crossings crossings, SimConfig config, Crossings? paint = null)
     {
         var setbackM = config.Road.StopBarSetbackM;
         var thicknessM = config.Road.StopBarThicknessM;
@@ -87,6 +92,8 @@ internal sealed class StopBars
         var lane = new List<int>();
         var standsM = new List<float>();
         if (thicknessM <= 0f) return new StopBars([], [], [], [], [], []);
+
+        var bands = paint is null ? null : new PaintedBands(paint, thicknessM + (setbackM * 2f));
 
         // A roadside is driven by nobody, so nobody is held on it (<see cref="LaneLines.IsRoadside"/>).
         for (var at = 0; at < lanes.FirstRoadside; at++)
@@ -113,6 +120,7 @@ internal sealed class StopBars
             var bandM = crossings.CentreM[crossing] - (towards * crossings.DepthM[crossing] * 0.5f);
 
             var alongM = Spline.ProjectM(arcs, bandM, lengthM, lengthM) - setbackM - (thicknessM * 0.5f);
+            if (bands is not null) alongM = ClearOf(bands, arcs, lanes.LaneWidthM[at], alongM, setbackM, thicknessM);
             if (alongM <= 0f) continue;
 
             var stop = Spline.SampleAt(arcs, alongM);
@@ -125,5 +133,33 @@ internal sealed class StopBars
         }
 
         return new StopBars([.. centreM], [.. approach], [.. spanM], [.. laidM], [.. lane], [.. standsM]);
+    }
+
+    /// <summary>
+    /// <b>A bar's place stood back behind every painted band it would stand on</b>, or within a setback of: the bar is
+    /// stood that setback short of the nearest the band reaches along the lane, and asked again, until it stands clear or
+    /// off the lane's start.
+    /// </summary>
+    static float ClearOf(
+        PaintedBands bands, ReadOnlySpan<ArcSeg> arcs, float laneWidthM, float alongM, float setbackM, float thicknessM)
+    {
+        while (alongM > 0f)
+        {
+            var stop = Spline.SampleAt(arcs, alongM);
+            var held = new OrientedBox(stop.PositionM, stop.Direction, (thicknessM * 0.5f) + setbackM, laneWidthM * 0.5f);
+            var crossing = bands.Under(held);
+            if (crossing == Crossings.None) return alongM;
+
+            var band = bands.Band(crossing);
+            var reachM = (MathF.Abs(Vector2.Dot(band.Along, stop.Direction)) * band.HalfLengthM) +
+                         (MathF.Abs(Vector2.Dot(Heading.RightOf(band.Along), stop.Direction)) * band.HalfWidthM);
+            var nearestM = Vector2.Dot(band.CentreM - stop.PositionM, stop.Direction) - reachM;
+            var backM = alongM + nearestM - setbackM - (thicknessM * 0.5f);
+            if (backM >= alongM) return alongM;
+
+            alongM = backM;
+        }
+
+        return alongM;
     }
 }

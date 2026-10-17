@@ -19,7 +19,8 @@ internal static partial class TracedStreets
     /// The roads between two junctions of three arms or more, run on through every place of two arms between them, and
     /// how long they run.
     /// </summary>
-    sealed record Link(int From, int To, float LengthM, List<Road> Roads, List<int> Between);
+    /// <param name="Squeezed">Whether it is one road two boxes meet along (<see cref="Squeezed"/>) rather than one shorter than the figure.</param>
+    sealed record Link(int From, int To, float LengthM, List<Road> Roads, List<int> Between, bool Squeezed = false);
 
     /// <summary>
     /// <b>Junctions of three arms or more standing nearer each other than
@@ -33,6 +34,15 @@ internal static partial class TracedStreets
     /// <b>Each road keeps the disc of the junction it was surveyed to</b>, and leaves it where it did: the gathered
     /// junction's box is theirs together, its movements drawn lane end to lane end across it, and the place each is laid
     /// as is the one standing amid them.
+    /// </para>
+    /// <para>
+    /// <b>And so are two whose boxes meet along the road between them</b> (<see cref="Squeezed"/>), however far apart they
+    /// stand: what each end of it would take leaves no street between the two mouths, and laid apart it is a stub carrying
+    /// two bars, two arrows and a zebra in no room. <b>Asked again of every gathering it makes</b>, until it makes no new
+    /// one: a box gathered is wider than its members, and its turns stand its arms back further, so the roads into it from
+    /// a neighbour can be squeezed that were not. Gathered so, every junction of three arms or more in the one stays within
+    /// the figure and that road's own length of every one in the other, so meeting mouths do not chain a district into
+    /// one box.
     /// </para>
     /// <para>
     /// <b>So is a place of two arms standing inside a junction's own disc</b> (<see cref="SimConfig.JunctionRadiusAcrossM"/>),
@@ -56,7 +66,12 @@ internal static partial class TracedStreets
     /// The junction each junction is laid as — itself, or the one it was gathered into — and the movements across those
     /// gathered none of their roads made.
     /// </returns>
-    static (int[] Into, List<Unmade> Unmade, GatheredLaid Tally) Gathered(List<Road> roads, List<Vector2> centreM, SimConfig config)
+    /// <param name="squeezedUnder">
+    /// The roads two boxes meet along with the junctions laid as the mapping says (<see cref="Squeezed"/>) — each junction
+    /// as its own at first, then as each gathering made of them.
+    /// </param>
+    static (int[] Into, List<Unmade> Unmade, GatheredLaid Tally) Gathered(
+        List<Road> roads, List<Vector2> centreM, Func<int[], HashSet<Road>> squeezedUnder, SimConfig config)
     {
         var withinM = config.CityGen.TracedJunctionsMergedM;
         var junctions = centreM.Count;
@@ -79,17 +94,26 @@ internal static partial class TracedStreets
             }
         }
 
-        links.Sort((one, other) => one.LengthM.CompareTo(other.LengthM));
-        var group = new Groups(at, centreM, withinM);
-        foreach (var link in links) group.Joined(link);
+        var alone = new int[junctions];
+        for (var junction = 0; junction < junctions; junction++) alone[junction] = junction;
 
-        var places = 0;
-        for (var junction = 0; junction < junctions; junction++)
+        var squeezed = new HashSet<Road>();
+        var (group, places) = Grouped(squeezed);
+        foreach (var road in squeezedUnder(alone))
         {
-            if (at[junction].Count < 3 || !gatherable[junction]) continue;
+            if (Squeezable(road)) squeezed.Add(road);
+        }
 
-            var discM = config.JunctionRadiusAcrossM(at[junction].Max(end => end.Road.Carriage.WidthM));
-            foreach (var end in at[junction]) places += group.Spurred(junction, PlacesInside(at, gatherable, junction, end, discM));
+        while (squeezed.Count > 0)
+        {
+            (group, places) = Grouped(squeezed);
+            var more = false;
+            foreach (var road in squeezedUnder(group.Laid()))
+            {
+                if (Squeezable(road) && !group.Inside(road)) more |= squeezed.Add(road);
+            }
+
+            if (!more) break;
         }
 
         var into = new List<int>(junctions);
@@ -151,6 +175,33 @@ internal static partial class TracedStreets
 
         roads.RemoveAll(road => road.Gone);
         return ([.. into], unmade, new GatheredLaid(gathered, into.Count - junctions, places, dropped, unmade.Count));
+
+        // The gatherings the links shorter than the figure make, then the squeezed roads — so a box's mouths meeting only
+        // joins what they leave apart — and the places of two arms inside a disc spurred onto them.
+        (Groups Group, int Places) Grouped(HashSet<Road> squeezedRoads)
+        {
+            var all = new List<Link>(links);
+            foreach (var road in squeezedRoads) all.Add(new Link(road.From, road.To, LengthOf(road), [road], [], Squeezed: true));
+
+            all.Sort((one, other) => one.Squeezed != other.Squeezed ? one.Squeezed.CompareTo(other.Squeezed) : one.LengthM.CompareTo(other.LengthM));
+            var grouping = new Groups(at, centreM, withinM);
+            foreach (var link in all) grouping.Joined(link);
+
+            var spurred = 0;
+            for (var junction = 0; junction < junctions; junction++)
+            {
+                if (at[junction].Count < 3 || !gatherable[junction]) continue;
+
+                var discM = config.JunctionRadiusAcrossM(at[junction].Max(end => end.Road.Carriage.WidthM));
+                foreach (var end in at[junction]) spurred += grouping.Spurred(junction, PlacesInside(at, gatherable, junction, end, discM));
+            }
+
+            return (grouping, spurred);
+        }
+
+        bool Squeezable(Road road) =>
+            !road.Gone && road.From != road.To && at[road.From].Count >= 3 && at[road.To].Count >= 3 &&
+            gatherable[road.From] && gatherable[road.To];
     }
 
     /// <summary>
@@ -230,7 +281,10 @@ internal static partial class TracedStreets
         public void Joined(Link link)
         {
             var (one, other) = (Under(link.From), Under(link.To));
-            if (one != other && (!Within(one, other) || RunsFar(one, other))) return;
+            var refused = link.Squeezed
+                ? !Within(one, other, withinM + link.LengthM)
+                : !Within(one, other, withinM) || RunsFar(one, other);
+            if (one != other && refused) return;
 
             if (one != other)
             {
@@ -295,7 +349,15 @@ internal static partial class TracedStreets
             return members;
         }
 
-        bool Within(int one, int other)
+        /// <summary>The junction each junction stands in a gathering under, or itself — how a road's ends are laid as one box.</summary>
+        public int[] Laid()
+        {
+            var laid = new int[_under.Length];
+            for (var junction = 0; junction < laid.Length; junction++) laid[junction] = Under(junction);
+            return laid;
+        }
+
+        bool Within(int one, int other, float reachM)
         {
             foreach (var near in Members(one))
             {
@@ -303,7 +365,7 @@ internal static partial class TracedStreets
 
                 foreach (var far in Members(other))
                 {
-                    if (at[far].Count > 2 && Vector2.Distance(centreM[near], centreM[far]) >= withinM) return false;
+                    if (at[far].Count > 2 && Vector2.Distance(centreM[near], centreM[far]) >= reachM) return false;
                 }
             }
 

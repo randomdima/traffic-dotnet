@@ -29,7 +29,7 @@ internal sealed partial class GroundMesh
     /// </para>
     /// </remarks>
     /// <param name="crossings">What each arm holds behind, which the line stops short of at its two ends.</param>
-    /// <param name="zebras">The paint the walk crosses on, whose bands midway down a road the line is parted round.</param>
+    /// <param name="zebras">The paint the walk crosses on, whose bands the line is parted round wherever it runs under one.</param>
     /// <param name="level">The level whose runs are laid: a run never crosses from one to the other (<see cref="CentrelineRuns"/>).</param>
     void LaneDashes(
         CentrelineRuns runs, CityPlan plan, SimConfig config, Crossings crossings, Crossings zebras, Vector3 tint, byte level)
@@ -39,31 +39,32 @@ internal sealed partial class GroundMesh
         var halfWidthM = config.Road.PaintLineWidthM * 0.5f;
         if (dashM <= 0f || pitchM <= dashM) return;
 
+        var bands = new PaintedBands(zebras, PaintedStepM(config));
         for (var run = 0; run < runs.Count; run++)
         {
             if (plan.Roads.LevelOf(runs.RoadsOf(run)[0]) != level) continue;
 
             var (fromM, toM) = runs.PaintedM(run, crossings, config);
             var unbroken = runs.IsUnbroken(run);
-            LineRound(
-                runs.Of(run), runs.RoadsOf(run), zebras, config, fromM, toM, unbroken ? 0f : dashM, pitchM, halfWidthM, tint);
+            LineRound(runs.Of(run), bands, config, fromM, toM, unbroken ? 0f : dashM, pitchM, halfWidthM, tint);
         }
     }
 
     /// <summary>
-    /// <b>One line from <paramref name="fromM"/> to <paramref name="toM"/>, parted round every band painted midway down
-    /// a road it runs along</b> (WLK-10a, TER-6): each a bar's setback clear of the band's edge either side, as a line
-    /// stops short of the paint at a road's end. A <paramref name="dashM"/> of nought is a line unbroken.
+    /// <b>One line from <paramref name="fromM"/> to <paramref name="toM"/>, parted round every painted band it would run
+    /// under</b> (TER-6) — one midway down a road it runs along (WLK-10a), or another road's reaching over it — each a
+    /// bar's setback clear of the band either side, as a line stops short of the paint at a road's end. A
+    /// <paramref name="dashM"/> of nought is a line unbroken.
     /// </summary>
     void LineRound(
-        ReadOnlySpan<ArcSeg> arcs, ReadOnlySpan<int> roads, Crossings zebras, SimConfig config, float fromM, float toM,
+        ReadOnlySpan<ArcSeg> arcs, PaintedBands bands, SimConfig config, float fromM, float toM,
         float dashM, float pitchM, float halfWidthM, Vector3 tint)
     {
-        var lengthM = Spline.TotalLengthM(arcs);
         var clearM = config.Road.StopBarSetbackM;
         var pieceFromM = fromM;
-        foreach (var (lowM, highM) in Midways(arcs, lengthM, roads, zebras, clearM))
+        foreach (var (underM, overM) in Under(arcs, bands, config, fromM, toM, halfWidthM))
         {
+            var (lowM, highM) = (underM - clearM, overM + clearM);
             if (highM <= pieceFromM || lowM >= toM) continue;
 
             LinePiece(arcs, pieceFromM, MathF.Min(lowM, toM), dashM, pitchM, halfWidthM, tint, config.Road.LaneDashLengthM);
@@ -87,23 +88,47 @@ internal sealed partial class GroundMesh
         else DashRun(arcs, fromM, toM, dashM, pitchM, halfWidthM, tint);
     }
 
-    /// <summary>Where along a line each band painted midway down one of its roads reaches, <paramref name="clearM"/> wider either side, in order along it.</summary>
-    static List<(float LowM, float HighM)> Midways(
-        ReadOnlySpan<ArcSeg> arcs, float lengthM, ReadOnlySpan<int> roads, Crossings zebras, float clearM)
-    {
-        var reach = new List<(float LowM, float HighM)>();
-        foreach (var road in roads)
-        {
-            var at = zebras.At(road, atTo: false);
-            if (at == Crossings.None || !zebras.Midway[at] || zebras.DepthM[at] <= 0f) continue;
+    /// <summary>
+    /// How long a stretch of line is asked of the painted bands at once (<see cref="Under"/>): a crossing's depth, the
+    /// narrowest a band is along a line it lies across, so no band is stepped over.
+    /// </summary>
+    static float PaintedStepM(SimConfig config) => config.Road.CrossingDepthM;
 
-            var atM = Spline.ProjectM(arcs, zebras.CentreM[at], lengthM * 0.5f, lengthM);
-            var halfM = (zebras.DepthM[at] * 0.5f) + clearM;
-            reach.Add((atM - halfM, atM + halfM));
+    /// <summary>
+    /// <b>The stretches of a line from <paramref name="fromM"/> to <paramref name="toM"/> that run under a painted
+    /// band</b>, in order along it: asked a crossing's depth at a time, and a stretch that answers read again a stripe at a
+    /// time (<see cref="RoadFigures.ZebraStripeWidthM"/>), which is as finely as the paint over it is laid.
+    /// </summary>
+    static List<(float LowM, float HighM)> Under(
+        ReadOnlySpan<ArcSeg> arcs, PaintedBands bands, SimConfig config, float fromM, float toM, float halfWidthM)
+    {
+        var under = new List<(float LowM, float HighM)>();
+        var stepM = PaintedStepM(config);
+        var fineM = config.Road.ZebraStripeWidthM;
+        if (stepM <= 0f || fineM <= 0f) return under;
+
+        for (var atM = fromM; atM < toM; atM += stepM)
+        {
+            var endM = MathF.Min(atM + stepM, toM);
+            if (!Painted(arcs, atM, endM)) continue;
+
+            for (var fine = atM; fine < endM; fine += fineM)
+            {
+                var fineEndM = MathF.Min(fine + fineM, endM);
+                if (!Painted(arcs, fine, fineEndM)) continue;
+
+                if (under.Count > 0 && under[^1].HighM >= fine) under[^1] = (under[^1].LowM, fineEndM);
+                else under.Add((fine, fineEndM));
+            }
         }
 
-        reach.Sort();
-        return reach;
+        return under;
+
+        bool Painted(ReadOnlySpan<ArcSeg> line, float lowM, float highM)
+        {
+            var middle = Spline.SampleAt(line, (lowM + highM) * 0.5f);
+            return bands.Under(new OrientedBox(middle.PositionM, middle.Direction, (highM - lowM) * 0.5f, halfWidthM)) != Crossings.None;
+        }
     }
 
     /// <summary>
@@ -122,6 +147,8 @@ internal sealed partial class GroundMesh
         var halfWidthM = config.Road.PaintLineWidthM * 0.5f;
         if (roads.RoadsideWithM.Length == 0 || halfWidthM <= 0f) return;
 
+        var bands = new PaintedBands(zebras, PaintedStepM(config));
+
         for (var road = 0; road < roads.Count; road++)
         {
             var line = roads.SegmentsOf(road);
@@ -136,7 +163,7 @@ internal sealed partial class GroundMesh
                 Spline.OffsetInto(line, roads.RoadsideLineM(road, withTheRoad) * sideSign, edge);
                 var (fromM, toM) = CentrelineRuns.PaintedM(
                     edge, JunctionArms.End(road, atTo: false), JunctionArms.End(road, atTo: true), crossings, config);
-                LineRound(edge, [road], zebras, config, fromM, toM, 0f, 0f, halfWidthM, tint);
+                LineRound(edge, bands, config, fromM, toM, 0f, 0f, halfWidthM, tint);
             }
         }
     }

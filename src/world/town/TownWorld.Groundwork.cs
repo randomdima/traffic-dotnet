@@ -144,7 +144,7 @@ internal sealed partial class TownWorld
 
             // <b>And its bars, off what each arm holds behind</b> rather than where it is crossed (WLK-10a): a street
             // crossed once midway is still held at both of its ends.
-            Bars = StopBars.Lay(plan.Paving(config).Lanes, Crossings.Lay(plan, config, ends.HeldM), config);
+            Bars = StopBars.Lay(plan.Paving(config).Lanes, Crossings.Lay(plan, config, ends.HeldM), config, Zebras);
             Signals = SignalService.Build(plan, Roads, Zebras, config);
             Heads = SignalHeads.Place(Bars, Zebras, Signals, config);
             CrossingWays = CrossingWays.Of(plan, PavementLanes, Zebras, config);

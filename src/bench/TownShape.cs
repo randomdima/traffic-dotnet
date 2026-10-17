@@ -290,6 +290,7 @@ internal static class TownShape
         Console.WriteLine("  apart            " + Spread(apartM, " m"));
         Console.WriteLine("  kind             " + string.Join("  ", kinds.OrderBy(kind => kind.Key, StringComparer.Ordinal).Select(kind => $"{kind.Key}: {kind.Value}")));
         Console.WriteLine("  junctions a group " + string.Join("  ", sizes.Select(size => $"{size.Key}: {size.Value}")));
+        Stubs(plan, config, arms, onARing);
         if (rows.Count == 0) return;
 
         // A sample across the whole spread, nearest first, which is what a reader frames pictures from.
@@ -304,6 +305,50 @@ internal static class TownShape
             while (group[junction] != junction) junction = group[junction] = group[group[junction]];
             return junction;
         }
+    }
+
+    /// <summary>
+    /// <b>Every road between two junctions of three arms or more whose lanes are driven for less than a crossing's depth</b>
+    /// (<see cref="RoadFigures.CrossingDepthM"/>) once both boxes have taken their share: a stub that is the two boxes'
+    /// mouths meeting rather than a street, where bars, arrows and a zebra are laid into no room.
+    /// </summary>
+    static void Stubs(CityPlan plan, SimConfig config, int[] arms, bool[] onARing)
+    {
+        const int Listed = 20;
+
+        var lanes = plan.Paving(config).Lanes;
+        var shortestM = new float[plan.Roads.Count];
+        Array.Fill(shortestM, float.MaxValue);
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
+        {
+            if (lanes.IsRoadside(lane)) continue;
+
+            var road = lanes.LaneRoad[lane];
+            shortestM[road] = MathF.Min(shortestM[road], lanes.LaneLengthM[lane]);
+        }
+
+        var rows = new List<(float LengthM, string Row)>();
+        var kinds = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var (from, to) = (plan.Roads.FromJunction[road], plan.Roads.ToJunction[road]);
+            if (from == to || arms[from] < 3 || arms[to] < 3 || plan.Roads.IsABay(road)) continue;
+            if (shortestM[road] >= config.Road.CrossingDepthM) continue;
+
+            var kind = onARing[from] || onARing[to] ? "ring"
+                : plan.Roads.LevelOf(road) != CityPlan.RoadArrays.Ground ? "bridge"
+                : plan.Roads.Flow[road] == RoadFlow.BothWays ? "two-way" : "one-way";
+            kinds[kind] = kinds.GetValueOrDefault(kind) + 1;
+            var atM = (plan.Junctions.CentreM[from] + plan.Junctions.CentreM[to]) * 0.5f;
+            rows.Add((shortestM[road], $"  {road,6}{atM.X,9:F0}{atM.Y,9:F0}{shortestM[road],8:F1}   {kind,-8}{arms[from]}+{arms[to]} arms  " +
+                                       $"{Vector2.Distance(plan.Junctions.CentreM[from], plan.Junctions.CentreM[to]),5:F1} m apart"));
+        }
+
+        Console.WriteLine($"  stubs            {rows.Count} roads between two of them driven for less than a crossing's depth  " +
+                          string.Join("  ", kinds.Select(kind => $"{kind.Key}: {kind.Value}")));
+        rows.Sort((one, other) => one.LengthM.CompareTo(other.LengthM));
+        var every = Math.Max(1, rows.Count / Listed);
+        for (var row = 0; row < rows.Count; row += every) Console.WriteLine(rows[row].Row);
     }
 
     /// <summary>What kept one two-armed junction, and the two junctions the run through it would join.</summary>

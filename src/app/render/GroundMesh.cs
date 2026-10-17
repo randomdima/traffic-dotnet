@@ -553,7 +553,7 @@ internal sealed partial class GroundMesh
         // <b>The bars are laid once and read twice</b>: the paint a driver holds at, and the arrows behind it
         // that say what they are holding for (TER-6a). Laid again for the arrows, the two would be free to
         // disagree about where the bar stands.
-        var bars = StopBars.Lay(paving.Lanes, held, config);
+        var bars = StopBars.Lay(paving.Lanes, held, config, crossed);
         var arrows = LaneArrows.Lay(paving.Lanes, bars, crossed, config);
         var runs = CentrelineRuns.Lay(plan, config);
         var surveyed = Crossings.Of(plan);

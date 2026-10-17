@@ -38,9 +38,9 @@ internal static class ZebraShape
                     continue;
                 }
 
-                if (!a.PaintedAcross(b, figures.CrossingDepthM, figures.ZebraStripeWidthM, 0f)) continue;
+                if (!a.PaintedOver(b, figures.CrossingDepthM, figures.ZebraStripeWidthM)) continue;
 
-                var crosses = a.PaintedAcross(b, figures.CrossingDepthM, figures.ZebraStripeWidthM, figures.ZebrasOneBandWithinDeg);
+                var crosses = !a.OneBand(b, figures.ZebrasOneBandWithinDeg);
                 if (crosses) across++;
                 else sideBySide++;
 
@@ -49,6 +49,7 @@ internal static class ZebraShape
             }
         }
 
+        Bays(plan, crossed, figures);
         Console.WriteLine($"{plan.Name}  {across} pairs of zebras painted across each other and {sideBySide} side by side, " +
                           $"of {crossed.Length} painted");
         if (rows.Count == 0) return;
@@ -57,6 +58,29 @@ internal static class ZebraShape
         Console.WriteLine($"  {"x",7}{"y",8}  {"stripes",-8}road length lanes from(arms)>to(arms) cut, each");
         var every = Math.Max(1, rows.Count / MostListed);
         for (var row = 0; row < rows.Count; row += every) Console.WriteLine(rows[row]);
+
+        static void Bays(CityPlan plan, ReadOnlySpan<KerbNodes> crossed, RoadFigures figures)
+        {
+            var parks = plan.CarParks;
+            var onZebras = new List<string>();
+            for (var bay = 0; bay < parks.Road.Length; bay++)
+            {
+                var road = parks.Road[bay];
+                var line = plan.Roads.SegmentsOf(road);
+                var bayM = new KerbNodes(road, KerbCut.AtTheNearEnd, line[0].StartM, line[^1].EndM, true);
+                foreach (var zebra in crossed)
+                {
+                    if (Vector2.Distance(zebra.NearM + zebra.FarM, bayM.NearM + bayM.FarM) * 0.5f > zebra.SpanM + bayM.SpanM) continue;
+                    if (!zebra.PaintedOver(bayM, figures.CrossingDepthM + plan.Roads.WidthM[road], figures.ZebraStripeWidthM)) continue;
+
+                    onZebras.Add($"  {bayM.NearM.X,7:F0}{bayM.NearM.Y,8:F0}  bay {road} on the zebra across road {zebra.Road}");
+                    break;
+                }
+            }
+
+            Console.WriteLine($"{plan.Name}  {onZebras.Count} of {parks.Road.Length} car park bays stand on a zebra");
+            foreach (var row in onZebras.Take(MostListed)) Console.WriteLine(row);
+        }
 
         string Of(in KerbNodes nodes)
         {

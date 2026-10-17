@@ -255,9 +255,9 @@ and never a glyph of its own** — there is no catalogue of shapes and no combin
 - **It is placed by the bar alone** (rule 3): a setback of clear road behind it, in the lane's own metres. An
   arm with no crossing carries no bar and no arrow either, and **a lane with no room for a whole arrow
   behind its bar carries none** rather than a shortened one, a stub of a glyph read at a glance being a
-  different glyph. **The room is clear road**: back to the lane's start or to the nearest zebra painted across
-  its road — the one a short street is crossed by midway (`WLK-10a`), or the one at its far end — since an
-  arrow painted over a zebra is two marks read as neither.
+  different glyph. **The room is clear road**: back to the lane's start and over no zebra — the one a short
+  street is crossed by midway (`WLK-10a`), the one at its far end, or one a road drawn over it shares
+  (`WLK-10b`) — since an arrow painted over a zebra is two marks read as neither.
 
 Everything painted on the ground is **engine-drawn primitives, never art**: lane centrelines (dashed, and
 **laid between two lane ribbons that touch and nowhere else** — so a one-way street of one lane and a bay

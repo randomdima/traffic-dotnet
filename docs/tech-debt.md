@@ -51,6 +51,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Regressions and figures not taken
 
+- **Laying the paint costs three times what it did on OdesaOsm** (`--bench census`, 2026-10-17: 116 → 373 ms of a
+  2.8 s ground): every lane and roadside line is asked of the painted bands a crossing's depth at a time, to part it
+  round any it runs under (`GroundMesh.LineRound`). Asking only the cells a line's bounds reach, or the line once per
+  band in its cell, closes it.
+
 - **Most of Odesa's open is one stage nothing has broken down** (`--bench load`, 2026-10-16): fleets, the tables they
   are numbered in, the roster and the spawn take ~795 ms of the 1 150 ms open — "fleets and places" in its timeline —
   for a town of 12 agents at that stage and 2 494 static bodies. A profile of that stage (`qq prof --load`) closes it.
@@ -459,13 +464,13 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 
 ## Inconsistencies
 
-- **A traced junction just past the gathering figure leaves stub roads inside one box** (`TracedStreets.Gathered`,
-  GEN-57): on OdesaOsm at 3200,13522 survey junction 212 stands 20.1 m from 213, so 213 and 3028 gather and 212 does
-  not, and two roads of 2.2 m and 5.1 m driven run from 212 into the one box, each with bars and a slip's zebra. A
-  junction joined to one gathering by two roads, the triangle a slip lane makes, gathered with it closes it.
-- **Signal heads stand in the middle of a junction cluster** where three boxes are kept apart by one road longer than
-  the gathering figure (OdesaOsm 2830,13491, junctions 1110, 1114 and 1115): the short roads between them hold at bars
-  inside what reads as one junction. The same gathering rule widened to a cluster closes it.
+- **Signal heads stand in the middle of a junction cluster** whose boxes are 27–34 m apart, each road between them
+  long enough to be a street once both mouths are taken (OdesaOsm 2830,13491, survey junctions 617, 651, 3040 and
+  6255), so nothing gathers them (`TracedStreets.Squeezed`) and the short streets hold at bars inside what reads as one
+  junction. A rule for a ring of short streets enclosing no block — gathered as one box — closes it.
+- **The 80 stubs left between two boxes** (`--bench close`'s `stubs`) are 52 a roundabout's ring, which is never
+  gathered (GEN-19), and 28 one-way or two-way roads whose ends are on a bridge or a ring. None is listed as a fault;
+  a picture of each kind is what would say whether any is.
 - **The kerb has a cusp where a roadside begins at a slip's joint** (OdesaOsm 1811,12175): the roadside's taper is
   declined when the box is too short to ease in over (`RoadsideLanes.Tapered`), and the kerb steps round the strip's
   square end. Easing it in along the lane past the box, where the box has no room, closes it.

@@ -846,7 +846,7 @@ public class GroundMeshTests
         // where it crosses and the bars behind what each arm holds behind.
         var ends = paving.RoadEnds(config);
         var crossings = Crossings.Lay(plan, config, ends.CrossedM);
-        var bars = BarCentres(paving, Crossings.Lay(plan, config, ends.HeldM), config);
+        var bars = BarCentres(paving, Crossings.Lay(plan, config, ends.HeldM), crossings, config);
 
         var reachM = 0f;
         for (var line = 0; line < paving.DrivenCount; line++)
@@ -963,9 +963,9 @@ public class GroundMeshTests
     /// lane rather than between two ribbons (<see cref="StopBars"/>), and the ribbon either side of it is
     /// the same one.
     /// </summary>
-    static HashSet<(int X, int Y)> BarCentres(Paving paving, Crossings crossings, SimConfig config)
+    static HashSet<(int X, int Y)> BarCentres(Paving paving, Crossings crossings, Crossings paint, SimConfig config)
     {
-        var bars = StopBars.Lay(paving.Lanes, crossings, config);
+        var bars = StopBars.Lay(paving.Lanes, crossings, config, paint);
         var centres = new HashSet<(int X, int Y)>(bars.Count);
         foreach (var centreM in bars.CentreM) centres.Add(Millimetres(centreM));
 

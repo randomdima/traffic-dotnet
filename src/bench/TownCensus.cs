@@ -150,7 +150,7 @@ internal static class TownCensus
         // which is the answer they are laid from there.
         var ends = plan.Paving(config).RoadEnds(config);
         var crossings = Crossings.Lay(plan, config, ends.CrossedM);
-        var bars = StopBars.Lay(plan.Paving(config).Lanes, Crossings.Lay(plan, config, ends.HeldM), config);
+        var bars = StopBars.Lay(plan.Paving(config).Lanes, Crossings.Lay(plan, config, ends.HeldM), config, crossings);
         var overrunning = Overrunning(plan, crossings);
         var reaching = Reaching(ends);
         Console.WriteLine($"  kerb ends      {ends.Further.Length + ends.Nearer.Length,7}  standing " +

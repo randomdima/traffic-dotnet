@@ -126,7 +126,8 @@ internal static partial class TracedStreets
         Evened(roads, centreM, config);
         JoinedThrough(roads, centreM.Count);
         roads = CutShort(roads, centreM, config.CityGen.TracedRoadLongestM);
-        var gathered = Gathered(roads, centreM, config);
+        var aloneRunsOff = RunsOff(survey, roads, pointOf, centreM.Count);
+        var gathered = Gathered(roads, centreM, laid => Squeezed(roads, centreM, aloneRunsOff, laid, config), config);
 
         var runsOff = RunsOff(survey, roads, pointOf, centreM.Count);
         var standoffM = Standoffs(roads, centreM, runsOff, gathered.Into, config);
@@ -218,6 +219,40 @@ internal static partial class TracedStreets
     /// <param name="into">The junction each is laid as (<see cref="Gathered"/>), which is where its roads turn onto each other.</param>
     static (float[] FromM, float[] ToM) Standoffs(List<Road> roads, List<Vector2> centreM, bool[] runsOff, int[] into, SimConfig config)
     {
+        var ends = Ends(roads, centreM, runsOff, into, config);
+        return (ends.FromM, ends.ToM);
+    }
+
+    /// <summary>
+    /// <b>The roads two junctions' boxes meet along</b>, the junctions laid as <paramref name="laid"/> says
+    /// (<see cref="Standoffs"/>): where what each end of a road would take — its junction's standoff, or the room the turns
+    /// of the box it is laid as need, whichever is more — leaves less than a crossing's depth between them
+    /// (<see cref="RoadFigures.CrossingDepthM"/>). Such a road is the two mouths meeting and no street, and its two
+    /// junctions are one (<see cref="Gathered"/>).
+    /// </summary>
+    static HashSet<Road> Squeezed(List<Road> roads, List<Vector2> centreM, bool[] runsOff, int[] laid, SimConfig config)
+    {
+        var ends = Ends(roads, centreM, runsOff, laid, config);
+        var squeezed = new HashSet<Road>();
+        for (var road = 0; road < roads.Count; road++)
+        {
+            if (roads[road].Gone) continue;
+
+            var (from, to) = (roads[road].From, roads[road].To);
+            var takenM = MathF.Max(ends.AskedM[from], ends.WantedFromM[road]) + MathF.Max(ends.AskedM[to], ends.WantedToM[road]);
+            if (Vector2.Distance(centreM[from], centreM[to]) - takenM < config.Road.CrossingDepthM) squeezed.Add(roads[road]);
+        }
+
+        return squeezed;
+    }
+
+    /// <summary>
+    /// Where each road's lanes end (<see cref="Standoffs"/>), with what each junction asks and what each end of each road
+    /// would take for its turns before either is held to the room the road has.
+    /// </summary>
+    static (float[] FromM, float[] ToM, float[] AskedM, float[] WantedFromM, float[] WantedToM) Ends(
+        List<Road> roads, List<Vector2> centreM, bool[] runsOff, int[] into, SimConfig config)
+    {
         var widestM = new float[centreM.Count];
         foreach (var road in roads)
         {
@@ -256,8 +291,8 @@ internal static partial class TracedStreets
             toM[road] = EndM(roads[road].To, roomM[road]);
         }
 
-        RoomToTurn(roads, centreM, into, fromM, toM, roomM, config);
-        return (fromM, toM);
+        var (wantedFromM, wantedToM) = RoomToTurn(roads, centreM, into, fromM, toM, roomM, config);
+        return (fromM, toM, askedM, wantedFromM, wantedToM);
 
         float EndM(int junction, float roomM) =>
             MathF.Min(MathF.Min(askedM[junction], roomM), shortestM[junction] + config.CityGen.TracedArmEndsApartM);
@@ -277,7 +312,8 @@ internal static partial class TracedStreets
     /// cross does not depend on where either lane ends, so how far an end moves is the tangent less what it has. Straight
     /// on asks nothing of it, nor does a turn within the straight-on tolerance of turning back, which has no corner.
     /// </remarks>
-    static void RoomToTurn(
+    /// <returns>What each end would take for its turns, before it is held to <paramref name="roomM"/>.</returns>
+    static (float[] NeededFromM, float[] NeededToM) RoomToTurn(
         List<Road> roads, List<Vector2> centreM, int[] into, float[] fromM, float[] toM, float[] roomM, SimConfig config)
     {
         var ends = new Dictionary<int, List<ArmEnd>>();
@@ -328,6 +364,8 @@ internal static partial class TracedStreets
             fromM[road] = MathF.Max(fromM[road], MathF.Min(neededFromM[road], roomM[road]));
             toM[road] = MathF.Max(toM[road], MathF.Min(neededToM[road], roomM[road]));
         }
+
+        return (neededFromM, neededToM);
 
         void Needs(ArmEnd end, float standoffM)
         {
