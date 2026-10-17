@@ -49,6 +49,9 @@ internal sealed partial class TownWorld
     /// <summary>How many times a car has come to rest in the bay it was aiming at.</summary>
     public long BaysParkedIn { get; private set; }
 
+    /// <summary>And how square each came to rest there (GEN-4i).</summary>
+    public ParkedSquareness ParkedSquareness { get; } = new();
+
     /// <summary>How many have walked in through a door — the figure a trip is finished by.</summary>
     public long BuildingsEntered { get; private set; }
 

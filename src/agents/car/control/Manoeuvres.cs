@@ -12,6 +12,9 @@ internal enum ManoeuvreKind : byte
 
     /// <summary>Out of a bay onto the street.</summary>
     Leave,
+
+    /// <summary>Square in a bay the car has got into crooked or off its middle (GEN-4i).</summary>
+    Straighten,
 }
 
 /// <summary>

@@ -131,14 +131,20 @@ internal sealed partial class TownWorld
     /// <b>The line has been driven to its end and the car has stopped there.</b> A leg's steps hand over at
     /// rest and nowhere else: a manoeuvre's pieces are driven in their own gears, and a car changing gear while
     /// it is still rolling is a car driven into whatever it was reversing away from. <b>A piece is spent at its
-    /// end and not a car length short of it</b>: its end is where the car stands square in the bay, or straight on
-    /// its lane, and short of that it is still turning.
+    /// end and not a car length short of it</b> (<see cref="SpentWithinM"/>): its end is where the car stands square in the
+    /// bay, or straight on its lane, and short of that it is still turning.
     /// </summary>
     bool TheLineIsSpent(int car) =>
         Cars.Line[car].ArcCount > 0
-        && Cars.Line[car].LengthM - Cars.ProgressM[car]
-           <= (IsManoeuvring(car) ? Cars.BuildOf(car).FlankM : Cars.BuildOf(car).LengthM)
+        && Cars.Line[car].LengthM - Cars.ProgressM[car] <= SpentWithinM(car)
         && MathF.Abs(Cars.AlongMps[car]) <= _config.Driving.StopSpeedMps;
+
+    /// <summary>
+    /// <b>How near its end a line is spent</b>: a car's length of a route's, and a manoeuvre's piece at its end (GEN-4i) —
+    /// a parallel park's pull forward and a straightening's turn are shorter than a flank, and spent a flank short they were
+    /// spent standing still at their start.
+    /// </summary>
+    float SpentWithinM(int car) => IsManoeuvring(car) ? _config.Driving.ParkedMiddleWithinM : Cars.BuildOf(car).LengthM;
 
     /// <summary>
     /// <b>The next line this leg is driven on</b>, read off where the car is standing rather than off a
@@ -195,7 +201,13 @@ internal sealed partial class TownWorld
     /// </summary>
     void ParkIt(int car, int bay)
     {
-        if (bay >= 0) _parking.Occupy(bay, car);
+        if (bay >= 0)
+        {
+            _parking.Occupy(bay, car);
+            ParkedSquareness.Note(
+                _parking.IsKerb(bay), Cars.PositionM[car], Cars.HeadingRad[car], _parking.CentreM(bay), _parking.HeadingRad(bay),
+                _config.Driving.ParkedSquareWithinDeg);
+        }
 
         BaysParkedIn++;
         StandTheCarDown(car);

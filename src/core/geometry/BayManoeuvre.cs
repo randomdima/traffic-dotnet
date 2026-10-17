@@ -20,7 +20,8 @@ namespace TrafficSimulation.Core.Geometry;
 /// </remarks>
 internal static class BayManoeuvre
 {
-    public const int MostPieces = 2;
+    /// <summary>The most pieces a shape takes: a parallel park's pull past, its S back in and its pull forward.</summary>
+    public const int MostPieces = 3;
 
     /// <summary>The most arcs one piece takes: a straight, a swing, the turn and a straight.</summary>
     public const int MostArcsPerPiece = 4;
@@ -34,21 +35,25 @@ internal static class BayManoeuvre
     /// <b>One shape as laid</b>: how many arcs each of its pieces took, in order, and which is driven in reverse.
     /// A shape with no arcs is one that does not exist from where it was asked.
     /// </summary>
-    public readonly record struct Shape(int FirstArcs, int SecondArcs, bool FirstReverse, bool SecondReverse)
+    public readonly record struct Shape(
+        int FirstArcs, int SecondArcs, bool FirstReverse, bool SecondReverse, int ThirdArcs = 0, bool ThirdReverse = false)
     {
         public static Shape None => default;
 
         public bool Exists => FirstArcs > 0;
 
-        public int Pieces => SecondArcs > 0 ? 2 : FirstArcs > 0 ? 1 : 0;
+        public int Pieces => ThirdArcs > 0 ? 3 : SecondArcs > 0 ? 2 : FirstArcs > 0 ? 1 : 0;
 
-        public int ArcCount => FirstArcs + SecondArcs;
+        public int ArcCount => FirstArcs + SecondArcs + ThirdArcs;
 
-        public int ArcsOf(int piece) => piece == 0 ? FirstArcs : SecondArcs;
+        public int ArcsOf(int piece) => piece switch { 0 => FirstArcs, 1 => SecondArcs, _ => ThirdArcs };
 
-        public int FirstArcOf(int piece) => piece == 0 ? 0 : FirstArcs;
+        public int FirstArcOf(int piece) => piece switch { 0 => 0, 1 => FirstArcs, _ => FirstArcs + SecondArcs };
 
-        public bool IsReverse(int piece) => piece == 0 ? FirstReverse : SecondReverse;
+        public bool IsReverse(int piece) => piece switch { 0 => FirstReverse, 1 => SecondReverse, _ => ThirdReverse };
+
+        /// <summary>Whether any piece of it is driven in reverse: a way into a bay that is a back in, whatever it ends on.</summary>
+        public bool AnyReverse => FirstReverse || (SecondArcs > 0 && SecondReverse) || (ThirdArcs > 0 && ThirdReverse);
     }
 
     /// <summary>
@@ -227,6 +232,42 @@ internal static class BayManoeuvre
     }
 
     /// <summary>
+    /// <b>Parallel parked into a place alongside the kerb</b> (GEN-4n): on past it forwards, back in on an S to
+    /// <paramref name="deepM"/> past the pose with the nose still turned out toward the lane, and forward on one turn the
+    /// other way that ends at the pose, square. <see cref="Shape.None"/> where the S back in does not exist from here.
+    /// </summary>
+    /// <remarks>
+    /// <b>The nose is left turned out by as much as the last turn takes to carry the car forward the depth</b>,
+    /// <c>asin(depth ⁄ R)</c>, and the axle stands in toward the kerb by as much as that turn carries it out,
+    /// <c>R(1 − cos)</c> — a car driven forward goes the way its nose points. Backed in square, the turn that straightens
+    /// a car up swings its nose in over the kerb abeam of the car in front, which is ground a gap a car's length and a
+    /// kerb gap either side long does not have.
+    /// </remarks>
+    /// <param name="to">The axle's pose in the place, heading along the kerb the way the car stands there.</param>
+    /// <param name="outSign">Which hand of <paramref name="to"/>'s heading the lane is to: +1 left, −1 right.</param>
+    public static Shape ParallelIn(
+        Pose from, Pose to, float outSign, float deepM, float radiusM, float straightensUpM, Span<ArcSeg> into)
+    {
+        var outRad = MathF.Asin(MathF.Min(1f, deepM / radiusM));
+        var along = Heading.Unit(to.HeadingRad);
+        var outward = new Vector2(-along.Y, along.X) * outSign;
+        var deepAtM = to.AtM - (along * deepM) - (outward * (radiusM * (1f - MathF.Cos(outRad))));
+        var turnedOutRad = to.HeadingRad + (outSign * outRad);
+        var backIn = AlongsideBackIn(from, new Pose(deepAtM, turnedOutRad + MathF.PI), radiusM, straightensUpM, into);
+        if (!backIn.Exists) return Shape.None;
+
+        var forward = 0;
+        var at = deepAtM;
+        var headingRad = turnedOutRad;
+        Lay(ref forward, ref at, ref headingRad, outRad * radiusM, -outSign / radiusM, into[backIn.ArcCount..]);
+        if (forward == 0) return backIn;
+
+        return backIn.Pieces == 1
+            ? backIn with { SecondArcs = forward, SecondReverse = false }
+            : backIn with { ThirdArcs = forward, ThirdReverse = false };
+    }
+
+    /// <summary>
     /// <b>Out of a place alongside the kerb onto the street's line</b> (GEN-4n): <paramref name="backM"/> straight back
     /// first where it is asked — the room behind the car, where what stands in front leaves too little for the S — then
     /// an S out on <paramref name="radiusM"/> onto the line and <paramref name="runOutM"/> of straight along it.
@@ -268,6 +309,46 @@ internal static class BayManoeuvre
         return first == 0
             ? new Shape(outward, 0, FirstReverse: false, SecondReverse: false)
             : new Shape(first, outward, FirstReverse: true, SecondReverse: false);
+    }
+
+    /// <summary>
+    /// <b>Square in a place the car already stands in</b> (GEN-4i): one turn on <paramref name="radiusM"/>, forwards or in
+    /// reverse as asked, through as far as the car's heading stands off the place's, and straight along the place's line
+    /// to abeam of the pose, in whichever gear that is — one piece where both are driven in the same gear.
+    /// <see cref="Shape.None"/> where the car already stands square and abeam of it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It squares the heading and moves the car along its place, and does not move it across</b>: the turn carries the
+    /// car <c>R(1 − cos θ)</c> to one side, toward the hand it turns to going forwards and away from it in reverse, which
+    /// is <paramref name="asideM"/> for whoever chooses between the two.
+    /// </remarks>
+    /// <param name="from">The rear axle where the car stands, and the way its body points.</param>
+    /// <param name="to">The rear axle standing square in the place, and the way its body points there.</param>
+    /// <param name="asideM">How far the car is left standing to one side of the place's line.</param>
+    public static Shape Straighten(Pose from, Pose to, bool forwardFirst, float radiusM, Span<ArcSeg> into, out float asideM)
+    {
+        var turnRad = Spline.WrapRad(to.HeadingRad - from.HeadingRad);
+        var at = from.AtM;
+        var travelRad = forwardFirst ? from.HeadingRad : from.HeadingRad + MathF.PI;
+        var first = 0;
+        Lay(ref first, ref at, ref travelRad, MathF.Abs(turnRad) * radiusM, MathF.Sign(turnRad) / radiusM, into);
+
+        var along = Heading.Unit(to.HeadingRad);
+        var onM = Vector2.Dot(to.AtM - at, along);
+        asideM = MathF.Abs(Spline.Cross(along, at - to.AtM));
+        var forward = onM >= 0f;
+        if (forward == forwardFirst)
+        {
+            Lay(ref first, ref at, ref travelRad, MathF.Abs(onM), 0f, into);
+            return first == 0 ? Shape.None : new Shape(first, 0, FirstReverse: !forwardFirst, SecondReverse: false);
+        }
+
+        var second = 0;
+        var backRad = travelRad + MathF.PI;
+        Lay(ref second, ref at, ref backRad, MathF.Abs(onM), 0f, into[first..]);
+        return first == 0 ? new Shape(second, 0, FirstReverse: !forward, SecondReverse: false)
+            : second == 0 ? new Shape(first, 0, FirstReverse: !forwardFirst, SecondReverse: false)
+            : new Shape(first, second, FirstReverse: !forwardFirst, SecondReverse: !forward);
     }
 
     /// <summary>

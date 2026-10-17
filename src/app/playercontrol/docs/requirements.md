@@ -109,7 +109,9 @@ leg ends any other way (CTL-4).
 **CTL-8b** `P7` **Parking is the bay machinery, and a place off the road is a park and then a walk.** A park
 order claims a bay and drives the ordinary leg to it. **The bay is the free one nearest the point**, over
 the whole town rather than within a walk of it: a player who clicked a full car park asked for the nearest
-free bay to it, and a refusal reads as a click that did not land.
+free bay to it, and a refusal reads as a click that did not land. **A gap at a kerb is a bay here too**
+([world/parking](../../../world/parking/docs/requirements.md) GEN-4n): the one beside the street nearest the point,
+where it stands nearer than the nearest painted bay.
 
 Where the point is somewhere no car may be, **the order is the drive and the walk both**: the car parks
 nearest, and the rest of it is handed to the driver as a walker's own order (CTL-3) at the moment they are

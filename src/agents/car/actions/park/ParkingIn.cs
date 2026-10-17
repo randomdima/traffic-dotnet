@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
@@ -37,6 +38,15 @@ internal sealed class ParkingIn(
             return;
         }
 
+        // A straightening is asked once and waited for where the car stands; refused, the car stands down as it is.
+        if (Manoeuvres.Kind[car] == ManoeuvreKind.Straighten)
+        {
+            if (Manoeuvres.Stage[car] == ManoeuvreStage.Asked) bays.KeepOrWithdraw(car);
+            if (Manoeuvres.Stage[car] == ManoeuvreStage.Shaped) StandDown(ref town, car);
+            else bays.DriveThePiece(ref town, car, pose);
+            return;
+        }
+
         if (!town.ReadTheLine(car, pose, out var progressM, out var alongMps)) return;
 
         if (Manoeuvres.Stage[car] == ManoeuvreStage.Asked && bays.KeepOrWithdraw(car))
@@ -56,6 +66,7 @@ internal sealed class ParkingIn(
     public void Decide(int car, float sinceLastDecisionS)
     {
         if (Manoeuvres.IsBegun(car) || Manoeuvres.Stage[car] == ManoeuvreStage.Asked) return;
+        if (Manoeuvres.Kind[car] == ManoeuvreKind.Straighten) return;
         if (!bays.IsTimeToAsk(car, sinceLastDecisionS)) return;
 
         TakeUpTheBay(car, Manoeuvres.Bay[car], Cars.ProgressM[car], Cars.AlongMps[car]);
@@ -64,11 +75,13 @@ internal sealed class ParkingIn(
     /// <summary>
     /// <b>The manoeuvre into a bay driven to its end</b>: the car parked — or, where the leg turns in this bay (GEN-4l),
     /// straight back out of it, onto the lane its route out of the bay sets off down, holding the bay until it is out.
+    /// <b>A car that got in crooked or off the middle straightens up first</b> (GEN-4i), once.
     /// </summary>
     public bool Arrive<TTown>(ref TTown town, int car)
         where TTown : struct, ICarTown
     {
         var bay = Manoeuvres.Bay[car];
+        var straightened = Manoeuvres.Kind[car] == ManoeuvreKind.Straighten;
         Manoeuvres.Clear(car);
         if (bay == parking.TurnOf(car) && town.LeaveTheBay(car, bay))
         {
@@ -76,8 +89,23 @@ internal sealed class ParkingIn(
             return true;
         }
 
+        if (!straightened && ShapeTheStraightening(car, bay))
+        {
+            bays.Ask(car);
+            return true;
+        }
+
         town.ParkIt(car, bay);
         return true;
+    }
+
+    /// <summary>The car stood down where it stands in its bay, its straightening given up.</summary>
+    void StandDown<TTown>(ref TTown town, int car)
+        where TTown : struct, ICarTown
+    {
+        var bay = Manoeuvres.Bay[car];
+        Manoeuvres.Clear(car);
+        town.ParkIt(car, bay);
     }
 
     /// <summary>
@@ -193,7 +221,9 @@ internal sealed class ParkingIn(
             ? BayManoeuvre.AlongsideIn(from, NoseInPose(car, bay), radiusM, build.ParkingStraightensUpM, noseIn)
             : BayManoeuvre.NoseIn(from, NoseInPose(car, bay), radiusM, build.ParkingStraightensUpM, ground.Config.ParkingSwingMostRad, noseIn);
         var backShape = kerb
-            ? BayManoeuvre.AlongsideBackIn(from, BackedInPose(car, bay), radiusM, build.ParkingStraightensUpM, backIn)
+            ? BayManoeuvre.ParallelIn(
+                from, NoseInPose(car, bay), TheLaneIsToTheLeft(bay, lane) ? 1f : -1f, ground.Config.Road.KerbParkingBacksPastM, radiusM,
+                build.ParkingStraightensUpM, backIn)
             : BayManoeuvre.BackIn(from, BackedInPose(car, bay), radiusM, build.ParkingStraightensUpM, backIn);
 
         var noseM = float.PositiveInfinity;
@@ -211,6 +241,71 @@ internal sealed class ParkingIn(
         var chosen = backs ? backIn : noseIn;
         chosen.CopyTo(Manoeuvres.RoomOf(car));
         Manoeuvres.Shaped(car, ManoeuvreKind.Park, bay, lane, backs ? backShape : noseShape, backs ? backM : noseM);
+        return true;
+    }
+
+    /// <summary>Whether a lane a kerb place is worked off is to the left of the way the place runs.</summary>
+    bool TheLaneIsToTheLeft(int bay, int lane)
+    {
+        var laneM = Spline.SampleAt(ground.Roads.ArcsOf(lane), bayStreets.AtLaneM(bay, lane)).PositionM;
+        return Spline.Cross(Heading.Unit(parking.HeadingRad(bay)), laneM - parking.CentreM(bay)) >= 0f;
+    }
+
+    /// <summary>
+    /// <b>The axle where a car stands square in the middle of a bay</b> (GEN-4i), and the way its body points there: the
+    /// way round it stands now, read off the pose (GEN-4j).
+    /// </summary>
+    BayManoeuvre.Pose StandingPose(int car, int bay)
+    {
+        var bayRad = parking.HeadingRad(bay);
+        var bodyRad = Vector2.Dot(Cars.Forward[car], Heading.Unit(bayRad)) >= 0f ? bayRad : bayRad + MathF.PI;
+        return new BayManoeuvre.Pose(
+            parking.CentreM(bay) - (Heading.Unit(bodyRad) * Cars.BuildOf(car).CentreAheadOfAxleM), bodyRad);
+    }
+
+    /// <summary>
+    /// <b>The straightening of a car standing in its bay crooked or off its middle</b> (GEN-4i), taken as its line where it
+    /// is: a turn square, forwards or in reverse, and a straight to the middle — the one nobody stands on, else the one that
+    /// leaves the car nearer its bay's line. False where the car stands square in the middle, or can make neither.
+    /// </summary>
+    bool ShapeTheStraightening(int car, int bay)
+    {
+        var config = ground.Config;
+        ref readonly var build = ref Cars.BuildOf(car);
+        var to = StandingPose(car, bay);
+        var from = new BayManoeuvre.Pose(CarFollower.RearAxleM(build, Cars.PositionM[car], Cars.Forward[car]), Cars.HeadingRad[car]);
+        var along = Heading.Unit(to.HeadingRad);
+        var offAlongM = MathF.Abs(Vector2.Dot(to.AtM - from.AtM, along));
+        if (MathF.Abs(Spline.WrapRad(to.HeadingRad - from.HeadingRad)) <= config.ParkedSquareWithinRad
+            && offAlongM <= config.Driving.ParkedMiddleWithinM)
+        {
+            return false;
+        }
+
+        // A turn in reverse carries the car out from the hand it turns to: one that leaves it further off its bay's line
+        // than it stands, and than its middle may stand, is no straightening — at the kerb it is a body put into the lane.
+        var asideMostM = MathF.Max(MathF.Abs(Spline.Cross(along, from.AtM - to.AtM)), config.Driving.ParkedMiddleWithinM);
+
+        Span<ArcSeg> room = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+        var bestShape = BayManoeuvre.Shape.None;
+        var bestStoodOn = true;
+        var bestAsideM = float.PositiveInfinity;
+        foreach (var forwardFirst in (ReadOnlySpan<bool>)[true, false])
+        {
+            var shape = BayManoeuvre.Straighten(from, to, forwardFirst, build.ParkingTemplateRadiusM, room, out var asideM);
+            if (!shape.Exists || asideM > asideMostM || !bays.WhatTheShapeTakes(car, bay, room, shape, out _, out var stoodOn)) continue;
+            if (bestShape.Exists && (stoodOn && !bestStoodOn || (stoodOn == bestStoodOn && asideM >= bestAsideM))) continue;
+
+            bestShape = shape;
+            bestStoodOn = stoodOn;
+            bestAsideM = asideM;
+            room[..shape.ArcCount].CopyTo(Manoeuvres.RoomOf(car));
+        }
+
+        if (!bestShape.Exists) return false;
+
+        Manoeuvres.Shaped(car, ManoeuvreKind.Straighten, bay, CarFleet.NoLane, bestShape, 0f);
+        bays.TakeThePiece(car, 0);
         return true;
     }
 }

@@ -101,6 +101,17 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// <summary>How many of those were alongside a kerb (GEN-4n) rather than into a painted bay.</summary>
     public long ParkedAtTheKerb { get; private set; }
 
+    /// <summary>How many cars that got into their bay crooked or off its middle straightened up there (GEN-4i).</summary>
+    public long Straightened { get; private set; }
+
+    /// <summary>Where the first parallel parks at a kerb were begun (GEN-4n), to frame a picture of one by.</summary>
+    public Vector2[] ParallelParksBegunAtM { get; } = new Vector2[FirstParallelParksKept];
+
+    /// <summary>How many of <see cref="ParallelParksBegunAtM"/> are filled.</summary>
+    public int ParallelParksKept { get; private set; }
+
+    const int FirstParallelParksKept = 4;
+
     /// <summary>
     /// <b>The street every manoeuvre begun took</b>, in metres of the street's own ways — the figure each car's
     /// choice of shape is the least of.
@@ -164,13 +175,19 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         StreetM += manoeuvres.StreetM[car];
         if (manoeuvres.Kind[car] == ManoeuvreKind.Park)
         {
-            if (manoeuvres.Shape[car].IsReverse(manoeuvres.Shape[car].Pieces - 1)) ParkedBackedIn++;
+            if (manoeuvres.Shape[car].AnyReverse) ParkedBackedIn++;
             else ParkedNoseIn++;
 
-            if (streets.KerbRoadsideOf(manoeuvres.Bay[car]) >= 0) ParkedAtTheKerb++;
+            if (streets.KerbRoadsideOf(manoeuvres.Bay[car]) >= 0)
+            {
+                ParkedAtTheKerb++;
+                if (manoeuvres.Shape[car].AnyReverse && ParallelParksKept < FirstParallelParksKept) ParallelParksBegunAtM[ParallelParksKept++] = Cars.PositionM[car];
+            }
 
             TakeThePiece(car, 0);
         }
+
+        if (manoeuvres.Kind[car] == ManoeuvreKind.Straighten) Straightened++;
 
         Cars.AuthorityM[car] = float.PositiveInfinity;
         return true;
@@ -256,7 +273,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         _holds[car] = LaneOccupancy.NoHold;
         if (!CarActions.IsAtABay(Cars.Action[car])) return;
 
-        if (Cars.Action[car] == CarAction.Park && !manoeuvres.IsBegun(car)
+        if (Cars.Action[car] == CarAction.Park && manoeuvres.Kind[car] == ManoeuvreKind.Park && !manoeuvres.IsBegun(car)
             && Cars.StopsForBayOf(car) != manoeuvres.Bay[car])
         {
             actions.Enter(car, CarAction.Follow);
@@ -461,23 +478,22 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
                 var alongM = Spline.ProjectM(arcs, centreM, aroundM, windowM, out var offSq);
                 if (offSq > acrossM * acrossM) continue;
 
-                // <b>The kerb is read by the body as it is turned</b> (GEN-4n): it runs beside the very lane the car drives up,
-                // nearer than a body's half-diagonal, so read round the diagonal every station of the car going by stood
-                // over it, and the cars parked either side of a gap refused the slide into it.
-                var stationReachM = reachM;
+                // <b>The kerb is read by the part of the body over it</b> (GEN-4n): it runs beside the very lane the car drives
+                // up, nearer than a body's half-diagonal, so read round the diagonal every station of the car going by stood over
+                // it, and the cars parked either side of a gap refused the slide into it — and read by the whole body's reach
+                // along it, a car swung across it in the S of a parallel park stood its nose, still out over the lane, abeam of
+                // the car in front.
+                var (fromAlongM, toAlongM) = (-reachM, reachM);
                 if (atTheKerb)
                 {
-                    var laneAlong = Spline.SampleAt(arcs, alongM).Direction;
-                    var (sin, cos) = (MathF.Abs(Spline.Cross(on.Direction, laneAlong)), MathF.Abs(Vector2.Dot(on.Direction, laneAlong)));
-                    var (halfLengthM, halfWidthM) = (build.CollisionSizeM.X * 0.5f, build.CollisionSizeM.Y * 0.5f);
-                    var outM = (halfLengthM * sin) + (halfWidthM * cos) + spareM;
-                    if (offSq > (halfLaneM + outM) * (halfLaneM + outM)) continue;
-
-                    stationReachM = (halfLengthM * cos) + (halfWidthM * sin) + spareM;
+                    var kerb = Spline.SampleAt(arcs, alongM);
+                    var body = new OrientedBox(
+                        centreM, on.Direction, (build.CollisionSizeM.X * 0.5f) + spareM, (build.CollisionSizeM.Y * 0.5f) + spareM);
+                    if (!body.CoversAlong(kerb.PositionM, kerb.Direction, halfLaneM, out fromAlongM, out toAlongM)) continue;
                 }
 
-                leastM = MathF.Min(leastM, alongM - stationReachM);
-                mostM = MathF.Max(mostM, alongM + stationReachM);
+                leastM = MathF.Min(leastM, alongM + fromAlongM);
+                mostM = MathF.Max(mostM, alongM + toAlongM);
                 firstAtM = MathF.Min(firstAtM, atM);
                 lastAtM = MathF.Max(lastAtM, atM);
             }

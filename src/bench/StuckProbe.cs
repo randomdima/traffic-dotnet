@@ -261,8 +261,17 @@ internal static class StuckProbe
         Console.WriteLine(
             $"manoeuvres at a bay (GEN-4f): asked {world.Bays.Asked}, withdrew {world.Bays.Withdrawn}, " +
             $"begun {world.Bays.Begun} — parked {world.Bays.ParkedNoseIn} nose in and {world.Bays.ParkedBackedIn} backed in " +
-            $"({world.Bays.ParkedAtTheKerb} of them at a kerb, GEN-4n), " +
+            $"({world.Bays.ParkedAtTheKerb} of them at a kerb, GEN-4n), straightened {world.Bays.Straightened} (GEN-4i), " +
             $"{(world.Bays.Begun > 0 ? world.Bays.StreetM / world.Bays.Begun : 0):F1} m of the street's ways each");
+        if (world.Bays.ParallelParksKept > 0)
+        {
+            Console.WriteLine(
+                "  the first parallel parks begun, to frame with --shot: " +
+                string.Join("; ", world.Bays.ParallelParksBegunAtM.Take(world.Bays.ParallelParksKept).Select(atM => $"{atM.X:F0}, {atM.Y:F0}")));
+        }
+
+        Console.WriteLine($"  in a painted bay (GEN-4i): {world.ParkedSquareness.Said(kerb: false)}");
+        Console.WriteLine($"  at a kerb (GEN-4n): {world.ParkedSquareness.Said(kerb: true)}");
         Console.WriteLine(
             $"too near to step out (CAR-50): {world.BackingUp.CarTicksBackingUp} car-ticks backing up for the room, " +
             $"{world.BackingUp.CarTicksBlocked} blocked with none of the ground behind them");

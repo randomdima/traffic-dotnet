@@ -362,9 +362,8 @@ internal sealed class RoadFigures
     /// above what the geometry affords is not free straight — it is met by swinging the template away from
     /// the bay first, and every metre of that swing is ground taken off the far side of the street. On the
     /// shipped lot a quarter of a car length here cost a 27° swing, five metres of extra path and a body
-    /// over the centreline, and bought <em>no measurable squareness at all</em>: the follower hands a car on
-    /// about twenty degrees out either way and settles the rest at rest
-    /// (<c>ManeuverTests.ACarThatHasParkedStandsSquareInItsBay</c>).
+    /// over the centreline. What squares a car is the wheel driving the shape as it bends, and a straightening where it
+    /// still came to rest crooked (GEN-4i).
     /// </remarks>
     public float ParkingStraightensUpInCarLengths { get; init; } = 0.05f;
 
@@ -381,7 +380,14 @@ internal sealed class RoadFigures
     /// <b>The gap a car parking at the kerb leaves to the bodies either side of it</b> (GEN-4n): room to get its nose
     /// out past the one in front, and the one behind its own.
     /// </summary>
-    public float KerbParkingGapM { get; init; } = 1f;
+    public float KerbParkingGapM { get; init; } = 1.25f;
+
+    /// <summary>
+    /// <b>How far past its place's middle a car parallel parking backs in</b> (GEN-4n) before it pulls forward to it: into
+    /// the gap behind, so its nose swings in clear of the body in front. Less than <see cref="KerbParkingGapM"/>, which is
+    /// all the room there is behind.
+    /// </summary>
+    public float KerbParkingBacksPastM { get; init; } = 0.8f;
 
     /// <summary>
     /// <b>How far the lane beside a kerb runs on either side of where a car parks along it</b> (GEN-4n): before it, room

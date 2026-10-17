@@ -1,4 +1,6 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
+using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.CityGen.Traced;
@@ -94,6 +96,91 @@ public class KerbParkingInATownTests
             }
         }
     }
+
+    /// <summary>
+    /// <b>A car parks between two cars at a kerb by backing in</b> (GEN-4n): in a gap its own length and a
+    /// <see cref="RoadFigures.KerbParkingGapM"/> either side long, which a slide in forwards cannot be made into past the
+    /// car behind.
+    /// </summary>
+    [Fact]
+    public void ACarParallelParksBetweenTwoCarsAtAKerb()
+    {
+        using var world = new TownWorld(TownPlan.Lay(Block(), Config, BuildingSizes.None), Config);
+        var parked = ParkInAGap(world);
+
+        Assert.True(parked.Parked, $"car {Sent} stands {Vector2.Distance(world.Cars.PositionM[Sent], parked.GapM):F2} m off the gap's middle, doing {world.Cars.Action[Sent]}");
+        Assert.True(parked.BackedIn, $"car {Sent} parked in the gap, and not by backing in");
+    }
+
+    /// <summary>
+    /// <b>A car parked between two cars at a kerb stands square in the middle of its place</b> (GEN-4i): within
+    /// <see cref="DrivingFigures.ParkedSquareWithinDeg"/> of the kerb's line and
+    /// <see cref="DrivingFigures.ParkedMiddleWithinM"/> of the place's middle — pulled forward out of the gap behind it was
+    /// backed into, and straightened.
+    /// </summary>
+    [Fact]
+    public void ACarParallelParkedStandsSquareInTheMiddleOfItsPlace()
+    {
+        using var world = new TownWorld(TownPlan.Lay(Block(), Config, BuildingSizes.None), Config);
+        Assert.True(ParkInAGap(world).Parked, $"car {Sent} did not park in the gap");
+
+        var place = world.Parking.BayOf(Sent);
+        var along = Heading.Unit(world.Parking.HeadingRad(place));
+        var skewRad = MathF.Abs(MathF.Asin(Spline.Cross(along, world.Cars.Forward[Sent])));
+        var offAlongM = MathF.Abs(Vector2.Dot(world.Cars.PositionM[Sent] - world.Parking.CentreM(place), along));
+        Assert.True(skewRad <= Config.ParkedSquareWithinRad, $"car {Sent} stands {float.RadiansToDegrees(skewRad):F1}° off its place's line");
+        Assert.True(offAlongM <= Config.Driving.ParkedMiddleWithinM, $"car {Sent} stands {offAlongM:F2} m along from its place's middle");
+    }
+
+    /// <summary>The car sent into the gap, and the two put down broken either side of it.</summary>
+    const int Behind = 0, Ahead = 1, Sent = 2;
+
+    /// <summary>What a gap is longer than the least a place is opened in, so the place is opened in it and not past it.</summary>
+    const float GapSlackM = 0.1f;
+
+    /// <summary>
+    /// A gap at a kerb between two cars standing broken at it, as long as <see cref="Sent"/> and a gap either side, and that
+    /// car sent to park in it: <see cref="Behind"/> broken where the map stood it, and <see cref="Ahead"/> parked ahead of it
+    /// and broken there. Whether the car parked in the gap, where its middle is, and whether its way in was a back in.
+    /// </summary>
+    static (bool Parked, Vector2 GapM, bool BackedIn) ParkInAGap(TownWorld world)
+    {
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(OvertakeInATownTests.WarmUpTicks);
+
+        var cars = world.Cars;
+        var place = world.Parking.BayOf(Behind);
+        var arcs = world.Roads.ArcsOf(world.Parking.KerbLaneOf(place));
+        var behindAtM = (world.Parking.KerbFromM(place) + world.Parking.KerbToM(place)) * 0.5f;
+        var toTheKerbM = cars.PositionM[Behind] - Spline.SampleAt(arcs, behindAtM).PositionM;
+        OvertakeInATownTests.PutDown(world, Behind, cars.PositionM[Behind], cars.HeadingRad[Behind]);
+
+        var gapM = cars.BuildOf(Sent).LengthM + (2f * Config.Road.KerbParkingGapM) + GapSlackM;
+        var middleAtM = behindAtM + (cars.BuildOf(Behind).LengthM * 0.5f) + (gapM * 0.5f);
+        var aheadAtM = middleAtM + (gapM * 0.5f) + (cars.BuildOf(Ahead).LengthM * 0.5f);
+        Assert.True(world.OrderCar(Ahead, Spline.SampleAt(arcs, aheadAtM).PositionM + toTheKerbM), $"car {Ahead} could not be sent ahead of the gap");
+        for (var tick = 0; tick < ParkingTicks && !StandsParked(world, Ahead); tick++) loop.Advance(1);
+        Assert.True(StandsParked(world, Ahead), $"car {Ahead} did not park ahead of the gap");
+        OvertakeInATownTests.PutDown(world, Ahead, cars.PositionM[Ahead], cars.HeadingRad[Ahead]);
+
+        var middleM = Spline.SampleAt(arcs, middleAtM).PositionM + toTheKerbM;
+        Assert.True(world.OrderCar(Sent, middleM), $"car {Sent} could not be sent to the gap");
+        var backedIn = false;
+        for (var tick = 0; tick < ParkingTicks && !StandsParked(world, Sent); tick++)
+        {
+            loop.Advance(1);
+            if (world.Manoeuvres.Kind[Sent] == ManoeuvreKind.Park && world.Manoeuvres.IsBegun(Sent)) backedIn = world.Manoeuvres.Shape[Sent].AnyReverse;
+        }
+
+        var inTheGap = StandsParked(world, Sent) && Vector2.Distance(cars.PositionM[Sent], middleM) <= gapM * 0.5f;
+        return (inTheGap, middleM, backedIn);
+    }
+
+    static bool StandsParked(TownWorld world, int car) =>
+        world.Cars.Action[car] == CarAction.Stand && world.Parking.BayOf(car) >= 0 && world.Parking.IsKerb(world.Parking.BayOf(car));
+
+    /// <summary>Three minutes: across the block, a wait for the street and the manoeuvre into the gap.</summary>
+    const int ParkingTicks = 10_800;
 
     /// <summary>The side of the block, in metres, and where its corner stands.</summary>
     const float SideM = 300f, CornerM = 100f;

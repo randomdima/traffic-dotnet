@@ -61,6 +61,12 @@ space is the deepest bay-length of its road**, behind the apron it stands back f
 (`GEN-4j`, `ParkingIn.NoseInPose`, `ParkingIn.BackedInPose`): nose in, the rear axle stands short of the middle of
 the space by as far as the body's centre stands ahead of it, and backed in, as far past it.
 
+**A car that comes to rest crooked or off the middle straightens up, once** (`ParkingIn.ShapeTheStraightening`,
+`BayManoeuvre.Straighten`): more than `SimConfig.Driving.ParkedSquareWithinDeg` off its place's line or
+`ParkedMiddleWithinM` along from its middle, it lays a turn square on its own circle, forwards or in reverse, and a
+straight to abeam of the middle, asked for like any manoeuvre (`GEN-4f`) — never one leaving it further than
+`ParkedMiddleWithinM` off the line, which at the kerb is a body put into the lane. Refused, it stands as it is.
+
 **GEN-4d** `P6` A lot keeps its distance, both figures measured **along the kerb it hangs off**: clear of a
 junction, on top of everything the junction already takes, so a car park's flank is not in the face of
 anybody waiting to turn out; and clear of the next lot, claimed along the lot's own bearing only and
@@ -94,6 +100,11 @@ wide circle makes a different manoeuvre into the same bay than a small car does.
   route is laid before the car moves**, from both lanes at once, and the lane it sets off down is the one the car
   pulls out onto; where the car cannot be got onto that one, the route is laid again from the other before it moves
   (`TownWorld.LeaveTheBay`). Of two it could make with no route to choose, the one taking less street.
+- **It is driven as it bends, at a walking pace** (`CarFollower.SteerTheManoeuvre`, `TurningPaceMps`): the wheel is
+  given the shape's own bend a half wind of the rack ahead, corrected by pure pursuit of the tangent where the car is —
+  a manoeuvre's turns are shorter than a lookahead, and pursued alone a kerb's S was driven down its chord — its turns
+  at `SimConfig.Driving.ManoeuvringPaceMps`, each piece set off on with the wheel already wound, and each spent at its
+  end and not a flank short of it.
 - **A car waits for its manoeuvre into a bay where its own turn in would begin** (`TownWorld.StopForTheBayM`):
   the line of a leg aimed at a bay stops there, on the lane the bay is worked off, and is what the car drives
   until the manoeuvre is had. **It shapes the manoeuvre only once it is near enough to stop for it and that place
@@ -223,11 +234,15 @@ either side (`KerbStretches`). Nothing is laid along it for parking.
   roadside parks at no kerb, and none at a stretch where the roadside's line stands so near the lane that it would
   stand in it. **Nor along a bend** a car's length laid as a chord stands off by more than
   `SimConfig.CityGen.CarParkOffLaneMaxM` (`SimConfig.KerbCurvatureMax`).
-- **In and out is a slide and not a turn** (GEN-4f, `BayManoeuvre.AlongsideIn`, `…BackIn`, `…Out`): forwards on an S
-  where the car comes up to the gap with room behind it, or on past it and back in on an S in reverse; out on an S
-  onto the lane, backing up `SimConfig.Driving.KerbBackUpM` first where what stands in front leaves too little room.
-  The car stands pointing along the kerb whichever way it got in. **The manoeuvre's ground is the lane beside and the
-  roadside too**: a body already at the kerb refuses it there, as a body in the lane does.
+- **In and out is a slide and not a turn** (GEN-4f, `BayManoeuvre.AlongsideIn`, `…ParallelIn`, `…AlongsideOut`):
+  forwards on an S where the car comes up to the gap with room behind it, or **parallel parked** — on past it, back in
+  on an S to `SimConfig.Road.KerbParkingBacksPastM` past the place with the nose still turned out, and forward on one
+  turn into it, square; out on an S onto the lane, backing up `SimConfig.Driving.KerbBackUpM` first where what stands
+  in front leaves too little room. The car stands pointing along the kerb whichever way it got in. **A gap is long
+  enough to parallel park in** (`KerbParkingGapM` either side), since a car behind it refuses the slide forwards.
+- **The manoeuvre's ground is the lane beside and the roadside too**: a body already at the kerb refuses it there, as a
+  body in the lane does — **read by the part of the body over the roadside** (`OrientedBox.CoversAlong`), not by the
+  whole body's reach along it, which stood a car swung across the kerb in its S abeam of the car in front.
 - **Its way in is on the kerb's side** (GEN-4e), away from the traffic.
 - **The kerb is searched beside the place's own street and the way back down it**, and a car parks at whichever of
   the kerb or a painted bay stands nearer where it is going. A search opens the gap it found only where it hands it

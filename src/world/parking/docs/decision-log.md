@@ -4,6 +4,32 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-17 — a manoeuvre is driven as it bends, a car parallel parks at the kerb, and straightens up in its place
+
+**The owner asked for a review of parking on OdesaOsm, parallel parking, and a straightening at the end** to keep a car
+along its bay. Instrumented (`ParkedSquareness`), every one of 1 033 kerb parkings over 120 s stood crooked — 21.4° off
+the kerb on the mean, 41° at worst, 0.38 m off its line — and painted bays 11.8°.
+
+- **The cause was the wheel and not the shapes.** Pursued from a car's length out with its lead clamped to the piece's
+  end, a kerb's S — two turns of a few metres, near full lock — was driven down its chord: the wheel reached 16° where
+  the turn asked 33°, and at the grip limit, 5.6 m/s. A manoeuvre is now steered by the shape's own bend a half wind
+  of the rack ahead, with pursuit of the tangent for the error, at `ManoeuvringPaceMps` through its turns, the wheel
+  wound at rest before a piece rolls, and a piece is spent at its end rather than a flank short (GEN-4f).
+- **Parallel parking backs in deep with the nose turned out, and pulls forward on one turn** (GEN-4n). Backed in square
+  to the middle, the turn straightening it swings the nose over the kerb abeam of the car in front; ended deeper and
+  square it still did. The forward turn is a third piece of the same manoeuvre, so its ground is asked with the rest:
+  asked on its own afterwards, the lane's traffic refused it and the car stood 12° out with its nose in the lane.
+- **The kerb is read by the part of the body over it**, and **a kerb gap is 1.25 m and not 1 m**: with the whole
+  body's reach and a metre either side, no shape could be got into a gap between two cars — the slide in clips the car
+  behind and the back in the car in front — and the car waited at its stop until its leg gave the gap up.
+- **A straightening, once** (GEN-4i): a turn square and a straight to the middle. One that leaves the car further off
+  its line than its middle may stand is never taken: a reverse first carried a car 0.28 m out into the lane.
+- **A park order looks at the kerb too** (CTL-8b), as GEN-4n already said a car does.
+- **What it came to over 120 s** (OdesaOsm, 5 000 cars): kerb skew 21.4° → 1.3° on the mean, 4.3° at worst, 2 of 978
+  crooked; painted bays 0.2°; aside 0.04 m. Parkings 1 052 → 992 (the walking pace), legs given up 3 → 0, places given
+  up 7 → 0, cars off their line 7 → 4, car-ticks spending the braking margin 812 → 121, one wreck either way, no car
+  standing at the end.
+
 ## 2026-10-17 — a car at the kerb is laid over its place, stands against the kerb, and is never held at a lane's end
 
 **A review of the kerb parking and the 120 s probe after it** (OdesaOsm, 5 000 cars) found what the first cut got wrong.

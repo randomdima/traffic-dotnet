@@ -78,6 +78,24 @@ public class SimConfigTests
     }
 
     /// <summary>
+    /// <b>A parallel park backs in less far than the kerb gap behind it</b> (GEN-4n): the gap is all the room there is
+    /// behind a place, and a car backed past its place further than that is backed into the car behind.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a relation between two authored figures and not a derivation written twice</b> (VER-12): the depth is the
+    /// manoeuvre's and the gap the search's, chosen apart.
+    /// </remarks>
+    [Fact]
+    public void AParallelParkBacksInLessFarThanTheKerbGap()
+    {
+        var config = SimConfig.Shipped();
+
+        Assert.True(
+            config.Road.KerbParkingBacksPastM < config.Road.KerbParkingGapM,
+            $"a parallel park backs {config.Road.KerbParkingBacksPastM:F2} m past its place into a gap of {config.Road.KerbParkingGapM:F2} m");
+    }
+
+    /// <summary>
     /// <b>A bay is longer than the longest vehicle the town draws</b> (GEN-53). A car park's bays are laid
     /// at one length whatever turns up to stand in them, so a vehicle longer than that is one parked across
     /// the ground the arm was drawn for.

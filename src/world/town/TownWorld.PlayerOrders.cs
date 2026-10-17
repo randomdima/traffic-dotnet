@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Parking;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 
@@ -180,7 +181,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>A bay</b> (CTL-8b): the free one nearest the point, which is the bay under the pointer wherever
-    /// that one can be had and the one a driver sent there would settle for wherever it cannot.
+    /// that one can be had and the one a driver sent there would settle for wherever it cannot — <b>or a gap at
+    /// the kerb</b> beside the street nearest the point, where that stands nearer (GEN-4n).
     /// </summary>
     /// <remarks>
     /// <b>The search is the whole town and not a walk of the place</b>, which is the one way an order's
@@ -190,7 +192,16 @@ internal sealed partial class TownWorld
     /// </remarks>
     bool SendToABayNearTheOrder(int car)
     {
-        var bay = FreeBayNear(_carOrders.PointM[car], TheWholeTownM);
+        var pointM = _carOrders.PointM[car];
+        var bay = FreeBayNear(pointM, TheWholeTownM);
+        var lane = _roads.NearestStreetLane(pointM, out var alongM);
+        var gap = lane >= 0 ? NearestKerbGap(new RoadPlace(lane, alongM), pointM, TheWholeTownM, car) : default;
+        if (lane >= 0 && gap.Stretch >= 0 && (bay < 0 || gap.FarM < Vector2.Distance(_parking.CentreM(bay), pointM)))
+        {
+            var kerb = OpenTheKerb(gap.Stretch, gap.AtM, Cars.BuildOf(car));
+            if (kerb >= 0) bay = kerb;
+        }
+
         if (bay < 0) return false;
 
         SendTo(car, _parking.CentreM(bay), bay);

@@ -48,6 +48,19 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Regressions and figures not taken
 
+- **A parallel park's tail swings over the kerb and its ground does not cover the pavement** (`BayManoeuvre.ParallelIn`,
+  2026-10-17): backed in with the nose turned out, the rear corner stands ~0.25 m past the roadside's kerb edge, and the
+  manoeuvre asks only the lane and the roadside — a walker there is met by the world. Sweeping the pavement way beside
+  the roadside into `BayManoeuvring.StreetUnder` closes it.
+- **Two kerb parkings in 978 stand crooked** (OdesaOsm, 120 s, up to 4.3°): their straightening was refused and is asked
+  once. Asking it again on the manoeuvre clock for a short while closes it.
+- **Parkings fell 6 % with the walking pace** (1 052 → 992 over 120 s on OdesaOsm), and a kerb gap of 1.25 m stands
+  fewer cars along a kerb. `qq tests maps` and `--bench drive` were not taken since; taking them says whether either
+  cost a shipped city a claim.
+- **A car pulled out from a kerb was handed to a lane 2.2 m off and lost its line** (car 2111, one OdesaOsm run of
+  2026-10-17, `ShapeTheWayOffTheKerb` lands on the lane beside whatever lane the route set off down). Not seen in the
+  run after; checking whether `TownWorld.LeaveTheBay`'s lane and the shape's can differ at a kerb closes it.
+
 - **Laying the paint costs three times what it did on OdesaOsm** (`--bench census`, 2026-10-17: 116 → 373 ms of a
   2.8 s ground): every lane and roadside line is asked of the painted bands a crossing's depth at a time, to part it
   round any it runs under (`GroundMesh.LineRound`). Asking only the cells a line's bounds reach, or the line once per

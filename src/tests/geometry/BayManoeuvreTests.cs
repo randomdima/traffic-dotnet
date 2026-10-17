@@ -194,6 +194,73 @@ public class BayManoeuvreTests
         AssertEndsAt(arcs[..shape.ArcCount], AtTheKerb(3f, MathF.PI));
     }
 
+    /// <summary>How far past the place a parallel park backs in.</summary>
+    const float DeepM = 0.8f;
+
+    /// <summary>
+    /// <b>A parallel park is on past the place, back in on an S, and forward into it</b> (GEN-4n): three pieces, the middle
+    /// one in reverse, ending at the pose square along the kerb.
+    /// </summary>
+    [Fact]
+    public void ParallelInBacksInAndPullsForwardIntoThePlace()
+    {
+        Span<ArcSeg> arcs = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+        var shape = BayManoeuvre.ParallelIn(OnTheStreet, AtTheKerb(3f), outSign: -1f, DeepM, RadiusM, StraightensUpM, arcs);
+
+        Assert.Equal(3, shape.Pieces);
+        Assert.Equal((false, true, false), (shape.IsReverse(0), shape.IsReverse(1), shape.IsReverse(2)));
+        AssertEndsAt(arcs[..shape.ArcCount], AtTheKerb(3f));
+    }
+
+    /// <summary>
+    /// <b>And the S back in ends past the place by the depth</b>, its nose still turned out toward the street: the axle 0.8 m
+    /// short of the place along the kerb, turned 11.5° out — the turn on a 4 m circle that carries it 0.8 m forward.
+    /// </summary>
+    [Fact]
+    public void ParallelInBacksInPastThePlaceTurnedOut()
+    {
+        Span<ArcSeg> arcs = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+        var shape = BayManoeuvre.ParallelIn(OnTheStreet, AtTheKerb(3f), outSign: -1f, DeepM, RadiusM, StraightensUpM, arcs);
+
+        var backIn = arcs.Slice(shape.FirstArcOf(1), shape.ArcsOf(1));
+        var end = Spline.SampleAt(backIn, Spline.TotalLengthM(backIn));
+        Assert.Equal(3f - DeepM, end.PositionM.X, 2);
+        Assert.Equal(-11.5f, float.RadiansToDegrees(Spline.WrapRad(end.HeadingRad - MathF.PI)), 1);
+    }
+
+    /// <summary>
+    /// <b>A straightening squares the car abeam of its place</b> (GEN-4i), whichever gear it turns in: from 5° off and a
+    /// tenth of a metre behind, it ends pointing along the place's line with its axle abeam of the place's.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void StraightenEndsSquareAbeamOfThePlace(bool forwardFirst)
+    {
+        Span<ArcSeg> arcs = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+        var from = new BayManoeuvre.Pose(new Vector2(-0.1f, 0.05f), float.DegreesToRadians(5f));
+        var shape = BayManoeuvre.Straighten(from, OnTheStreet, forwardFirst, RadiusM, arcs, out _);
+
+        var last = arcs.Slice(shape.FirstArcOf(shape.Pieces - 1), shape.ArcsOf(shape.Pieces - 1));
+        var end = Spline.SampleAt(last, Spline.TotalLengthM(last));
+        var travel = shape.IsReverse(shape.Pieces - 1) ? -Vector2.UnitX : Vector2.UnitX;
+        Assert.Equal(0f, end.PositionM.X, 2);
+        Assert.Equal(1f, Vector2.Dot(end.Direction, travel), 4);
+    }
+
+    /// <summary>
+    /// <b>And is one piece where its straight runs on in the gear it turned in</b>: a metre behind its place, the turn forward
+    /// leaves it short of it, and the straight on is forward too.
+    /// </summary>
+    [Fact]
+    public void StraightenIsOnePieceWhereItRunsOnInOneGear()
+    {
+        Span<ArcSeg> arcs = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+        var from = new BayManoeuvre.Pose(new Vector2(-1f, 0f), float.DegreesToRadians(5f));
+
+        Assert.Equal(1, BayManoeuvre.Straighten(from, OnTheStreet, forwardFirst: true, RadiusM, arcs, out _).Pieces);
+    }
+
     /// <summary>
     /// <b>Off the kerb is an S out onto the street's line</b>, after backing up where it is asked to: it lands on the
     /// line, travelling along it.

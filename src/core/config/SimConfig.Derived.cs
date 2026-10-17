@@ -69,6 +69,9 @@ internal sealed partial class SimConfig
     /// <summary><see cref="DrivingFigures.ParkingSwingMostDeg"/>, as the angle it is turned through.</summary>
     public float ParkingSwingMostRad => Driving.ParkingSwingMostDeg * MathF.PI / 180f;
 
+    /// <summary><see cref="DrivingFigures.ParkedSquareWithinDeg"/>, as the angle it is turned through.</summary>
+    public float ParkedSquareWithinRad => Driving.ParkedSquareWithinDeg * MathF.PI / 180f;
+
     /// <summary>
     /// <b>What the nominal car's tyres hold, as an acceleration</b>: the coefficient times a weight.
     /// Derived, and derived here once — nothing authors a grip in m/s², because a grip in m/s² is a

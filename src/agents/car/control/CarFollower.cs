@@ -254,6 +254,7 @@ internal static class CarFollower
         var wasRad = reverse ? -last.SteerRad : last.SteerRad;
         var wantedRad = backing ? Steer(build, line, progressM, rearAxleM, travel, -lookaheadM)
             : pass.Begun ? SteerThePass(build, line, pass, progressM, rearAxleM, travel, lookaheadM)
+            : laneless ? SteerTheManoeuvre(build, line, progressM, lengthM, rearAxleM, travel, alongMps)
             : Steer(build, line, progressM, rearAxleM, travel, lookaheadM, cursor, leadAtM, aimRad);
         var steerRad = build.WheelWoundTo(wasRad, wantedRad, config.TickSeconds);
 
@@ -277,6 +278,15 @@ internal static class CarFollower
         // <b>A manoeuvre at a bay is driven at manoeuvring pace</b> whichever gear its piece is in, and the reverse cap
         // is that pace — deliberately off the forward cap's scale, because this is its only use.
         var capMps = reverse || laneless ? build.ReverseMaxMps : float.PositiveInfinity;
+        if (laneless)
+        {
+            Bind(ref targetMps, TurningPaceMps(config, build, line, progressM, alongMps, lastMps2), DrivingHold.Corner, ref hold);
+
+            // <b>A piece is set off on with the wheel already wound</b>, as a driver parking turns it at rest: a turn of a
+            // manoeuvre is a fraction of a metre to a few, and wound as the car rolls the rack is still on its way across
+            // when the turn is done.
+            if (MathF.Abs(alongMps) <= config.Driving.StopSpeedMps && steerRad != wantedRad) Bind(ref targetMps, 0f, DrivingHold.Corner, ref hold);
+        }
 
         // AMB-4: <b>a blue light buys the road and never the tyres.</b> A car on a call keeps every constraint the
         // profile already takes and plans above what holds every other car at a light — the light's hold on the road
@@ -327,6 +337,64 @@ internal static class CarFollower
     {
         var aheadM = progressM + lookaheadM;
         return leadAtM == aheadM ? aimRad : AimAt(car, rearAxleM, forward, Spline.SampleFrom(line, aheadM, ref cursor).PositionM);
+    }
+
+    /// <summary>
+    /// <b>The wheel down a piece of a manoeuvre at a bay</b> (GEN-4f): the piece's own bend, taken a wind of the rack ahead,
+    /// and pure pursuit of the line's tangent where the axle is for whatever the car has strayed off it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A manoeuvre's turns are shorter than a lookahead</b>: a kerb's S is two of a few metres each, near full lock and
+    /// the opposite ways, and pursued from a car's length out the wheel was aimed across both — at half the lock the turns
+    /// asked for — and down the chord to the piece's end. Every car at a kerb stood a mean 21° off it and none within 3°.
+    /// The shape is laid on the car's own circle, so the bend it asks is one the car can hold, and the wheel is given it.
+    /// </para>
+    /// <para>
+    /// <b>Taken half a lock to lock ahead</b> (<see cref="CarBuild.SteerRateRadPerS"/>): from one lock to the other the rack
+    /// is then half way across where the shape turns from one bend to the next. <b>The pursuit is of the tangent</b>, so a
+    /// car on its line asks for nothing past the bend, and the tangent runs on past the piece's end, which is a pose and not
+    /// a point: what the car is straightened onto is the line it is to stand along.
+    /// </para>
+    /// </remarks>
+    static float SteerTheManoeuvre(
+        in CarBuild car, ReadOnlySpan<ArcSeg> line, float progressM, float lengthM, Vector2 rearAxleM, Vector2 travel,
+        float alongMps)
+    {
+        var at = Spline.SampleAt(line, progressM);
+        var nextPerM = BendAtM(line, lengthM, progressM + (MathF.Abs(alongMps) * 2f * car.MaxSteerRad / car.SteerRateRadPerS));
+        var windM = MathF.Abs(alongMps) * MathF.Abs(SteerFor(car, nextPerM) - SteerFor(car, at.Curvature)) * 0.5f / car.SteerRateRadPerS;
+        var tangentM = at.PositionM + (at.Direction * (car.LookaheadFloorM + MathF.Max(0f, progressM - lengthM)));
+        return SteerFor(car, BendAtM(line, lengthM, progressM + windM) + PursuitBend(rearAxleM, travel, tangentM));
+    }
+
+    /// <summary>The bend a line asks for this far along it, and none past its end.</summary>
+    static float BendAtM(ReadOnlySpan<ArcSeg> line, float lengthM, float atM) =>
+        atM < lengthM ? Spline.SampleAt(line, atM).Curvature : 0f;
+
+    /// <summary>
+    /// <b>The most a car may be doing on a piece of a manoeuvre</b> (GEN-4f): its turns at
+    /// <see cref="DrivingFigures.ManoeuvringPaceMps"/>, and a straight before one no faster than it can come down to that
+    /// pace by where the turn begins.
+    /// </summary>
+    static float TurningPaceMps(
+        SimConfig config, in CarBuild car, ReadOnlySpan<ArcSeg> line, float progressM, float alongMps, float lastMps2)
+    {
+        var paceMps = config.Driving.ManoeuvringPaceMps;
+        var reachedM = progressM + (MathF.Abs(alongMps) * LeadS(car, lastMps2));
+        var startM = 0f;
+        foreach (ref readonly var arc in line)
+        {
+            var endM = startM + arc.LengthM;
+            if (endM >= progressM && arc.Curvature != 0f)
+            {
+                return startM <= reachedM ? paceMps : ApproachMps(paceMps, startM - reachedM, car.PlannedBrakingMps2);
+            }
+
+            startM = endM;
+        }
+
+        return float.PositiveInfinity;
     }
 
     /// <summary>The wheel pure pursuit asks for to pass through a point of the line (S-1), the world's and the driver's alike.</summary>

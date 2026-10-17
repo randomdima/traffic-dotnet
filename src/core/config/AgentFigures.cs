@@ -378,10 +378,30 @@ internal sealed class DrivingFigures
     public float ParkingSwingMostDeg { get; init; } = 45f;
 
     /// <summary>
+    /// <b>The pace a car turns at in a manoeuvre at a bay</b> (GEN-4f): a walking pace, the one a driver winds the wheel
+    /// across at. A turn of a manoeuvre is on the car's own circle, near full lock, and a few metres long; taken any faster
+    /// the rack is still winding when the next one begins, and the car stands crooked where the shape ends.
+    /// </summary>
+    public float ManoeuvringPaceMps { get; init; } = 2f;
+
+    /// <summary>
     /// <b>How far a car at the kerb backs up before it pulls out</b> (GEN-4n), where what stands in front of it leaves
     /// too little room for the S out: a car's bumper's worth, which is what a driver takes back off the car behind.
     /// </summary>
     public float KerbBackUpM { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How far off its place's line a parked car's heading may stand</b> (GEN-4i): past it the car is crooked in its
+    /// place, and straightens up before it stands down.
+    /// </summary>
+    public float ParkedSquareWithinDeg { get; init; } = 3f;
+
+    /// <summary>
+    /// <b>And how far from the middle of its place its body may stand</b> (GEN-4i): along it, past which the car moves up or
+    /// back to the middle before it stands down — a piece of that move spent this near its end and no further off — and
+    /// across it, past which a straightening may not carry it.
+    /// </summary>
+    public float ParkedMiddleWithinM { get; init; } = 0.15f;
 
     /// <summary>
     /// <b>How much of its braking a car coming up to something it means to get past slows at</b> (CAR-46): gently,
