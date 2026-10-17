@@ -1,5 +1,25 @@
 # CityGen — decision log
 
+## 2026-10-17 — a traced map's roads are mended in the map, and the town evens nothing
+
+**The owner asked that what is changed about the lanes be changed in the map and not patched each time a town is laid,
+and that it leave the map with fewer points and roads, not more.** Joining what OSM left unjoined, holding streets even,
+taking roadsides off other roads and parting carriageways ran in `Survey.Of` and `TracedStreets.Lay` every time the map was
+opened; they now run once, in `qq osm --mend` (`TracedStreets.Mended`), and the map is written back.
+
+- **A mended road is laid exactly as it says** (`TracedRoad.Mended`, map version 8's second road byte): its lanes as
+  counted, its width, a roadside at each kerb it names. Read as an OSM way's, a width is re-read for lanes and a lane too
+  wide refuses it — a road of one lane between two roadsides would have lost them.
+- **The mending is run again until it reads back the same bytes**: two roads a hair apart in memory are one once held to
+  the map's steps, and parting moved sub-centimetre slivers each pass until it ignored overlaps under `LineTolerance.OnePlaceM`.
+- **Streets run on through junctions they carry straight on through, and points that add nothing go**: written one road
+  per junction to junction, the first mend took OdesaOsm from 8 520 roads and 39 143 points to 12 095 and 39 394. Chained
+  and thinned, it is 7 444 roads and 27 652 points, 341 KB from 400. The town laid off it is the same: laying cuts every way
+  at every point another meets it.
+- **A way ending beside another and running alongside it is not ending on it**: the almost-junction join first carried
+  the ends of parallel ways onto each other. It takes an end only where its last leg heads into the other road.
+- **Version 7 is still read**, as roads holding no second byte; every generated map is version 7.
+
 ## 2026-10-17 — what the source data got wrong, joined, taken off or parted
 
 **The owner asked for corrupt source data behind weird junctions and redundant lanes to be found and fixed.**

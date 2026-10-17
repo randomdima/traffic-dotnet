@@ -128,7 +128,6 @@ internal static partial class TracedStreets
         var roads = Walked(survey, edges, ends, place, junctionOf);
         roads = Unlooped(roads, centreM);
         var shared = OneWayShared(roads, centreM.Count);
-        Evened(roads, centreM, config);
         JoinedThrough(roads, centreM.Count);
         roads = CutShort(roads, centreM, config.CityGen.TracedRoadLongestM);
         var aloneRunsOff = RunsOff(survey, roads, pointOf, centreM.Count);

@@ -55,7 +55,9 @@ internal static class TracedFidelity
 
         var survey = Survey.Of(traced, config);
         var plan = Maps.Plan(map, config, BuildingSizes.None);
-        var ways = traced.Roads.ToDictionary(road => road.OsmId);
+        // A mended map holds a road for each stretch of a way between junctions it does not run straight on through, all
+        // named after the way: the first stands for it.
+        var ways = traced.Roads.GroupBy(road => road.OsmId).ToDictionary(group => group.Key, group => group.First());
         if (atM is { } placeM)
         {
             Near(survey, ways, plan, placeM);

@@ -17,12 +17,12 @@ internal sealed partial record TownMap
         {
             var bytes = new Bytes(file);
             if (bytes.UInt32() != Magic) throw new InvalidDataException($"{what}: not a map.");
-            if (bytes.UInt16() is var version && version != Version)
+            if (bytes.UInt16() is var version && version is < OldestRead or > Version)
             {
-                throw new InvalidDataException($"{what}: a map of version {version}, and this build reads {Version} — `qq osm --upgrade` rewrites a traced one.");
+                throw new InvalidDataException($"{what}: a map of version {version}, and this build reads {OldestRead} to {Version} — `qq osm --upgrade` rewrites a traced one.");
             }
 
-            map = ReadBody(ref bytes);
+            map = ReadBody(ref bytes, version);
             if (bytes.Left != 0) throw new InvalidDataException($"{what}: {bytes.Left} bytes past the end of the map.");
         }
         catch (Exception cut) when (cut is ArgumentOutOfRangeException or IndexOutOfRangeException)
@@ -43,7 +43,10 @@ internal sealed partial record TownMap
         try
         {
             var bytes = new Bytes(head);
-            if (bytes.UInt32() != Magic || bytes.UInt16() != Version) throw new InvalidDataException($"{what}: not a map of version {Version}.");
+            if (bytes.UInt32() != Magic || bytes.UInt16() is < OldestRead or > Version)
+            {
+                throw new InvalidDataException($"{what}: not a map of versions {OldestRead} to {Version}.");
+            }
 
             return (bytes.String(), bytes.String());
         }
@@ -61,7 +64,7 @@ internal sealed partial record TownMap
         return Read(bytes.ToArray(), Name);
     }
 
-    static TownMap ReadBody(ref Bytes bytes)
+    static TownMap ReadBody(ref Bytes bytes, ushort version)
     {
         var (name, description, licence, osmBase) = (bytes.String(), bytes.String(), bytes.String(), bytes.String());
         var seed = bytes.Varint();
@@ -88,7 +91,7 @@ internal sealed partial record TownMap
         for (var road = 0; road < roads.Length; road++)
         {
             id += bytes.Signed64();
-            roads[road] = ReadRoad(ref bytes, id, classes, ref last);
+            roads[road] = ReadRoad(ref bytes, id, classes, version > OldestRead, ref last);
         }
 
         var coast = new int[bytes.Count()][];
@@ -102,10 +105,11 @@ internal sealed partial record TownMap
         };
     }
 
-    static TracedRoad ReadRoad(ref Bytes bytes, long id, string[] classes, ref int last)
+    static TracedRoad ReadRoad(ref Bytes bytes, long id, string[] classes, bool moreFlags, ref int last)
     {
         var highway = classes[bytes.Count()];
         var flags = bytes.Byte();
+        var more = moreFlags ? bytes.Byte() : 0;
         var lanes = bytes.Byte();
         var offsetShare = (flags & RoadFlags.Offset) != 0 ? bytes.Signed() / (float)OffsetSteps : 0f;
         float? widthM = (flags & RoadFlags.Width) != 0 ? bytes.Count() / (float)StepsPerM : null;
@@ -122,6 +126,9 @@ internal sealed partial record TownMap
             Marked = (flags & RoadFlags.Marked) != 0,
             CentreOffsetShare = offsetShare,
             WidthM = widthM,
+            Mended = (more & RoadMoreFlags.Mended) != 0,
+            RoadsideAlong = (more & RoadMoreFlags.RoadsideAlong) != 0,
+            RoadsideAgainst = (more & RoadMoreFlags.RoadsideAgainst) != 0,
             Points = ReadIndices(ref bytes, ref last),
         };
     }
@@ -345,8 +352,11 @@ internal sealed partial record TownMap
         var flags = (road.Bridge ? RoadFlags.Bridge : 0) | (road.Roundabout ? RoadFlags.Roundabout : 0) | (offsetSteps != 0 ? RoadFlags.Offset : 0)
                     | (road.WidthM is not null ? RoadFlags.Width : 0) | (road.LanesTagged ? RoadFlags.LanesTagged : 0) | (road.Marked ? RoadFlags.Marked : 0)
                     | (road.LanesShared << RoadFlags.SharedShift);
+        var more = (road.Mended ? RoadMoreFlags.Mended : 0) | (road.RoadsideAlong ? RoadMoreFlags.RoadsideAlong : 0)
+                   | (road.RoadsideAgainst ? RoadMoreFlags.RoadsideAgainst : 0);
         writer.Write7BitEncodedInt(highway);
         writer.Write((byte)flags);
+        writer.Write((byte)more);
         writer.Write((byte)(road.LanesForward | (road.LanesBackward << 4)));
         if (offsetSteps != 0) WriteSigned(writer, offsetSteps);
         if (road.WidthM is { } widthM) writer.Write7BitEncodedInt(Steps(widthM, StepsPerM));
@@ -503,6 +513,14 @@ internal sealed partial record TownMap
         public const int LanesTagged = 16;
         public const int Marked = 32;
         public const int SharedShift = 6;
+    }
+
+    /// <summary>A road's second byte, from version 8 (<see cref="TracedRoad.Mended"/>).</summary>
+    static class RoadMoreFlags
+    {
+        public const int Mended = 1;
+        public const int RoadsideAlong = 2;
+        public const int RoadsideAgainst = 4;
     }
 
     /// <summary>

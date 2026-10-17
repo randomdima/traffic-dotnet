@@ -163,6 +163,11 @@ cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a s
   width says it**: as many lanes each way as it holds past a roadside at each kerb, never fewer than OSM assumes
   and never more than any way of its class on the map is tagged with; a way with a lane's turn, change or bus
   entry tagged keeps OSM's count.
+- **What follows is the map's mending and not the town's laying** (`qq osm --mend`, `TracedStreets.Mended`): it is run
+  once over the map, which is written back with every street a road laid exactly as it says (`TracedRoad.Mended`) — run on
+  through the junctions it carries straight on through, and thinned of points nearer the line through their neighbours
+  than two places are one place — so a town laid off a mended map reads its lanes as they are and evens nothing, and
+  mending it again changes no byte.
 - **A street's carriageway is held even along it** (`TracedStreets.Evened`) — a street being its roads run on into
   each other through every place of two arms, and straight on through every junction where nothing else meeting it
   is a street, only a yard's way or a track. **A stretch whose lanes change and change back** within

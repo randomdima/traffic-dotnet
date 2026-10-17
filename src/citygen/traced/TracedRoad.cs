@@ -44,6 +44,20 @@ internal sealed record TracedRoad
     /// </summary>
     public float? WidthM { get; init; }
 
+    /// <summary>
+    /// <b>Whether it is laid exactly as it says</b> (<c>qq osm --mend</c>, <c>TracedStreets.Mended</c>): its lanes
+    /// as counted, its width kerb to kerb, and a roadside at each kerb <see cref="RoadsideAlong"/> and
+    /// <see cref="RoadsideAgainst"/> name — nothing read off its width as an OSM way's is. A mended map's roads are the
+    /// streets as the town holds them, joined where OSM left them unjoined and held even along their length.
+    /// </summary>
+    public bool Mended { get; init; }
+
+    /// <summary>A mended road's roadside beside the kerb the traffic along its points keeps to.</summary>
+    public bool RoadsideAlong { get; init; }
+
+    /// <summary>And beside the other kerb.</summary>
+    public bool RoadsideAgainst { get; init; }
+
     /// <summary>Indices into <see cref="Map.TownMap.PointM"/>, in the way's own order.</summary>
     public required int[] Points { get; init; }
 

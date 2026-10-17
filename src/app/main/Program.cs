@@ -54,6 +54,7 @@ internal static class Program
 
         if (options.Lamps) return CutTheLamps();
         if (options.Author is not null) return Author(options.Author, config);
+        if (options.Mend is not null) return Mend(options.Mend, config);
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, options.Out, options.Seconds, config);
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
@@ -387,6 +388,9 @@ internal static class Program
             case "faults":
                 RoadFaults.Run(map ?? Options.TracedMap, config);
                 return 0;
+            case "selfcross":
+                SelfCrossings.Run(map ?? Options.TracedMap, config);
+                return 0;
             case "widths":
                 TownShape.Widths(map ?? Options.TracedMap, config);
                 return 0;
@@ -589,6 +593,22 @@ internal static class Program
         return 0;
     }
 
+    /// <summary>
+    /// <b>A traced map's roads mended, in place</b> (GEN-57, <c>--mend NAME</c>, <c>qq osm --mend</c>): what OSM left
+    /// unjoined joined and every street held even along it (<see cref="CityGen.Traced.TracedStreets"/>), written over
+    /// <c>towns/NAME.map</c> as roads laid exactly as they say. Mending a mended map changes nothing.
+    /// </summary>
+    static int Mend(string name, SimConfig config)
+    {
+        var path = ProjectPaths.MapFile(name);
+        var map = CityGen.Map.TownMap.Read(path);
+        var mended = CityGen.Traced.TracedStreets.Mended(map, config);
+        mended.Write(path);
+        Console.WriteLine($"{path}: {map.Roads.Length} roads ({map.Roads.Count(road => road.Mended)} mended) -> {mended.Roads.Length} mended roads, " +
+                          $"{map.PointM.Length} -> {mended.PointM.Length} points, {new FileInfo(path).Length / 1024.0:F1} KB");
+        return 0;
+    }
+
     static void ReportVulkan(bool validate)
     {
         using var vk = Vk.Open("traffic-dotnet", validate);
@@ -603,7 +623,7 @@ internal static class Program
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
         bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
         string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
-        bool BotWaits, string? Author, bool ManagedWorld)
+        bool BotWaits, string? Author, bool ManagedWorld, string? Mend = null)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: a small town laid from a
@@ -834,6 +854,10 @@ internal static class Program
                         break;
                     case "--author" when i + 1 < args.Length:
                         options = options with { Author = args[i + 1] };
+                        i++;
+                        break;
+                    case "--mend" when i + 1 < args.Length:
+                        options = options with { Mend = args[i + 1] };
                         i++;
                         break;
                     case "--title" when i + 1 < args.Length:

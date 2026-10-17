@@ -326,6 +326,18 @@ public class SurveyTests
         Assert.Equal(ways[1].Points[^1], ways[0].Points[1]);
     }
 
+    /// <summary>
+    /// <b>And one ending beside another, running alongside it, does not join it</b>: a street drawn 5 m beside another
+    /// along its whole length, its end inside the two half-widths, stays where it was.
+    /// </summary>
+    [Fact]
+    public void AWayEndingBesideAnotherAlongsideItStaysWhereItWas()
+    {
+        var (ways, placedM) = Noded([(100, 500), (900, 500), (100, 505), (500, 505)], [0, 1], [2, 3]);
+
+        Assert.Equal((2, new Vector2D(500, 505)), (ways[0].Points.Length, placedM[ways[1].Points[^1]]));
+    }
+
     /// <summary>And one stopping further off than the two carriageways' half-widths stays a dead end.</summary>
     [Fact]
     public void AWayEndingShortOfAnothersCarriagewayStaysADeadEnd()
@@ -344,7 +356,7 @@ public class SurveyTests
             Highway = "residential", LanesForward = 1, LanesBackward = 1, LanesShared = 0, CarriagewayM = 2 * LaneM,
             CentreOffsetM = 0f, Points = points,
         }).ToList();
-        Survey.Noded(laid, placedM, []);
+        Survey.Noded(laid, placedM, [], float.DegreesToRadians(SimConfig.Shipped().Road.TurnStraightToleranceDeg));
         return (laid, placedM);
     }
 

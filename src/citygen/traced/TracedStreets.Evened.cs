@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Traced;
 
@@ -138,7 +139,7 @@ internal static partial class TracedStreets
             overM.Sort();
             var medianM = overM[overM.Count / 2];
             var mostM = Twins(road, other) ? MathF.Min(road.Carriage.WidthM, other.Carriage.WidthM) : config.CityGen.TracedLaneWidthM;
-            if (medianM <= 0f || medianM > mostM) continue;
+            if (medianM <= LineTolerance.OnePlaceM || medianM > mostM) continue;
 
             // Away from the other: to the left where it stands to the right, and the other the same from its side.
             moveM[road] = moveM.GetValueOrDefault(road) - (MathF.Sign(sideSum) * medianM * 0.5f);

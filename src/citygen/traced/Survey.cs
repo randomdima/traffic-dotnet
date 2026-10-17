@@ -105,7 +105,14 @@ internal sealed class Survey
             }
         }
 
-        Noded(ways, placedM, leaving);
+        // A way already cut at the map's edge — a mended map's — leaves the map where it ends on the edge.
+        foreach (var way in ways)
+        {
+            foreach (var end in (ReadOnlySpan<int>)[way.Points[0], way.Points[^1]])
+            {
+                if (OnTheEdge(placedM[end], cut)) leaving.Add(end);
+            }
+        }
 
         var leavesTheMap = new bool[placedM.Count];
         foreach (var point in leaving) leavesTheMap[point] = true;
@@ -174,7 +181,11 @@ internal sealed class Survey
     /// at an end each, or run along one line, have nothing to cross at. A way ending on another's carriageway joins it too
     /// (<see cref="AlmostJoined"/>).
     /// </remarks>
-    internal static void Noded(List<SurveyWay> ways, List<Vector2D> placedM, List<int> leaving)
+    /// <param name="straightRad">
+    /// How near straight on a way's last leg and another's may run for the way to be running alongside the other rather
+    /// than into it (<see cref="RoadFigures.TurnStraightToleranceDeg"/>): an end beside another road is not one ending on it.
+    /// </param>
+    internal static void Noded(List<SurveyWay> ways, List<Vector2D> placedM, List<int> leaving, float straightRad)
     {
         var cells = new Dictionary<(long X, long Y), List<(int Way, int Leg)>>();
         for (var way = 0; way < ways.Count; way++)
@@ -228,7 +239,7 @@ internal sealed class Survey
             }
         }
 
-        AlmostJoined(ways, placedM, cells, crossings, leaving);
+        AlmostJoined(ways, placedM, cells, crossings, leaving, straightRad);
 
         for (var way = 0; way < ways.Count; way++)
         {
@@ -280,7 +291,7 @@ internal sealed class Survey
     /// </remarks>
     static void AlmostJoined(
         List<SurveyWay> ways, List<Vector2D> placedM, Dictionary<(long X, long Y), List<(int Way, int Leg)>> cells,
-        List<(int Leg, double Along, int Point)>?[] crossings, List<int> leaving)
+        List<(int Leg, double Along, int Point)>?[] crossings, List<int> leaving, float straightRad)
     {
         var uses = new Dictionary<int, int>();
         foreach (var way in ways)
@@ -308,6 +319,15 @@ internal sealed class Survey
 
                 var endM = placedM[end];
                 var (best, bestLeg, bestAlong, bestM) = (-1, 0, 0.0, double.MaxValue);
+
+                // The way the way runs into its end, as a unit.
+                (double X, double Y) Into(bool fromTheStart)
+                {
+                    var (lastM, beforeM) = fromTheStart ? (placedM[points[0]], placedM[points[1]]) : (placedM[points[^1]], placedM[points[^2]]);
+                    var (x, y) = (lastM.X - beforeM.X, lastM.Y - beforeM.Y);
+                    var lengthM = Math.Max(Math.Sqrt((x * x) + (y * y)), 1e-9);
+                    return (x / lengthM, y / lengthM);
+                }
                 for (var dx = -1; dx <= 1; dx++)
                 for (var dy = -1; dy <= 1; dy++)
                 {
@@ -326,7 +346,15 @@ internal sealed class Survey
                         var along = Math.Clamp((((endM.X - fromM.X) * runX) + ((endM.Y - fromM.Y) * runY)) / lengthSq, 0.0, 1.0);
                         var (offX, offY) = (fromM.X + (runX * along) - endM.X, fromM.Y + (runY * along) - endM.Y);
                         var apartM = Math.Sqrt((offX * offX) + (offY * offY));
-                        if (apartM <= reachM && apartM < bestM) (best, bestLeg, bestAlong, bestM) = (other, leg, along, apartM);
+                        if (apartM > reachM || apartM >= bestM) continue;
+
+                        // Heading into the other and not running alongside it: its last leg turned off the other's by
+                        // more than the straight-on tolerance, and the other no further back than beside the end.
+                        var (inX, inY) = Into(atStart);
+                        var crossSin = Math.Abs((inX * runY) - (inY * runX)) / Math.Sqrt(lengthSq);
+                        if (crossSin < Math.Sin(straightRad) || (inX * offX) + (inY * offY) < 0.0) continue;
+
+                        (best, bestLeg, bestAlong, bestM) = (other, leg, along, apartM);
                     }
                 }
 
@@ -370,6 +398,11 @@ internal sealed class Survey
         alongB = ((apart.X * runA.Y) - (apart.Y * runA.X)) / across;
         return alongA is >= 0.0 and <= 1.0 && alongB is >= 0.0 and <= 1.0;
     }
+
+    /// <summary>Whether a place stands on the rectangle's edge, to within <see cref="LineTolerance.OnePlaceM"/>.</summary>
+    static bool OnTheEdge(Vector2D atM, Rectangle cut) =>
+        Math.Min(Math.Min(Math.Abs(atM.X - cut.Left), Math.Abs(atM.X - cut.Right)), Math.Min(Math.Abs(atM.Y - cut.Top), Math.Abs(atM.Y - cut.Bottom)))
+        < LineTolerance.OnePlaceM;
 
     /// <summary>The rectangle a traced map lays its roads in, in the engine's own axes.</summary>
     readonly record struct Rectangle(double Left, double Top, double Right, double Bottom)
@@ -486,6 +519,34 @@ internal sealed class Survey
     }
 
     /// <summary>
+    /// <b>A mended road read as it says</b> (<see cref="TracedRoad.Mended"/>): its lanes as counted, its width as written,
+    /// a roadside of <paramref name="stripM"/> at each kerb it names, its middle off its line by its share of its lanes'
+    /// width. Nothing is read off its width and nothing is turned: a mended road runs its lanes along its points.
+    /// </summary>
+    static SurveyWay Mended(TracedRoad road, float stripM)
+    {
+        var widthM = road.WidthM ?? 0f;
+        var strips = (road.RoadsideAlong ? 1 : 0) + (road.RoadsideAgainst ? 1 : 0);
+        var lanesM = widthM - (strips * stripM);
+
+        return new SurveyWay
+        {
+            OsmId = road.OsmId,
+            Highway = road.Highway,
+            Bridge = road.Bridge,
+            Roundabout = road.Roundabout,
+            LanesForward = road.LanesForward,
+            LanesBackward = road.LanesBackward,
+            LanesShared = road.LanesShared,
+            CarriagewayM = widthM,
+            RoadsideAlongM = road.RoadsideAlong ? stripM : 0f,
+            RoadsideAgainstM = road.RoadsideAgainst ? stripM : 0f,
+            CentreOffsetM = road.CentreOffsetShare * lanesM,
+            Points = (int[])road.Points.Clone(),
+        };
+    }
+
+    /// <summary>
     /// <b>One road way with its lanes as OSM counts them, each <see cref="CityGenFigures.TracedLaneWidthM"/> wide, and
     /// the roadside its measured width holds beside them</b>, turned round where every lane runs against it.
     /// </summary>
@@ -513,6 +574,8 @@ internal sealed class Survey
     /// </remarks>
     static SurveyWay Read(TracedRoad road, Dictionary<string, int> mostTagged, SimConfig config)
     {
+        if (road.Mended) return Mended(road, config.CityGen.TracedRoadsideWidthM);
+
         var points = (int[])road.Points.Clone();
         var (forward, backward, shared) = (road.LanesForward, road.LanesBackward, road.LanesShared);
         var laneM = config.CityGen.TracedLaneWidthM;

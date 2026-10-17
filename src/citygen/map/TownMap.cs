@@ -42,7 +42,14 @@ internal sealed partial record TownMap
     const uint Magic = 0x50414D54;
 
     /// <summary>Bumped whenever what is written changes, so a file of the old shape is refused rather than misread.</summary>
-    public const ushort Version = 7;
+    /// <remarks>
+    /// <b>8 adds a road's second flags byte</b> (whether it is mended, and its roadsides, <see cref="TracedRoad.Mended"/>);
+    /// a file of <see cref="OldestRead"/> is read as one whose roads hold none, which is what it is.
+    /// </remarks>
+    public const ushort Version = 8;
+
+    /// <summary>The oldest version read: 7, whose roads carry no second flags byte.</summary>
+    const ushort OldestRead = 7;
 
     /// <summary>A line's places, in steps a metre: millimetres.</summary>
     const double StepsPerM = 1000.0;

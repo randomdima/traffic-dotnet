@@ -36,7 +36,7 @@ public class TracedPlanTests
     [Fact]
     public void WaysCrossingWithoutAPointInCommonDoNotMeetThere()
     {
-        var plan = Laid([100, 500, 900, 500, 500, 100, 500, 900, 900, 100], Way(0, 1, 4), Way(2, 3), Way(4, 2));
+        var plan = Laid([100, 500, 900, 500, 500, 100, 500, 900, 900, 100], Way(0, 1, 4), Way(2, 3) with { Bridge = true }, Way(4, 2));
 
         Assert.Equal(0, ArmsAt(plan, new Vector2(500f, 500f)));
     }
@@ -1249,8 +1249,12 @@ public class TracedPlanTests
     /// <summary>How near a place laid on a straight road is read as the place asked for: a float's rounding, with room.</summary>
     const float SagM = 0.01f;
 
-    /// <summary>A survey of the ways given over the points given, on a map reaching a little past the furthest of them.</summary>
-    static CityPlan Laid(float[] pointsM, params SurveyWay[] ways) => TownPlan.Lay(Surveyed(pointsM, ways), Config, BuildingSizes.None);
+    /// <summary>
+    /// A survey of the ways given over the points given, on a map reaching a little past the furthest of them, mended as a
+    /// traced map is (<see cref="TracedStreets.Mended(Survey, SimConfig)"/>) and laid.
+    /// </summary>
+    static CityPlan Laid(float[] pointsM, params SurveyWay[] ways) =>
+        TownPlan.Lay(TracedStreets.Mended(Surveyed(pointsM, ways), Config), Config, BuildingSizes.None);
 
     /// <summary>
     /// <b>A street carried over another on a bridge</b>: west to east along y = 500, on a bridge way from x = 400 to
