@@ -42,7 +42,7 @@ internal sealed partial class TownWorld
 
         if (Cars.Driven[car] || StandsInItsBay(car)) return;
 
-        var bay = FreeBayOff(RoadPlaceOfCar(car), Cars.PositionM[car], _config.PersonWalkReachM);
+        var bay = FreeBayOff(RoadPlaceOfCar(car), Cars.PositionM[car], _config.PersonWalkReachM, car);
         if (bay >= 0) SendTo(car, _parking.CentreM(bay), bay);
     }
 
@@ -125,8 +125,8 @@ internal sealed partial class TownWorld
     void DriveToABayNear(int car, int building, Vector2 doorM)
     {
         var street = _roadPlaceOfBuilding[building];
-        var bay = FreeBayOff(street, doorM, _config.PersonWalkWorthM);
-        if (bay < 0) bay = FreeBayOff(street, doorM, _config.PersonWalkReachM);
+        var bay = FreeBayOff(street, doorM, _config.PersonWalkWorthM, car);
+        if (bay < 0) bay = FreeBayOff(street, doorM, _config.PersonWalkReachM, car);
         if (bay < 0)
         {
             GiveUpTheTrip(Cars.Owner[car]);
@@ -150,7 +150,7 @@ internal sealed partial class TownWorld
 
         if (Vector2.Distance(Cars.PositionM[car], People.PositionM[person]) <= _config.PersonWalkReachM) return;
 
-        var bay = FreeBayOff(RoadPlaceOfWalker(person), People.PositionM[person], _config.PersonWalkReachM);
+        var bay = FreeBayOff(RoadPlaceOfWalker(person), People.PositionM[person], _config.PersonWalkReachM, car);
         if (bay < 0) return;
 
         CarsCalled++;

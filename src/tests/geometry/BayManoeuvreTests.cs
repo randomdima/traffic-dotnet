@@ -149,6 +149,68 @@ public class BayManoeuvreTests
         Assert.Equal(-(RadiusM - standsM), end.PositionM.Y, 2);
     }
 
+    /// <summary>How far the kerb's place stands to the left of the street's line: a lane's half and a roadside's.</summary>
+    const float KerbBesideM = 2.85f;
+
+    /// <summary>A pose at the kerb, alongside the street to its left, this far along it and travelling this way.</summary>
+    static BayManoeuvre.Pose AtTheKerb(float alongM, float headingRad = 0f) => new(new Vector2(alongM, KerbBesideM), headingRad);
+
+    /// <summary>
+    /// <b>Into a place at the kerb forwards is an S</b> (GEN-4n): one piece, ending at the pose, travelling along the
+    /// kerb.
+    /// </summary>
+    [Fact]
+    public void AlongsideInSlidesIntoThePlaceOnAnS()
+    {
+        Span<ArcSeg> arcs = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+        var shape = BayManoeuvre.AlongsideIn(OnTheStreet, AtTheKerb(20f), RadiusM, StraightensUpM, arcs);
+
+        Assert.Equal(1, shape.Pieces);
+        AssertEndsAt(arcs[..shape.ArcCount], AtTheKerb(20f));
+    }
+
+    /// <summary><b>And is refused nearer the place than the S takes</b>: a car that has come too far cannot slide in forwards.</summary>
+    [Fact]
+    public void AlongsideInIsRefusedNearerThanTheSTakes()
+    {
+        Span<ArcSeg> arcs = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+
+        Assert.False(BayManoeuvre.AlongsideIn(OnTheStreet, AtTheKerb(1f), RadiusM, StraightensUpM, arcs).Exists);
+    }
+
+    /// <summary>
+    /// <b>Backing in at the kerb is on past the place forwards and back into it on an S in reverse</b>: two pieces,
+    /// ending at the pose with the car pointing along the kerb.
+    /// </summary>
+    [Fact]
+    public void AlongsideBackInPullsOnPastThePlaceAndBacksIntoIt()
+    {
+        Span<ArcSeg> arcs = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+        var shape = BayManoeuvre.AlongsideBackIn(OnTheStreet, AtTheKerb(3f, MathF.PI), RadiusM, StraightensUpM, arcs);
+
+        Assert.Equal(2, shape.Pieces);
+        Assert.False(shape.IsReverse(0));
+        Assert.True(shape.IsReverse(1));
+        AssertEndsAt(arcs[..shape.ArcCount], AtTheKerb(3f, MathF.PI));
+    }
+
+    /// <summary>
+    /// <b>Off the kerb is an S out onto the street's line</b>, after backing up where it is asked to: it lands on the
+    /// line, travelling along it.
+    /// </summary>
+    [Fact]
+    public void AlongsideOutLandsOnTheStreetsLine()
+    {
+        Span<ArcSeg> arcs = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+        var shape = BayManoeuvre.AlongsideOut(AtTheKerb(0f), 1f, Vector2.Zero, 0f, RadiusM, StraightensUpM, arcs);
+
+        Assert.Equal(2, shape.Pieces);
+        Assert.True(shape.IsReverse(0));
+        var end = Spline.SampleAt(arcs[..shape.ArcCount], Spline.TotalLengthM(arcs[..shape.ArcCount]));
+        Assert.Equal(0f, end.PositionM.Y, 2);
+        Assert.Equal(1f, Vector2.Dot(end.Direction, Vector2.UnitX), 3);
+    }
+
     static void AssertEndsAt(ReadOnlySpan<ArcSeg> arcs, BayManoeuvre.Pose pose)
     {
         var end = Spline.SampleAt(arcs, Spline.TotalLengthM(arcs));

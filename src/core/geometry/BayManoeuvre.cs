@@ -165,6 +165,154 @@ internal static class BayManoeuvre
     }
 
     /// <summary>
+    /// <b>Into a place alongside the kerb, forwards</b> (GEN-4n): straight on from where the car is, then an S — a turn
+    /// toward the kerb on <paramref name="radiusM"/> and one back as far as the place's own line turns — and
+    /// <paramref name="straightensUpM"/> of straight to the pose. <see cref="Shape.None"/> where the place does not lie
+    /// alongside the car's line or the car is nearer it than the S takes.
+    /// </summary>
+    /// <param name="to">The axle's pose in the place, heading along the kerb.</param>
+    public static Shape AlongsideIn(Pose from, Pose to, float radiusM, float straightensUpM, Span<ArcSeg> into)
+    {
+        if (!Beside(from, to, out var sideSign, out var aheadM, out var besideM, out var deltaRad)
+            || !S(besideM, deltaRad, radiusM, straightensUpM, out var firstRad, out var secondRad, out var runM))
+        {
+            return Shape.None;
+        }
+
+        var onM = aheadM - runM;
+        if (onM < -LineTolerance.RoundingM) return Shape.None;
+
+        var laid = 0;
+        var at = from.AtM;
+        var headingRad = from.HeadingRad;
+        Lay(ref laid, ref at, ref headingRad, MathF.Max(onM, 0f), 0f, into);
+        LayS(ref laid, ref at, ref headingRad, sideSign, firstRad, secondRad, radiusM, straightensUpM, into);
+        return new Shape(laid, 0, FirstReverse: false, SecondReverse: false);
+    }
+
+    /// <summary>
+    /// <b>Into a place alongside the kerb, backwards</b> (GEN-4n): on past it forwards to where the S back in begins,
+    /// and from there the S in reverse and <paramref name="straightensUpM"/> of straight to the pose — one piece where
+    /// the car already stands there. <see cref="Shape.None"/> where the place does not lie alongside the car's line or
+    /// the car has already passed where the S begins.
+    /// </summary>
+    /// <param name="to">The axle's pose in the place, heading the way it travels backing in — back along the kerb.</param>
+    public static Shape AlongsideBackIn(Pose from, Pose to, float radiusM, float straightensUpM, Span<ArcSeg> into)
+    {
+        // Backing in, the axle travels against the car's heading, and the place lies to the same side of the street
+        // as it does going forwards — to the other hand of the travel.
+        var backwards = new Pose(from.AtM, from.HeadingRad + MathF.PI);
+        if (!Beside(backwards, to, out var sideSign, out _, out var besideM, out var deltaRad)
+            || !S(besideM, deltaRad, radiusM, straightensUpM, out var firstRad, out var secondRad, out var runM))
+        {
+            return Shape.None;
+        }
+
+        var ahead = Heading.Unit(from.HeadingRad);
+        var startsM = to.AtM + (ahead * runM) - (new Vector2(-ahead.Y, ahead.X) * (-sideSign * besideM));
+        var pullM = Vector2.Dot(startsM - from.AtM, ahead);
+        if (pullM < -LineTolerance.RoundingM) return Shape.None;
+
+        var first = 0;
+        var at = from.AtM;
+        var headingRad = from.HeadingRad;
+        Lay(ref first, ref at, ref headingRad, MathF.Max(pullM, 0f), 0f, into);
+
+        var back = 0;
+        var reverseHeadingRad = headingRad + MathF.PI;
+        LayS(ref back, ref at, ref reverseHeadingRad, sideSign, firstRad, secondRad, radiusM, straightensUpM, into[first..]);
+        return first == 0
+            ? new Shape(back, 0, FirstReverse: true, SecondReverse: false)
+            : new Shape(first, back, FirstReverse: false, SecondReverse: true);
+    }
+
+    /// <summary>
+    /// <b>Out of a place alongside the kerb onto the street's line</b> (GEN-4n): <paramref name="backM"/> straight back
+    /// first where it is asked — the room behind the car, where what stands in front leaves too little for the S — then
+    /// an S out on <paramref name="radiusM"/> onto the line and <paramref name="runOutM"/> of straight along it.
+    /// <see cref="Shape.None"/> where the line does not run alongside the car.
+    /// </summary>
+    /// <param name="from">The axle's pose in the place, heading along the kerb.</param>
+    /// <param name="onM">A point on the street's line the car lands on.</param>
+    /// <param name="alongRad">The way the car travels along that line once it has landed.</param>
+    public static Shape AlongsideOut(
+        Pose from, float backM, Vector2 onM, float alongRad, float radiusM, float runOutM, Span<ArcSeg> into)
+    {
+        var first = 0;
+        var at = from.AtM;
+        var reverseHeadingRad = from.HeadingRad + MathF.PI;
+        Lay(ref first, ref at, ref reverseHeadingRad, backM, 0f, into);
+
+        // The line's own point, moved along it to abeam of where the S begins: an S is laid by how far it carries the
+        // car across, and how far ahead it lands is the S's to say.
+        var start = new Pose(at, from.HeadingRad);
+        var along = Heading.Unit(alongRad);
+        var abeamM = onM + (along * Vector2.Dot(at - onM, along));
+        if (!Beside(start, new Pose(abeamM, alongRad), out var sideSign, out _, out var besideM, out var deltaRad)
+            || !S(besideM, deltaRad, radiusM, runOutM, out var firstRad, out var secondRad, out _))
+        {
+            return Shape.None;
+        }
+
+        var outward = 0;
+        var headingRad = from.HeadingRad;
+        LayS(ref outward, ref at, ref headingRad, sideSign, firstRad, secondRad, radiusM, runOutM, into[first..]);
+        return first == 0
+            ? new Shape(outward, 0, FirstReverse: false, SecondReverse: false)
+            : new Shape(first, outward, FirstReverse: true, SecondReverse: false);
+    }
+
+    /// <summary>
+    /// <b>Where a pose alongside stands from another</b>: which hand of the first's travel it lies to (+1 left, −1
+    /// right), how far ahead and how far to that hand, and how far its heading turns toward that hand. False where the
+    /// two do not run alongside (<see cref="BayTemplate.Alongside"/>).
+    /// </summary>
+    static bool Beside(Pose from, Pose to, out float sideSign, out float aheadM, out float besideM, out float deltaRad)
+    {
+        var ahead = Heading.Unit(from.HeadingRad);
+        var left = new Vector2(-ahead.Y, ahead.X);
+        var offM = to.AtM - from.AtM;
+        aheadM = Vector2.Dot(offM, ahead);
+        var leftM = Vector2.Dot(offM, left);
+        sideSign = leftM >= 0f ? 1f : -1f;
+        besideM = sideSign * leftM;
+        deltaRad = sideSign * Spline.WrapRad(to.HeadingRad - from.HeadingRad);
+        return BayTemplate.Alongside(deltaRad);
+    }
+
+    /// <summary>
+    /// <b>The S that carries a car <paramref name="besideM"/> to one hand and turns it <paramref name="deltaRad"/> toward
+    /// it</b>: a turn toward that hand on <paramref name="radiusM"/>, one back, and <paramref name="postM"/> of straight —
+    /// how far each turn runs and how far ahead the whole of it ends. False where no such S exists, or its first turn
+    /// would run past square.
+    /// </summary>
+    static bool S(float besideM, float deltaRad, float radiusM, float postM, out float firstRad, out float secondRad, out float aheadM)
+    {
+        firstRad = 0f;
+        secondRad = 0f;
+        aheadM = 0f;
+        var cosFirst = (1f + MathF.Cos(deltaRad) - ((besideM - (postM * MathF.Sin(deltaRad))) / radiusM)) * 0.5f;
+        if (cosFirst is < 0f or > 1f) return false;
+
+        firstRad = MathF.Acos(cosFirst);
+        secondRad = firstRad - deltaRad;
+        if (secondRad < 0f) return false;
+
+        aheadM = (radiusM * ((2f * MathF.Sin(firstRad)) - MathF.Sin(deltaRad))) + (postM * MathF.Cos(deltaRad));
+        return true;
+    }
+
+    /// <summary>An S laid on from where the last piece ended (<see cref="S"/>): the turn toward the hand, the turn back, the straight.</summary>
+    static void LayS(
+        ref int laid, ref Vector2 atM, ref float headingRad, float sideSign, float firstRad, float secondRad, float radiusM,
+        float postM, Span<ArcSeg> into)
+    {
+        Lay(ref laid, ref atM, ref headingRad, firstRad * radiusM, sideSign / radiusM, into);
+        Lay(ref laid, ref atM, ref headingRad, secondRad * radiusM, -sideSign / radiusM, into);
+        Lay(ref laid, ref atM, ref headingRad, postM, 0f, into);
+    }
+
+    /// <summary>
     /// <b>Where one pose stands from another, in the first one's own frame</b>: which hand the second heading
     /// turns to (+1 to the left of the travel, −1 to the right), how far it turns, and how far ahead and to that
     /// hand the second pose stands. False where the turn is not square enough for a bay, or the pose is behind

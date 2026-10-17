@@ -257,7 +257,7 @@ public class BayManoeuvreTests
     static Vector2 TheFarthestBayFrom(TownWorld world, Vector2 fromM)
     {
         var farthestM = fromM;
-        for (var bay = 0; bay < world.Parking.BayCount; bay++)
+        for (var bay = 0; bay < world.Parking.PaintedCount; bay++)
         {
             var atM = world.Parking.CentreM(bay);
             if (Vector2.DistanceSquared(atM, fromM) > Vector2.DistanceSquared(farthestM, fromM)) farthestM = atM;
@@ -270,7 +270,7 @@ public class BayManoeuvreTests
     static int TheNearestFreeBayTo(TownWorld world, Vector2 nearM, int other)
     {
         var nearest = -1;
-        for (var bay = 0; bay < world.Parking.BayCount; bay++)
+        for (var bay = 0; bay < world.Parking.PaintedCount; bay++)
         {
             if (bay == other || !world.Parking.IsFree(bay)) continue;
             if (nearest < 0

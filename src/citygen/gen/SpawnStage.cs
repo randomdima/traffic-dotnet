@@ -13,7 +13,9 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <para>
 /// <b>A town with people in it and car parks stands no car here.</b> Every car there is somebody's own, and which
 /// bay it stands in is the bay nearest its owner's door that is still free once the services have their aprons — a
-/// question about the parking registry, which is the town's (<c>TownWorld.HandThemTheirCar</c>, PER-29).
+/// question about the parking registry, which is the town's (<c>TownWorld.HandThemTheirCar</c>, PER-29). <b>But a
+/// traced map's cars stand beside its people</b> (GEN-57): it asks for them by count, and they stand at its kerbs
+/// (GEN-4n) — on its lanes, touring, where it has no roadside — while its people's cars take its bays.
 /// </para>
 /// <para>
 /// <b>A car is stood in the middle of a bay of one of the town's own car parks</b>, pointing into it, and
@@ -38,26 +40,39 @@ internal static class SpawnStage
     /// <param name="wantPeople">How many people the map asks for (<see cref="Zones.ZoneParam.People"/>).</param>
     /// <param name="wantCars">How many cars it asks for where nobody has a bay of their own (<see cref="Zones.ZoneParam.Cars"/>).</param>
     /// <param name="bridgeCars">The cars already stood on its bridges over its roads, which no car is stood on top of.</param>
+    /// <param name="besidePeople">
+    /// Whether its map's cars stand beside its people (a traced map's, GEN-57) and not only where nobody lives: at its
+    /// kerbs where it has roadsides to park along (GEN-4n), else on its lanes, touring — never in its bays, which are
+    /// its people's.
+    /// </param>
     public static CityPlan.SpawnArrays Lay(
-        int wantPeople, int wantCars, CityPlan.SpawnArrays bridgeCars, Paving paving, CarParks.Laid carParks,
+        int wantPeople, int wantCars, bool besidePeople, CityPlan.SpawnArrays bridgeCars, Paving paving, CarParks.Laid carParks,
         CityPlan.BuildingArrays buildings, SimConfig config, ref Rng draw)
     {
         var lanes = paving.Lanes;
-        var places = TheBays(lanes, carParks);
+        var kerbs = besidePeople ? TheKerbs(lanes, paving.Of.WorldSizeM, config) : [];
+        var atTheKerb = kerbs.Count > 0;
+        var places = besidePeople ? [] : TheBays(lanes, carParks);
         var bays = places.Count > 0;
-        if (!bays) places = Clear(TheLanes(lanes, config), bridgeCars, lanes, config);
+        if (!bays && !atTheKerb) places = Clear(TheLanes(lanes, config), bridgeCars, lanes, config);
 
         var doors = buildings.EntryPointM.Length;
         var people = Math.Min(wantPeople, doors);
         var stood = people > 0 && bays ? 0 : wantCars;
-        var order = Spread(places.Count, Math.Min(stood, places.Count), ref draw);
+        var spots = atTheKerb ? kerbs.Count : places.Count;
+        var order = Spread(spots, Math.Min(stood, spots), ref draw);
         var standing = new int[places.Count];
-        foreach (var place in order) standing[place] = 1;
-        var cars = order.Length + (bays ? 0 : StandMore(standing, stood - order.Length, places, bridgeCars, lanes, config, ref draw));
+        if (!atTheKerb)
+        {
+            foreach (var place in order) standing[place] = 1;
+        }
+
+        var cars = order.Length + (bays || atTheKerb ? 0 : StandMore(standing, stood - order.Length, places, bridgeCars, lanes, config, ref draw));
         var count = bridgeCars.Count + cars + people;
         var kind = new byte[count];
         var positionM = new Vector2[count];
         var headingRad = new float[count];
+        var kerbed = atTheKerb ? new bool[count] : [];
         bridgeCars.Kind.CopyTo(kind, 0);
         bridgeCars.PositionM.CopyTo(positionM, 0);
         bridgeCars.HeadingRad.CopyTo(headingRad, 0);
@@ -65,6 +80,13 @@ internal static class SpawnStage
         var taken = bridgeCars.Count;
         foreach (var place in order)
         {
+            if (atTheKerb)
+            {
+                (kind[taken], positionM[taken], headingRad[taken], kerbed[taken]) = (Car, kerbs[place].PositionM, kerbs[place].HeadingRad, true);
+                taken++;
+                continue;
+            }
+
             var on = places[place];
             for (var car = 0; car < standing[place]; car++)
             {
@@ -90,7 +112,31 @@ internal static class SpawnStage
             taken++;
         }
 
-        return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad };
+        return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad, AtTheKerb = kerbed };
+    }
+
+    /// <summary>
+    /// <b>Every place along a roadside a car could be stood at the kerb</b> (GEN-4n): along each roadside's own run, clear
+    /// of the junction at each end by <see cref="Core.Config.RoadFigures.KerbParkingClearM"/>, a car and a gap either side
+    /// apart, on the map. Where a crossing stands on one, the town stands no car on it (<c>TownWorld.KerbPlaceUnder</c>):
+    /// the plan lays no zebra.
+    /// </summary>
+    static List<SplineSample> TheKerbs(LaneLines lanes, Vector2 worldSizeM, SimConfig config)
+    {
+        var pitchM = config.Car.LengthM + (2f * config.Road.KerbParkingGapM);
+        var kerbs = new List<SplineSample>();
+        for (var lane = lanes.FirstRoadside; lane < lanes.LaneCount; lane++)
+        {
+            var fromM = lanes.RoadFromM(lane) + config.Road.KerbParkingClearM;
+            var toM = lanes.RoadToM(lane) - config.Road.KerbParkingClearM;
+            for (var atM = fromM + (pitchM * 0.5f); atM <= toM - (pitchM * 0.5f); atM += pitchM)
+            {
+                var at = Spline.SampleAt(lanes.ArcsOf(lane), atM);
+                if (at.PositionM.X >= 0f && at.PositionM.Y >= 0f && at.PositionM.X <= worldSizeM.X && at.PositionM.Y <= worldSizeM.Y) kerbs.Add(at);
+            }
+        }
+
+        return kerbs;
     }
 
     /// <summary>

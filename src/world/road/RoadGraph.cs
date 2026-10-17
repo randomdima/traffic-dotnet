@@ -339,9 +339,15 @@ internal sealed class RoadGraph : ILaneEnds
     /// <summary>
     /// <b>Whether this lane is a road's roadside</b> — lane zero (<see cref="LaneLines.IsRoadside"/>, GEN-57): ground of
     /// the carriageway joined to nothing, never among a junction's lanes (<see cref="LanesIntoJunction"/>), and never a
-    /// lane a car is stood on, routed down or toured onto.
+    /// lane a car is routed down or toured onto — only parked on, alongside the kerb (GEN-4n).
     /// </summary>
     public bool IsARoadside(int lane) => _lines.IsRoadside(lane);
+
+    /// <summary>Where a roadside's own stretch runs, outside the boxes it runs on into (<see cref="LaneLines.RoadFromM"/>).</summary>
+    public float RoadsideFromM(int lane) => _lines.RoadFromM(lane);
+
+    /// <inheritdoc cref="RoadsideFromM"/>
+    public float RoadsideToM(int lane) => _lines.RoadToM(lane);
 
     /// <summary>Whether this lane is one the traffic is driven down: neither a bay (<see cref="IsABayArm"/>) nor a roadside (<see cref="IsARoadside"/>).</summary>
     public bool IsAStreetLane(int lane) => _lines.IsAStreetLane(lane);

@@ -480,6 +480,29 @@ internal sealed partial class SimConfig
     /// </summary>
     public float CarParkBayDepthM => CityGen.BaySetbackM + CarParkBayLengthM;
 
+    /// <summary><b>How wide a traced car park's aisle is</b> (GEN-53a): one lane each way, at a traced lane's width.</summary>
+    public float CarParkAisleWidthM => 2f * CityGen.TracedLaneWidthM;
+
+    /// <summary>
+    /// <b>How far apart a traced car park's aisles run</b> (GEN-53a): an aisle, a rank of bays either side of it, and the
+    /// walk between the rank and the next aisle's (<see cref="CityGenFigures.CarParkIslandM"/>).
+    /// </summary>
+    public float CarParkAislePitchM => CarParkAisleWidthM + (2f * CarParkBayDepthM) + CityGen.CarParkIslandM;
+
+    /// <summary>
+    /// <b>How far back from where an aisle's lanes end its ranks begin</b> (GEN-53a): the kerb end a zebra is struck past
+    /// (<see cref="RoadFigures.FootNodeClearM"/>) and the zebra's own depth, so the zebra lands on the walk and not
+    /// on a bay's apron.
+    /// </summary>
+    public float CarParkRankClearM => Road.FootNodeClearM + Road.CrossingDepthM;
+
+    /// <summary>
+    /// <b>How far a car park's entrance stands from any junction of the street it joins</b> (GEN-53a): further than two
+    /// traced junctions are gathered into one (<see cref="CityGenFigures.TracedJunctionsMergedM"/>), by a junction's
+    /// own disc.
+    /// </summary>
+    public float CarParkEntranceClearM => CityGen.TracedJunctionsMergedM + JunctionRadiusM;
+
     public float ParkingSpaceLengthM => Car.LengthM + Car.WidthM * Road.ParkingSpaceMarginInCarWidths * 2f;
 
     /// <summary>

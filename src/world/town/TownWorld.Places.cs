@@ -88,9 +88,10 @@ internal sealed partial class TownWorld
             },
             given);
 
+        // Every place's way in has its slot, a kerb place's filled when it is opened (GEN-4n).
         _wayInPlace = new FootPlace[_parking.BayCount * 2];
         InChunks.Over(
-            _parking.BayCount, taken,
+            _parking.PaintedCount, taken,
             (scans, bay) =>
             {
                 _wayInPlace[2 * bay] = _walking.PlaceNearest(scans.Foot, _parking.WayInM(bay, noseIn: false));
@@ -250,9 +251,28 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The free bays within <paramref name="withinM"/> of a place a car can be got into</b>, nearest first, off the bay
-    /// lanes near the lane the place is on (<see cref="_bayLanesNear"/>).
+    /// lanes near the lane the place is on (<see cref="_bayLanesNear"/>) — <b>and the nearest gap at a kerb</b> beside the
+    /// place's street, opened for <paramref name="car"/> (GEN-4n), among them by how far it is.
     /// </summary>
-    int FreeBaysNear(in RoadPlace near, Vector2 ofM, float withinM, Span<int> into)
+    int FreeBaysNear(in RoadPlace near, Vector2 ofM, float withinM, int car, Span<int> into)
+    {
+        var count = FreePaintedBaysNear(near, ofM, withinM, into);
+        var kerb = KerbPlaceNear(near, ofM, withinM, car);
+        if (kerb < 0) return count;
+
+        var kerbM = Vector2.Distance(_parking.CentreM(kerb), ofM);
+        var at = count;
+        while (at > 0 && Vector2.Distance(_parking.CentreM(into[at - 1]), ofM) > kerbM) at--;
+        if (at == into.Length) return count;
+
+        var kept = Math.Min(count + 1, into.Length);
+        for (var slot = kept - 1; slot > at; slot--) into[slot] = into[slot - 1];
+        into[at] = kerb;
+        return kept;
+    }
+
+    /// <summary>The painted bays of <see cref="FreeBaysNear"/>, nearest first.</summary>
+    int FreePaintedBaysNear(in RoadPlace near, Vector2 ofM, float withinM, Span<int> into)
     {
         if (!near.IsSomewhere || into.IsEmpty) return 0;
 
@@ -289,11 +309,21 @@ internal sealed partial class TownWorld
         return count;
     }
 
-    /// <summary>The nearest free bay within <paramref name="withinM"/> of a place on the road (<see cref="FreeBaysNear"/>), or −1.</summary>
-    int FreeBayOff(in RoadPlace near, Vector2 ofM, float withinM)
+    /// <summary>The nearest free bay within <paramref name="withinM"/> of a place on the road for a car (<see cref="FreeBaysNear"/>), or −1.</summary>
+    int FreeBayOff(in RoadPlace near, Vector2 ofM, float withinM, int car)
     {
         Span<int> one = stackalloc int[1];
-        return FreeBaysNear(near, ofM, withinM, one) > 0 ? one[0] : -1;
+        return FreeBaysNear(near, ofM, withinM, car, one) > 0 ? one[0] : -1;
+    }
+
+    /// <summary>
+    /// And the nearest painted bay alone — for an ambulance back at its hospital, whose bays are a car park's and never a
+    /// kerb's (AMB-2).
+    /// </summary>
+    int FreePaintedBayOff(in RoadPlace near, Vector2 ofM, float withinM)
+    {
+        Span<int> one = stackalloc int[1];
+        return FreePaintedBaysNear(near, ofM, withinM, one) > 0 ? one[0] : -1;
     }
 
     /// <summary>

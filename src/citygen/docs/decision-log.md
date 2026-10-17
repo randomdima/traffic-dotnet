@@ -1,5 +1,39 @@
 # CityGen — decision log
 
+## 2026-10-17 — a traced car park is laid as a mall's, inside the outline OSM gives it
+
+**The owner asked for the car parks whose aisles were dropped to be laid again by the engine, as a mall's are: dense
+aisles branching off one another, and crossings for the people walking up them** (GEN-53a).
+
+- **The outline is OSM's and the inside is ours.** The zones layer's car parks were laid on 25 m squares with the rest of
+  the land uses, which made 55 blocky patches that took in their neighbours' yards; a car park on the ground is now a
+  zone of its own as OSM outlines it, thinned to a metre (`ZoneHints.Lots`): 250 of them on OdesaOsm. One under a
+  building or on its roof is the building's, one along a kerb is the street's, `garage_boxes` are garages, and one
+  standing inside rows of lock-up garages is dropped — the layers had derived a 29 ha "car park" from the ways between
+  a garage cooperative's rows.
+- **A ladder and not a grid.** Aisles side by side a pitch apart — an aisle, its two ranks, and a walk between back-to-back
+  ranks (`CarParkIslandM`) — joined at both ends by an aisle across them, so no aisle is a dead end and every T at an
+  aisle's end is a junction whose kerb ends cut zebras (WLK-10). The walk strips run out to those zebras. Tried along
+  every bearing one of the outline's sides runs, at four offsets across it; the run of aisles ranking the most bays wins.
+- **Aisles in the map, bays in the town.** The aisles are written into the map as streets of its own (`qq osm --parking`,
+  `TracedRoad.Aisle`, a bit of the road's second flags byte that no earlier map sets, so the version did not move), so the
+  town's own street laying makes their junctions and the bays are GEN-53's, ranked end to end down both kerbs
+  (`TracedCarParks.Bays`). Writing the bays into the map too would have put a town's rule into the file the scanner writes.
+- **Entrances run straight out to the first street**, one per 250 bays. A 60 m reach left 64 car parks unjoined and 100 m
+  42: a courtyard's car park is reached down a drive the layers read as the place's own ground, which was dropped.
+- **GEN-4b's handful and GEN-4d's spacing are bent for an aisle**, which fronts no building; a rank stops short of the
+  junction at each end of its aisle by a zebra instead (`CarParkRankClearM`).
+- **A traced map's own cars stand beside its people** (GEN-7, CAR-8). A town that cuts car parks and has people hands
+  every car to an owner and stands none of its own, so the 5 000 cars the owner asked OdesaOsm for vanished: 32 cars
+  drove in two minutes, the people's, since most trips are within a walk. Standing them in the bays to run the round was
+  tried: a round goes to a free bay near a place drawn within 600 m, and with a hundred car parks over 10 by 24 km that
+  finds one almost never — 2 drove. They stand at the kerbs instead (the parking slice's log, the same day), and the
+  car parks' bays are the people's.
+- **What it came to on OdesaOsm**: 103 of 250 car parks laid, 336 aisles and 109 entrances. Over 120 s at 5 000 cars
+  (`--bench stuck`) driving is where it was before the car parks — 48 legs given up (52), 38 cars off their line (40),
+  6 wrecked (8), 152 of 5 005 standing at the end (148 of 4 975), 16 rings in boxes (17) — and the people's cars made
+  38 manoeuvres at a bay.
+
 ## 2026-10-17 — OdesaOsm driven at 5 000 cars: what stopped the cars, and what was changed
 
 **The owner asked that OdesaOsm's cars be cut to 5 000 and checked for getting stuck round its junctions.** Over 120 s

@@ -59,10 +59,11 @@ internal sealed partial class TownWorld
     void SetOffForAnotherBay(int car)
     {
         ref var draw = ref Cars.Draw[car];
-        var place = DrawnDownTheRoad(RoadPlaceOfCar(car), _config.Driving.RoundReachM, ref draw);
+        // From its bay's street where it stands in its bay: a bay's own ways, and a kerb's, are no street's.
+        var place = DrawnDownTheRoad(SetsOffFrom(car), _config.Driving.RoundReachM, ref draw);
         if (!place.IsSomewhere) return;
 
-        var bay = FreeBayOff(place, PointOf(place), _config.PersonWalkWorthM);
+        var bay = FreeBayOff(place, PointOf(place), _config.PersonWalkWorthM, car);
         if (bay < 0 || bay == _parking.BayOf(car)) return;
 
         RoundsSetOff++;

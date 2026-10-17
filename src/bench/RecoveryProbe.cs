@@ -248,7 +248,7 @@ internal static class RecoveryProbe
     static int YardSlots(TownWorld world)
     {
         var slots = 0;
-        for (var bay = 0; bay < world.Parking.BayCount; bay++)
+        for (var bay = 0; bay < world.Parking.PaintedCount; bay++)
         {
             if (world.Parking.HeldFor(bay) == ParkingRegistry.TheYard) slots++;
         }

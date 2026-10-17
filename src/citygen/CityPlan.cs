@@ -610,7 +610,17 @@ internal sealed class CityPlan
 
         public required Vector2[] PositionM { get; init; }
         public required float[] HeadingRad { get; init; }
+
+        /// <summary>
+        /// <b>Which cars the plan stood at a kerb</b> (GEN-7, GEN-4n), on a roadside rather than in a bay or on a lane —
+        /// where the town opens a place for each. <b>Empty where it stood none there.</b>
+        /// </summary>
+        public bool[] AtTheKerb { get; init; } = [];
+
         public int Count => Kind.Length;
+
+        /// <summary>Whether a spawn is a car the plan stood at a kerb (<see cref="AtTheKerb"/>).</summary>
+        public bool OnARoadside(int spawn) => AtTheKerb.Length > 0 && AtTheKerb[spawn];
 
         public static SpawnArrays None => new() { Kind = [], PositionM = [], HeadingRad = [] };
     }

@@ -93,7 +93,7 @@ the map's own edge**, a crossing nearer the node inside than the shortest road t
 seed draws anything of its streets**, and its seed is its OSM boundary relation, so the same map is the same town
 every time it is opened. **It lays every road way OSM gives lanes, of every class, its sea, and what its zones lay,
 and nothing else but what every town lays of its own** — its connections, lights and zebras, which its map holds
-none of — and no car park. **What moves is a few cars stood by rule at its bridges over its roads, and the people and
+none of — and no car park but the bays it ranks along its car parks' aisles (GEN-53a). **What moves is a few cars stood by rule at its bridges over its roads, and the people and
 cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a surface and has no lane.
 
 - **The map holds as little as lays the place** (`TracedMapImport`, `qq osm --import`): each road way's line, class
@@ -107,7 +107,10 @@ cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a s
   place — `qq osm --crop` cuts it down to a box of degrees and its margin, its roads running off at the new edge,
   `qq osm --drop-stumps` drops every road stump that runs into or through a building of the layers or is a single
   lane, `qq osm --drop-zone-ways` every road on the ground the layers read as a place's own ground (`zone_way`: a car
-  park's aisles, a yard's, a market's — a car park is a zone the engine does not lay yet), `qq osm --zones` lays its zones again off the layers, a crop's frame and who it stands kept, and
+  park's aisles, a yard's, a market's), `qq osm --parking` lays every car park its zones outline again as the engine
+  lays one (GEN-53a) — run after `--mend` and again after `--zones`, since a car park's outline is a zone —
+  `qq osm --zones` lays its zones again off the layers, each car park on the ground its own zone as OSM outlines it, a
+  crop's frame and who it stands kept, and
   `qq osm --upgrade` rewrites a map of the previous version as this one — and never to what was crawled: every source's
   answer stays in `towns/traced/<Map>/source/` exactly as it came, and the survey and the enrichment's layers beside
   it. An import over a map that is there replaces it and every edit made since, so it is refused unless forced.
@@ -193,8 +196,9 @@ cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a s
   the two half-widths, is carried onto it. A bridge crosses what is under it by being over it.
 - **A roadside is lane zero** (`CityPlan.RoadArrays.RoadsideWithM`, `LaneLines.IsRoadside`, TER-4d): a lane of its
   road between the kerb lane and the kerb, as wide as the strip, parted from the lanes by a solid line and joined to
-  nothing — no movement leaves or reaches it, no junction counts it among its lanes, and nothing is routed, stood or
-  turned onto it. **It runs on into the box** (`RoadsideLanes`): to where its kerb meets the kerb of the next arm
+  nothing — no movement leaves or reaches it, no junction counts it among its lanes, and nothing is routed or
+  turned onto it; **a car parks along it** ([world/parking](../../world/parking/docs/requirements.md) GEN-4n), sliding
+  in off the lane beside it. **It runs on into the box** (`RoadsideLanes`): to where its kerb meets the kerb of the next arm
   round, or — where the kerb runs straight on — beside the movement the lane beside it makes, to that movement's
   middle, where the roadside across meets it. **Where the lane beside it runs straight across the box, the roadside
   runs beside that movement and not along its road's line**, as far as the kerb reaches. So the kerb turns the box's
@@ -489,13 +493,16 @@ what a service's beat is kept to (`SRV-5`). A map not laid on a wheel is one dis
 building the map stood them at**, part way through a dwell (PER-11). A trip ends by walking through a door and
 dwelling, so a body that begins there begins in the state every later trip returns it to (`PER-25`). **Which
 building is read off the pose the plan left the body in** — the way in it is standing at — so the plan carries
-nothing to say it. **Where people live and the town cut car parks, every car is somebody's** (PER-29): the plan
+nothing to say it. **Where people live and the town cut car parks, every car is somebody's** (PER-29) but a traced
+map's own, below: the plan
 stands no car of its own, and the town stands each person's in the free bay nearest their door. **A town nobody lives
 in stands the map's cars in bays of its own car parks**, never a service's yard (GEN-55); **and one that cut no car
 park stands them on its lanes**, one a lane while it has lanes enough and the rest on the lanes with room for
 more, the cars of one lane a car's room apart along it, and they tour (CAR-8) — the fixture, which asks for no buildings and is
-owed no parking, and a town whose roads are its map's own (GEN-57), which cuts none and stands its map's cars on its
-lanes beside its people, none on a bridge's cars.
+owed no parking. **A town whose roads are its map's own (GEN-57) stands its map's cars beside its people**, none on a
+bridge's cars: at its kerbs (GEN-4n), spread along every roadside a car and a gap at a time, where they run the round
+(CAR-8) — on its lanes, touring, where it has no roadside to park along — and never in the bays it ranks along its car
+parks' aisles (GEN-53a), which are its people's.
 
 **How many of each is the map's own** (`ZoneParam.People`, `ZoneParam.Cars`, said by its whole map's zone), and **the
 bound is the town rather than the count**: a person is stood at a way in, and a car the plan stands in a bay or in a
@@ -698,6 +705,34 @@ manoeuvre (GEN-4f), and nothing downstream carries a rule about how a car park i
   **They are spread rather than scattered**: each is laid at the site furthest from every car park already
   laid, and what keeps two of them off each other is the locality every node owes (GEN-16). **What the ground
   cannot carry is what fitted** (GEN-8), reported and never retried.
+
+**GEN-53a** `P6` **A traced map's car park is laid as a mall's is: aisles side by side inside the outline its map
+holds, a rank of bays down both kerbs of every one, and a walk between each two ranks standing back to back.** The
+outline is the place's own (a `ZoneKind.Parking` zone, OSM's outline of a car park on the ground and off the street);
+the inside is the engine's, and what OSM drew there is not laid (`qq osm --drop-zone-ways`).
+
+- **The aisles are the map's and the bays are the town's.** The aisles are laid into the map once, as streets of its
+  own (`qq osm --parking`, `TracedCarParks.Parked`, `TracedRoad.Aisle`): one lane each way, a pitch apart
+  (`SimConfig.CarParkAislePitchM` — an aisle, its two ranks and the walk, `SimConfig.CityGen.CarParkIslandM`), along
+  the bearing of whichever side of the outline ranks the most bays, and **where there are two or more, an aisle across
+  each end joins theirs**, so no aisle is a dead end. A town laid off the map reads them as any street — a junction
+  where two share a point — and ranks the bays (`TracedCarParks.Bays`).
+- **A car park is joined to the streets round it** by an entrance from its outermost aisles straight out to the first
+  street within reach (`SimConfig.CityGen.CarParkEntranceReachM`), squarer than a turn's straight tolerance, clear of
+  the street's junctions (`SimConfig.CarParkEntranceClearM`), and one for every
+  `SimConfig.CityGen.CarParkBaysPerEntrance` bays as far as the streets offer places. **A car park no street reaches,
+  or with no room for one aisle ranked both sides with the fewest bays a car park holds, is not laid** (GEN-8), and
+  the edit says how many of each there were.
+- **A rank runs the whole of its aisle**, a lane apart, and is the bays GEN-53 lays in every other respect. **This is
+  where a traced car park bends GEN-4b's handful and GEN-4d's spacing**: the aisle is the car park's own street and
+  fronts no building, so a rank along it is the car park rather than an apron in the street's frontage. **A bay is
+  laid only where all of it stands inside the outline** and clear of every junction's disc, every other road and every
+  bay, and **a rank stops short of the junction at each end of its aisle by a zebra** (`SimConfig.CarParkRankClearM`):
+  the walk between the ranks runs out to the zebras the junction's kerb ends cut (WLK-10), which is how a driver walks up
+  the car park to the street.
+- **The walk wraps it as it wraps any tarmac** (TER-3c.8): the strip between two ranks back to back is not tarmac, so
+  the walk runs round it, and the car park stands a walk off every road that is not its own
+  (`SimConfig.WalkOuterM`).
 
 
 **GEN-49** `P3` **A junction is the only place two roads may touch.** No road crosses another, runs into the

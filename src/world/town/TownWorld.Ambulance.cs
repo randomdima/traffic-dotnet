@@ -483,7 +483,7 @@ internal sealed partial class TownWorld
 
         var hospital = _duty.Hospital[car];
         return hospital >= 0
-            ? FreeBayOff(_roadPlaceOfBuilding[hospital], _plan.Buildings.CentreM[hospital], _config.AmbulanceHomeM)
+            ? FreePaintedBayOff(_roadPlaceOfBuilding[hospital], _plan.Buildings.CentreM[hospital], _config.AmbulanceHomeM)
             : -1;
     }
 

@@ -259,7 +259,8 @@ internal static class StuckProbe
             $"lane changes (CAR-53): asked {world.Switching.Asked}, withdrew {world.Switching.Withdrawn}, made {world.Switching.Made}");
         Console.WriteLine(
             $"manoeuvres at a bay (GEN-4f): asked {world.Bays.Asked}, withdrew {world.Bays.Withdrawn}, " +
-            $"begun {world.Bays.Begun} — parked {world.Bays.ParkedNoseIn} nose in and {world.Bays.ParkedBackedIn} backed in, " +
+            $"begun {world.Bays.Begun} — parked {world.Bays.ParkedNoseIn} nose in and {world.Bays.ParkedBackedIn} backed in " +
+            $"({world.Bays.ParkedAtTheKerb} of them at a kerb, GEN-4n), " +
             $"{(world.Bays.Begun > 0 ? world.Bays.StreetM / world.Bays.Begun : 0):F1} m of the street's ways each");
         Console.WriteLine(
             $"too near to step out (CAR-50): {world.BackingUp.CarTicksBackingUp} car-ticks backing up for the room, " +

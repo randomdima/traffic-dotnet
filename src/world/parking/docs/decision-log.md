@@ -4,6 +4,34 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-17 — a car parks alongside a kerb, in a gap the bodies there leave, and in no slot
+
+**The owner asked for cars to park both in the car parks and on the roadside where one runs, the roadside held by
+ordinary claims as one continuous stretch with no slots** (GEN-4n).
+
+- **A kerb place is a place of the register opened where the car will stand, not a slot laid along the kerb.** Every
+  question already asked of a bay — claimed by a leg, occupied, the street it is worked off, the way in, the manoeuvre,
+  the route there and away — is asked of it unchanged, so the register keeps a pool of them after its painted bays,
+  two a car (the one it stands in and the one it is aimed at), each closed again once nobody holds it. Laying the kerb
+  out as slots would have been the bays GEN-53 lays, which is what was asked against.
+- **The gap is read off the claims**: the bodies on the roadside (TER-4c.2) and the places other cars are aimed at,
+  which are the one thing the ground does not yet show. Two cars could otherwise drive to one gap; the register's
+  claim settles that before either moves, as it does for a bay.
+- **In and out on an S.** A bay's shapes turn a car square to its line, and `BayTemplate.SquareEnough` refused a
+  place alongside it; an S on the car's own circle slides it across instead — forwards with room behind, backwards
+  after pulling on past, and out forwards after backing up a bumper's worth where the car in front is close. The
+  roadside is swept with the lane beside it, so a body at the kerb refuses the shape.
+- **Only beside a lane that leads on and is entered from the town.** The first runs stood cars at the ends of dead-end
+  streets — stretches beside the lane into a dead end, and beside the lane back out of one, which a car reaches only by
+  going down the dead end first — and at the last metres of short lanes, where a car pulling out needed to change lanes
+  in no room. The stretches are cut to lanes that lead on (`RoadGraph.DrivesOn`), are reached without a dead end, and run
+  `KerbParkingLaneRunM` either side of the stretch.
+- **A traced map's own cars stand at its kerbs and run the round**, where they toured before: a round finds a kerb
+  within a walk of almost any place drawn, which the car parks alone did not (2 of 5 000 drove in two minutes). Over
+  120 s on OdesaOsm at 5 000 cars: 1 316 drove, 835 parked at a kerb and 24 in a car park, 2 wrecked, 4 legs given up,
+  95 standing at the end — 88 of them queued behind the four that wait at a lane's end for a lane change the route asks
+  for and the lane has no room for (tech-debt) — and no ring of cars waiting on each other.
+
 ## 2026-10-16 — a manoeuvre is shaped only with its stop dead ahead, and only out of a bay the car stands in
 
 **What the stuck probe found** (Odesa, 300 s, six wrecks): four were bay manoeuvres. Two shaped their way in at

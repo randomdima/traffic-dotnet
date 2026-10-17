@@ -24,8 +24,8 @@ internal sealed class BayStreets
 
     const int NoLane = -1;
 
-    readonly int[] _lane;
-    readonly float[] _atLaneM;
+    int[] _lane;
+    float[] _atLaneM;
     readonly int[] _firstBayOfLane;
     readonly int[] _baysOffLane;
     readonly int[] _bayOnLane;
@@ -40,6 +40,56 @@ internal sealed class BayStreets
     }
 
     public int BayCount => _lane.Length / MostLanes;
+
+    /// <summary>
+    /// <b>Room for this many kerb places after the painted bays</b> (GEN-4n), each worked off no street until it is
+    /// opened (<see cref="OpenKerb"/>) — so a closed one is a place no car can reach.
+    /// </summary>
+    public void MakeRoomForKerbs(int kerbs)
+    {
+        var painted = _lane.Length;
+        _paintedBays = painted / MostLanes;
+        Array.Resize(ref _lane, painted + (kerbs * MostLanes));
+        Array.Resize(ref _atLaneM, painted + (kerbs * MostLanes));
+        _lane.AsSpan(painted).Fill(NoLane);
+        _kerbRoadside = new int[kerbs];
+        _kerbRoadsideAtM = new float[kerbs];
+        Array.Fill(_kerbRoadside, NoLane);
+    }
+
+    int _paintedBays;
+    int[] _kerbRoadside = [];
+    float[] _kerbRoadsideAtM = [];
+
+    /// <summary>
+    /// <b>A kerb place worked off the one lane beside its roadside</b> (GEN-4n), at the metre its middle stands abeam of:
+    /// a car parks alongside the kerb the way the traffic beside it runs, and leaves the same way.
+    /// </summary>
+    /// <param name="roadsideAtM">How far along its roadside the place's middle stands.</param>
+    public void OpenKerb(int bay, int lane, float atLaneM, int roadside, float roadsideAtM)
+    {
+        _lane[bay * MostLanes] = lane;
+        _atLaneM[bay * MostLanes] = atLaneM;
+        _lane[(bay * MostLanes) + 1] = NoLane;
+        _kerbRoadside[bay - _paintedBays] = roadside;
+        _kerbRoadsideAtM[bay - _paintedBays] = roadsideAtM;
+    }
+
+    /// <summary>And worked off nothing again: closed.</summary>
+    public void CloseKerb(int bay)
+    {
+        _lane[bay * MostLanes] = NoLane;
+        _kerbRoadside[bay - _paintedBays] = NoLane;
+    }
+
+    /// <summary>
+    /// <b>The roadside a kerb place stands on</b>, or −1 for a painted bay — which a manoeuvre into or out of it sweeps
+    /// as well as the street it is worked off (GEN-4n): a body already standing at the kerb refuses it there.
+    /// </summary>
+    public int KerbRoadsideOf(int bay) => bay >= _paintedBays && bay - _paintedBays < _kerbRoadside.Length ? _kerbRoadside[bay - _paintedBays] : NoLane;
+
+    /// <summary>How far along its roadside a kerb place's middle stands.</summary>
+    public float KerbRoadsideAtM(int bay) => _kerbRoadsideAtM[bay - _paintedBays];
 
     /// <summary>The lanes of the road, which <see cref="BaysOffLane"/> is asked by.</summary>
     public int LaneCount => _firstBayOfLane.Length - 1;

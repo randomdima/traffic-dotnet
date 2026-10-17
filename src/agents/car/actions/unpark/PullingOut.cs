@@ -76,6 +76,8 @@ internal sealed class PullingOut(
     /// </remarks>
     public bool ShapeTheWayOut(int car, int bay, int lane)
     {
+        if (parking.IsKerb(bay)) return ShapeTheWayOffTheKerb(car, bay);
+
         var turning = parking.TurnOf(car) == bay && lane != CarFleet.NoLane;
 
         ref readonly var build = ref Cars.BuildOf(car);
@@ -117,6 +119,46 @@ internal sealed class PullingOut(
         if (!bestShape.Exists) return false;
 
         Manoeuvres.Shaped(car, ManoeuvreKind.Leave, bay, bestLane, bestShape, bestM);
+        bays.TakeThePiece(car, 0);
+        return true;
+    }
+
+    /// <summary>
+    /// <b>The shape off the kerb</b> (GEN-4n): an S out onto the lane beside it, the way its traffic runs — straight off
+    /// where nothing stands in front within the S, else backing up <see cref="Core.Config.DrivingFigures.KerbBackUpM"/>
+    /// first. The one nobody stands on, else the one taking less street.
+    /// </summary>
+    bool ShapeTheWayOffTheKerb(int car, int bay)
+    {
+        var lanes = bayStreets.LanesOf(bay);
+        if (lanes.IsEmpty) return false;
+
+        var lane = lanes[0];
+        ref readonly var build = ref Cars.BuildOf(car);
+        var forward = Cars.Forward[car];
+        var from = new BayManoeuvre.Pose(CarFollower.RearAxleM(build, Cars.PositionM[car], forward), Cars.HeadingRad[car]);
+        var at = Spline.SampleAt(ground.Roads.ArcsOf(lane), bayStreets.AtLaneM(bay, lane));
+
+        Span<ArcSeg> room = stackalloc ArcSeg[BayManoeuvre.MostArcs];
+        var bestShape = BayManoeuvre.Shape.None;
+        var bestStoodOn = true;
+        var bestM = float.PositiveInfinity;
+        foreach (var backM in (ReadOnlySpan<float>)[0f, ground.Config.Driving.KerbBackUpM])
+        {
+            var shape = BayManoeuvre.AlongsideOut(
+                from, backM, at.PositionM, at.HeadingRad, build.ParkingTemplateRadiusM, build.ParkingStraightensUpM, room);
+            if (!shape.Exists || !bays.WhatTheShapeTakes(car, bay, room, shape, out var streetM, out var stoodOn)) continue;
+            if (bestShape.Exists && (stoodOn && !bestStoodOn || (stoodOn == bestStoodOn && streetM >= bestM))) continue;
+
+            bestShape = shape;
+            bestStoodOn = stoodOn;
+            bestM = streetM;
+            room[..shape.ArcCount].CopyTo(Manoeuvres.RoomOf(car));
+        }
+
+        if (!bestShape.Exists) return false;
+
+        Manoeuvres.Shaped(car, ManoeuvreKind.Leave, bay, lane, bestShape, bestM);
         bays.TakeThePiece(car, 0);
         return true;
     }

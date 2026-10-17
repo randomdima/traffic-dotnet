@@ -29,7 +29,9 @@ building" but a density: any scan of frontage carries roughly as many bays as bu
 the most, and each of them draws its own count between the two. **The upper bound is what makes a lot a
 lot.** A car park is a few spaces at the side of a street, and one that grew along its kerb until the
 ground stopped it is an apron — it fronts several buildings at once, it puts a rank of parked cars where
-the street's own frontage should be, and nothing in the town ever fills it. The lower bound is the other
+the street's own frontage should be, and nothing in the town ever fills it. **A traced car park's aisle is the one
+street this does not bind** ([citygen](../../../citygen/docs/requirements.md) GEN-53a): it fronts no building, so
+the rank down it is the car park and not an apron in a street's frontage, and it runs the aisle's length. The lower bound is the other
 end of the same statement: a rectangle of tarmac holding one or two cars is a lay-by that cost a lot's
 whole clearance (GEN-4d).
 
@@ -66,7 +68,8 @@ tested both ways round the pair — two lots facing each other across a carriage
 street and stay legal, while two sharing a kerb read as one long apron and do not. **What "clear" is worth
 is the walk that wraps a lot** (TER-3c.3): two standing closer than two of those have one wrap between
 them, which is the apron this refuses — and the verge they pinch out between them is a cusp nothing can be
-given ground on.
+given ground on. **Down a traced car park's aisle the bays are one rank end to end** (GEN-53a), held clear of the
+junction at each end of the aisle and of nothing along it.
 
 ## The manoeuvre at a bay, and which way round a car stands in it
 
@@ -197,6 +200,29 @@ parted, no junction stands at a car park, and what gets a car from the street in
 - **A car park still needs room**: a locality clear of every junction on the road and of every other car park
   (GEN-16), and a street straight enough there to square a rank to (GEN-53). A stretch of street without that
   room carries buildings rather than a car park.
+
+**GEN-4n** `P5` **A car parks alongside the kerb wherever a roadside runs, in a gap and not a slot.** A roadside
+([citygen](../../../citygen/docs/requirements.md) GEN-57) is ground a car may stand on along its own run, clear of the
+junction at each end and of every crossing by `SimConfig.Road.KerbParkingClearM`, beside a kerb lane the traffic keeps to,
+leads on from and can be got onto from the rest of the town, and with `SimConfig.Road.KerbParkingLaneRunM` of that lane
+either side (`KerbStretches`). Nothing is laid along it for parking.
+
+- **The place is opened where the car will stand** (`ParkingRegistry.OpenKerb`, `TownWorld.KerbPlaceNear`): the gap
+  nearest where it is going, between the bodies standing on the roadside and the places other cars are already aimed
+  at, `SimConfig.Road.KerbParkingGapM` short of each, and the car's middle as near the place as the gap lets it. It is a
+  place of the register like a painted bay — claimed for the leg (GEN-4g), occupied once parked — worked off the kerb
+  lane beside it, and **closed once nobody holds it**; one a search offered and nobody claimed is the kerb's again the
+  next tick.
+- **What holds the kerb is the body**: a car standing at the kerb holds the roadside under its wheels by the same
+  claim every body holds the way it stands on (TER-4c.2), and that claim is what the next car's gap is read off.
+- **In and out is a slide and not a turn** (GEN-4f, `BayManoeuvre.AlongsideIn`, `…BackIn`, `…Out`): forwards on an S
+  where the car comes up to the gap with room behind it, or on past it and back in on an S in reverse; out on an S
+  onto the lane, backing up `SimConfig.Driving.KerbBackUpM` first where what stands in front leaves too little room.
+  The car stands pointing along the kerb whichever way it got in. **The manoeuvre's ground is the lane beside and the
+  roadside too**: a body already at the kerb refuses it there, as a body in the lane does.
+- **Its way in is on the kerb's side** (GEN-4e), away from the traffic.
+- **The kerb is searched beside the place's own street and the way back down it**, and a car parks at whichever of
+  the kerb or a painted bay stands nearer where it is going.
 
 **GEN-4g** `P4` **Which bay a leg is aimed at is a claim, and it lives in a register.** It is a hold on no
 piece of road, and it is a register because it has to be: the hold is taken when a leg is sent to the bay

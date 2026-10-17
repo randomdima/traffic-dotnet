@@ -83,7 +83,7 @@ internal static class TownPlan
         // A wheel's streets say their own stages, and are not paused in.
         var streets = wheel
             ? Laid(WheelStreets.Lay(zoned, survey.Seed, worldSizeM, water, survey.Bridgeable, config, sizes, stage => Took(stage)))
-            : Laid(TracedStreets.Lay(survey, config), config);
+            : Laid(TracedCarParks.Bays(survey, TracedStreets.Lay(survey, config), config), config);
         if (!wheel) yield return Took("streets");
 
         var lots = Lots(survey.Lots);
@@ -102,7 +102,7 @@ internal static class TownPlan
 
         // <b>The buildings stand against the walk the finished town is laid with</b> (GEN-54): what the map sets down,
         // then the services on their yards (GEN-55), then whatever the zones build.
-        var yards = streets.CarParks.Count > 0
+        var yards = wheel && streets.CarParks.Count > 0
             ? BuildingStage.Lay(streets.CarParks, streets.Roads, paving, ground, worldSizeM, sizes, config)
             : BuildingStage.Yards.None(config);
         var buildings = ZoneBuildings.Lay(zones, survey, yards, paving, ground, sizes, config);
@@ -116,7 +116,7 @@ internal static class TownPlan
         var spawn = new Rng(survey.Seed, Streams.Spawn);
         var root = TownMap.ZoneArrays.Root;
         var spawns = SpawnStage.Lay(
-            (int)(zoned.Own(root, ZoneParam.People) ?? 0f), (int)(zoned.Own(root, ZoneParam.Cars) ?? 0f), streets.BridgeCars,
+            (int)(zoned.Own(root, ZoneParam.People) ?? 0f), (int)(zoned.Own(root, ZoneParam.Cars) ?? 0f), !wheel, streets.BridgeCars,
             paving, streets.CarParks, buildings, config, ref spawn);
         yield return Took("roster");
 
@@ -163,13 +163,15 @@ internal static class TownPlan
         wheel.CarParks, wheel.Districts.Wheel, CityPlan.SpawnArrays.None);
 
     /// <summary>
-    /// A map's own roads: no kerb corner, crossing or car park of their own, one district, and a few cars stood by rule
-    /// at its bridges over its roads (<see cref="TracedBridgeCars"/>).
+    /// A map's own roads: no kerb corner or crossing of their own, the bays ranked along its car parks' aisles
+    /// (<see cref="TracedCarParks.Bays"/>), one district, and a few cars stood by rule at its bridges over its roads
+    /// (<see cref="TracedBridgeCars"/>).
     /// </summary>
-    static Streets Laid(TracedStreets.Laid traced, SimConfig config) => new(
-        traced.Roads, traced.Junctions, new CityPlan.JunctionCornerArrays { CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [] },
-        traced.Bridges, traced.Roundabouts, new CityPlan.CrosswalkArrays { CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [] },
-        CarParks.Laid.None, DistrictWheel.Whole, TracedBridgeCars.Lay(traced.Roads, config));
+    static Streets Laid((TracedStreets.Laid Streets, CarParks.Laid CarParks) traced, SimConfig config) => new(
+        traced.Streets.Roads, traced.Streets.Junctions,
+        new CityPlan.JunctionCornerArrays { CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [] },
+        traced.Streets.Bridges, traced.Streets.Roundabouts, new CityPlan.CrosswalkArrays { CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [] },
+        traced.CarParks, DistrictWheel.Whole, TracedBridgeCars.Lay(traced.Streets.Roads, config));
 
     /// <summary>Two waters' rings as one water's, each set of the first's then the second's.</summary>
     static CityPlan.WaterArrays Joined(CityPlan.WaterArrays one, CityPlan.WaterArrays other)

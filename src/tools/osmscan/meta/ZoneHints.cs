@@ -25,6 +25,10 @@ namespace TrafficSimulation.Tools.OsmScan.Meta;
 /// inside that one, so no zone has a hole; and ground no land use holds is the whole map's, measured as a zone's is.
 /// </para>
 /// <para>
+/// <b>A car park on the ground is not laid on squares</b> but kept as OSM outlines it, a zone of its own nested where it
+/// stands (<see cref="Lots"/>): the engine lays its inside, and that wants the outline and not a square's guess at it.
+/// </para>
+/// <para>
 /// <b>What its buildings measure is read off the map's own streets</b>: every street (a road of a class that is one,
 /// <see cref="TracedRoad.Rank"/>) is walked <see cref="ProbeStepM"/> at a time, and either side of it a probe runs out
 /// from its carriageway's edge to the first building it meets within <see cref="ProbeReachM"/> — the probe the zone's
@@ -46,6 +50,12 @@ internal static class ZoneHints
 
     /// <summary>The least ground a patch of one kind covers to be a zone; a smaller one is the kind round it.</summary>
     const double LeastM2 = 5000;
+
+    /// <summary>The least ground a car park covers to be a zone of its own: an aisle and its two ranks of the fewest bays.</summary>
+    const double LotLeastM2 = 1000;
+
+    /// <summary>How far a car park's outline may stand off OSM's once thinned: a bay's apron, so its ranks stand where it does.</summary>
+    const double LotToleranceM = 1;
 
     /// <summary>How many of a square's eight neighbours of one other kind make it that kind: a spur or a notch a square wide.</summary>
     const int SwayedBy = 5;
@@ -161,7 +171,8 @@ internal static class ZoneHints
             }
         }
 
-        var uses = Uses(layer, plane, keeps);
+        var all = Uses(layer, plane, keeps);
+        var uses = all.Where(use => use.Kind != ZoneKind.Parking).ToList();
         Nest(uses);
         var usesFiled = File(uses);
         var usesTallied = Tallied(uses.Count, at => Holding(uses, usesFiled, at), streets, buildings, outlines, bounds, footprints);
@@ -175,6 +186,7 @@ internal static class ZoneHints
         Swayed(squares);
         Merged(squares);
         var zones = Zoned(squares, widthM, heightM);
+        zones.AddRange(Lots(all.Where(use => use.Kind == ZoneKind.Parking).ToList(), zones, uses, usesFiled, widthM, heightM));
 
         // The whole map is zone nought here, and every zone one on from where the list holds it.
         var filed = File(zones);
@@ -191,7 +203,8 @@ internal static class ZoneHints
         builder.Add(-1, ZoneKind.Town, [.. Measured(tallied[0], ownM2[0], buildings, outlines)], [TownMap.WholeOutline(new Vector2((float)widthM, (float)heightM))]);
         for (var zone = 0; zone < zones.Count; zone++)
         {
-            builder.Add(zones[zone].Parent + 1, zones[zone].Kind, [.. Measured(tallied[zone + 1], ownM2[zone + 1], buildings, outlines)], [Vectors(zones[zone].Rings[0])]);
+            List<(ZoneParam, float)> measured = zones[zone].Kind == ZoneKind.Parking ? [] : Measured(tallied[zone + 1], ownM2[zone + 1], buildings, outlines);
+            builder.Add(zones[zone].Parent + 1, zones[zone].Kind, [.. measured], [Vectors(zones[zone].Rings[0])]);
         }
 
         return builder.Arrays();
@@ -790,8 +803,40 @@ internal static class ZoneHints
     }
 
     /// <summary>
+    /// <b>Every car park a zone of its own, as OSM outlines it</b> (GEN-53a): not laid on squares, since a car park is ground
+    /// the engine lays the inside of (<c>qq osm --parking</c>), and one squared off to <see cref="SquareM"/> is aisles laid
+    /// over its neighbours' yards. One covering less than <see cref="LotLeastM2"/> holds no aisle ranked both sides and is
+    /// the zone round it; one standing inside a larger one already kept is part of that one; and one standing in rows of
+    /// lock-up garages (<see cref="ZoneKind.Garages"/>) is the ways between them, which the layers read as a car park's
+    /// aisles. Each is thinned to within <see cref="LotToleranceM"/>, held to the frame and nested in the deepest of
+    /// <paramref name="zones"/> holding a place inside it; a hole OSM cuts out of one — a planted island, a kiosk — is not
+    /// kept, since a zone has none.
+    /// </summary>
+    static List<Zone> Lots(
+        List<Zone> lots, List<Zone> zones, List<Zone> uses, Dictionary<(int, int), int[]> usesFiled, double widthM, double heightM)
+    {
+        var filed = File(zones);
+        var kept = new List<Zone>();
+        foreach (var lot in lots.Where(lot => lot.AreaM2 >= LotLeastM2).OrderByDescending(lot => lot.AreaM2))
+        {
+            var at = Inside(lot.Rings);
+            if (kept.Exists(other => other.Box.Holds(at) && Shape.Inside(at, other.Rings))) continue;
+            if (Holding(uses, usesFiled, at) is >= 0 and var use && uses[use].Kind == ZoneKind.Garages) continue;
+
+            var outline = Thinned(lot.Rings[0], LotToleranceM).Select(point => new Pt(Math.Clamp(point.X, 0, widthM), Math.Clamp(point.Y, 0, heightM))).ToArray();
+            if (outline.Length < 3 || Math.Abs(Shape.SignedArea(outline)) <= 0) continue;
+
+            var parent = Holding(zones, filed, at);
+            kept.Add(new Zone([outline], ZoneKind.Parking) { Parent = parent, Depth = parent >= 0 ? zones[parent].Depth + 1 : 1 });
+        }
+
+        return kept;
+    }
+
+    /// <summary>
     /// <b>What kind of zone a land use is</b>, by OSM's own values, or null for one that says nothing of what is built or
-    /// grows there. A residential one is <see cref="ZoneKind.Residential"/> until what is built in it says which
+    /// grows there. A car park is ground only where it stands on the ground and off the street: one under or on a
+    /// building is the building's, rows of lock-ups are garages, and one along a kerb is the street's own. A residential one is <see cref="ZoneKind.Residential"/> until what is built in it says which
     /// (<see cref="Residential"/>).
     /// </summary>
     static ZoneKind? KindOf(string kind, string? sub) => kind switch
@@ -801,6 +846,9 @@ internal static class ZoneHints
         "industrial" or "port" or "railway" or "military" => ZoneKind.Industrial,
         "education" or "health" or "religious" or "civic" or "bus_station" or "ferry_terminal" => ZoneKind.Civic,
         "commercial" or "retail" or "fuel" or "car_wash" or "market" => ZoneKind.Commercial,
+        "parking" when sub is "underground" or "multi-storey" or "rooftop" => null,
+        "parking" when sub is "garage_boxes" or "carports" => ZoneKind.Garages,
+        "parking" when sub is "street_side" or "lane" or "layby" or "on_kerb" or "half_on_kerb" or "shoulder" => null,
         "parking" or "parking_space" or "charging_station" => ZoneKind.Parking,
         "leisure" when sub is "sports_centre" or "stadium" => ZoneKind.Civic,
         "green" or "leisure" or "cemetery" => ZoneKind.Park,
@@ -822,8 +870,8 @@ internal static class ZoneHints
 
     static Vector2[] Vectors(Pt[] ring) => [.. ring.Select(point => new Vector2((float)point.X, (float)point.Y))];
 
-    /// <summary>A ring thinned by Douglas–Peucker to within <see cref="ToleranceM"/>, without the repeat of its first point.</summary>
-    static Pt[] Thinned(Pt[] ring)
+    /// <summary>A ring thinned by Douglas–Peucker to within a tolerance, without the repeat of its first point.</summary>
+    static Pt[] Thinned(Pt[] ring, double toleranceM = ToleranceM)
     {
         var count = ring.Length > 1 && ring[0] == ring[^1] ? ring.Length - 1 : ring.Length;
         if (count < 3) return [];
@@ -852,7 +900,7 @@ internal static class ZoneHints
         void Mark(int from, int to)
         {
             var (a, b) = (ring[from], ring[to % count]);
-            var (furthest, furthestM) = (-1, ToleranceM);
+            var (furthest, furthestM) = (-1, toleranceM);
             for (var at = from + 1; at < to; at++)
             {
                 var offM = Shape.Nearest(ring[at], [a, b]).OffM;

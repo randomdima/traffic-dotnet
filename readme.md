@@ -261,8 +261,10 @@ that is drawn and stands no body — all drawn off the map's own seed. **The map
 `qq osm --drop-stumps` dropped the road stumps that ran into buildings and the dead ends of a single lane,
 `qq osm --cars 5000` set how many cars it stands, `qq osm --mend` mended its roads — what OSM left unjoined joined, every street held even, carriageways drawn over each
 other parted — and wrote each street back as a road laid exactly as it says, so the town reads its lanes as they are,
-`qq osm --zones` lays its zones again off the layers and writes the place's buildings beside them for
-`--bench zones`, and `qq osm --upgrade` rewrites a map of the previous version;
+`qq osm --zones` lays its zones again off the layers — every car park on the ground a zone of its own, as OSM
+outlines it — and writes the place's buildings beside them for `--bench zones`, `qq osm --parking` lays every car
+park's aisles into the map as a mall's are, joined to the streets round it, for the town to rank bays down both kerbs
+of (GEN-53a), and `qq osm --upgrade` rewrites a map of the previous version;
 a second import replaces it and every edit made since, and is refused unless `--force`. What was crawled is kept as
 it came and never edited: `towns/traced/OdesaOsm/source/` holds every source's answer, `towns/traced/OdesaOsm.json`
 is the survey the scanner (`src/tools/osmscan/`, run by `qq osm`) writes off OSM with each way's lanes and where a

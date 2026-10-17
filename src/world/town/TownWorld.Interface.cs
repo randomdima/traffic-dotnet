@@ -421,6 +421,9 @@ internal sealed partial class TownWorld
         // tried again instead of believed for ever.
         _surcharges.Advance(_elapsedS);
 
+        // A kerb place a search opened last tick and nobody claimed is the kerb's again (GEN-4n).
+        _parking.NextRound();
+
         // An order outlives the tick it was given in, and the walker it was given to can be run over
         // inside that tick — so whether it still acts is asked here as well as where the order was taken.
         for (var i = 0; i < _ordered; i++)

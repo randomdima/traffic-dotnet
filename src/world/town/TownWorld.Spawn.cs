@@ -291,7 +291,9 @@ internal sealed partial class TownWorld
     /// <b>A map with no bay a car can reach drives its own cars</b> (CAR-8). A car does nothing unless
     /// something is driving it (CAR-1), and on such a map nothing but an order ever sends one anywhere — an
     /// errand needs an apron, a car's own round needs a bay, and both need a car park — so its cars would stand
-    /// where they were put for ever.
+    /// where they were put for ever. <b>On a map that parks, it drives the cars nobody owns that were stood on a lane</b>
+    /// (<see cref="_tours"/>) — a traced map's own where it has no roadside to stand them at (GEN-7), which have no stand to
+    /// run a round from.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -309,10 +311,12 @@ internal sealed partial class TownWorld
     /// </remarks>
     void DriveTheEmptyMap()
     {
-        if (_townParks) return;
+        if (_townParks && !_anyTours) return;
 
         for (var car = 0; car < Cars.Count; car++)
         {
+            if (_townParks && !_tours[car]) continue;
+
             // A car whose wheel is already held over has somebody deciding for it, which is the whole of
             // what this rule exists to supply. Handing it a lane as well would lay a line nothing drives.
             if (Cars.Driven[car] || Cars.Broken[car] || WheelIsHeldOver(car))
@@ -333,6 +337,16 @@ internal sealed partial class TownWorld
 
     /// <summary>Whether a car <see cref="DriveTheEmptyMap"/> stood down was refused the lane under it when it last asked.</summary>
     readonly bool[] _refusedALane;
+
+    /// <summary>
+    /// <b>Whether a car tours</b> (CAR-8): one nobody owns that the plan stood on a lane rather than in a bay — every car
+    /// of a map with no bay, and a traced map's own cars beside its people where it has no roadside to stand them at (GEN-7)
+    /// — which has no stand to run a round from.
+    /// </summary>
+    readonly bool[] _tours;
+
+    /// <summary>Whether any car tours, which is every tick's first question of <see cref="DriveTheEmptyMap"/>.</summary>
+    bool _anyTours;
 
     /// <summary>
     /// Whether somebody's hand is on this car's wheel rather than anything in the town deciding for it
@@ -379,6 +393,15 @@ internal sealed partial class TownWorld
             if (bay < 0) return;
         }
 
+        // <b>Or at the kerb</b>, where the plan stood it on a roadside (GEN-7, GEN-4n): a place opened for it there, as a
+        // place is opened for any car parking at a kerb. One standing where nobody may park, or on top of another, is not
+        // stood.
+        if (bay < 0 && _plan.Spawns.OnARoadside(spawn))
+        {
+            bay = KerbPlaceUnder(positionM, Cars.BuildOfVariant(variant).LengthM);
+            if (bay < 0) return;
+        }
+
         if (bay >= 0)
         {
             StandCarIn(bay, variant, CarDraw(spawn));
@@ -387,7 +410,10 @@ internal sealed partial class TownWorld
 
         var draw = CarDraw(spawn);
         var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
-        StandOnItsLevel(AddCar(positionM, _plan.Spawns.HeadingRad[spawn], variant, backsIn, draw));
+        var car = AddCar(positionM, _plan.Spawns.HeadingRad[spawn], variant, backsIn, draw);
+        StandOnItsLevel(car);
+        _tours[car] = true;
+        _anyTours = true;
     }
 
     /// <summary>A car stood in a bay (<see cref="StandSquareIn"/>) and its first stand begun there (CAR-8).</summary>
@@ -409,7 +435,9 @@ internal sealed partial class TownWorld
     int StandSquareIn(int bay, byte variant, Rng draw)
     {
         var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
-        var headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(bay), !backsIn);
+
+        // A car at the kerb points along it whichever way it got in (GEN-4n).
+        var headingRad = _parking.IsKerb(bay) ? _parking.HeadingRad(bay) : BayTemplate.StandingHeadingRad(_parking.HeadingRad(bay), !backsIn);
         var car = AddCar(_parking.CentreM(bay), headingRad, variant, backsIn, draw);
         _parking.Occupy(bay, car);
         return car;
@@ -438,7 +466,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     int BayUnder(Vector2 positionM)
     {
-        for (var bay = 0; bay < _parking.BayCount; bay++)
+        for (var bay = 0; bay < _parking.PaintedCount; bay++)
         {
             if (!_parking.CanBeReached(bay)) continue;
             if ((_parking.CentreM(bay) - positionM).LengthSquared() <= BayFitM * BayFitM) return bay;

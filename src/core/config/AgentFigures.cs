@@ -378,6 +378,12 @@ internal sealed class DrivingFigures
     public float ParkingSwingMostDeg { get; init; } = 45f;
 
     /// <summary>
+    /// <b>How far a car at the kerb backs up before it pulls out</b> (GEN-4n), where what stands in front of it leaves
+    /// too little room for the S out: a car's bumper's worth, which is what a driver takes back off the car behind.
+    /// </summary>
+    public float KerbBackUpM { get; init; } = 1f;
+
+    /// <summary>
     /// <b>How much of its braking a car coming up to something it means to get past slows at</b> (CAR-46): gently,
     /// so it arrives slower and the lane beside has longer to clear before it must stand.
     /// </summary>

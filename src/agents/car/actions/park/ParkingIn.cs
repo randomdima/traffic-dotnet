@@ -126,9 +126,10 @@ internal sealed class ParkingIn(
 
         var mouth = Spline.SampleAt(roads.ArcsOf(lane), mouthM);
         Span<ArcSeg> room = stackalloc ArcSeg[BayManoeuvre.MostArcs];
-        var shape = BayManoeuvre.NoseIn(
-            new BayManoeuvre.Pose(mouth.PositionM - (mouth.Direction * mouthM), mouth.HeadingRad), NoseInPose(car, bay),
-            radiusM, build.ParkingStraightensUpM, ground.Config.ParkingSwingMostRad, room);
+        var start = new BayManoeuvre.Pose(mouth.PositionM - (mouth.Direction * mouthM), mouth.HeadingRad);
+        var shape = parking.IsKerb(bay)
+            ? BayManoeuvre.AlongsideIn(start, NoseInPose(car, bay), radiusM, build.ParkingStraightensUpM, room)
+            : BayManoeuvre.NoseIn(start, NoseInPose(car, bay), radiusM, build.ParkingStraightensUpM, ground.Config.ParkingSwingMostRad, room);
         if (!shape.Exists) return fallbackM;
 
         return room[0].Curvature == 0f ? MathF.Min(room[0].LengthM, roads.LaneLengthM[lane]) : 0f;
@@ -155,9 +156,19 @@ internal sealed class ParkingIn(
             parking.CentreM(bay) - (into * Cars.BuildOf(car).CentreAheadOfAxleM), parking.HeadingRad(bay));
     }
 
-    /// <summary>And standing backed in — the axle at the deep end, travelling into the bay as it backs in.</summary>
+    /// <summary>
+    /// And standing backed in — the axle at the deep end, travelling into the bay as it backs in. <b>At the kerb the car
+    /// stands the same way round whichever way it got in</b> (GEN-4n), so the axle stands where it does nose in, travelling
+    /// back along the kerb.
+    /// </summary>
     BayManoeuvre.Pose BackedInPose(int car, int bay)
     {
+        if (parking.IsKerb(bay))
+        {
+            var noseIn = NoseInPose(car, bay);
+            return noseIn with { HeadingRad = noseIn.HeadingRad + MathF.PI };
+        }
+
         var into = Heading.Unit(parking.HeadingRad(bay));
         return new BayManoeuvre.Pose(
             parking.CentreM(bay) + (into * Cars.BuildOf(car).CentreAheadOfAxleM), parking.HeadingRad(bay));
@@ -177,9 +188,13 @@ internal sealed class ParkingIn(
 
         Span<ArcSeg> noseIn = stackalloc ArcSeg[BayManoeuvre.MostArcs];
         Span<ArcSeg> backIn = stackalloc ArcSeg[BayManoeuvre.MostArcs];
-        var noseShape = BayManoeuvre.NoseIn(
-            from, NoseInPose(car, bay), radiusM, build.ParkingStraightensUpM, ground.Config.ParkingSwingMostRad, noseIn);
-        var backShape = BayManoeuvre.BackIn(from, BackedInPose(car, bay), radiusM, build.ParkingStraightensUpM, backIn);
+        var kerb = parking.IsKerb(bay);
+        var noseShape = kerb
+            ? BayManoeuvre.AlongsideIn(from, NoseInPose(car, bay), radiusM, build.ParkingStraightensUpM, noseIn)
+            : BayManoeuvre.NoseIn(from, NoseInPose(car, bay), radiusM, build.ParkingStraightensUpM, ground.Config.ParkingSwingMostRad, noseIn);
+        var backShape = kerb
+            ? BayManoeuvre.AlongsideBackIn(from, BackedInPose(car, bay), radiusM, build.ParkingStraightensUpM, backIn)
+            : BayManoeuvre.BackIn(from, BackedInPose(car, bay), radiusM, build.ParkingStraightensUpM, backIn);
 
         var noseM = float.PositiveInfinity;
         var backM = float.PositiveInfinity;

@@ -302,6 +302,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _stood = new bool[drivers];
         _stoodTick = new StoodTick[drivers];
         _refusedALane = new bool[drivers];
+        _tours = new bool[drivers];
         _exitRefusedAtS = new float[drivers];
         Array.Fill(_exitRefusedAtS, float.NegativeInfinity);
         _asksTheRoute = new bool[drivers];
@@ -338,7 +339,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _following = new Following(_ground, _carActions, _overtaking, _switching, _parkingIn);
         _rejoining = new Rejoining(_ground, _carActions, _following);
         _round = new ParkedRound(drivers);
-        for (var bay = 0; bay < _parking.BayCount && !_townParks; bay++) _townParks = _parking.CanBeReached(bay);
+        LayTheKerbs();
+        _townParks = _kerbs.Count > 0;
+        for (var bay = 0; bay < _parking.PaintedCount && !_townParks; bay++) _townParks = _parking.CanBeReached(bay);
 
         // How close each driver has come to the end of the way it is on, which is the clock a leg is
         // given up by — the walkers' own, over the cars (<see cref="LegProgress"/>).
@@ -997,7 +1000,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             else if (IsAnEvacuator(car)) RunTheRecovery(car, sinceLastDecisionS);
             else if (IsAPatrolCar(car)) RunThePatrol(car, sinceLastDecisionS);
             else if (Cars.Owner[car] != CarFleet.NoOwner) RunTheOwnersCar(car, sinceLastDecisionS);
-            else if (_townParks && !IsAServiceVehicle(car)) RunTheRound(car, sinceLastDecisionS);
+            else if (_townParks && !_tours[car] && !IsAServiceVehicle(car)) RunTheRound(car, sinceLastDecisionS);
 
             DecideDriver(car, sinceLastDecisionS);
             SignalTheFollow(car);

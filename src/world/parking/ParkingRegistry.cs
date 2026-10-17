@@ -58,12 +58,27 @@ internal sealed class ParkingRegistry
     readonly float _spaceLengthM;
     readonly float _spaceWidthM;
 
-    ParkingRegistry(BayStreets streets, BucketGrid near, int bays, int cars, float spaceLengthM, float spaceWidthM)
+    ParkingRegistry(BayStreets streets, BucketGrid near, int painted, int cars, float spaceLengthM, float spaceWidthM)
     {
         _streets = streets;
         _near = near;
         _spaceLengthM = spaceLengthM;
         _spaceWidthM = spaceWidthM;
+        _painted = painted;
+
+        // A car holds at most two places at once — the one it stands in and the one its leg is aimed at — and a turn
+        // is only ever in a painted bay (GEN-4l), so two kerb places a car is all the kerb can be asked for.
+        var kerbs = KerbPlacesPerCar * cars;
+        var bays = painted + kerbs;
+        streets.MakeRoomForKerbs(kerbs);
+        _kerbLane = new int[kerbs];
+        _kerbFromM = new float[kerbs];
+        _kerbToM = new float[kerbs];
+        _kerbOpenedAt = new long[kerbs];
+        _kerbNext = new int[kerbs];
+        _firstKerbOnLane = new int[streets.LaneCount];
+        Array.Fill(_kerbLane, NoLane);
+        Array.Fill(_firstKerbOnLane, NoBay);
         _centreM = new Vector2[bays];
         _headingRad = new float[bays];
         _forward = new Vector2[bays];
@@ -84,10 +99,121 @@ internal sealed class ParkingRegistry
         Array.Fill(_claimedBayOfCar, NoBay);
         Array.Fill(_turnOfCar, NoBay);
         _freeOffLane = new int[streets.LaneCount];
-        for (var bay = 0; bay < bays; bay++) Counted(bay, wasFree: false);
+        for (var bay = 0; bay < painted; bay++) Counted(bay, wasFree: false);
     }
 
     public const int NoBay = -1;
+
+    const int NoLane = -1;
+
+    /// <summary>How many kerb places one car can hold at once: the one it stands in and the one it is on its way to.</summary>
+    const int KerbPlacesPerCar = 2;
+
+    /// <summary>How many of the places are painted bays of the town's car parks; every one after them is a kerb place.</summary>
+    readonly int _painted;
+
+    /// <summary>
+    /// <b>The roadside each kerb place is opened on</b> (GEN-4n), or <see cref="NoLane"/> for one not open — and the
+    /// stretch of that roadside, in its own metres, the body standing there takes.
+    /// </summary>
+    readonly int[] _kerbLane;
+
+    readonly float[] _kerbFromM;
+    readonly float[] _kerbToM;
+
+    /// <summary>The round of decisions each kerb place was opened in (<see cref="NextRound"/>), which it is kept through.</summary>
+    readonly long[] _kerbOpenedAt;
+
+    /// <summary>The next kerb place open on the same roadside, or <see cref="NoBay"/>: each roadside's open places, linked.</summary>
+    readonly int[] _kerbNext;
+
+    /// <summary>The first kerb place open on each lane, or <see cref="NoBay"/>.</summary>
+    readonly int[] _firstKerbOnLane;
+
+    /// <summary>Where the search for a kerb place to open again next begins, so the pool is walked round and not from its start.</summary>
+    int _kerbCursor;
+
+    /// <summary>The round of decisions the town is in, which a kerb place opened in it and not yet claimed is kept through.</summary>
+    long _round;
+
+    /// <summary>How many places are painted bays of the town's car parks (GEN-53) — the rest are kerb places.</summary>
+    public int PaintedCount => _painted;
+
+    /// <summary>Whether a place is a stretch of a roadside opened for a car (GEN-4n) rather than a painted bay.</summary>
+    public bool IsKerb(int bay) => bay >= _painted;
+
+    /// <summary>The roadside a kerb place is open on (<see cref="IsKerb"/>), or −1.</summary>
+    public int KerbLaneOf(int bay) => IsKerb(bay) ? _kerbLane[bay - _painted] : NoLane;
+
+    /// <summary>The stretch of its roadside, in the roadside's own metres, an open kerb place takes.</summary>
+    public float KerbFromM(int bay) => _kerbFromM[bay - _painted];
+
+    /// <inheritdoc cref="KerbFromM"/>
+    public float KerbToM(int bay) => _kerbToM[bay - _painted];
+
+    /// <summary>The first kerb place open on a roadside, or <see cref="NoBay"/> (<see cref="NextKerbOnTheLane"/>).</summary>
+    public int FirstKerbOn(int lane) => _firstKerbOnLane[lane];
+
+    /// <summary>The kerb place open on the same roadside after this one, or <see cref="NoBay"/>.</summary>
+    public int NextKerbOnTheLane(int bay) => _kerbNext[bay - _painted];
+
+    /// <summary>
+    /// <b>A new round of decisions</b>: a kerb place opened before it and still claimed by nobody — a place a search
+    /// offered and nobody took — may be opened again somewhere else.
+    /// </summary>
+    public void NextRound() => _round++;
+
+    /// <summary>
+    /// <b>A kerb place opened on a stretch of roadside</b> (GEN-4n), as a bay worked off the lane beside it — or
+    /// <see cref="NoBay"/> where every place of the pool is taken. <b>It is a place and not a slot</b>: nothing about the
+    /// kerb was laid for it, it is wherever the car means to stand, and it is closed again once nobody holds it.
+    /// </summary>
+    /// <param name="fromM">Where along the roadside the body will stand from.</param>
+    /// <param name="toM">And to.</param>
+    /// <param name="besideLane">The street lane it is worked off, which a car drives up to get into it.</param>
+    /// <param name="atLaneM">How far along that lane the place's middle stands abeam of.</param>
+    /// <param name="doorM">Where its way in stands off its middle: toward the kerb, away from the traffic.</param>
+    public int OpenKerb(
+        int roadside, float fromM, float toM, Vector2 centreM, float headingRad, int besideLane, float atLaneM, Vector2 doorM)
+    {
+        var kerbs = _kerbLane.Length;
+        for (var tried = 0; tried < kerbs; tried++)
+        {
+            var kerb = _kerbCursor;
+            _kerbCursor = (_kerbCursor + 1) % kerbs;
+            var bay = _painted + kerb;
+            if (_kerbLane[kerb] != NoLane && (!IsFree(bay) || _heldFor[bay] != Nobody || _kerbOpenedAt[kerb] == _round)) continue;
+
+            if (_kerbLane[kerb] != NoLane) CloseKerb(kerb);
+
+            _kerbLane[kerb] = roadside;
+            _kerbFromM[kerb] = fromM;
+            _kerbToM[kerb] = toM;
+            _kerbOpenedAt[kerb] = _round;
+            _kerbNext[kerb] = _firstKerbOnLane[roadside];
+            _firstKerbOnLane[roadside] = bay;
+            _centreM[bay] = centreM;
+            _headingRad[bay] = headingRad;
+            _forward[bay] = Heading.Unit(headingRad);
+            _doorM[bay] = doorM;
+            _streets.OpenKerb(bay, besideLane, atLaneM, roadside, (fromM + toM) * 0.5f);
+            return bay;
+        }
+
+        return NoBay;
+    }
+
+    /// <summary>One kerb place taken off its roadside's list and its street: closed, until it is opened somewhere again.</summary>
+    void CloseKerb(int kerb)
+    {
+        var bay = _painted + kerb;
+        ref var link = ref _firstKerbOnLane[_kerbLane[kerb]];
+        while (link != bay) link = ref _kerbNext[link - _painted];
+
+        link = _kerbNext[kerb];
+        _kerbLane[kerb] = NoLane;
+        _streets.CloseKerb(bay);
+    }
 
     /// <summary>
     /// <b>How many free bays each lane has off it</b> (<see cref="BayStreets.BaysOffLane"/>, <see cref="IsFree"/>), kept with
@@ -101,6 +227,8 @@ internal sealed class ParkingRegistry
     /// <summary>One bay's change to the register counted into <see cref="_freeOffLane"/>, against whether it was free before it.</summary>
     void Counted(int bay, bool wasFree)
     {
+        if (IsKerb(bay)) return;
+
         var isFree = IsFree(bay);
         if (isFree == wasFree) return;
 
@@ -118,7 +246,8 @@ internal sealed class ParkingRegistry
 
     /// <summary>
     /// Whether a car pointing this way stands nose in to this bay rather than backed in (GEN-4j) — <b>read off the
-    /// pose and never off the register</b>: which way round the body stands is where it points.
+    /// pose and never off the register</b>: which way round the body stands is where it points. A car at the kerb
+    /// points along it whichever way it got in (GEN-4n), and stands nose in.
     /// </summary>
     public bool StandsNoseIn(int bay, float carHeadingRad) => BayTemplate.StandsNoseIn(_headingRad[bay], carHeadingRad);
 

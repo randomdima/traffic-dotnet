@@ -370,6 +370,25 @@ internal sealed class RoadFigures
 
     /// <summary>The street a car park's frontage leaves beyond its own run-in, at either end of its road.</summary>
     public float ParkingFrontageClearInCarLengths { get; init; } = 2f;
+
+    /// <summary>
+    /// <b>How far from a junction or a crossing nobody parks at the kerb</b> (GEN-4n): the ten metres the rules of the
+    /// road keep clear, so a car turning in or a walker stepping off the kerb sees down the street.
+    /// </summary>
+    public float KerbParkingClearM { get; init; } = 10f;
+
+    /// <summary>
+    /// <b>The gap a car parking at the kerb leaves to the bodies either side of it</b> (GEN-4n): room to get its nose
+    /// out past the one in front, and the one behind its own.
+    /// </summary>
+    public float KerbParkingGapM { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How far the lane beside a kerb runs on either side of where a car parks along it</b> (GEN-4n): before it, room
+    /// for a car come off a junction to settle into the lane and stop for its turn in; past it, room for one pulling out
+    /// to get into the lane and across to the next before the lane ends — four car lengths.
+    /// </summary>
+    public float KerbParkingLaneRunM { get; init; } = 18f;
 }
 
 /// <summary>A building as a trip uses it.</summary>
@@ -1007,6 +1026,37 @@ internal sealed class CityGenFigures
     /// for nothing and an arm that much further out into the ground behind the street.
     /// </remarks>
     public float BayLengthM { get; init; } = 5f;
+
+    /// <summary>
+    /// <b>The walk between two rows of a car park's bays standing back to back</b> (GEN-53a): a strip of ground
+    /// that is not the tarmac, so the walk wraps it (TER-3c.3) and the zebras across the aisles at either end of it
+    /// land on it — the way a driver walks up the car park to the door.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three metres holds the walk's own lane</b> (<see cref="SimConfig.WalkingLaneWidthM"/>) with its kerb either side;
+    /// any narrower and the walk wrapping two rows meets itself down the middle.
+    /// </remarks>
+    public float CarParkIslandM { get; init; } = 3f;
+
+    /// <summary>
+    /// <b>How far a car park's aisles reach to join a street</b> (GEN-53a): an entrance drawn from the outermost aisle
+    /// straight out to the first street it meets, and no car park laid where none is this near.
+    /// </summary>
+    /// <remarks>
+    /// A block's length: a car park in a courtyard is reached down a drive OSM drew as the place's own ground, and
+    /// dropped (<c>qq osm --drop-zone-ways</c>); 60 m left 64 of OdesaOsm's 262 car parks with no street, 100 m 45.
+    /// </remarks>
+    public float CarParkEntranceReachM { get; init; } = 100f;
+
+    /// <summary>
+    /// <b>How many bays one entrance of a car park serves</b> (GEN-53a): a car park is joined to the streets by one
+    /// entrance for every this many bays its aisles rank, as far as its streets offer places to join.
+    /// </summary>
+    /// <remarks>
+    /// A mall's thousand bays are let in and out at three or four places; through one, the queue to leave is the length
+    /// of the car park.
+    /// </remarks>
+    public int CarParkBaysPerEntrance { get; init; } = 250;
 
     /// <summary>
     /// <b>How far off the lane it is following a car on its way to a bay may be carried</b> (GEN-53). A

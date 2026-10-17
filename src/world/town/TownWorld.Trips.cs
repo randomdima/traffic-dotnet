@@ -218,7 +218,7 @@ internal sealed partial class TownWorld
             var mode = TripModes.Of(
                 fromM, doorM, aboard, carToHand, carToHand ? Cars.PositionM[car] : fromM, _config.PersonWalkReachM);
             if (mode == TripMode.OutOfReach) continue;
-            if (mode == TripMode.Driven && FreeBayOff(_roadPlaceOfBuilding[building], doorM, _config.PersonWalkWorthM) < 0) continue;
+            if (mode == TripMode.Driven && FreeBayOff(_roadPlaceOfBuilding[building], doorM, _config.PersonWalkWorthM, car) < 0) continue;
 
             BeginTrip(person, building, doorM, doorPlace, mode);
             return;

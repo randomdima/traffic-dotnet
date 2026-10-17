@@ -27,10 +27,13 @@ internal sealed partial class DebugOverlay
         if (!pass.Any) return;
 
         var line = world.Cars.LineOf(car);
+
+        // Drawn no further than the line it lies along: a pass whose end is past it, or has none, would be stepped for ever.
+        var endsM = MathF.Min(pass.EndsM, Spline.TotalLengthM(line));
         pass.PoseAtM(line, pass.OutM, out var fromM, out _);
-        for (var atM = pass.OutM; atM < pass.EndsM;)
+        for (var atM = pass.OutM; atM < endsM;)
         {
-            atM = MathF.Min(atM + PassDrawnStepM, pass.EndsM);
+            atM = MathF.Min(atM + PassDrawnStepM, endsM);
             pass.PoseAtM(line, atM, out var toM, out _);
             draw.LineM(fromM, toM, widthM, colour);
             fromM = toM;

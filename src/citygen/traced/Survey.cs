@@ -542,6 +542,7 @@ internal sealed class Survey
             RoadsideAlongM = road.RoadsideAlong ? stripM : 0f,
             RoadsideAgainstM = road.RoadsideAgainst ? stripM : 0f,
             CentreOffsetM = road.CentreOffsetShare * lanesM,
+            Aisle = road.Aisle,
             Points = (int[])road.Points.Clone(),
         };
     }
@@ -709,6 +710,9 @@ internal sealed record SurveyWay
 
     /// <summary>How far the carriageway's middle stands off the way's points, to the right of them as they run.</summary>
     public required float CentreOffsetM { get; init; }
+
+    /// <inheritdoc cref="TracedRoad.Aisle"/>
+    public bool Aisle { get; init; }
 
     /// <summary>Indices into <see cref="Survey.PointsM"/>, in the way's own order.</summary>
     public required int[] Points { get; init; }

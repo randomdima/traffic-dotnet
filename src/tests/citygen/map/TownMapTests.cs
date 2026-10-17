@@ -280,7 +280,8 @@ public class TownMapTests
     /// <summary>Everything a road says, as one line.</summary>
     static string Said(TracedRoad road) =>
         $"{road.OsmId} {road.Highway} {road.Bridge} {road.Roundabout} {road.LanesForward}+{road.LanesBackward}+{road.LanesShared} "
-        + $"{road.LanesTagged} {road.Marked} {road.CentreOffsetShare} {road.WidthM} [{string.Join(",", road.Points)}]";
+        + $"{road.LanesTagged} {road.Marked} {road.CentreOffsetShare} {road.WidthM} {road.Mended} {road.RoadsideAlong} {road.RoadsideAgainst} {road.Aisle} "
+        + $"[{string.Join(",", road.Points)}]";
 
     static TownMap RoundTrip(TownMap map)
     {
@@ -321,6 +322,11 @@ public class TownMapTests
             {
                 OsmId = 25481554, Highway = "primary", Bridge = true, Roundabout = true, LanesForward = 2, LanesBackward = 3, LanesShared = 1,
                 LanesTagged = true, Marked = true, CentreOffsetShare = -0.125f, WidthM = 14.25f, Points = [1, 2, 0],
+            },
+            new TracedRoad
+            {
+                OsmId = 0, Highway = "service", LanesForward = 1, LanesBackward = 1, LanesShared = 0, WidthM = 7f, Mended = true,
+                RoadsideAlong = true, Aisle = true, Points = [3, 4],
             }) with
         {
             Coast = [[3, 4, 5]],

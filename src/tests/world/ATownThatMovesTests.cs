@@ -106,7 +106,7 @@ public class ATownThatMovesTests(ATownThatMovesTests.AMinuteOn run) : IClassFixt
         var world = run.Value.World;
 
         // Every one of them answered, over a town that has none of what it is about.
-        Assert.Equal(0, world.Parking.BayCount);
+        Assert.Equal(0, world.Parking.PaintedCount);
         Assert.Equal(0, world.People.Count);
 
         // The walk is not among them — a generated town lays its courses like any other (WLK-1) and crosses

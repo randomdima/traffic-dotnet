@@ -479,14 +479,45 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   270° the long way. A biarc chosen to turn least was tried and could not help without bends tighter than the turn circle;
   what closes it is the lanes into a gathered box ending short of where their lines cross (`TracedStreets.Standoffs`).
 - **Cars at OdesaOsm's busy boxes lock each other** (`--bench stuck --map OdesaOsm --seconds 120` at 5 000 cars,
-  2026-10-17): 148 of 4 975 cars stand still at the end, 17 rings of two cars each waiting on the claim the other holds
-  in a box (2816,21897; 3085,17263; 2735,21536 among them), and 77 more queue behind them. Tracing one ring to the claim
-  that should have been yielded closes it.
-- **The fleet steers wider than the town lays its turns** (the same run: 40 cars driven off their line, 23 of them in
-  a box): the turn room (`SimConfig.JunctionTurnRoomM`) is the config car's 3.94 m circle, and most variants' is wider,
+  2026-10-17, with its car parks laid and every car touring): 152 of 5 005 cars stood still at the end, 16 rings of two
+  cars each waiting on the claim the other holds in a box (2816,21897; 3085,17263; 2735,21536; 2785,19490). With the
+  cars parked at the kerbs and running the round (GEN-4n) a third as many are on the road at once, and the same run has
+  no ring — which hides the lock rather than closing it. Tracing one ring to the claim that should have been yielded closes it.
+- **The fleet steers wider than the town lays its turns** (the same run: 38 cars driven off their line, 24 of them in
+  a box, 48 legs given up): the turn room (`SimConfig.JunctionTurnRoomM`) is the config car's 3.94 m circle, and most variants' is wider,
   4.0 to 5.4 m (a pickup 4.9, the APC 5.4); `--bench connectors` lists 681 near-side and 161 far-side movements tighter
   even than 3.94 m, kept above the 2.4 m cornering floor. Sizing the turn room for the fleet's widest common circle — a
   figure the catalog would hand down to the town — closes it.
+- **105 of OdesaOsm's 250 car parks have no room for a ladder and 42 no street in reach** (`qq osm --parking`,
+  2026-10-17): they stand as bare ground, and the cars of the doors round them park further off. Most of the first are
+  under 2 500 m² or narrower than an aisle and its two ranks once they stand a walk off the street; the second are
+  courtyards reached down a drive that was dropped as the place's own ground. A comb — one aisle across, the rest dead
+  ends a car turns round in at a bay (GEN-4l) — and an entrance that bends to meet its street square close most of it.
+- **A car's round finds no bay in a town whose car parks stand far apart and that has no roadside** (CAR-8,
+  `TownWorld.SetOffForAnotherBay`): it draws a place within `Driving.RoundReachM` (600 m) and asks for a free place within
+  a walk of it, so on OdesaOsm with its car parks alone 2 of 5 000 cars drove in two minutes. Its kerbs (GEN-4n) are
+  what the round finds there now, and only 24 of 859 parked in a car park; drawing the round's place off the places
+  within reach rather than off a drawn point closes it, and would send more of them to the car parks.
+- **A route that asks a car to move across at the end of a lane with no room left to do it holds the car there for
+  good** (OdesaOsm 119,19315, 2060,12186, 1362,22132; `--bench stuck` 120 s with kerb parking, 2026-10-17): four cars
+  wait "looking to change lanes" at a lane's end and 88 queue behind them. A re-route from where it waits asks for the
+  same move across, since a lane change is priced at a car length (`Driving.LaneSwitchPriceCarLengths`) however little
+  lane is left. The touring cars never had a route to hit it; cars on a round do. A search that prices a move across by
+  the lane left to make it in — or a car that gives the move up and drives on its own lane's way after a wait — closes it.
+- **A traced town hands its people no car at a kerb** (PER-29, `TownWorld.HandThemTheirCar`): an owner is handed a car
+  only where a painted bay stands free within a walk of their door, so on OdesaOsm almost nobody owns one, though a kerb
+  runs past most doors. Handing the free kerb place nearest the door (GEN-4n) closes it — at 40 000 people, that many
+  more bodies standing, which is the cost to weigh.
+- **A traced map's cars are spread over roadsides the town then refuses some of** (`SpawnStage.TheKerbs`): the plan
+  lays no zebra and does not know which kerb lanes lead on, so a car the plan stands beside a crossing, a dead end or a
+  lane too short is not stood at all (`TownWorld.KerbPlaceUnder`), and the town stands fewer than its map asks. Laying the
+  plan's kerb places off the same stretches the town parks along closes it.
+- **Laying a map's car parks again leaves the points the last entrances joined its streets at** (`TracedCarParks.Parked`):
+  a street keeps a point on its straight where an entrance no longer meets it, which joins nothing and changes no line.
+  Thinning a street's points after the aisles are taken out (`TracedStreets.Thinned`) closes it.
+- **The pad of walk at an aisle's T carries a sliver of grass** (OdesaOsm 860,10010): the walk ring struck round the
+  corner between a rank's end and the junction leaves a hole a metre across inside the pad. Filling a hole of the walk
+  narrower than a walking lane closes it.
 - **A dual carriageway's halves converging into each other short of where they join are laid one over the other**
   along the converging stretch (OdesaOsm 3874,4971, ways 485394562 and 973057281, 58 m of 261 m): the lanes of the two
   ways interleave and no lane line is painted. `TracedStreets.Parted` moves a road's middle by one figure along all of

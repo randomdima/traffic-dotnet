@@ -125,6 +125,7 @@ internal static partial class TracedStreets
                 RoadsideAlongM = carriage.RoadsideWithM,
                 RoadsideAgainstM = carriage.RoadsideAgainstM,
                 CentreOffsetM = carriage.CentreOffsetM,
+                Aisle = noded.Ways[road.Ways[0]].Aisle,
                 Points = points,
             });
         }
@@ -200,6 +201,7 @@ internal static partial class TracedStreets
                 Mended = true,
                 RoadsideAlong = way.RoadsideAlongM > 0f,
                 RoadsideAgainst = way.RoadsideAgainstM > 0f,
+                Aisle = way.Aisle,
                 Points = way.Points,
             };
         }

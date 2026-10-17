@@ -14,8 +14,8 @@ namespace TrafficSimulation.Core.Geometry;
 internal static class BayTemplate
 {
     /// <summary>
-    /// How square to the lane a bay has to stand to be one a car turns into. Below it the bay is parallel
-    /// to the kerb, which this engine does not lay.
+    /// How square to the lane a bay has to stand to be one a car turns into. Below it the place is alongside
+    /// the kerb, and a car slides into it rather than turning (GEN-4n).
     /// </summary>
     const float SquareEnoughRad = 30f * MathF.PI / 180f;
 
@@ -25,6 +25,9 @@ internal static class BayTemplate
     /// </summary>
     public static bool SquareEnough(float turnRad) =>
         MathF.Abs(turnRad) >= SquareEnoughRad && MathF.Abs(turnRad) <= MathF.PI - SquareEnoughRad;
+
+    /// <summary>And whether it is a slide along the kerb, the same way the car is going (GEN-4n).</summary>
+    public static bool Alongside(float turnRad) => MathF.Abs(turnRad) < SquareEnoughRad;
 
     /// <summary>Which way the car itself points standing in a bay: into it, or back out of it.</summary>
     public static float StandingHeadingRad(float bayHeadingRad, bool noseIn) =>

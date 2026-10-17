@@ -380,7 +380,7 @@ internal sealed partial class TownWorld
         // new route needs is claimed where that route reaches its frontage, like any other.
         GiveUpTheTurn(car);
 
-        var bays = FreeBaysNear(RoadPlaceOfCar(car), nearM, _config.PersonWalkWorthM, _bayCandidates);
+        var bays = FreeBaysNear(RoadPlaceOfCar(car), nearM, _config.PersonWalkWorthM, car, _bayCandidates);
         var fromLane = Cars.LaneOf(car);
         var searched = 0;
         for (var slot = 0; slot < bays && searched < BaysRoutedPerLeg; slot++)

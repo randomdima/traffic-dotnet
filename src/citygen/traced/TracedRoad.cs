@@ -58,6 +58,12 @@ internal sealed record TracedRoad
     /// <summary>And beside the other kerb.</summary>
     public bool RoadsideAgainst { get; init; }
 
+    /// <summary>
+    /// <b>Whether it is an aisle of a car park the map's own edit laid</b> (<c>qq osm --parking</c>,
+    /// <see cref="TracedCarParks"/>): a street like any other, and the one a town ranks bays along both kerbs of (GEN-53).
+    /// </summary>
+    public bool Aisle { get; init; }
+
     /// <summary>Indices into <see cref="Map.TownMap.PointM"/>, in the way's own order.</summary>
     public required int[] Points { get; init; }
 

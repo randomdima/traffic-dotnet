@@ -129,6 +129,7 @@ internal sealed partial record TownMap
             Mended = (more & RoadMoreFlags.Mended) != 0,
             RoadsideAlong = (more & RoadMoreFlags.RoadsideAlong) != 0,
             RoadsideAgainst = (more & RoadMoreFlags.RoadsideAgainst) != 0,
+            Aisle = (more & RoadMoreFlags.Aisle) != 0,
             Points = ReadIndices(ref bytes, ref last),
         };
     }
@@ -353,7 +354,7 @@ internal sealed partial record TownMap
                     | (road.WidthM is not null ? RoadFlags.Width : 0) | (road.LanesTagged ? RoadFlags.LanesTagged : 0) | (road.Marked ? RoadFlags.Marked : 0)
                     | (road.LanesShared << RoadFlags.SharedShift);
         var more = (road.Mended ? RoadMoreFlags.Mended : 0) | (road.RoadsideAlong ? RoadMoreFlags.RoadsideAlong : 0)
-                   | (road.RoadsideAgainst ? RoadMoreFlags.RoadsideAgainst : 0);
+                   | (road.RoadsideAgainst ? RoadMoreFlags.RoadsideAgainst : 0) | (road.Aisle ? RoadMoreFlags.Aisle : 0);
         writer.Write7BitEncodedInt(highway);
         writer.Write((byte)flags);
         writer.Write((byte)more);
@@ -521,6 +522,9 @@ internal sealed partial record TownMap
         public const int Mended = 1;
         public const int RoadsideAlong = 2;
         public const int RoadsideAgainst = 4;
+
+        /// <summary><see cref="TracedRoad.Aisle"/>: a bit no map before it sets, so a map of the same version reads it.</summary>
+        public const int Aisle = 8;
     }
 
     /// <summary>

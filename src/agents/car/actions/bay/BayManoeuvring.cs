@@ -98,6 +98,9 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// <inheritdoc cref="ParkedNoseIn"/>
     public long ParkedBackedIn { get; private set; }
 
+    /// <summary>How many of those were alongside a kerb (GEN-4n) rather than into a painted bay.</summary>
+    public long ParkedAtTheKerb { get; private set; }
+
     /// <summary>
     /// <b>The street every manoeuvre begun took</b>, in metres of the street's own ways — the figure each car's
     /// choice of shape is the least of.
@@ -163,6 +166,8 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         {
             if (manoeuvres.Shape[car].IsReverse(manoeuvres.Shape[car].Pieces - 1)) ParkedBackedIn++;
             else ParkedNoseIn++;
+
+            if (streets.KerbRoadsideOf(manoeuvres.Bay[car]) >= 0) ParkedAtTheKerb++;
 
             TakeThePiece(car, 0);
         }
@@ -418,9 +423,10 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// either side along it — grown by <paramref name="spareM"/>, with the piece's metre it first stands on the lane at.
     /// </summary>
     /// <remarks>
-    /// <b>Read off the lanes the bay is worked off and no others</b>: those are what a manoeuvre comes from or goes to, and
-    /// a body swung past them is the world's to meet. Each station is found on a lane from the bay's own metre on it,
-    /// which is where the shape was drawn from.
+    /// <b>Read off the lanes the bay is worked off and no others</b> — and, for a place at the kerb, the roadside it stands
+    /// on (GEN-4n), since that is ground other bodies stand on and a bay's own lane is not: those are what a manoeuvre
+    /// comes from or goes to, and a body swung past them is the world's to meet. Each station is found on a lane from the
+    /// bay's own metre on it, which is where the shape was drawn from.
     /// </remarks>
     int StreetUnder(
         int car, int bay, ReadOnlySpan<ArcSeg> piece, bool reverse, float fromM, float spareM, Span<StreetRun> into)
@@ -430,11 +436,15 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         var toM = Spline.TotalLengthM(piece);
         var stations = ground.StationsOfTheSweep(car, fromM, toM);
         var count = 0;
-        foreach (var lane in streets.LanesOf(bay))
+        var worked = streets.LanesOf(bay);
+        var roadside = streets.KerbRoadsideOf(bay);
+        var lanes = worked.Length + (roadside >= 0 ? 1 : 0);
+        for (var each = 0; each < lanes; each++)
         {
+            var lane = each < worked.Length ? worked[each] : roadside;
             var arcs = ground.Roads.ArcsOf(lane);
             var lengthM = ground.Roads.LaneLengthM[lane];
-            var aroundM = streets.AtLaneM(bay, lane);
+            var aroundM = each < worked.Length ? streets.AtLaneM(bay, lane) : streets.KerbRoadsideAtM(bay);
             var windowM = toM + build.LengthM;
             var acrossM = (ground.Roads.LaneWidthM[lane] * 0.5f) + reachM;
             var leastM = float.PositiveInfinity;
