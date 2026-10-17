@@ -106,7 +106,8 @@ cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a s
 - **The map is the master, and what it was imported from is kept as it came.** An edit is made to the map in
   place — `qq osm --crop` cuts it down to a box of degrees and its margin, its roads running off at the new edge,
   `qq osm --drop-stumps` drops every road stump that runs into or through a building of the layers or is a single
-  lane, `qq osm --zones` lays its zones again off the layers, a crop's frame and who it stands kept, and
+  lane, `qq osm --drop-zone-ways` every road on the ground the layers read as a place's own ground (`zone_way`: a car
+  park's aisles, a yard's, a market's — a car park is a zone the engine does not lay yet), `qq osm --zones` lays its zones again off the layers, a crop's frame and who it stands kept, and
   `qq osm --upgrade` rewrites a map of the previous version as this one — and never to what was crawled: every source's
   answer stays in `towns/traced/<Map>/source/` exactly as it came, and the survey and the enrichment's layers beside
   it. An import over a map that is there replaces it and every edit made since, so it is refused unless forced.

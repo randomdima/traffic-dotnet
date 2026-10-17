@@ -166,8 +166,9 @@ owning slice's log; this list says only what is absent now and what closes it.
   one, as a lattice of traffic scenarios driven end to end ([verification](verification.md#the-scenario-map)).
   The ones still gone come back the same way.
 - **A traced city is laid for the map and not yet for a car** (`GEN-57`): a corner is rounded as wide as keeps
-  its survey within a tolerance, and one sharper than that at half its carriageway, rather than at a speed
-  anything is driven at (`GEN-47`), and a junction a few metres from the
+  its survey within a tolerance, and one sharper than that as tight as its innermost lane is still a turn the config
+  car steers round, rather than at a speed anything is driven at (`GEN-47`) or for the fleet's wider-steering
+  variants, and a junction a few metres from the
   next has its disc shrunk to keep the road between them, which leaves its connectors no room to turn in.
   Its lanes are as many as OSM counts, or as many as the road's measured width holds where OSM only assumes a
   count — and no car changes between them along a road yet.
@@ -194,8 +195,9 @@ owning slice's log; this list says only what is absent now and what closes it.
   next leg.
 - **A traced city keeps its streets' dead ends, and a car cannot turn round in one** (`GEN-57`, `GEN-4l`): a
   street of lanes each way that OSM ends nowhere ends so in the town — a lane both ways share never does, being
-  run one way or taken out — so a leg routed into one stands there until its clock gives it up. It is not asked
-  whether it can be driven round, and it stands nobody yet.
+  run one way or taken out — so a leg routed into one stands there until its clock gives it up. A car going nowhere
+  in particular is never toured down a lane every way off which only ends, and none is stood on one
+  (`LaneLines.LanesDrivenOn`), but a route is not asked whether it can be driven round.
 - **A traced city reaches the page on a desktop browser alone.** Opening OdesaOsm grows the page's heap to 2.8 GB and
   O30 to 3.6 GB of the 4 GB a 32-bit page can address, which a phone's browser does not give a page, and stands it up
   on the page's one thread — 84 s and 170 s — with the tab frozen meanwhile.

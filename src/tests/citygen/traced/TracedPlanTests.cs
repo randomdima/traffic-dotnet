@@ -323,38 +323,53 @@ public class TracedPlanTests
     }
 
     /// <summary>
-    /// <b>No lane folds back over a corner</b>: a way surveyed through a kink whose legs have no room to round
-    /// it even with its innermost lane at the tightest a traced lane is laid
-    /// (<see cref="CityGenFigures.TracedTightestLaneRadiusM"/>) is eased until every corner has the room.
+    /// <b>No lane is laid round a corner tighter than a car steers</b> (<see cref="SimConfig.CarTurningRadiusM"/>): a way
+    /// surveyed through a kink whose legs have no room to round it with its innermost lane at that is eased until every
+    /// corner has the room.
     /// </summary>
     [Fact]
     public void AKinkTheLegsCannotRoundIsEased()
     {
         var plan = Laid([100, 500, 480, 500, 478, 498, 478, 100], Way(0, 1, 2, 3));
 
-        var tightestM = float.PositiveInfinity;
-        foreach (var arc in plan.Roads.SegmentsOf(0))
-        {
-            if (arc.Curvature != 0f) tightestM = MathF.Min(tightestM, 1f / MathF.Abs(arc.Curvature));
-        }
-
-        Assert.True(tightestM - (LaneM * 0.5f) >= Config.CityGen.TracedTightestLaneRadiusM);
+        Assert.True(TightestM(plan, 0) - (LaneM * 0.5f) >= Config.CarTurningRadiusM * (1f - 1e-5f));
     }
 
     /// <summary>
-    /// <b>A road of one lane on its line is rounded no tighter than half its carriageway</b>: nothing beside the
-    /// lane covers its ground, so a kink its legs cannot round at that is the straight past it, where a wider
-    /// road would keep it.
+    /// <b>A hairpin drawn to a point is a turn a car steers round</b>: a way doubling back at one node, its legs long
+    /// enough for the circle, lays its innermost lane no tighter than a car steers rather than half a lane round.
+    /// </summary>
+    [Fact]
+    public void AHairpinDrawnToAPointIsLaidAsTightAsACarSteers()
+    {
+        var plan = Laid([100, 500, 480, 500, 100, 515], Way(0, 1, 2));
+
+        Assert.True(TightestM(plan, 0) - (LaneM * 0.5f) >= Config.CarTurningRadiusM * (1f - 1e-5f));
+    }
+
+    /// <summary>
+    /// <b>A road of one lane on its line is rounded no tighter than half its carriageway, nor than a car steers</b>:
+    /// nothing beside the lane covers its ground, so a kink its legs cannot round at that is the straight past it,
+    /// where a wider road would keep it.
     /// </summary>
     [Fact]
     public void ALoneLanesCornerIsNoTighterThanHalfItsCarriageway()
     {
         var plan = Laid([100, 500, 480, 500, 478, 498, 478, 100], OneWay(0, 1, 2, 3));
 
-        foreach (var arc in plan.Roads.SegmentsOf(0))
+        Assert.True(TightestM(plan, 0) >= MathF.Max(LaneM * 0.5f, Config.CarTurningRadiusM) * (1f - 1e-5f));
+    }
+
+    /// <summary>The tightest circle anywhere on one road's line.</summary>
+    static float TightestM(CityPlan plan, int road)
+    {
+        var tightestM = float.PositiveInfinity;
+        foreach (var arc in plan.Roads.SegmentsOf(road))
         {
-            if (arc.Curvature != 0f) Assert.True(1f / MathF.Abs(arc.Curvature) >= LaneM * 0.5f * (1f - 1e-5f));
+            if (arc.Curvature != 0f) tightestM = MathF.Min(tightestM, 1f / MathF.Abs(arc.Curvature));
         }
+
+        return tightestM;
     }
 
     /// <summary>

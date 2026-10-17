@@ -1,5 +1,38 @@
 # CityGen — decision log
 
+## 2026-10-17 — OdesaOsm driven at 5 000 cars: what stopped the cars, and what was changed
+
+**The owner asked that OdesaOsm's cars be cut to 5 000 and checked for getting stuck round its junctions.** Over 120 s
+(`--bench stuck`), 220 legs were given up, about 200 cars were driven a lane's width off their line (CAR-10a, a new count
+in the probe), 20 were wrecked and 272 stood still at the end. After the changes below: 52 given up, 40 off their line,
+8 wrecked, 148 standing — most of those in two-car locks inside boxes, left in [tech-debt](../../../docs/tech-debt.md).
+
+- **A place's own ground is not the town's roads** (`qq osm --drop-zone-ways`, the map edited in place): the hairpins cars
+  were lost on were car park aisles, yards and market ways the layers already read as `zone_way` — 1 217 of 8 520 ways,
+  518 of them a car park's. The owner means to lay a car park as a zone of its own, so they are dropped from the map, not
+  rounded; one on a level above the ground is a ramp drawn inside a bridge's outline and is kept. The map was then
+  stumped and mended again from its pre-mend copy: 6 406 roads, 24 523 points, 308 KB.
+- **A lane is laid round a corner no tighter than a car steers** (`TracedStreets.Line`, `SimConfig.CarTurningRadiusM`):
+  a corner drawn sharper than the survey's tolerance was rounded at half its carriageway, which left a two-way road's
+  inner lane 1.75 m round and 642 lanes tighter than a car turns; now 65, none ridden wider of than a lane. The roadside's
+  middle keeps `TracedTightestLaneRadiusM`, since nobody drives it. Fidelity to the map within 1 m: 94.7 % → 94.3 %.
+- **A turn sharper than a right angle is turned at its corner** (`Spline.MovementInto`): its corner stands further off
+  than the poses stand apart, so such turns fell to the biarc, a 136° fork turn 1.7 m round. Twice that distance is
+  allowed now, which takes turns to about 150° and never two lanes all but facing each other; the corner circle is the
+  one the room holds (3.7 m there).
+- **A movement drawn round the long way is never kept** (`LaneLines.WhatTheJunctionOffers`): eight, one a 215 m loop
+  between two lanes side by side a street apart, were kept as their lane's only way out. A lane left with none is a dead
+  end, which a traced town already keeps.
+- **A tour never turns onto a lane every way off which only ends** (`LaneLines.LanesDrivenOn`, `RoadGraph.DrivesOn`): a
+  car going nowhere drew turns at random and was drawn down dead ends, onto the lanes running off the map, and into
+  lanes whose only way on is a hairpin under the cornering floor, and stood there. The lanes are found once by taking off
+  every lane with no way on left, and no car is stood on one either. Declining every movement tighter than the car's own
+  turning circle was tried as well and lost more cars off their line (229): a lane left with no turn the car makes draws
+  any.
+- **Every movement under the town's turn room was tried out of the junction table too** (`JunctionTurnRoomM` as the floor
+  instead of `JunctionCorneringRadiusM`): it took 3 500 of 34 000 movements away for 114 → 91 cars off their line, and
+  is not here.
+
 ## 2026-10-17 — a traced map's roads are mended in the map, and the town evens nothing
 
 **The owner asked that what is changed about the lanes be changed in the map and not patched each time a town is laid,

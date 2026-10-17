@@ -68,9 +68,10 @@ internal sealed class RoadGraph : ILaneEnds
 
     RoadGraph(
         LaneLines lines, int[] junctionInOffsets, int[] junctionInLanes, LanePlaces places, GridLevel nearestLevel,
-        bool[] breaksTheLine)
+        bool[] breaksTheLine, bool[] drivesOn)
     {
         _lines = lines;
+        _drivesOn = drivesOn;
         Places = places;
         _junctionInOffsets = junctionInOffsets;
         _junctionInLanes = junctionInLanes;
@@ -108,6 +109,11 @@ internal sealed class RoadGraph : ILaneEnds
 
         foreach (var widthM in lines.LaneWidthM) WidestLaneM = MathF.Max(WidestLaneM, widthM);
     }
+
+    readonly bool[] _drivesOn;
+
+    /// <inheritdoc cref="LaneLines.LanesDrivenOn"/>
+    public bool DrivesOn(int lane) => _drivesOn[lane];
 
     /// <summary>The most lanes any one road is driven in one way — how many a car can stand beside on one stretch.</summary>
     public int MostLanesOfAWay { get; }
@@ -338,7 +344,7 @@ internal sealed class RoadGraph : ILaneEnds
     public bool IsARoadside(int lane) => _lines.IsRoadside(lane);
 
     /// <summary>Whether this lane is one the traffic is driven down: neither a bay (<see cref="IsABayArm"/>) nor a roadside (<see cref="IsARoadside"/>).</summary>
-    public bool IsAStreetLane(int lane) => !IsABayArm(lane) && !IsARoadside(lane);
+    public bool IsAStreetLane(int lane) => _lines.IsAStreetLane(lane);
 
     /// <summary>The line the lane is driven on, in its own direction of travel, already offset to the driver's side.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) => _lines.ArcsOf(lane);
@@ -586,7 +592,8 @@ internal sealed class RoadGraph : ILaneEnds
         var places = LanePlaces.Of(new Ends(lines));
 
         return new RoadGraph(
-            lines, junctionInOffsets, junctionInLanes, places, config.Grid.Main, JoinsThatBreakTheLine(lines, config.Driving.JoinBendStepPerM));
+            lines, junctionInOffsets, junctionInLanes, places, config.Grid.Main, JoinsThatBreakTheLine(lines, config.Driving.JoinBendStepPerM),
+            lines.LanesDrivenOn(config));
     }
 
     /// <summary>Every connector's <see cref="BreaksTheLine"/>, read off the arcs either side of it once.</summary>

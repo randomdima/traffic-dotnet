@@ -257,8 +257,9 @@ are: every movement off the lanes by the town's rules, a zebra at every station 
 planting and trees along its verges, and wild growth over its open ground as thickly as its zones grow, as scenery
 that is drawn and stands no body — all drawn off the map's own seed. **The map is the master, and an edit changes it**:
 `qq osm --import` made it once off what is beside it, `qq osm --crop S,W,N,E` cut it down to the city in place and
+`qq osm --drop-zone-ways` dropped the ways that are a place's own ground — car park aisles, yards, markets —
 `qq osm --drop-stumps` dropped the road stumps that ran into buildings and the dead ends of a single lane,
-`qq osm --mend` mended its roads — what OSM left unjoined joined, every street held even, carriageways drawn over each
+`qq osm --cars 5000` set how many cars it stands, `qq osm --mend` mended its roads — what OSM left unjoined joined, every street held even, carriageways drawn over each
 other parted — and wrote each street back as a road laid exactly as it says, so the town reads its lanes as they are,
 `qq osm --zones` lays its zones again off the layers and writes the place's buildings beside them for
 `--bench zones`, and `qq osm --upgrade` rewrites a map of the previous version;

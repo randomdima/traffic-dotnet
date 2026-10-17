@@ -353,6 +353,75 @@ internal sealed class LaneLines
         ConnectorArcs.AsSpan(
             ConnectorArcOffsets[connector], ConnectorArcOffsets[connector + 1] - ConnectorArcOffsets[connector]);
 
+    /// <summary>Whether this lane is one the traffic is driven down: neither a bay nor a roadside.</summary>
+    public bool IsAStreetLane(int lane) => !LaneIsBay[lane] && !IsRoadside(lane);
+
+    /// <summary>
+    /// <b>Whether a car on each street lane can drive on for ever</b>: some connector out of it leads onto a street lane
+    /// that can. A lane every way off which ends in a dead end (TER-5a), at the map's edge or on a lane lost at its node
+    /// (TER-5j) cannot, however long the way to that end is — and a car on a lane that can always has a next one that
+    /// can too. Worked out by taking off every lane with no connector left onto one not yet taken off, until none is
+    /// left to take: what stands is every lane on a cycle and every lane with a way onto one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A movement tighter than a junction offers is no way on</b> (<see cref="SimConfig.JunctionCorneringRadiusM"/>): one
+    /// is kept only so its lane is not left with none (<c>WhatTheJunctionOffers</c>), and a hairpin back off the end of a
+    /// lane, half a metre round, is not a turn any car is driven through.
+    /// </remarks>
+    public bool[] LanesDrivenOn(SimConfig config)
+    {
+        var onward = new int[LaneCount];
+        var intoAt = new int[LaneCount + 1];
+        var driven = new bool[ConnectorCount];
+        for (var connector = 0; connector < ConnectorCount; connector++)
+        {
+            driven[connector] = IsAStreetLane(ConnectorToLane[connector])
+                                && TightestRadiusM(ArcsOfConnector(connector)) >= config.JunctionCorneringRadiusM;
+        }
+
+        for (var lane = 0; lane < LaneCount; lane++)
+        {
+            if (!IsAStreetLane(lane)) continue;
+
+            for (var connector = ConnectorAt[lane]; connector < ConnectorAt[lane + 1]; connector++)
+            {
+                if (!driven[connector]) continue;
+
+                onward[lane]++;
+                intoAt[ConnectorToLane[connector] + 1]++;
+            }
+        }
+
+        for (var lane = 0; lane < LaneCount; lane++) intoAt[lane + 1] += intoAt[lane];
+
+        var into = new int[intoAt[LaneCount]];
+        var filled = intoAt[..LaneCount];
+        var drivesOn = new bool[LaneCount];
+        var takenOff = new Queue<int>();
+        for (var lane = 0; lane < LaneCount; lane++)
+        {
+            if (!IsAStreetLane(lane)) continue;
+
+            drivesOn[lane] = true;
+            if (onward[lane] == 0) takenOff.Enqueue(lane);
+            for (var connector = ConnectorAt[lane]; connector < ConnectorAt[lane + 1]; connector++)
+            {
+                if (driven[connector]) into[filled[ConnectorToLane[connector]]++] = lane;
+            }
+        }
+
+        while (takenOff.TryDequeue(out var lane))
+        {
+            drivesOn[lane] = false;
+            for (var at = intoAt[lane]; at < intoAt[lane + 1]; at++)
+            {
+                if (--onward[into[at]] == 0) takenOff.Enqueue(into[at]);
+            }
+        }
+
+        return drivesOn;
+    }
+
     /// <summary>
     /// <b>Every lane and every connector in the town, laid off the plan's roads.</b> A lane is its road's
     /// own line moved to that lane's share of the carriageway, and it runs the whole of it: the road was
@@ -532,7 +601,8 @@ internal sealed class LaneLines
     /// <b>But a junction may not refuse its way out of being reachable</b> (GEN-5). A lane whose every
     /// movement is too tight keeps the loosest of them, and so does a lane every movement <em>onto</em>
     /// which is too tight: a car that arrives has to leave and a lane nothing reaches is a hole in the
-    /// drivable region rather than a corner nobody takes.
+    /// drivable region rather than a corner nobody takes. <b>A movement drawn round the long way is never kept</b>:
+    /// half a circle more than it asks is a loop round the block, and a car sent down it leaves the town's ground.
     /// </remarks>
     static (int[] At, int[] ToLane, LaneTurn[] Kind, int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM)
         WhatTheJunctionOffers(
@@ -560,6 +630,8 @@ internal sealed class LaneLines
         {
             for (var connector = at[lane]; connector < at[lane + 1]; connector++)
             {
+                if (ComesRound(Run(arcs, arcOffsets, connector))) continue;
+
                 var radiusM = TightestRadiusM(Run(arcs, arcOffsets, connector));
                 if (radiusM > outM[lane])
                 {
@@ -581,9 +653,8 @@ internal sealed class LaneLines
             for (var connector = at[lane]; connector < at[lane + 1]; connector++)
             {
                 var radiusM = TightestRadiusM(Run(arcs, arcOffsets, connector));
-                if (radiusM < floorM
-                    && connector != loosestOut[lane]
-                    && connector != loosestIn[toLane[connector]])
+                if (ComesRound(Run(arcs, arcOffsets, connector))
+                    || (radiusM < floorM && connector != loosestOut[lane] && connector != loosestIn[toLane[connector]]))
                 {
                     continue;
                 }
@@ -603,6 +674,10 @@ internal sealed class LaneLines
 
         static ReadOnlySpan<ArcSeg> Run(ArcSeg[] arcs, int[] offsets, int connector) =>
             arcs.AsSpan(offsets[connector], offsets[connector + 1] - offsets[connector]);
+
+        // Turned half a circle more than it asks: two lanes standing side by side, the one joined a street's width across
+        // and behind, have no line between them but a loop round the block.
+        static bool ComesRound(ReadOnlySpan<ArcSeg> line) => Spline.SweptRad(line) - Spline.AskedRad(line) >= MathF.PI;
     }
 
     /// <summary>The lanes at each of the plan's junctions, by counting them into place.</summary>
@@ -1071,7 +1146,13 @@ internal sealed class LaneLines
             {
                 var (from, to) = poses[turn];
                 var laid = Spline.TurnedAtTheCornerInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, OffItsLaneM(turn, centreM), drawn);
-                if (laid > 0) lines[turn] = drawn[..laid].ToArray();
+
+                // Lanes that do not stand side by side through the turn — two arriving at a sharp corner at headings apart —
+                // have no one centre, and a circle about another's comes round the long way.
+                if (laid > 0 && Spline.SweptRad(drawn[..laid]) <= Spline.AskedRad(drawn[..laid]) + LineTolerance.StraightOnRad)
+                {
+                    lines[turn] = drawn[..laid].ToArray();
+                }
             }
         }
 

@@ -33,13 +33,23 @@ internal static class ConnectorShape
     /// </summary>
     const float OutsideM = 0.5f;
 
+    /// <summary>How many movements that stray off their junction's disc are listed past the worst, to be looked at.</summary>
+    const int OutsideListed = 8;
+
     /// <summary>A turn this far round is a U-turn, whose two lines cross nowhere near, and is counted on its own.</summary>
     const float UTurnDeg = 135f;
 
-    public static void Run(string map, SimConfig config)
+    /// <param name="atM">A place to read every movement near, arc by arc, instead of the town's.</param>
+    public static void Run(string map, SimConfig config, Vector2? atM = null)
     {
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var lanes = plan.Paving(config).Lanes;
+        if (atM is { } placeM)
+        {
+            Near(lanes, placeM, config);
+            return;
+        }
+
         var arms = plan.Ground.ArmsPerJunction();
         var floorM = config.JunctionCorneringRadiusM;
 
@@ -48,6 +58,7 @@ internal static class ConnectorShape
         var pastM = new List<float>();
         var rows = new List<(float Score, string Row)>();
         var spiralled = new SortedSet<int>();
+        var outside = new List<string>();
         for (var connector = 0; connector < lanes.ConnectorCount; connector++)
         {
             var line = lanes.ArcsOfConnector(connector);
@@ -80,12 +91,18 @@ internal static class ConnectorShape
             if (past < 0f) what.Add("past");
             if (lengthM > Spline.HalfATurnOfItsChord * chordM + LineTolerance.JoinedM) what.Add("bows");
             if (tightestM < floorM) what.Add("tight");
+            if (tightestM < config.CarTurningRadiusM) what.Add("unsteered");
             if (outsideM > OutsideM) what.Add("outside");
             foreach (var one in what) counts[(kind, one)] = counts.GetValueOrDefault((kind, one)) + 1;
             if (past < 0f) pastM.Add(-past);
             if (what.Count == 0) continue;
 
             var centreM = plan.Junctions.CentreM[junction];
+            if (outsideM > OutsideM && outside.Count < OutsideListed)
+            {
+                outside.Add($"  {connector,7}{centreM.X,8:F0}{centreM.Y,8:F0}  {kind} turned {Deg(turnedRad):F0}°, {outsideM:F1} m off its disc of {plan.Junctions.RadiusM[junction]:F1} m");
+            }
+
             if (uTurn && sweptRad - askedRad <= WindsDeg * MathF.PI / 180f) continue;
             if (what.Contains("loops") || what.Contains("past")) spiralled.Add(junction);
 
@@ -110,12 +127,13 @@ internal static class ConnectorShape
                           $"at {plan.Junctions.Count} junctions; cornering floor {floorM:F1} m");
         var kinds = byKind.Keys.Order(StringComparer.Ordinal).ToArray();
         Console.WriteLine("  " + string.Join("  ", kinds.Select(kind => $"{kind}: {byKind[kind]}")));
-        foreach (var what in (string[])["winds", "loops", "swings", "past", "bows", "tight", "outside"])
+        foreach (var what in (string[])["winds", "loops", "swings", "past", "bows", "tight", "unsteered", "outside"])
         {
             Console.WriteLine($"  {what,-8}" + string.Join("  ", kinds.Select(kind => $"{kind}: {counts.GetValueOrDefault((kind, what))}")));
         }
 
         if (pastM.Count > 0) Console.WriteLine("  past by  " + Spread(pastM));
+        Unsteered(lanes, config);
         Crossing(plan, lanes);
         Opposed(plan, lanes, config.Road.TurnStraightToleranceDeg);
         HolesInBoxes(plan, config);
@@ -126,6 +144,7 @@ internal static class ConnectorShape
                           $"{"cornM",8}{"len/ch",7}{"tightM",7}{"outM",7}  what");
         rows.Sort((one, other) => other.Score.CompareTo(one.Score));
         foreach (var row in rows.Take(WorstListed)) Console.WriteLine(row.Row);
+        foreach (var row in outside) Console.WriteLine(row);
         if (spiralled.Count == 0) return;
 
         // What squeezed each junction a movement loops or runs past its corner at: its shortest road, and what is on
@@ -245,6 +264,93 @@ internal static class ConnectorShape
 
         Console.WriteLine($"  holes    {holes} rings of uncovered ground inside a junction's disc, {areaM2:F0} m² in all");
         foreach (var row in rows) Console.WriteLine(row);
+    }
+
+    /// <summary>
+    /// Every street lane that bends anywhere tighter than a car steers (<see cref="SimConfig.CarTurningRadiusM"/>), worst
+    /// first by how wide of it a car on full lock is ridden: past its allowance off the line it loses it (CAR-10a).
+    /// </summary>
+    static void Unsteered(LaneLines lanes, SimConfig config)
+    {
+        var steersM = config.CarTurningRadiusM;
+        var rows = new List<(float WideM, string Row)>();
+        var wider = 0;
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
+        {
+            if (!lanes.IsAStreetLane(lane)) continue;
+
+            var (wideM, atM, alongM, sweptRad, tightestM) = (0f, Vector2.Zero, 0f, 0f, float.PositiveInfinity);
+            var (runM, bendRad, bendTightestM, bendAtM, bendAlongM) = (0f, 0f, float.PositiveInfinity, Vector2.Zero, 0f);
+            foreach (var arc in lanes.ArcsOf(lane))
+            {
+                var radiusM = arc.Curvature == 0f ? float.PositiveInfinity : 1f / MathF.Abs(arc.Curvature);
+                if (radiusM < steersM && (bendRad == 0f || MathF.Sign(arc.Curvature) == MathF.Sign(bendRad)))
+                {
+                    if (bendRad == 0f) (bendAtM, bendAlongM) = (arc.StartM, runM);
+                    bendRad += arc.Curvature * arc.LengthM;
+                    bendTightestM = MathF.Min(bendTightestM, radiusM);
+                }
+                else
+                {
+                    Close();
+                    if (radiusM < steersM) (bendRad, bendTightestM, bendAtM, bendAlongM) = (arc.Curvature * arc.LengthM, radiusM, arc.StartM, runM);
+                }
+
+                runM += arc.LengthM;
+            }
+
+            Close();
+            if (wideM <= 0f) continue;
+
+            if (wideM > lanes.LaneWidthM[lane]) wider++;
+            rows.Add((wideM, $"    lane {lane,6} road {lanes.LaneRoad[lane],5} at {atM.X,7:F0}{atM.Y,7:F0}, {alongM,6:F1}/{lanes.LaneLengthM[lane],6:F1} m, " +
+                             $"radius {tightestM:F2} m over {Deg(MathF.Abs(sweptRad)),4:F0}°, ridden {wideM:F2} m wide"));
+
+            void Close()
+            {
+                if (bendRad == 0f) return;
+
+                // A circle of the car's own drawn round the same turn stands off the bend's tightest by this much at its apex.
+                var halfRad = MathF.Min(MathF.Abs(bendRad) * 0.5f, MathF.PI * 0.5f - 1e-3f);
+                var bendWideM = (steersM - bendTightestM) * ((1f / MathF.Cos(halfRad)) - 1f);
+                if (bendWideM > wideM) (wideM, atM, alongM, sweptRad, tightestM) = (bendWideM, bendAtM, bendAlongM, bendRad, bendTightestM);
+                bendRad = 0f;
+                bendTightestM = float.PositiveInfinity;
+            }
+        }
+
+        Console.WriteLine($"  {rows.Count} street lanes bend tighter than a car steers ({steersM:F2} m), {wider} of them ridden wider of it than the lane");
+        rows.Sort((one, other) => other.WideM.CompareTo(one.WideM));
+        foreach (var (_, row) in rows.Take(WorstListed)) Console.WriteLine(row);
+    }
+
+    /// <summary>How near a place a movement's line passes to be read at it.</summary>
+    const float NearM = 12f;
+
+    /// <summary>Every movement whose line passes within <see cref="NearM"/> of a place: its lanes, its turn and each of its arcs.</summary>
+    static void Near(LaneLines lanes, Vector2 placeM, SimConfig config)
+    {
+        Console.WriteLine($"movements within {NearM:F0} m of {placeM.X:F0}, {placeM.Y:F0}; a car steers {config.CarTurningRadiusM:F2} m");
+        for (var connector = 0; connector < lanes.ConnectorCount; connector++)
+        {
+            var line = lanes.ArcsOfConnector(connector);
+            if (line.Length == 0 || Sampled(line).Min(pointM => Vector2.Distance(pointM, placeM)) > NearM) continue;
+
+            var (from, to) = (lanes.ConnectorFromLane[connector], lanes.ConnectorToLane[connector]);
+            var (leaves, joins) = (Spline.SampleAt(lanes.ArcsOf(from), lanes.LaneLengthM[from]), Spline.SampleAt(lanes.ArcsOf(to), 0f));
+            Console.WriteLine(
+                $"    from ({leaves.PositionM.X:F2}, {leaves.PositionM.Y:F2}) heading {Deg(leaves.HeadingRad):F1}° " +
+                $"to ({joins.PositionM.X:F2}, {joins.PositionM.Y:F2}) heading {Deg(joins.HeadingRad):F1}°");
+            Console.WriteLine(
+                $"  {connector,6} {lanes.ConnectorKind[connector],-9} lane {from} ({lanes.LaneLengthM[from]:F1} m) -> {to} ({lanes.LaneLengthM[to]:F1} m), " +
+                $"turned {Deg(Spline.TurnedRad(line)):F0}° swept {Deg(Spline.SweptRad(line)):F0}°, {Spline.TotalLengthM(line):F1} m, tightest {TightestM(line):F2} m");
+            foreach (var arc in line)
+            {
+                Console.WriteLine(
+                    $"      ({arc.StartM.X:F1}, {arc.StartM.Y:F1}) heading {Deg(arc.HeadingRad):F0}° {arc.LengthM:F2} m " +
+                    $"radius {(arc.Curvature == 0f ? "straight" : (1f / arc.Curvature).ToString("F2"))}");
+            }
+        }
     }
 
     static float Deg(float rad) => rad * 180f / MathF.PI;

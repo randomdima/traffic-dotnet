@@ -85,12 +85,12 @@ internal static class LaneTour
     {
         if (!IsOpen(graph, graph.ConnectorTo(connector), closed)) return 0f;
 
-        // A lane with no connector out of it is a dead end, and nothing turns a car round in one: driven
-        // in, a car stands at the end until its leg's clock runs out. Declining it keeps a car nobody is
-        // routing on roads it can drive off again; it is not a rule — a dead end is a real place and a real
-        // driver goes down it. A lane lost at its node (TER-5j) is declined too, though a car drawn onto one
-        // leaves it by moving across (CAR-53): a step across is had only where the room is.
-        if (graph.ConnectorsFrom(graph.ConnectorTo(connector)).Count == 0) return 0f;
+        // A lane every way off which ends in a dead end, the map's edge or a turn no car makes is one nothing turns a
+        // car round on: driven down, a car stands at the end until its leg's clock runs out. Declining it keeps a car
+        // nobody is routing on roads it can drive off again; it is not a rule — a dead end is a real place and
+        // a real driver goes down it. A lane lost at its node (TER-5j) is declined too, though a car drawn onto
+        // one leaves it by moving across (CAR-53): a step across is had only where the room is.
+        if (!graph.DrivesOn(graph.ConnectorTo(connector))) return 0f;
 
         return graph.KindOf(connector) switch
         {

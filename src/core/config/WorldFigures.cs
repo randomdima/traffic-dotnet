@@ -614,10 +614,10 @@ internal sealed class CityGenFigures
     public float TracedArmEndsApartM { get; init; } = 5f;
 
     /// <summary>
-    /// The tightest a traced road's innermost lane is laid round a corner (GEN-57), where the survey drew one
-    /// sharper than its carriageway can round: a hairpin drawn to a point is a turn this tight rather than a
-    /// cusp, and rather than the straight across its mouth. A road of one lane on its line is not laid tighter
-    /// than half its carriageway instead, having no lane beside it to cover its ground's fold.
+    /// The tightest the middle of a traced road's roadside is laid round a corner (GEN-57), where the survey drew one
+    /// sharper than its carriageway can round: a strip nobody drives, so a hairpin drawn to a point turns it this tight
+    /// rather than folding it into a cusp. A lane is never laid tighter than a car steers
+    /// (<see cref="SimConfig.CarTurningRadiusM"/>).
     /// </summary>
     public float TracedTightestLaneRadiusM { get; init; } = 0.5f;
 

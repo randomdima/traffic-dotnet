@@ -16,9 +16,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   ticks on 2026-10-16, with the machine at a load of ~25 and the test host already on the shipped collector; it has
   passed every run since, five in a row on a quiet machine. What allocated under load is not known; an allocation
   trace (`dotnet-trace`'s GC allocation ticks) of a failing run closes it.
-- **`ShippedCityTests.NothingItCarriesStandsOffIt(OdesaOsm)`** (maps) fails on the town that stands 40 000 people and
-  40 000 cars (2026-10-09, still on 2026-10-12): spawn 37 177 stands at x −0.15 m, off the map's own edge. Spawning on
-  the map's edge, or the map's bounds taking its spawns in, closes it.
 - **Seven exam cards fail** (2026-10-16; 60, 82, 85 and 86 pass since a car short of a box plans none of one it could
   not get out of, and yields what it holds there at rest, the road log):
   - 69, the standing tier (road log, the claims redesign). Not traced.
@@ -476,10 +473,20 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   only such case `--bench faults` finds (two-way roads over each other by more than a lane along most of the shorter);
   the other hits are pieces inside a junction cluster. Merging the two ways in OSM closes it; dropping one in the
   importer would need its side streets re-attached at both ends.
-- **Movements in a large gathered box loop round** (`--bench connectors`: 42 heading away from both their ends, worst at
+- **Movements in a large gathered box loop round** (`--bench connectors`: 25 heading away from both their ends on
+  2026-10-17, 24 of them U-turns, since a movement drawn round the long way is no longer kept; worst at
   OdesaOsm 4049,18549, an 8-arm box 45 m across): the lanes into the box end past each other, so a near-side turn is drawn
   270° the long way. A biarc chosen to turn least was tried and could not help without bends tighter than the turn circle;
   what closes it is the lanes into a gathered box ending short of where their lines cross (`TracedStreets.Standoffs`).
+- **Cars at OdesaOsm's busy boxes lock each other** (`--bench stuck --map OdesaOsm --seconds 120` at 5 000 cars,
+  2026-10-17): 148 of 4 975 cars stand still at the end, 17 rings of two cars each waiting on the claim the other holds
+  in a box (2816,21897; 3085,17263; 2735,21536 among them), and 77 more queue behind them. Tracing one ring to the claim
+  that should have been yielded closes it.
+- **The fleet steers wider than the town lays its turns** (the same run: 40 cars driven off their line, 23 of them in
+  a box): the turn room (`SimConfig.JunctionTurnRoomM`) is the config car's 3.94 m circle, and most variants' is wider,
+  4.0 to 5.4 m (a pickup 4.9, the APC 5.4); `--bench connectors` lists 681 near-side and 161 far-side movements tighter
+  even than 3.94 m, kept above the 2.4 m cornering floor. Sizing the turn room for the fleet's widest common circle — a
+  figure the catalog would hand down to the town — closes it.
 - **A dual carriageway's halves converging into each other short of where they join are laid one over the other**
   along the converging stretch (OdesaOsm 3874,4971, ways 485394562 and 973057281, 58 m of 261 m): the lanes of the two
   ways interleave and no lane line is painted. `TracedStreets.Parted` moves a road's middle by one figure along all of

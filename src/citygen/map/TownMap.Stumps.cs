@@ -133,6 +133,21 @@ internal sealed partial record TownMap
             }
         }
 
+        return Kept(keptFrom, keptTo);
+    }
+
+    /// <summary><b>This map without every road of an OSM way given</b>, whole, and the points only they stood on.</summary>
+    public TownMap WithoutWays(IReadOnlySet<long> osmIds)
+    {
+        var (keptFrom, keptTo) = (new int[Roads.Length], new int[Roads.Length]);
+        for (var road = 0; road < Roads.Length; road++) keptTo[road] = osmIds.Contains(Roads[road].OsmId) ? 0 : Roads[road].Points.Length - 1;
+
+        return Kept(keptFrom, keptTo);
+    }
+
+    /// <summary>Each road's points from <paramref name="keptFrom"/> to <paramref name="keptTo"/>, a road left with fewer than two gone.</summary>
+    TownMap Kept(int[] keptFrom, int[] keptTo)
+    {
         var renumbered = new int[PointM.Length];
         Array.Fill(renumbered, -1);
         var kept = new List<Vector2D>();

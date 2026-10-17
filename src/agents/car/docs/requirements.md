@@ -150,7 +150,9 @@ walk, it is called to the free bay nearest them. **A car nobody owns runs its ow
 (`TownWorld.RunTheRound`) — the cars of a town nobody lives in: it stands in its bay for a drawn while, then
 drives to a free bay near a place drawn within reach of it and parks there. **On a map with no bay a car can
 reach** there is no round to run, and every such car takes the lane it stands on and tours the lanes with no
-destination at all (`TownWorld.DriveTheEmptyMap`, `LaneTour`). Three things follow of the round:
+destination at all (`TownWorld.DriveTheEmptyMap`, `LaneTour`) — never onto a lane every way off which ends at a dead
+end, the map's edge or a turn no car makes (`RoadGraph.DrivesOn`), so a tour is never absorbed into one. Three things
+follow of the round:
 
 - **A car stood down anywhere but a bay sets off for one at once** — a leg given up in the street leaves a body
   standing in a lane, which is an obstruction and not a stand.

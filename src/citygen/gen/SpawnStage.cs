@@ -177,21 +177,26 @@ internal static class SpawnStage
     /// <summary>
     /// <b>The lanes a car can be stood on where a town has no bay</b>: long enough to stand one clear of
     /// both ends — a body over a lane's own end is in the box beyond it before the town has ticked once —
-    /// and with a movement off the end, or the car is a body with nowhere to go.
+    /// and with a movement off the end, or the car is a body with nowhere to go. <b>Of those, the ones driven on for
+    /// ever from</b> (<see cref="LaneLines.LanesDrivenOn"/>) where the town has any: a car stood down a dead end's
+    /// street drives to its end and stands there.
     /// </summary>
     public static List<int> TheLanes(LaneLines lanes, SimConfig config)
     {
         var roomM = RoomM(config);
+        var drivenOn = lanes.LanesDrivenOn(config);
         var standable = new List<int>();
+        var onward = new List<int>();
         for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
             if (lanes.LaneLengthM[lane] < roomM) continue;
             if (lanes.ConnectorAt[lane + 1] == lanes.ConnectorAt[lane]) continue;
 
             standable.Add(lane);
+            if (drivenOn[lane]) onward.Add(lane);
         }
 
-        return standable;
+        return onward.Count > 0 ? onward : standable;
     }
 
     /// <summary>The room a car is stood in clear of a lane's ends: its length and a width either side.</summary>

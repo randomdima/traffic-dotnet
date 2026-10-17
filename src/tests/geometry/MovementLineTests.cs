@@ -119,6 +119,25 @@ public class MovementLineTests
     }
 
     /// <summary>
+    /// <b>A turn sharper than a right angle is turned at its corner too</b>: the lanes' lines cross twelve metres on and
+    /// twelve short of the lane out, round three-eighths of a turn, which stands further off each than the two stand
+    /// apart — and the line is still straight, the junction's turn circle, and straight, never a biarc tighter than it.
+    /// </summary>
+    [Fact]
+    public void ATurnSharperThanARightAngleIsTurnedAtItsCorner()
+    {
+        const float ToRad = MathF.PI * 0.75f;
+        var toM = new Vector2(12f, 0f) + (12f * new Vector2(MathF.Cos(ToRad), MathF.Sin(ToRad)));
+
+        var line = Movement(Vector2.Zero, 0f, toM, ToRad);
+
+        Assert.Equal(0f, line[0].Curvature);
+        Assert.Equal(12f - (TurnM * MathF.Tan(ToRad * 0.5f)), line[0].LengthM, 1e-3f);
+        Assert.All(line, arc => Assert.True(MathF.Abs(arc.Curvature) <= (1f / TurnM) + 1e-4f, $"an arc {1f / arc.Curvature:F2} m round"));
+        Arrives(line, toM, ToRad);
+    }
+
+    /// <summary>
     /// <b>A turn made at once is on the circle asked from its first metre to its last</b>
     /// (<see cref="Spline.TurnedAtOnceInto"/>): a quarter turn to the right between two lanes eight metres apart either way,
     /// turned off the first lane on the circle, straight, and turned onto the second on it.

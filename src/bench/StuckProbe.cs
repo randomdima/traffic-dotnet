@@ -92,6 +92,9 @@ internal static class StuckProbe
         var history = new Doing[HistoryTicks * cars.Count];
         var wasBroken = new bool[cars.Count];
         var wrecksSaid = new List<string>();
+        var linesLost = 0;
+        var linesLostSaid = new List<string>();
+        var linesLostBy = new Dictionary<string, int>(StringComparer.Ordinal);
 
         var restless = new Restless(cars.Count);
         var terrain = new GroundLocator(world.Plan, config);
@@ -128,6 +131,18 @@ internal static class StuckProbe
                 {
                     wasBroken[car] = true;
                     if (wrecksSaid.Count < MostWrecksSaid) wrecksSaid.Add(SayTheWreck(world, car, tick, wasDoing, history));
+                }
+
+                if (cars.Driven[car] && cars.Action[car] == CarAction.Rejoin && wasDoing[car].Action != CarAction.Rejoin)
+                {
+                    linesLost++;
+                    foreach (var by in (ReadOnlySpan<string>)[
+                                 $"turning {cars.BuildOf(car).WheelbaseM / MathF.Tan(cars.BuildOf(car).MaxSteerRad):F1} m",
+                                 wasDoing[car].InBox ? "in a box" : "along a lane"])
+                    {
+                        linesLostBy[by] = linesLostBy.GetValueOrDefault(by) + 1;
+                    }
+                    if (linesLostSaid.Count < MostWrecksSaid) linesLostSaid.Add(SayTheWreck(world, car, tick, wasDoing, history));
                 }
 
                 Began(cars.Pass[car].Begun, ref carPassing[car], "car", car, cars.PositionM[car], world, passesBegun);
@@ -202,6 +217,16 @@ internal static class StuckProbe
         Console.WriteLine(
             $"a leg's patience {config.CarPatienceS:F0} s over {config.Patience.ReroutesPerLeg} reroutes, " +
             $"signal cycle {config.Signals.CycleS:F0} s");
+        var (streetLanes, endingLanes) = (0, 0);
+        for (var lane = 0; lane < world.Roads.LaneCount; lane++)
+        {
+            if (!world.Roads.IsAStreetLane(lane)) continue;
+
+            streetLanes++;
+            if (!world.Roads.DrivesOn(lane)) endingLanes++;
+        }
+
+        Console.WriteLine($"{endingLanes} of {streetLanes} street lanes lead only to an end: a dead end, the map's edge or a lane lost at its node");
 
         var down = 0;
         for (var person = 0; person < people.Count; person++)
@@ -244,6 +269,15 @@ internal static class StuckProbe
         {
             Console.WriteLine("the first wrecks, each car as it was the tick before:");
             foreach (var wreck in wrecksSaid) Console.WriteLine(wreck);
+        }
+
+        if (linesLostSaid.Count > 0)
+        {
+            Console.WriteLine(
+                $"{linesLost} cars driven off their line (CAR-10a) — " +
+                string.Join(", ", linesLostBy.OrderByDescending(entry => entry.Value).Select(entry => $"{entry.Key} {entry.Value}")) +
+                " — the first each as it was the tick before:");
+            foreach (var lost in linesLostSaid) Console.WriteLine(lost);
         }
 
         if (givenUpDoing.Count > 0)
@@ -374,7 +408,7 @@ internal static class StuckProbe
     readonly record struct Doing(
         Vector2 AtM, float AlongMps, DrivingHold Hold, HeadwayKind CutBy, float GrantM, bool Driven,
         ManoeuvreKind Kind, ManoeuvreStage Stage, int Piece, int Lane, float ProgressM, float LineM, bool Reverse,
-        bool Passing, CarAction Action)
+        bool Passing, CarAction Action, float OffLineM, bool InBox)
     {
         public static Doing Of(TownWorld world, int car)
         {
@@ -383,7 +417,8 @@ internal static class StuckProbe
             return new Doing(
                 cars.PositionM[car], cars.AlongMps[car], cars.Hold[car], cars.GrantCutBy[car], cars.GrantLeftM(car),
                 cars.Driven[car], manoeuvres.Kind[car], manoeuvres.Stage[car], manoeuvres.Piece[car], cars.LaneOf(car),
-                cars.ProgressM[car], cars.Line[car].LengthM, cars.LineIsReverse[car], cars.Pass[car].Begun, cars.Action[car]);
+                cars.ProgressM[car], cars.Line[car].LengthM, cars.LineIsReverse[car], cars.Pass[car].Begun, cars.Action[car],
+                cars.OffLineM[car], cars.IsInsideTheBox(car));
         }
 
         /// <summary>What a leg given up was doing, in words few enough to count the town's by.</summary>
@@ -391,7 +426,7 @@ internal static class StuckProbe
 
         public override string ToString() =>
             $"{Action} at ({AtM.X:F1}, {AtM.Y:F1}) {AlongMps:F2} m/s, hold {Hold} grant {GrantM:F2} m cut by {CutBy}, " +
-            $"driven {Driven}, lane {Lane}, line {ProgressM:F1}/{LineM:F1} m reverse {Reverse}, " +
+            $"driven {Driven}, lane {Lane}, line {ProgressM:F1}/{LineM:F1} m off {OffLineM:F2} m reverse {Reverse}, " +
             $"manoeuvre {Kind} {Stage} piece {Piece}, passing {Passing}";
     }
 

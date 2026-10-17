@@ -18,6 +18,7 @@ internal static class Program
                osm-scan import [--map OdesaOsm] [--force]
                osm-scan crop --box S,W,N,E [--map OdesaOsm]
                osm-scan stumps [--map OdesaOsm] [--dry]
+               osm-scan zone-ways [--map OdesaOsm] [--dry]
                osm-scan zones [--map OdesaOsm]
                osm-scan upgrade [--map OdesaOsm]
                osm-scan population [--people N] [--cars N] [--map OdesaOsm]
@@ -39,6 +40,7 @@ internal static class Program
                 "import" => Meta.Import.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--force")),
                 "crop" when Option(args, "--box") is { } box => Crop.Run(root, Option(args, "--map") ?? "OdesaOsm", box),
                 "stumps" => Stumps.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--dry")),
+                "zone-ways" => ZoneWays.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--dry")),
                 "zones" => Zoning.Run(root, Option(args, "--map") ?? "OdesaOsm"),
                 "upgrade" => Upgrade.Run(root, Option(args, "--map") ?? "OdesaOsm"),
                 "population" => Population.Run(root, Option(args, "--map") ?? "OdesaOsm", Count(args, "--people"), Count(args, "--cars")),

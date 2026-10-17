@@ -767,8 +767,9 @@ internal static partial class TracedStreets
     /// <remarks>
     /// <para>
     /// <b>Laid as the survey drew it and not as a car would like it</b> (GEN-57): a bend is rounded as wide as keeps
-    /// the survey within <see cref="CityGenFigures.TracedCornerToleranceM"/>, and a corner sharper than that at half its
-    /// carriageway, whose inside kerb is the corner itself and no lane folds back over it. A road rounded for a
+    /// the survey within <see cref="CityGenFigures.TracedCornerToleranceM"/>, and a corner sharper than that as tight as
+    /// its innermost lane is still a turn a car steers round (<see cref="SimConfig.CarTurningRadiusM"/>) — a hairpin
+    /// drawn to a point a car could not drive is a corner its legs ease wider. A road rounded for a
     /// speed is the drivers' to ask for later (GEN-47), and a reading of how far a traced town stands off its
     /// survey is <c>--bench fidelity</c>.
     /// </para>
@@ -800,15 +801,21 @@ internal static partial class TracedStreets
         var lanes = road.Carriage.Lanes.With + road.Carriage.Lanes.Against;
         var roundedM = road.Carriage.WidthM * 0.5f;
 
-        // A road of one lane has nothing beside the lane to cover its ground where it folds, so the ground's own inner
-        // edge is what may not fold: no tighter than half the carriageway. A wider road's innermost lane, at its share
-        // of the carriageway (CityPlan.RoadArrays.LaneOffsetM), may not fold back over the corner itself, and nor may
-        // the middle of a roadside — whichever of those stands furthest off the line, on whichever side the corner turns.
+        // No lane is laid round a corner tighter than a car steers, or a car driving it is ridden off it by a lane's
+        // width and loses it (CAR-10a). A road of one lane has nothing beside the lane to cover its ground where it
+        // folds, so its ground's own inner edge may not fold either: no tighter than half the carriageway. A wider
+        // road's innermost lane stands at its share of the carriageway (CityPlan.RoadArrays.LaneOffsetM) off the line,
+        // and the middle of a roadside, which nobody drives, may not fold back over the corner — whichever of those
+        // asks the more, on whichever side the corner turns.
+        var steersM = config.CarTurningRadiusM;
         var lone = lanes == 1;
         var outermostM = roundedM - MathF.Min(road.Carriage.RoadsideWithM, road.Carriage.RoadsideAgainstM)
                          - (road.Carriage.LanesWidthM / lanes * 0.5f);
         var roadsideMiddleM = MathF.Max(MiddleOf(road.Carriage.RoadsideWithM), MiddleOf(road.Carriage.RoadsideAgainstM));
-        var floorM = lone ? roundedM : MathF.Max(outermostM, roadsideMiddleM) + config.CityGen.TracedTightestLaneRadiusM;
+        var floorM = lone
+            ? MathF.Max(roundedM, steersM)
+            : MathF.Max(outermostM + steersM, roadsideMiddleM + config.CityGen.TracedTightestLaneRadiusM);
+        var leastM = MathF.Max(roundedM, floorM);
         while (true)
         {
             var surveyedM = new Vector2[through.Count + 2];
@@ -823,7 +830,7 @@ internal static partial class TracedStreets
 
             // <b>No lane folds back over a corner</b>: a point the legs either side have no room to round even
             // with the innermost lane at its tightest is a survey's kink and not a bend, and it is eased.
-            var atRoundedM = Filled(laidM.Length - 2, roundedM);
+            var atRoundedM = Filled(laidM.Length - 2, leastM);
             var reachM = TracedAlignment.Reaches(laidM, atRoundedM, atRoundedM);
             var tightest = TightestCorner(laidM, reachM, floorM);
             if (tightest > 0)
@@ -834,12 +841,12 @@ internal static partial class TracedStreets
 
             // Normalised where every corner of it still has the room; a kink's easing is the survey's line, so the
             // two are asked in that order and not the other.
-            var (alignedM, alignedReachM) = Aligned(surveyedM, road.Carriage.CentreOffsetM, roundedM, config);
+            var (alignedM, alignedReachM) = Aligned(surveyedM, road.Carriage.CentreOffsetM, leastM, config);
             if (TightestCorner(alignedM, alignedReachM, floorM) == 0) (laidM, reachM) = (alignedM, alignedReachM);
 
             var arcs = new ArcSeg[(2 * laidM.Length) - 3];
             var rounded = arcs[..Spline.RoundedInto(laidM, reachM, arcs)];
-            return new Merging(rounded, surveyedLaidM, mapM, MathF.Max(roundedM, floorM), config.TracedLineToleranceAcrossM(road.Carriage.WidthM));
+            return new Merging(rounded, surveyedLaidM, mapM, leastM, config.TracedLineToleranceAcrossM(road.Carriage.WidthM));
         }
 
         // Off the road's line toward its kerb, the middle of a roadside that wide — or nothing, where there is none.

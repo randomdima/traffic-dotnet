@@ -1224,7 +1224,10 @@ internal static class Spline
     /// <remarks>
     /// <para>
     /// <b>A turn at a corner</b> — two poses further round than <paramref name="straightRad"/> whose lines cross ahead of
-    /// the first and behind the second, no further off either than the two stand apart — is the first line, one arc of
+    /// the first and behind the second, no further off either than the two stand apart — or, sharper than a right angle
+    /// and not a road carried on through a bend, whose corner always stands further off than that, twice as far: a fork's
+    /// branches turned between, up to five-sixths of a half turn, and never two lanes all but facing each other, whose
+    /// corner is a street away — is the first line, one arc of
     /// <paramref name="turnRadiusM"/> at the corner, and the second line (<see cref="StraightArcStraightInto"/>); with too
     /// little room before or after the corner for that circle, the widest one the room holds.
     /// </para>
@@ -1272,15 +1275,23 @@ internal static class Spline
         var from = Heading.Unit(fromHeadingRad);
         var to = Heading.Unit(toHeadingRad);
         var askedRad = MathF.Abs(WrapRad(toHeadingRad - fromHeadingRad));
-        var cornerAhead = ToTheCorner(fromM, fromHeadingRad, toM, toHeadingRad, out var turnRad, out var beforeM, out var afterM)
-            && beforeM >= LineTolerance.RoundingM && afterM >= LineTolerance.RoundingM
-            && MathF.Max(beforeM, afterM) <= Vector2.Distance(fromM, toM);
+        var cornered = ToTheCorner(fromM, fromHeadingRad, toM, toHeadingRad, out var turnRad, out var beforeM, out var afterM)
+            && beforeM >= LineTolerance.RoundingM && afterM >= LineTolerance.RoundingM;
+        var cornerAhead = cornered && MathF.Max(beforeM, afterM) <= Vector2.Distance(fromM, toM);
         if (cornerAhead && (carriedThrough || askedRad <= straightRad)) return BiarcInto(fromM, fromHeadingRad, toM, toHeadingRad, into);
 
         if (cornerAhead)
         {
-            var cornered = TurnedAtTheCornerInto(fromM, fromHeadingRad, toM, toHeadingRad, turnRadiusM, into);
-            return cornered > 0 ? cornered : BiarcInto(fromM, fromHeadingRad, toM, toHeadingRad, into);
+            var turned = TurnedAtTheCornerInto(fromM, fromHeadingRad, toM, toHeadingRad, turnRadiusM, into);
+            return turned > 0 ? turned : BiarcInto(fromM, fromHeadingRad, toM, toHeadingRad, into);
+        }
+
+        // Sharper than a right angle, the corner always stands further off than the two poses stand apart.
+        if (cornered && !carriedThrough && askedRad > MathF.PI * 0.5f
+            && MathF.Max(beforeM, afterM) <= 2f * Vector2.Distance(fromM, toM)
+            && TurnedAtTheCornerInto(fromM, fromHeadingRad, toM, toHeadingRad, turnRadiusM, into) is var sharp and > 0)
+        {
+            return sharp;
         }
 
         var aheadM = Vector2.Dot(toM - fromM, from);

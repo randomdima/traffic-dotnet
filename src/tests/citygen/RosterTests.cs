@@ -109,6 +109,33 @@ public class RosterTests
         Assert.True(nearestM >= SpawnStage.RoomM(Config), $"a car stands {nearestM:F2} m from a bridge's");
     }
 
+    /// <summary>
+    /// <b>No car is stood down a street that only ends</b> (<see cref="LaneLines.LanesDrivenOn"/>): asked for a car on every
+    /// lane of a block with a dead-end spur off it, every car stands on a lane it can drive on for ever from, and the
+    /// spur's lane toward its end is none of them.
+    /// </summary>
+    [Fact]
+    public void NoCarIsStoodDownAStreetThatOnlyEnds()
+    {
+        var plan = Laid(
+            people: 0, cars: 1000, [100, 500, 500, 500, 900, 500, 900, 900, 100, 900, 500, 100], [],
+            Street(0, 1), Street(1, 2), Street(2, 3), Street(3, 4), Street(4, 0), Street(1, 5));
+        var lanes = plan.Paving(Config).Lanes;
+        var drivenOn = lanes.LanesDrivenOn(Config);
+
+        var towardTheEnd = Enumerable.Range(0, lanes.LaneCount)
+            .Single(lane => lanes.IsAStreetLane(lane) && lanes.ConnectorAt[lane + 1] == lanes.ConnectorAt[lane]);
+        Assert.False(drivenOn[towardTheEnd]);
+        Assert.All(Standing(plan, SpawnStage.Car), carM => Assert.True(drivenOn[NearestLane(lanes, carM)], $"a car stands at {carM} down the spur"));
+    }
+
+    static int NearestLane(LaneLines lanes, Vector2 pointM) =>
+        Enumerable.Range(0, lanes.LaneCount).Where(lanes.IsAStreetLane).MinBy(lane =>
+        {
+            Spline.ProjectM(lanes.ArcsOf(lane), pointM, 0f, lanes.LaneLengthM[lane], out var offSq);
+            return offSq;
+        });
+
     static readonly Comparer<Vector2> ByPlace = Comparer<Vector2>.Create((one, other) =>
         one.X != other.X ? one.X.CompareTo(other.X) : one.Y.CompareTo(other.Y));
 

@@ -383,7 +383,7 @@ internal static class Program
                 TownShape.Close(map ?? Options.TracedMap, config);
                 return 0;
             case "connectors":
-                ConnectorShape.Run(map ?? Options.TracedMap, config);
+                ConnectorShape.Run(map ?? Options.TracedMap, config, atM);
                 return 0;
             case "faults":
                 RoadFaults.Run(map ?? Options.TracedMap, config);
