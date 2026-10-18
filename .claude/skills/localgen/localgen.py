@@ -5,12 +5,16 @@ Stdlib only, self-contained. Writes to raw_assets/generated/ and appends one rec
 per image to raw_assets/generated/index.jsonl.
 
   gen  "a red hatchback, top-down"  --name sedan_red --transparent
-  edit --image sedan_red -p "make it a taxi" --strength 0.6
+  edit --image layout.png --image style.png -p "paint the outlines of image 1 in the style of image 2"
+  edit --model zimage --image sedan_red -p "make it a taxi" --strength 0.6
   list -n 10
   show sedan_red-v2
   status | up
 
-Model stack (Z-Image Turbo + pixel-art LoRA) lives in ~/local-ai/ComfyUI/models.
+Model stacks live in ~/local-ai/ComfyUI/models (fetch-models.sh downloads them): FLUX.2 [klein]
+4B, the default, which edits from up to two reference images; Z-Image Turbo + pixel-art LoRA
+(--model zimage), which redraws one image at a strength; and, for comparison, Qwen-Image-Edit-2511,
+LongCat-Image-Edit, OmniGen2 and the undistilled Klein and Z-Image (MODELS).
 """
 
 import argparse
@@ -18,6 +22,7 @@ import json
 import os
 import random
 import re
+import shlex
 import shutil
 import struct
 import subprocess
@@ -46,12 +51,61 @@ INDEX = os.path.join(OUT_DIR, "index.jsonl")
 HOST = os.environ.get("LOCALGEN_HOST", "http://127.0.0.1:8188")
 CONTAINER = os.environ.get("LOCALGEN_CONTAINER", "local-ai")
 COMFY_DIR = os.path.expanduser("~/local-ai/ComfyUI")
+# Read by run.sh when the server starts: VRAM kept back for the desktop (GB, default 3), the attention
+# implementation (pytorch | split) and the VAE's precision (bf16 | fp32 | cpu). LOCALGEN_SERVER_ARGS is
+# appended to ComfyUI's own flags. A running server keeps what it was started with; `up --restart`.
+SERVER_ENV = {"LOCALGEN_RESERVE_VRAM": "COMFY_RESERVE_VRAM", "LOCALGEN_ATTENTION": "COMFY_ATTENTION",
+              "LOCALGEN_VAE": "COMFY_VAE"}
 
-UNET = "z_image_turbo_int8_convrot.safetensors"
-CLIP = "qwen_3_4b_fp8_mixed.safetensors"
-VAE = "z_image_ae.safetensors"
-LORA = "pixel_art_style_z_image_turbo.safetensors"
-
+# Klein and Z-Image encode text with Qwen3-4B; only the loader's type differs. `graph` names the builder,
+# `refs` the most reference images an edit takes (0: text only, redraws one image at --strength).
+# Steps and cfg of the undistilled models are their makers' ComfyUI templates'.
+MODELS = {
+    "klein": {"graph": "klein", "refs": 2, "unet": "flux-2-klein-4b-fp8.safetensors",
+              "clip": "qwen_3_4b_fp8_mixed.safetensors", "clip_type": "flux2", "vae": "flux2-vae.safetensors",
+              "steps": 4, "cfg": 1.0, "sampler": "euler", "lora": None, "shift": None, "label": "flux2-klein-4b"},
+    "kleinbase": {"graph": "klein", "refs": 2, "unet": "flux-2-klein-base-4b-fp8.safetensors",
+                  "clip": "qwen_3_4b_fp8_mixed.safetensors", "clip_type": "flux2", "vae": "flux2-vae.safetensors",
+                  "steps": 20, "cfg": 5.0, "sampler": "euler", "lora": None, "shift": None,
+                  "label": "flux2-klein-base-4b"},
+    "qwen": {"graph": "qwen", "refs": 3, "unet": "qwen_image_edit_2511_fp8mixed.safetensors",
+             "clip": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "clip_type": "qwen_image",
+             "vae": "qwen_image_vae.safetensors", "steps": 4, "cfg": 1.0, "sampler": "euler",
+             "lora": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors", "shift": 3.1,
+             "label": "qwen-image-edit-2511"},
+    "qwen8": {"graph": "qwen", "refs": 3, "unet": "qwen_image_edit_2511_int8_convrot.safetensors",
+              "clip": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "clip_type": "qwen_image",
+              "vae": "qwen_image_vae.safetensors", "steps": 4, "cfg": 1.0, "sampler": "euler",
+              "lora": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors", "shift": 3.1,
+              "label": "qwen-image-edit-2511-int8"},
+    "longcat": {"graph": "longcat", "refs": 1, "unet": "longcat_image_edit_bf16.safetensors",
+                "clip": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "clip_type": "longcat_image",
+                "vae": "z_image_ae.safetensors", "steps": 50, "cfg": 4.5, "sampler": "euler", "lora": None,
+                "shift": None, "label": "longcat-image-edit"},
+    "omnigen2": {"graph": "omnigen2", "refs": 2, "unet": "omnigen2_fp16.safetensors",
+                 "clip": "qwen_2.5_vl_fp16.safetensors", "clip_type": "omnigen2", "vae": "z_image_ae.safetensors",
+                 "steps": 20, "cfg": 5.0, "sampler": "euler", "lora": None, "shift": None, "label": "omnigen2",
+                 # Its template's. An empty negative at cfg 5 blurs every frame to a smear.
+                 "negative": "deformed, blurry, over saturation, messy drawing, low quality, distorted"},
+    "zimage": {"graph": "zimage", "refs": 0, "unet": "z_image_turbo_int8_convrot.safetensors",
+               "clip": "qwen_3_4b_fp8_mixed.safetensors", "clip_type": "lumina2", "vae": "z_image_ae.safetensors",
+               "steps": 8, "cfg": 1.0, "sampler": "res_multistep",
+               "lora": "pixel_art_style_z_image_turbo.safetensors", "shift": 3.0, "label": "z-image-turbo"},
+    "zimagebase": {"graph": "zimage", "refs": 0, "unet": "z_image_int8_convrot.safetensors",
+                   "clip": "qwen_3_4b_fp8_mixed.safetensors", "clip_type": "lumina2", "vae": "z_image_ae.safetensors",
+                   "steps": 25, "cfg": 4.0, "sampler": "res_multistep", "lora": None, "shift": 3.0,
+                   "label": "z-image-base"},
+}
+# OmniGen2's second guidance scale: the references against the negative prompt.
+OMNIGEN2_IMAGE_CFG = 2.0
+LONGCAT_GUIDANCE = 4.5
+# Qwen's 20 GB transformer cannot sit in VRAM beside the desktop; ComfyUI streams the rest from RAM.
+QWEN_REF_MEGAPIXELS = 0.5
+# Klein's load grows with every reference and with the output area, and this card also drives
+# the display: three references at 1200x1200 returned garbage and the next heavy run froze the
+# machine (2026-10-17). Hence at most two references (MODELS refs), each scaled down, and a pixel budget.
+KLEIN_REF_MEGAPIXELS = 0.5       # each reference image is scaled to this area before encoding
+KLEIN_PIXEL_BUDGET = 1_536_000   # output width x height x frames per run
 # The model will not hand back the exact colour it was asked for — a prompt for #FF00FF
 # comes back as a muted rose — so the key colour is measured from the border, never assumed.
 KEY_HARD = 40                    # channel distance from it: fully transparent below this
@@ -77,8 +131,13 @@ def read_index():
 
 def append_index(rec):
     os.makedirs(OUT_DIR, exist_ok=True)
-    with open(INDEX, "a") as f:
-        f.write(json.dumps(rec) + "\n")
+    # One write on an O_APPEND descriptor: parallel remote frames append at once, and a record (~6 KB, the
+    # prompt) is over what a buffered write keeps whole.
+    fd = os.open(INDEX, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    try:
+        os.write(fd, (json.dumps(rec) + "\n").encode())
+    finally:
+        os.close(fd)
 
 
 def slug(text, limit=40):
@@ -149,13 +208,23 @@ def alive():
         return False
 
 
-def stop_server():
-    subprocess.run(["toolbox", "run", "-c", CONTAINER, "bash", "-lc",
-                    "pkill -f 'python main.py' || true"], check=False)
-    for _ in range(15):
-        if not alive():
-            return
-        time.sleep(1)
+# The toolbox shares the host's PID namespace, so the server is found and killed from here. Anchored: a bare
+# 'python main.py' also matched the shell that ran pkill and the toolbox/podman processes around it.
+SERVER_PROCESS = r"^\.venv/bin/python main\.py"
+
+
+def stop_server(wait=30):
+    """Kill the server and wait until the process is gone, not just the port: a frame on a server still
+    freeing VRAM is not on a fresh one."""
+    subprocess.run(["pkill", "-f", SERVER_PROCESS], check=False)
+    for signal_after in (wait, 10):
+        t0 = time.time()
+        while time.time() - t0 < signal_after:
+            if subprocess.run(["pgrep", "-f", SERVER_PROCESS], capture_output=True).returncode:
+                return
+            time.sleep(0.5)
+        subprocess.run(["pkill", "-KILL", "-f", SERVER_PROCESS], check=False)
+    sys.exit("ComfyUI: the old server would not die")
 
 
 def start_server(wait=180):
@@ -165,10 +234,13 @@ def start_server(wait=180):
     if not shutil.which("toolbox"):
         sys.exit(f"ComfyUI is not answering on {HOST} and `toolbox` is not on PATH")
     print(f"starting ComfyUI in the {CONTAINER} container ...", file=sys.stderr)
+    server_env = " ".join(f"{var}={shlex.quote(os.environ[mine])}" for mine, var in SERVER_ENV.items()
+                          if os.environ.get(mine))
     subprocess.run(
         ["toolbox", "run", "-c", CONTAINER, "bash", "-lc",
-         f"cd {COMFY_DIR} && nohup ./run.sh > /tmp/comfy.log 2>&1 & sleep 2"],
-        check=False,
+         f"cd {COMFY_DIR} && {server_env} nohup ./run.sh {os.environ.get('LOCALGEN_SERVER_ARGS', '')}"
+         " >> /tmp/comfy.log 2>&1 & sleep 2"],
+        check=False, stdout=subprocess.DEVNULL,   # stdout carries only the paths written
     )
     t0 = time.time()
     while time.time() - t0 < wait:
@@ -244,7 +316,11 @@ def queue_workflow(wf, timeout=1800):
     pid = api_post("/prompt", {"prompt": wf, "client_id": uuid.uuid4().hex})["prompt_id"]
     t0 = time.time()
     while True:
-        hist = api_get(f"/history/{pid}")
+        try:
+            hist = api_get(f"/history/{pid}")
+        except (OSError, ValueError) as e:
+            # Not "ComfyUI: down" (before the prompt): the server took the prompt and then died with it.
+            sys.exit(f"ComfyUI died during the prompt ({type(e).__name__}); see /tmp/comfy.log")
         if pid in hist:
             entry = hist[pid]
             status = entry.get("status", {})
@@ -262,14 +338,192 @@ def queue_workflow(wf, timeout=1800):
                     out.append(api_get(q, timeout=120, raw=True))
             if not out:
                 sys.exit("workflow finished but produced no image")
-            print(f"{len(out)} image(s) in {time.time() - t0:.0f}s", file=sys.stderr)
+            print(f"{len(out)} image(s) in {time.time() - t0:.1f}s", file=sys.stderr)
             return out
         if time.time() - t0 > timeout:
             sys.exit(f"timed out after {timeout}s waiting for ComfyUI")
-        time.sleep(2)
+        time.sleep(0.5)   # the poll's own delay is in the time: at 2 s it was up to a fifth of a Klein frame
 
 
 # -------------------------------------------------------------------- workflow
+
+def build_klein(args, prompt, refs, width, height):
+    """FLUX.2 [klein] graph: a fresh latent of the given size, conditioned on the prompt and on
+    every reference image (uploaded names), each scaled, encoded and chained in as a
+    ReferenceLatent on both the positive and the zeroed negative branch."""
+    if width * height * args.count > KLEIN_PIXEL_BUDGET:
+        sys.exit(f"{width}x{height} x {args.count} frame(s) is over klein's budget of "
+                 f"{KLEIN_PIXEL_BUDGET / 1e6:.2f} megapixels a run — fewer frames (-n) or a smaller --size")
+    wf = {
+        "1": {"class_type": "UNETLoader",
+              "inputs": {"unet_name": args.unet, "weight_dtype": "default"}},
+        "2": {"class_type": "CLIPLoader",
+              "inputs": {"clip_name": args.clip, "type": MODELS[args.model]["clip_type"], "device": "default"}},
+        "3": {"class_type": "VAELoader", "inputs": {"vae_name": args.vae}},
+        "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": prompt}},
+        # The distilled model ignores the negative at cfg 1; the base one reads it.
+        "6": ({"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": args.negative}}
+              if args.cfg > 1.0 else {"class_type": "ConditioningZeroOut", "inputs": {"conditioning": ["5", 0]}}),
+        "7": {"class_type": "EmptyFlux2LatentImage",
+              "inputs": {"width": width, "height": height, "batch_size": args.count}},
+        "8": {"class_type": "Flux2Scheduler",
+              "inputs": {"steps": args.steps, "width": width, "height": height}},
+        "9": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": args.sampler}},
+        "12": {"class_type": "RandomNoise", "inputs": {"noise_seed": args.seed}},
+    }
+    positive, negative = ["5", 0], ["6", 0]
+    for at, uploaded in enumerate(refs):
+        n = 30 + at * 5
+        wf[str(n)] = {"class_type": "LoadImage", "inputs": {"image": uploaded}}
+        wf[str(n + 1)] = {"class_type": "ImageScaleToTotalPixels",
+                          "inputs": {"image": [str(n), 0], "upscale_method": "lanczos",
+                                     "megapixels": KLEIN_REF_MEGAPIXELS, "resolution_steps": 16}}
+        wf[str(n + 2)] = {"class_type": "VAEEncode", "inputs": {"pixels": [str(n + 1), 0], "vae": ["3", 0]}}
+        wf[str(n + 3)] = {"class_type": "ReferenceLatent",
+                          "inputs": {"conditioning": positive, "latent": [str(n + 2), 0]}}
+        wf[str(n + 4)] = {"class_type": "ReferenceLatent",
+                          "inputs": {"conditioning": negative, "latent": [str(n + 2), 0]}}
+        positive, negative = [str(n + 3), 0], [str(n + 4), 0]
+    wf["13"] = {"class_type": "CFGGuider",
+                "inputs": {"model": ["1", 0], "positive": positive, "negative": negative, "cfg": args.cfg}}
+    wf["14"] = {"class_type": "SamplerCustomAdvanced",
+                "inputs": {"noise": ["12", 0], "guider": ["13", 0], "sampler": ["9", 0],
+                           "sigmas": ["8", 0], "latent_image": ["7", 0]}}
+    wf["10"] = {"class_type": "VAEDecode", "inputs": {"samples": ["14", 0], "vae": ["3", 0]}}
+    wf["11"] = {"class_type": "PreviewImage", "inputs": {"images": ["10", 0]}}
+    return wf
+
+
+def build_qwen(args, prompt, refs, width, height):
+    """Qwen-Image-Edit-2511 graph, after ComfyUI's own image_qwen_image_edit_2511 template: the
+    references go into the text encoder (which also VAE-encodes them), and the Lightning LoRA
+    runs it in 4 steps at cfg 1. Without the LoRA it wants ~40 steps at cfg 4."""
+    wf = {
+        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": args.unet, "weight_dtype": "default"}},
+        # On the GPU the 8 GB encoder stays resident through sampling and the 20 GB transformer runs on the
+        # ~4 GB left; on the CPU it gets 12 GB.
+        "2": {"class_type": "CLIPLoader",
+              "inputs": {"clip_name": args.clip, "type": MODELS[args.model]["clip_type"], "device": "cpu"}},
+        "3": {"class_type": "VAELoader", "inputs": {"vae_name": args.vae}},
+        "7": {"class_type": "EmptySD3LatentImage",
+              "inputs": {"width": width, "height": height, "batch_size": args.count}},
+    }
+    model = ["1", 0]
+    if args.lora and args.lora_strength > 0:
+        wf["4"] = {"class_type": "LoraLoaderModelOnly",
+                   "inputs": {"model": model, "lora_name": args.lora, "strength_model": args.lora_strength}}
+        model = ["4", 0]
+    wf["8"] = {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": model, "shift": args.shift}}
+    wf["15"] = {"class_type": "CFGNorm", "inputs": {"model": ["8", 0], "strength": 1.0}}
+    for at, uploaded in enumerate(refs):
+        n = 30 + at * 3
+        wf[str(n)] = {"class_type": "LoadImage", "inputs": {"image": uploaded}}
+        wf[str(n + 1)] = {"class_type": "ImageScaleToTotalPixels",
+                          "inputs": {"image": [str(n), 0], "upscale_method": "lanczos",
+                                     "megapixels": QWEN_REF_MEGAPIXELS, "resolution_steps": 16}}
+        wf[str(n + 2)] = {"class_type": "VAEEncode", "inputs": {"pixels": [str(n + 1), 0], "vae": ["3", 0]}}
+    for node, text in (("5", prompt), ("6", args.negative)):
+        # No vae on the encoder: given one, it VAE-encodes every reference at a fixed 1 MP itself, and
+        # two of those beside a 1024x1024 frame overflow to NaN on this GPU. The references go in as
+        # ReferenceLatents at QWEN_REF_MEGAPIXELS instead.
+        inputs = {"clip": ["2", 0], "prompt": text}
+        for at in range(len(refs)):
+            inputs[f"image{at + 1}"] = [str(30 + at * 3), 0]
+        wf[node + "0"] = {"class_type": "TextEncodeQwenImageEditPlus", "inputs": inputs}
+        conditioning = [node + "0", 0]
+        for at in range(len(refs)):
+            ref = f"{node}{at + 1}"
+            wf[ref] = {"class_type": "ReferenceLatent",
+                       "inputs": {"conditioning": conditioning, "latent": [str(30 + at * 3 + 2), 0]}}
+            conditioning = [ref, 0]
+        wf[node] = {"class_type": "FluxKontextMultiReferenceLatentMethod",
+                    "inputs": {"conditioning": conditioning, "reference_latents_method": "index_timestep_zero"}}
+    wf["9"] = {"class_type": "KSampler",
+               "inputs": {"model": ["15", 0], "positive": ["5", 0], "negative": ["6", 0],
+                          "latent_image": ["7", 0], "seed": args.seed, "steps": args.steps, "cfg": args.cfg,
+                          "sampler_name": args.sampler, "scheduler": "simple", "denoise": 1.0}}
+    wf["10"] = {"class_type": "VAEDecode", "inputs": {"samples": ["9", 0], "vae": ["3", 0]}}
+    wf["11"] = {"class_type": "PreviewImage", "inputs": {"images": ["10", 0]}}
+    return wf
+
+
+def build_longcat(args, prompt, refs, width, height):
+    """LongCat-Image-Edit graph, after ComfyUI's image_longcat_image_edit template: one reference, scaled to
+    the output size, is both the encoder's picture and the starting latent, sampled at full denoise."""
+    if len(refs) != 1:
+        sys.exit("longcat redraws exactly one --image")
+    wf = {
+        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": args.unet, "weight_dtype": "default"}},
+        "2": {"class_type": "CLIPLoader",
+              "inputs": {"clip_name": args.clip, "type": MODELS[args.model]["clip_type"], "device": "default"}},
+        "3": {"class_type": "VAELoader", "inputs": {"vae_name": args.vae}},
+        "20": {"class_type": "LoadImage", "inputs": {"image": refs[0]}},
+        "21": {"class_type": "ImageScale", "inputs": {"image": ["20", 0], "upscale_method": "lanczos",
+                                                      "width": width, "height": height, "crop": "disabled"}},
+        "22": {"class_type": "VAEEncode", "inputs": {"pixels": ["21", 0], "vae": ["3", 0]}},
+    }
+    latent = ["22", 0]
+    if args.count > 1:
+        wf["23"] = {"class_type": "RepeatLatentBatch", "inputs": {"samples": latent, "amount": args.count}}
+        latent = ["23", 0]
+    for node, text in (("5", prompt), ("6", args.negative)):
+        wf[node + "0"] = {"class_type": "TextEncodeQwenImageEdit",
+                          "inputs": {"clip": ["2", 0], "prompt": text, "vae": ["3", 0], "image": ["21", 0]}}
+        wf[node + "1"] = {"class_type": "FluxGuidance",
+                          "inputs": {"conditioning": [node + "0", 0], "guidance": LONGCAT_GUIDANCE}}
+        wf[node] = {"class_type": "FluxKontextMultiReferenceLatentMethod",
+                    "inputs": {"conditioning": [node + "1", 0], "reference_latents_method": "index"}}
+    wf["9"] = {"class_type": "KSampler",
+               "inputs": {"model": ["1", 0], "positive": ["5", 0], "negative": ["6", 0], "latent_image": latent,
+                          "seed": args.seed, "steps": args.steps, "cfg": args.cfg, "sampler_name": args.sampler,
+                          "scheduler": "simple", "denoise": 1.0}}
+    wf["10"] = {"class_type": "VAEDecode", "inputs": {"samples": ["9", 0], "vae": ["3", 0]}}
+    wf["11"] = {"class_type": "PreviewImage", "inputs": {"images": ["10", 0]}}
+    return wf
+
+
+def build_omnigen2(args, prompt, refs, width, height):
+    """OmniGen2 graph, after ComfyUI's image_omnigen2_image_edit template: every reference is a
+    ReferenceLatent on both the prompt and the negative, and a dual guider weighs the prompt (cfg) and
+    the references (OMNIGEN2_IMAGE_CFG) separately."""
+    wf = {
+        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": args.unet, "weight_dtype": "default"}},
+        "2": {"class_type": "CLIPLoader",
+              "inputs": {"clip_name": args.clip, "type": MODELS[args.model]["clip_type"], "device": "default"}},
+        "3": {"class_type": "VAELoader", "inputs": {"vae_name": args.vae}},
+        "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": prompt}},
+        "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": args.negative}},
+        "7": {"class_type": "EmptySD3LatentImage", "inputs": {"width": width, "height": height,
+                                                              "batch_size": args.count}},
+        "8": {"class_type": "BasicScheduler",
+              "inputs": {"model": ["1", 0], "scheduler": "simple", "steps": args.steps, "denoise": 1.0}},
+        "9": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": args.sampler}},
+        "12": {"class_type": "RandomNoise", "inputs": {"noise_seed": args.seed}},
+    }
+    cond1, cond2 = ["5", 0], ["6", 0]
+    for at, uploaded in enumerate(refs):
+        n = 30 + at * 5
+        wf[str(n)] = {"class_type": "LoadImage", "inputs": {"image": uploaded}}
+        wf[str(n + 1)] = {"class_type": "ImageScaleToTotalPixels",
+                          "inputs": {"image": [str(n), 0], "upscale_method": "area", "megapixels": 1.0,
+                                     "resolution_steps": 16}}
+        wf[str(n + 2)] = {"class_type": "VAEEncode", "inputs": {"pixels": [str(n + 1), 0], "vae": ["3", 0]}}
+        wf[str(n + 3)] = {"class_type": "ReferenceLatent", "inputs": {"conditioning": cond1, "latent": [str(n + 2), 0]}}
+        wf[str(n + 4)] = {"class_type": "ReferenceLatent", "inputs": {"conditioning": cond2, "latent": [str(n + 2), 0]}}
+        cond1, cond2 = [str(n + 3), 0], [str(n + 4), 0]
+    wf["13"] = {"class_type": "DualCFGGuider",
+                "inputs": {"model": ["1", 0], "cond1": cond1, "cond2": cond2, "negative": ["6", 0],
+                           "cfg_conds": args.cfg, "cfg_cond2_negative": OMNIGEN2_IMAGE_CFG, "style": "regular"}}
+    wf["14"] = {"class_type": "SamplerCustomAdvanced",
+                "inputs": {"noise": ["12", 0], "guider": ["13", 0], "sampler": ["9", 0],
+                           "sigmas": ["8", 0], "latent_image": ["7", 0]}}
+    wf["10"] = {"class_type": "VAEDecode", "inputs": {"samples": ["14", 0], "vae": ["3", 0]}}
+    wf["11"] = {"class_type": "PreviewImage", "inputs": {"images": ["10", 0]}}
+    return wf
+
+
+REF_BUILDERS = {"klein": build_klein, "qwen": build_qwen, "longcat": build_longcat, "omnigen2": build_omnigen2}
+
 
 def build(args, prompt, latent_node, extra=None):
     """Common Z-Image Turbo graph. `latent_node` is the [node_id, slot] feeding KSampler."""
@@ -277,7 +531,7 @@ def build(args, prompt, latent_node, extra=None):
         "1": {"class_type": "UNETLoader",
               "inputs": {"unet_name": args.unet, "weight_dtype": "default"}},
         "2": {"class_type": "CLIPLoader",
-              "inputs": {"clip_name": args.clip, "type": "lumina2", "device": "default"}},
+              "inputs": {"clip_name": args.clip, "type": MODELS[args.model]["clip_type"], "device": "default"}},
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": args.vae}},
         "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": prompt}},
         "8": {"class_type": "ModelSamplingAuraFlow",
@@ -290,14 +544,14 @@ def build(args, prompt, latent_node, extra=None):
         "10": {"class_type": "VAEDecode", "inputs": {"samples": ["9", 0], "vae": ["3", 0]}},
         "11": {"class_type": "PreviewImage", "inputs": {"images": ["10", 0]}},
     }
-    if args.lora_strength > 0:
+    if args.lora and args.lora_strength > 0:
         wf["4"] = {"class_type": "LoraLoaderModelOnly",
                    "inputs": {"model": ["1", 0], "lora_name": args.lora,
                               "strength_model": args.lora_strength}}
         wf["8"]["inputs"]["model"] = ["4", 0]
-    # Turbo runs at cfg 1.0, where the negative branch is ignored; only encode text for it
-    # when the caller has actually raised cfg.
-    if args.negative and args.cfg > 1.0:
+    # Turbo runs at cfg 1.0, where the negative branch is ignored; above it the negative is encoded even
+    # when empty, as Z-Image base's template does — a zeroed one is not the same conditioning.
+    if args.cfg > 1.0:
         wf["6"] = {"class_type": "CLIPTextEncode",
                    "inputs": {"clip": ["2", 0], "text": args.negative}}
     else:
@@ -560,11 +814,13 @@ def record(blobs, name, args, op, prompt, parents):
             "op": op,
             "name": name,
             "file": rel,
-            "model": f"z-image-turbo{'+pixel-lora' if args.lora_strength > 0 else ''}",
+            "model": MODELS[args.model]["label"]
+                     + (f"+{os.path.splitext(args.lora)[0]}" if args.lora and args.lora_strength > 0 else ""),
             "backend": "local",
             "size": f"{w}x{h}",
             "seed": args.seed,
             "steps": args.steps,
+            "cfg": args.cfg,
             "prompt": prompt,
             "parents": parents,
         })
@@ -585,11 +841,17 @@ def cmd_gen(args):
     if not args.no_autostart:
         start_server()
     prompt = args.prompt + (BG_CLAUSE if args.transparent else "")
-    w, h = parse_size(args.size)
-    wf = build(args, prompt, ["7", 0], {
-        "7": {"class_type": "EmptySD3LatentImage",
-              "inputs": {"width": w, "height": h, "batch_size": args.count}},
-    })
+    w, h = parse_size(args.size or "1024x1024")
+    graph = MODELS[args.model]["graph"]
+    if graph == "longcat":
+        sys.exit("longcat only edits: it starts from its --image")
+    if graph in REF_BUILDERS:
+        wf = REF_BUILDERS[graph](args, prompt, [], w, h)
+    else:
+        wf = build(args, prompt, ["7", 0], {
+            "7": {"class_type": "EmptySD3LatentImage",
+                  "inputs": {"width": w, "height": h, "batch_size": args.count}},
+        })
     blobs = run_workflow(wf)
     record(blobs, args.name or slug(args.prompt), args, "gen", prompt, [])
 
@@ -598,21 +860,35 @@ def cmd_edit(args):
     if not args.no_autostart:
         start_server()
     paths = [resolve_image(r) for r in args.image]
-    if len(paths) > 1:
-        sys.exit("local img2img takes exactly one --image")
-    args.denoise = args.strength
-    uploaded = upload_image(paths[0])
     prompt = args.prompt + (BG_CLAUSE if args.transparent else "")
-    extra = {
-        "20": {"class_type": "LoadImage", "inputs": {"image": uploaded}},
-        "21": {"class_type": "VAEEncode", "inputs": {"pixels": ["20", 0], "vae": ["3", 0]}},
-    }
-    latent = ["21", 0]
-    if args.count > 1:
-        extra["24"] = {"class_type": "RepeatLatentBatch",
-                       "inputs": {"samples": latent, "amount": args.count}}
-        latent = ["24", 0]
-    blobs = run_workflow(build(args, prompt, latent, extra))
+    graph, most = MODELS[args.model]["graph"], MODELS[args.model]["refs"]
+    if graph in REF_BUILDERS:
+        # Each draws a fresh image conditioned on the references, so there is no strength;
+        # the output takes the first reference's size unless --size says otherwise.
+        if len(paths) > most:
+            sys.exit(f"{args.model} takes at most {most} --image reference(s)")
+        if args.size:
+            w, h = parse_size(args.size)
+        else:
+            with open(paths[0], "rb") as f:
+                w, h = struct.unpack(">II", f.read(24)[16:24])
+            w, h = max(16, w // 16 * 16), max(16, h // 16 * 16)
+        wf = REF_BUILDERS[graph](args, prompt, [upload_image(p) for p in paths], w, h)
+    else:
+        if len(paths) > 1:
+            sys.exit(f"--model {args.model} redraws exactly one --image")
+        args.denoise = args.strength
+        extra = {
+            "20": {"class_type": "LoadImage", "inputs": {"image": upload_image(paths[0])}},
+            "21": {"class_type": "VAEEncode", "inputs": {"pixels": ["20", 0], "vae": ["3", 0]}},
+        }
+        latent = ["21", 0]
+        if args.count > 1:
+            extra["24"] = {"class_type": "RepeatLatentBatch",
+                           "inputs": {"samples": latent, "amount": args.count}}
+            latent = ["24", 0]
+        wf = build(args, prompt, latent, extra)
+    blobs = run_workflow(wf)
     if args.mask:
         with open(paths[0], "rb") as f:
             original = f.read()
@@ -677,8 +953,15 @@ def parse_size(text):
 
 
 def common_flags(p):
+    p.add_argument("--model", choices=sorted(MODELS), default="klein",
+                   help="klein: FLUX.2 [klein] 4B, up to 2 reference images (default); kleinbase: its "
+                        "undistilled base, 20 steps; qwen, qwen8: Qwen-Image-Edit-2511 fp8 / int8, up to 3, "
+                        "slower; longcat: LongCat-Image-Edit, 1; omnigen2: OmniGen2, 2; "
+                        "zimage: Z-Image Turbo + pixel-art LoRA, one image redrawn at --strength; "
+                        "zimagebase: Z-Image base, 25 steps")
     p.add_argument("--name", help="base filename (default: slug of prompt)")
-    p.add_argument("--size", default="1024x1024", help="WxH, multiples of 16 (default 1024x1024)")
+    p.add_argument("--size", default=None,
+                   help="WxH, multiples of 16 (default 1024x1024; a klein edit takes the first image's)")
     p.add_argument("-n", "--count", type=int, default=1,
                    help="images in one batch — one model load, so far cheaper than N calls")
     p.add_argument("--transparent", action="store_true",
@@ -686,17 +969,20 @@ def common_flags(p):
     p.add_argument("--keep-shadow", action="store_true",
                    help="with --transparent, keep the cast shadow instead of keying it too")
     p.add_argument("--seed", type=int, default=None)
-    p.add_argument("--steps", type=int, default=8, help="turbo model, 8 is the tuned value")
-    p.add_argument("--cfg", type=float, default=1.0)
-    p.add_argument("--negative", default="", help="only used when --cfg > 1")
-    p.add_argument("--sampler", default="res_multistep")
-    p.add_argument("--shift", type=float, default=3.0)
+    p.add_argument("--steps", type=int, default=None,
+                   help="default the --model's own: 4 for klein and qwen, 8 for zimage (distilled), 20-50 for "
+                        "the others")
+    p.add_argument("--cfg", type=float, default=None, help="default the --model's own: 1 when distilled")
+    p.add_argument("--negative", default="", help="read only when --cfg > 1, or by qwen")
+    p.add_argument("--sampler", default=None, help="default euler for klein and qwen, res_multistep for zimage")
+    p.add_argument("--shift", type=float, default=None, help="zimage 3.0, qwen 3.1")
     p.add_argument("--lora-strength", type=float, default=1.0,
-                   help="pixel-art LoRA; 0 disables it")
-    p.add_argument("--unet", default=UNET)
-    p.add_argument("--clip", default=CLIP)
-    p.add_argument("--vae", default=VAE)
-    p.add_argument("--lora", default=LORA)
+                   help="zimage: pixel-art LoRA; qwen: Lightning LoRA (0 needs ~40 --steps at --cfg 4); "
+                        "0 disables it")
+    p.add_argument("--unet", default=None, help="default: the --model's own")
+    p.add_argument("--clip", default=None)
+    p.add_argument("--vae", default=None)
+    p.add_argument("--lora", default=None)
     p.add_argument("--no-autostart", action="store_true",
                    help="fail instead of starting ComfyUI in the toolbox")
 
@@ -712,10 +998,12 @@ def main():
     g.set_defaults(func=cmd_gen, denoise=1.0)
 
     e = sub.add_parser("edit", help="img2img / refine an existing image")
-    e.add_argument("--image", action="append", required=True, help="path, id or name")
+    e.add_argument("--image", action="append", required=True,
+                   help="path, id or name; repeat for several references (klein), "
+                        "named in the prompt as image 1, image 2, ...")
     e.add_argument("-p", "--prompt", required=True)
     e.add_argument("--strength", type=float, default=0.6,
-                   help="how much to redraw, 0..1 (default 0.6)")
+                   help="zimage only: how much to redraw, 0..1 (default 0.6)")
     e.add_argument("--mask", help="PNG whose transparent area is what gets replaced")
     e.add_argument("--feather", type=int, default=2,
                    help="pixels of blend at the mask edge (default 2, 0 for a hard cut)")
@@ -738,6 +1026,12 @@ def main():
     u.set_defaults(func=cmd_up)
 
     args = ap.parse_args()
+    if hasattr(args, "model"):
+        stack = MODELS[args.model]
+        for field in ("unet", "clip", "vae", "steps", "cfg", "sampler", "lora", "shift"):
+            if getattr(args, field) is None:
+                setattr(args, field, stack[field])
+        args.negative = args.negative or stack.get("negative", "")
     if getattr(args, "seed", None) is None and hasattr(args, "steps"):
         args.seed = random.randrange(2**31)
     os.makedirs(OUT_DIR, exist_ok=True)

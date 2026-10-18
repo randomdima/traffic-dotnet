@@ -13,8 +13,8 @@ decides where a new thing goes, and it applies to prose and pictures exactly as 
 
 **All the code is under `src/`**, and a slice is named by its path within it — `core/` is `src/core/`,
 and this page names slices the short way. `assets/`, `towns/` and [docs/](docs/index.md) sit beside
-`src/` at the root, with `raw_assets/` — generated source art the build never reads — and the build's
-own `bin/` and `obj/`.
+`src/` at the root, with `raw_assets/` — where every image came from, which the build never reads — and
+the build's own `bin/` and `obj/`.
 
 - **Code.** `agents/car/`, `world/terrain/`, `app/hud/`. A dependency points **down** the tiers in
   [docs/slice-map.md](docs/slice-map.md), never up, and **there are no cycles**. Where a lower slice
@@ -26,6 +26,10 @@ own `bin/` and `obj/`.
   root one where it is the project's.
 - **Assets.** `assets/` mirrors the code tree: `assets/agents/car/variants/` for what
   `src/agents/car/body/` reads. `towns/` is input rather than an asset and belongs to no slice.
+  **Every image traces to the prompt that made it**: a `.src.json` beside it names the variant kept
+  under `raw_assets/` at the same path, and that variant's frame record holds the prompt, model and
+  inputs. Generate with the remotegen skill, cut, keep and install with `qq sprites`; the rules are
+  [raw_assets/index.md](raw_assets/index.md), and `qq checks` fails an image that traces to nothing.
 - **Numbers.** On `SimConfig`, authored in the nested groups and derived on the root. **A literal in
   behaviour code is a defect.**
 - **Figures flow one way, and only one.** What is *authored* is a raw physical or geometric term — a

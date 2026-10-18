@@ -1,0 +1,18 @@
+Two images are attached. The first is a layout: 9 rail vehicle outlines seen from above, in a 3×3 grid on a flat magenta background, a row each of locomotives, freight wagons and passenger cars. Every outline is the vehicle's true length and width on one shared scale, so they are long thin strips, and the vehicles lie along the track from left to right. A vehicle with a driver's cab has a thick right edge: that is its front. The second image shows finished road vehicles from the same game, in the art style to match. Copy its style only, not its vehicles or colours.
+
+Make one image with exactly the same 3×3 layout as the first image. Inside each outline, draw the rail vehicle described for that cell below, as a top-down sprite for a 2D city game.
+
+Shape comes first:
+- Fill each outline: same length, same width, cab at the thick edge. Never make a vehicle shorter, longer or fatter than its outline, and keep it horizontal.
+- Draw nothing outside the outline: no track, rails, sleepers or ballast.
+- Each vehicle is mirror-symmetric about its long centre line.
+- Inside a vehicle there is no magenta at all.
+
+Rules for every vehicle:
+- Look straight down (orthographic). Only the roof and what stands on it shows: no side walls, no windows along the sides, no wheels, no bogies, no perspective, no tilt, no ground, no shadow.
+- Style: match the style image. Chunky pixel art with crisp hard-edged pixels and no blur. A dark near-black outline about 2 pixels thick. Flat colour with one highlight and one shadow tone. Soft light from the top-left. A cab's windscreen is dark slate blue with one pale glint, seen as a strip at the front edge.
+- Couplers or buffers show as short stubs at both ends, inside the outline.
+- No text, logos, numbers, people or watermark anywhere.
+- Outside the vehicles, keep the background flat pure magenta #FF00FF. No grid lines or frames.
+
+Vehicles, left to right, top to bottom, length × width:

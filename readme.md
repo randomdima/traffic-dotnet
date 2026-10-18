@@ -383,7 +383,7 @@ src/        every line of C#, and nothing else — the nine slices below
 assets/     the art and the .json data read at startup, mirroring the code tree
 towns/      every map's file, <Map>.map — the whole of what a town is carried as; briefs/ holds what a
             brief's map is authored from, and traced/ what a real place's map was imported from
-raw_assets/ generated source art, never read by the build — converted into assets/ first
+raw_assets/ the variants every image was cut from and the prompts that made them, never read by the build
 bin/, obj/  build output — the only folders at the root the project file writes
 ```
 

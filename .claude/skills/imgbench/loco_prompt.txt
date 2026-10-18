@@ -1,0 +1,18 @@
+Two images are attached. The first is a layout: one rail vehicle outline seen from above on a flat magenta background. The outline is the vehicle's true length and width, so it is a long thin strip, and the vehicle lies along the track from left to right. Its thick right edge is the driver's cab: that is its front. The second image shows finished road vehicles from the same game, in the art style to match. Copy its style only, not its vehicles or colours.
+
+Make one image with exactly the same layout as the first image. Inside the outline, draw the rail vehicle described below, as a top-down sprite for a 2D city game.
+
+Shape comes first:
+- Fill the outline: same length, same width, cab at the thick edge. Never make the vehicle shorter, longer or fatter than its outline, and keep it horizontal.
+- Draw nothing outside the outline: no track, rails, sleepers or ballast.
+- The vehicle is mirror-symmetric about its long centre line.
+- Inside the vehicle there is no magenta at all.
+
+Rules:
+- Look straight down (orthographic). Only the roof and what stands on it shows: no side walls, no windows along the sides, no wheels, no bogies, no perspective, no tilt, no ground, no shadow.
+- Style: match the style image. Chunky pixel art with crisp hard-edged pixels and no blur. A dark near-black outline about 2 pixels thick. Flat colour with one highlight and one shadow tone. Soft light from the top-left. A cab's windscreen is dark slate blue with one pale glint, seen as a strip at the front edge.
+- Couplers or buffers show as short stubs at both ends, inside the outline.
+- No text, logos, numbers, people or watermark anywhere.
+- Outside the vehicle, keep the background flat pure magenta #FF00FF. No grid lines or frames.
+
+The vehicle, length × width:

@@ -1,0 +1,37 @@
+Two images are attached. The first is a layout: 9 building footprints seen from above, in a 3×3 grid on a flat magenta background. The second is a finished sheet in the art style to match. Copy its style only, not its layout, shapes or colours.
+
+Make one square image with exactly the same 3×3 layout as the first image. Inside each outline, draw the roof of the building described for that cell below, as a top-down sprite for a 2D city game. Use the highest resolution you can (2048×2048 is ideal). These are large buildings, so use the extra room for crisp detail.
+
+Shape comes first. Before painting a cell, trace its outline exactly, then paint only inside the traced border:
+- Keep every outline's proportions. The outlines are already drawn at the right proportions: match each one's width and height. They differ a lot: two are nearly square, three are long strips three to four and a half times wider than deep, and one is almost four times deeper than wide. Never make an outline squarer, shorter or fatter. Each cell's proportion is given below; check it.
+- Keep the corners as drawn: slightly rounded on most, widely rounded on cell 8.
+- Every edge is straight and square to the others. Never slant, skew or taper an edge to show perspective.
+- Draw nothing outside the outline, not even canopies or shadows.
+- Inside a roof there is no magenta at all.
+
+Follow the list cell by cell, in order. Each cell has its own roof material, and each row starts with a summary of its colours. The tower roofs are all flat, so make each one different: vary where the lift machine rooms, hatches, vents and antennas stand, and add small wear such as patches, puddle stains and drain funnels.
+
+Rules for every cell:
+- Look straight down (orthographic). No perspective, no tilt, no ground, no trees.
+- The thick bottom edge of each outline is the street front. The top edge is the back.
+- Flat roof of a Soviet panel tower block: a low parapet with a light coping runs around the whole edge. Each lift machine room stands as a raised concrete box with a small door. Around them are stairwell exit hatches, square ventilation shafts, TV antennas and drain funnels.
+- Sizes are true metres, width × depth. Keep details true to size: a lift machine room about 3 × 5 m, a hatch or vent shaft about 1 m, an antenna about 2 m across, a garage unit about 3 m wide.
+- Style: match the style image. Clean, flat-shaded cartoon game art, bold dark outlines, muted natural colours, simple readable details, soft light from the top-left.
+- Outside the roofs, keep the background flat pure magenta #FF00FF. No text, numbers, labels, grid lines or frames anywhere.
+
+Cells, left to right, top to bottom:
+
+Row 1 — colours: mid grey, black, light grey
+1. 26 × 16 m (1.6× wider than deep) — tall Soviet panel tower block, flat roof of grey membrane with visible seams, one lift machine room, equipment spread along the middle from left to right
+2. 27 × 19.5 m (1.4× wider than deep) — tall Soviet panel tower block, flat roof of black bitumen with tar seams, one lift machine room off-centre, equipment around it
+3. 44.5 × 13.5 m (3.3× wider than deep) — long tall Soviet panel tower block, flat roof of light grey gravel ballast, two lift machine rooms a third and two thirds of the way along, equipment in a line from left to right
+
+Row 2 — colours: mid grey, black, mid grey
+4. 41 × 17.5 m (2.3× wider than deep) — long tall Soviet panel tower block, flat roof of grey membrane with patched repairs, two lift machine rooms a third and two thirds of the way along, equipment in a line from left to right
+5. 31 × 25 m (1.2× wider than deep) — tall Soviet panel tower block, flat roof of black bitumen, one lift machine room in the middle, equipment around it
+6. 45 × 11.5 m (3.9× wider than deep) — long tall Soviet panel tower block, flat roof of grey membrane, two lift machine rooms a third and two thirds of the way along, equipment in a line from left to right
+
+Row 3 — colours: dark grey, light grey, grey
+7. 25 × 5.5 m (4.5× wider than deep — a thin strip) — narrow link wing between two tall blocks, flat dark grey bitumen roof with a parapet and a few small vent stacks in a line from left to right
+8. 27.5 × 18 m (1.5× wider than deep, corners widely rounded) — tall Soviet panel tower block, flat roof of light grey gravel ballast, its parapet curving around the rounded corners, one lift machine room in the middle, equipment around it
+9. 6 × 22.5 m (3.75× deeper than wide) — row of 7 lock-up garages of a garage cooperative, flat roof of grey slate sheets, split from bottom to top into 7 equal units by low brick parapets running left to right, patched in places, a thin strip of garage doors along the left edge

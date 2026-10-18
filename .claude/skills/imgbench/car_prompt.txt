@@ -1,0 +1,18 @@
+Two images are attached. The first is a layout: 9 car outlines seen from above, in a 3×3 grid on a flat magenta background. Every outline is the car's true length and width on one shared scale, its corners rounded as much as that body type is (tight on a square truck, wide on a round city car), and the thick right edge of each one is the car's nose: every car points to the right. The second image shows finished cars in the art style to match. Copy its style only, not its cars or colours.
+
+Make one image with exactly the same 3×3 layout as the first image. Inside each outline, draw the car described for that cell below, as a top-down sprite for a 2D city game.
+
+Shape comes first:
+- Fill each outline: same length, same width, nose at the thick edge. Never make a car shorter, longer or fatter than its outline. The outline gives the overall shape; shape the bumpers, wheel arches and the two side mirrors within it as that car has them.
+- Draw nothing outside the outline.
+- Each car is mirror-symmetric about its long centre line.
+- Inside a car there is no magenta at all.
+
+Rules for every car:
+- Look straight down (orthographic). No perspective, no tilt, no side panels, no ground, no shadow.
+- Style: match the style image. Chunky pixel art with crisp hard-edged pixels and no blur. A dark near-black outline about 2 pixels thick. Flat colour with one highlight and one shadow tone. Soft light from the top-left. Glass is dark slate blue with one pale glint. Tyre edges peek out at the four corners. Pale headlights at the front, red tail lights at the rear, small orange indicators at the corners.
+- Bonnet, roof and boot read as separate panels, divided by the windscreen and the rear window.
+- No text, logos, brand badges, licence plates, numbers, people or watermark anywhere.
+- Outside the cars, keep the background flat pure magenta #FF00FF. No grid lines or frames.
+
+Cars, left to right, top to bottom, length × width:

@@ -474,6 +474,15 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 
 ## Inconsistencies
 
+- **Building roofs are drawn under the art grid, and nothing in the tree can remake them** (2026-10-18): of the 272
+  prefab sprites under `assets/world/building/prefabs/`, 182 are under 25 px/m against `ArtPixelsPerMetre` 31.5, the
+  median 18 and the coarsest 6.3 (`apartments_deep_20`); `qq art` reports only sheets over their grid. 83 prefabs have
+  no sprite. `qq sprites` now lays, cuts and installs them at the grid; regenerating the set closes it, and `qq art`
+  saying which sheets are under would keep it closed. A 3×3 sheet at 1536×1024 holds the grid only for roofs up to
+  ~13 m, so whether the rest may stay under is _owner_.
+- **`qq sprites cut` keys a cell from its own margin**, not from the frame's measured background: a cell whose roof
+  runs to the edge of its 12 px margin keys from a border that is partly roof. Measuring the key once from the
+  frame's border and handing it to every cell closes it.
 - **Signal heads stand in the middle of a junction cluster** whose boxes are 27–34 m apart, each road between them
   long enough to be a street once both mouths are taken (OdesaOsm 2830,13491, survey junctions 617, 651, 3040 and
   6255), so nothing gathers them (`TracedStreets.Squeezed`) and the short streets hold at bars inside what reads as one
