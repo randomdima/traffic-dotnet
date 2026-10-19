@@ -33,6 +33,7 @@ struct RailCommandRow
 
 const uint RailHandbrake = 1u;
 const uint RailReverse = 2u;
+const uint RailPutDown = 4u;
 
 // TrainVehicle.MostBogies.
 const int RailMostBogies = 4;
@@ -73,11 +74,17 @@ void main()
     uint wagon = gl_GlobalInvocationID.x;
     if (wagon >= world.count) return;
 
+    // ManagedWorld.TakeForAWagon's Place: the host cannot write the cursors on a page, which never sends them.
+    RailCommandRow command = railCommands[wagon];
+    if ((command.flags & RailPutDown) != 0u)
+    {
+        for (int bogie = 0; bogie < RailMostBogies; bogie++) railCursors[wagon * uint(RailMostBogies) + uint(bogie)] = ivec2(RailNowhere, 0);
+    }
+
     int body = world.firstWagonBody + int(wagon);
     if ((filter_[body] & world.enabledBit) == 0u) return;
 
     RailBuildRow build = railBuilds[wagon];
-    RailCommandRow command = railCommands[wagon];
     vec4 p = pose[body];
     vec2 positionM = p.xy;
     vec2 forward = p.zw;

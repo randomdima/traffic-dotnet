@@ -15,9 +15,15 @@ namespace TrafficSimulation.App.DeviceTick;
 /// wheels stands on the track — stepped as <see cref="ManagedWorld"/> steps them, to the bit.
 /// </summary>
 /// <remarks>
+/// <para>
 /// <b>The host writes what a signal asks of a rail vehicle</b> — its pedals, a switch, a wheel put down afresh — where the
 /// pass reads it, between steps: <c>world_signals.comp</c> already binds the sixteen storage buffers a browser lets one
 /// stage have. Where a vehicle is put down and taken out is the signals' own, as for any body.
+/// </para>
+/// <para>
+/// <b>The wheels' cursors are the device's alone</b>, and a put-down is a bit on the vehicle's pedals for the one step
+/// after it rather than a write into them: a page never sends the host's copy of a buffer the kernel writes.
+/// </para>
 /// </remarks>
 internal sealed class DeviceRail
 {
@@ -25,7 +31,8 @@ internal sealed class DeviceRail
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct RailCommandRow(float ThrottleMps2, float BrakeMps2, uint Flags, uint Unused)
     {
-        public const uint Handbrake = 1, Reverse = 2;
+        /// <summary><see cref="PutDown"/>: its wheels found afresh by the nearest track this step, before they are followed.</summary>
+        public const uint Handbrake = 1, Reverse = 2, PutDown = 4;
 
         public static RailCommandRow Of(in DriveCommand command) => new(
             command.ThrottleMps2, command.BrakeMps2, (command.Handbrake ? Handbrake : 0u) | (command.Reverse ? Reverse : 0u), 0u);
@@ -35,6 +42,10 @@ internal sealed class DeviceRail
     readonly GpuBuffer _commands, _cursors, _switches;
     readonly ComputeKernel _kernel;
     readonly BoundSet _set;
+
+    /// <summary>The vehicles whose <see cref="RailCommandRow.PutDown"/> the last step was sent, to take off before the next.</summary>
+    readonly int[] _putDown;
+    int _putDownCount;
 
     public DeviceRail(DeviceHoldings held, WorldLaying laying, GpuBuffer pose, GpuBuffer motion, GpuBuffer mass, GpuBuffer filter, uint pushBytes)
     {
@@ -61,12 +72,14 @@ internal sealed class DeviceRail
         }
 
         var ends = rails.Ends.Length == 0 ? [0] : rails.Ends;
-        _commands = held.Mapped<RailCommandRow>(Math.Max(1, _wagons));
-        _cursors = held.Mapped<RailCursor>(Math.Max(1, _wagons * TrainVehicle.MostBogies));
+        _commands = held.Written<RailCommandRow>(Math.Max(1, _wagons));
         _commands.Span<RailCommandRow>().Clear();
-        _cursors.Span<RailCursor>().Fill(RailCursor.Nowhere);
-        _switches = held.Mapped<uint>(Math.Max(1, rails.SwitchCount));
+        var nowhere = new RailCursor[Math.Max(1, _wagons * TrainVehicle.MostBogies)];
+        Array.Fill(nowhere, RailCursor.Nowhere);
+        _cursors = held.Laid<RailCursor>(nowhere);
+        _switches = held.Written<uint>(Math.Max(1, rails.SwitchCount));
         _switches.Span<uint>().Clear();
+        _putDown = new int[Math.Max(1, _wagons)];
         _kernel = held.Kernel("world_rail.comp", 12, pushBytes);
         _set = _kernel.Bind(
         [
@@ -76,14 +89,37 @@ internal sealed class DeviceRail
         ]);
     }
 
-    /// <summary>A rail vehicle's pedals as the signal leaves them (<see cref="ManagedWorld"/>'s own).</summary>
-    public void Drive(int wagon, in DriveCommand command) => _commands.Span<RailCommandRow>()[wagon] = RailCommandRow.Of(command);
+    /// <summary>A rail vehicle's pedals as the signal leaves them (<see cref="ManagedWorld"/>'s own), a put-down kept.</summary>
+    public void Drive(int wagon, in DriveCommand command)
+    {
+        ref var row = ref _commands.Span<RailCommandRow>()[wagon];
+        var driven = RailCommandRow.Of(command);
+        row = driven with { Flags = driven.Flags | (row.Flags & RailCommandRow.PutDown) };
+    }
 
     /// <summary>A switch set (TRN-9).</summary>
     public void Set(int railSwitch, int position) => _switches.Span<uint>()[railSwitch] = (uint)position;
 
-    /// <summary>A rail vehicle put down afresh: its wheels found again by the nearest track, as the host finds them.</summary>
-    public void PutDown(int wagon) => _cursors.Span<RailCursor>().Slice(wagon * TrainVehicle.MostBogies, TrainVehicle.MostBogies).Fill(RailCursor.Nowhere);
+    /// <summary>A rail vehicle put down afresh: its wheels found again by the nearest track next step, as the host finds them.</summary>
+    public void PutDown(int wagon)
+    {
+        ref var row = ref _commands.Span<RailCommandRow>()[wagon];
+        if ((row.Flags & RailCommandRow.PutDown) != 0) return;
+
+        row = row with { Flags = row.Flags | RailCommandRow.PutDown };
+        _putDown[_putDownCount++] = wagon;
+    }
+
+    /// <summary>
+    /// The put-downs the last step was sent taken off the pedals, before this step's signals are written: never under a
+    /// step in flight, which on Vulkan reads the pedals where the host writes them.
+    /// </summary>
+    public void ForgetThePutDowns()
+    {
+        var rows = _commands.Span<RailCommandRow>();
+        foreach (var wagon in _putDown.AsSpan(0, _putDownCount)) rows[wagon] = rows[wagon] with { Flags = rows[wagon].Flags & ~RailCommandRow.PutDown };
+        _putDownCount = 0;
+    }
 
     /// <summary>Every rail vehicle's wheels stepped, recorded; nothing where the town has none.</summary>
     public void Record(Recording commands, DeviceWorld.WorldPush push)

@@ -13,7 +13,7 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </para>
 /// <para>
 /// <b>What a buffer may be used for is named by what it is</b> — <see cref="Device{T}"/>, <see cref="Room{T}"/>,
-/// <see cref="Mapped{T}"/>, <see cref="Staging{T}"/>, <see cref="Readback{T}"/> — and a caller that wants more of one adds
+/// <see cref="Mapped{T}"/>, <see cref="Written{T}"/>, <see cref="Staging{T}"/>, <see cref="Readback{T}"/> — and a caller that wants more of one adds
 /// its bits rather than naming them over; anything else is made by the caller and handed to <see cref="Own"/>.
 /// </para>
 /// </remarks>
@@ -69,8 +69,17 @@ internal sealed class DeviceHoldings(Vk vk) : IDisposable
     }
 
     /// <summary>Rows a kernel writes straight into memory the host reads.</summary>
+    /// <remarks>
+    /// <b>Never the host's to write</b>: a page sends no such buffer to its device and lands the device's copy over the
+    /// host's after each batch (<c>ComputeBatch.Web.cs</c>), so a write here is lost there while Vulkan keeps it.
+    /// What the host writes for a kernel is <see cref="Written{T}"/>.
+    /// </remarks>
     public GpuBuffer Mapped<T>(int count) where T : unmanaged =>
         Own(vk.CreateBuffer(Bytes<T>(count), BufferUse.Storage, HostAccess.Reads));
+
+    /// <summary>Rows the host writes between steps and a kernel reads, sent ahead of each batch that binds them.</summary>
+    public GpuBuffer Written<T>(int count) where T : unmanaged =>
+        Own(vk.CreateBuffer(Bytes<T>(count), BufferUse.Storage, HostAccess.Writes));
 
     /// <summary>Memory the host writes and a copy takes to the device.</summary>
     public GpuBuffer Staging<T>(int count) where T : unmanaged =>

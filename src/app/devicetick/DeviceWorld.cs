@@ -262,7 +262,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         var (shape, bounds, motionIntoTick) = _solver.Rows;
         var tyres = _tyres.Table;
 
-        _wagonLooks = _held.Mapped<uint>(Math.Max(1, _wagons));
+        _wagonLooks = _held.Written<uint>(Math.Max(1, _wagons));
         _wagonLooks.Span<uint>().Clear();
         var pushBytes = (uint)Marshal.SizeOf<WorldPush>();
         _signalsKernel = _held.Kernel("world_signals.comp", 16, pushBytes);
@@ -578,6 +578,7 @@ internal sealed partial class DeviceWorld : WorldLayer
     /// </remarks>
     protected override void Begin(float dtS, WorldView into, bool readCovers)
     {
+        _rail.ForgetThePutDowns();
         var signals = WriteTheSignals();
         RestTheLinkedAfresh();
         if (dtS != _push.DtS)
