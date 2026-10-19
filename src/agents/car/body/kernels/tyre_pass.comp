@@ -32,13 +32,14 @@ struct TyrePassFigures
     float innerWheelLeastRadiusM;
 };
 
-// How many cars, whether each patch's scrub and each mark's record are handed back — a test's question, which the town
-// never asks — then the pass's figures (DeviceTyres.PassPush).
+// The pass's figures, then how many cars and whether each patch's scrub and each mark's record are handed back — a
+// test's question, which the town never asks (DeviceTyres.PassPush). The figures go first because a page reads this
+// block as a uniform, where Firefox wants a struct member on 16 bytes.
 layout(push_constant) uniform Pass
 {
+    TyrePassFigures figures;
     uint carCount;
     uint handsBack;
-    TyrePassFigures figures;
 } pass;
 
 #define TYRE_FIGURES pass.figures

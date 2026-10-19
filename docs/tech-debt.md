@@ -169,10 +169,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     close it;
   - **nor does `qq web`**: `rail_track.glsl` wrote infinity as `uintBitsToFloat(0x7f800000u)`, naga folded it to a
     literal the browser refuses, and every page stood with `world_rail.comp` invalid and no world step until
-    2026-10-19 — found by reading a shot's log, not by anything failing. The web build now parses every emitted
-    `.wgsl` back through naga (`Kernels.Web.targets`, since `line_reading.glsl`'s `lineNext` left Firefox with no
-    `world_view.comp` on 2026-10-20), but naga is Firefox's validator and not Chrome's, and nothing runs the page in
-    Firefox. `qq web` exiting non-zero on a WebGPU error, and a run in Firefox, close it;
+    2026-10-19 — found by reading a shot's log, not by anything failing. The web build now parses every kernel back
+    through naga as the page compiles it (`Kernels.Web.targets`, since Firefox refused `world_view.comp`'s `lineNext`
+    and `tyre_pass.comp`'s push block on 2026-10-20), but naga is Firefox's validator and not Chrome's, and nothing
+    runs the page in Firefox. `qq web` exiting non-zero on a WebGPU error, and a run in Firefox, close it;
   - **nothing asks whether the device can hold the town's tables**: a buffer past the adapter's
     `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
     promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.

@@ -116,8 +116,9 @@ function kernelWrite(id, offset, data) {
 }
 
 /// naga's WGSL made a page's: the push block a uniform, `@coherent` (which WGSL has not got) dropped, and the loads in
-/// a workgroupUniform… function made workgroupUniformLoads.
-function kernelSource(code) {
+/// a workgroupUniform… function made workgroupUniformLoads. The web build validates kernels in this form
+/// (src/runtime/web/page_kernel.mjs).
+export function kernelSource(code) {
     code = code.replace(/var<immediate>/g, '@group(1) @binding(0) var<uniform>').replace(/@coherent /g, '');
     const workgroup = new Set([...code.matchAll(/var<workgroup>\s+(\w+)\s*:/g)].map(m => m[1]));
     return code.replace(/(fn workgroupUniform\w*\([^)]*\)[^{]*\{)([\s\S]*?\n\})/g, (all, head, body) =>

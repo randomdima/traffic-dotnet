@@ -92,13 +92,15 @@ internal sealed class DeviceTyres : IDisposable
             config.Tyre.LiftedAxleLoadShare, config.Tyre.AckermannLeastSteerRad, config.Tyre.InnerWheelLeastRadiusM);
     }
 
-    /// <summary>The kernel's push constants: how many cars, whether the scrub is written, then the figures.</summary>
+    /// <summary>The kernel's push constants: the figures, then how many cars and whether the scrub is written.</summary>
+    /// <remarks>The figures lead because a page binds this block as a uniform, where a struct member must start on 16
+    /// bytes (tyre_pass.comp).</remarks>
     [StructLayout(LayoutKind.Sequential)]
     internal struct PassPush
     {
+        public Figures Figures;
         public uint CarCount;
         public uint HandsBack;
-        public Figures Figures;
     }
 
     const int WheelsACar = TyreModel.Wheels;

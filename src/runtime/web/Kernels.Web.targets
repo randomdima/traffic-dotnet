@@ -13,12 +13,14 @@
        What naga writes still carries push constants as `var<immediate>`; town.js reads them from a uniform buffer
        instead, and lays each kernel's bindings off the WGSL it is given.
 
-       **What naga writes is parsed back by naga**, and a kernel it refuses fails the build: Firefox validates WGSL
-       with naga, which is stricter than the spec Chrome's Tint keeps to (a function ending in a loop with no break
-       is refused), and a kernel the page refuses is a world that never steps, with nothing failing. -->
+       **The kernel as the page compiles it is parsed back by naga** (page_kernel.mjs, through compute.js's own rewrite),
+       and a kernel it refuses fails the build: Firefox validates WGSL with naga, which is stricter than Chrome's Tint
+       (a function ending in a loop with no break; a uniform's struct member off 16 bytes), and a kernel the page
+       refuses drops every batch it is in, with nothing failing. -->
   <PropertyGroup>
     <Naga Condition="'$(Naga)' == '' and Exists('$(HOME)/.cargo/bin/naga')">$(HOME)/.cargo/bin/naga</Naga>
     <Naga Condition="'$(Naga)' == ''">naga</Naga>
+    <PageCompute>$(MSBuildThisFileDirectory)../../app/web/wwwroot/compute.js</PageCompute>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,9 +30,9 @@
   </ItemGroup>
 
   <Target Name="CompileKernelsToWgsl" BeforeTargets="AssignTargetPaths"
-          Inputs="@(KernelSource);@(KernelInclude)" Outputs="@(KernelSource->'$(IntermediateOutputPath)Kernels/%(Filename)%(Extension).wgsl')">
+          Inputs="@(KernelSource);@(KernelInclude);$(PageCompute);$(MSBuildThisFileDirectory)page_kernel.mjs" Outputs="@(KernelSource->'$(IntermediateOutputPath)Kernels/%(Filename)%(Extension).wgsl')">
     <MakeDir Directories="$(IntermediateOutputPath)Kernels" />
-    <Exec Command="rm -f &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; &amp;&amp; glslc -Dwriteonly= --target-env=vulkan1.1 -I &quot;$(MSBuildThisFileDirectory)../..&quot; &quot;%(KernelSource.FullPath)&quot; -o &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).spv&quot; &amp;&amp; &quot;$(Naga)&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).spv&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; 2&gt;&amp;1 | grep -v NoContraction; test -s &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; &amp;&amp; { &quot;$(Naga)&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; &gt;/dev/null || { rm -f &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot;; false; }; }" />
+    <Exec Command="rm -f &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; &amp;&amp; glslc -Dwriteonly= --target-env=vulkan1.1 -I &quot;$(MSBuildThisFileDirectory)../..&quot; &quot;%(KernelSource.FullPath)&quot; -o &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).spv&quot; &amp;&amp; &quot;$(Naga)&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).spv&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; 2&gt;&amp;1 | grep -v NoContraction; test -s &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; &amp;&amp; { node &quot;$(MSBuildThisFileDirectory)page_kernel.mjs&quot; &quot;$(PageCompute)&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).page.wgsl&quot; &amp;&amp; &quot;$(Naga)&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).page.wgsl&quot; &gt;/dev/null || { rm -f &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot;; false; }; }" />
   </Target>
 
   <Target Name="EmbedKernels" AfterTargets="CompileKernelsToWgsl" BeforeTargets="AssignTargetPaths">
