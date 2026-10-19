@@ -1,0 +1,179 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every rail vehicle's wheels (TRN-8, TRN-9; RailWheels.Step, ManagedWorld.StepTheRailWheels), one thread a vehicle,
+// after the cars' wheels and before the solver's step: each bogie's cursor walked on along the track the switches set,
+// what each wheel spends across and along its rail worked out on the vehicle's own motion in turn, and each impulse spent
+// on its body at its pivot. A vehicle is its own thread's alone, so no two threads write one body. Line for line the
+// host's, `precise` where it rounds twice and every quotient and root rounded.glsl's.
+
+layout(local_size_x = 64) in;
+
+#include "world/town/kernels/world.glsl"
+#include "world/physics/kernels/impulse.glsl"
+
+// One vehicle's wheels and weight (RailBuild): its bogies' pivots ahead of its middle, how many, its mass and its engine.
+struct RailBuildRow
+{
+    vec4 bogiesM;
+    int bogies;
+    float massKg;
+    float tractiveEffortN;
+    float unused;
+};
+
+// Its pedals as last signalled (DeviceWorld.RailCommandRow): throttle, brake, and the handbrake and reverse as bits.
+struct RailCommandRow
+{
+    float throttleMps2;
+    float brakeMps2;
+    uint flags;
+    uint unused;
+};
+
+const uint RailHandbrake = 1u;
+const uint RailReverse = 2u;
+
+// TrainVehicle.MostBogies.
+const int RailMostBogies = 4;
+
+layout(std430, binding = 0) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 1) buffer Motion { vec4 motion[]; };
+layout(std430, binding = 2) readonly buffer Mass { vec2 mass[]; };
+layout(std430, binding = 3) readonly buffer Filter { uint filter_[]; };
+layout(std430, binding = 4) readonly buffer RailBuilds { RailBuildRow railBuilds[]; };
+layout(std430, binding = 5) readonly buffer RailCommands { RailCommandRow railCommands[]; };
+layout(std430, binding = 6) buffer RailCursors { ivec2 railCursors[]; };
+layout(std430, binding = 7) readonly buffer RailPoints { vec4 railPoints[]; };
+layout(std430, binding = 8) readonly buffer RailSegments { ivec4 railSegments[]; };
+layout(std430, binding = 9) readonly buffer RailNodes { ivec4 railNodes[]; };
+layout(std430, binding = 10) readonly buffer RailEnds { int railEnds[]; };
+layout(std430, binding = 11) readonly buffer RailSwitches { uint railSwitches[]; };
+
+#include "world/rail/kernels/rail_track.glsl"
+
+float bogieOf(RailBuildRow build, int bogie)
+{
+    return bogie == 0 ? build.bogiesM.x : bogie == 1 ? build.bogiesM.y : bogie == 2 ? build.bogiesM.z : build.bogiesM.w;
+}
+
+// RailWheels.Turning.
+vec2 turning(float yawRadPerS, vec2 armM) { precise vec2 r = vec2(-yawRadPerS * armM.y, yawRadPerS * armM.x); return r; }
+
+// RailWheels.MassAt.
+float massAt(vec2 inverses, vec2 armM, vec2 direction)
+{
+    float turn = shapeCross(armM, direction);
+    precise float resistance = inverses.x + (inverses.y * turn * turn);
+    return resistance > 0.0 ? roundedQuotient(1.0, resistance) : 0.0;
+}
+
+void main()
+{
+    uint wagon = gl_GlobalInvocationID.x;
+    if (wagon >= world.count) return;
+
+    int body = world.firstWagonBody + int(wagon);
+    if ((filter_[body] & world.enabledBit) == 0u) return;
+
+    RailBuildRow build = railBuilds[wagon];
+    RailCommandRow command = railCommands[wagon];
+    vec4 p = pose[body];
+    vec2 positionM = p.xy;
+    vec2 forward = p.zw;
+    vec2 inverses = mass[body];
+    int bogies = build.bogies;
+
+    vec2 armM[RailMostBogies];
+    vec2 onM[RailMostBogies];
+    vec2 along[RailMostBogies];
+    vec2 spentNs[RailMostBogies];
+    for (int bogie = 0; bogie < bogies; bogie++)
+    {
+        precise vec2 arm = forward * bogieOf(build, bogie);
+        armM[bogie] = arm;
+        precise vec2 pivotM = positionM + arm;
+        vec2 on;
+        vec2 way;
+        uint slot = wagon * uint(RailMostBogies) + uint(bogie);
+        railCursors[slot] = railFollow(railCursors[slot], pivotM, world.railSegments, on, way);
+        onM[bogie] = on;
+        along[bogie] = shapeDot(way, forward) >= 0.0 ? way : -way;
+        spentNs[bogie] = vec2(0.0);
+    }
+
+    vec4 moving = motion[body];
+    vec2 velocity = moving.xy;
+    float yaw = moving.z;
+    for (uint pass = 0u; pass < world.railPasses; pass++)
+    {
+        for (int bogie = 0; bogie < bogies; bogie++)
+        {
+            vec2 arm = armM[bogie];
+            vec2 across = vec2(-along[bogie].y, along[bogie].x);
+            precise vec2 pivotM = positionM + arm;
+            float offM = shapeDot(pivotM - onM[bogie], across);
+            precise vec2 pointMps = velocity + turning(yaw, arm);
+            float acrossMps = shapeDot(pointMps, across);
+            precise float wanted = (-offM * world.railOntoTheLine) - acrossMps;
+            precise float spend = massAt(inverses, arm, across) * wanted;
+            precise vec2 impulseNs = across * spend;
+            precise vec2 gained = impulseNs * inverses.x;
+            velocity += gained;
+            precise float turned = inverses.y * shapeCross(arm, impulseNs);
+            yaw += turned;
+            spentNs[bogie] += impulseNs;
+        }
+    }
+
+    precise float weightN = build.massKg * world.railGravityMps2;
+    precise float loadN = weightN / float(bogies);
+    precise float holdsNs = world.railFriction * loadN * world.dtS;
+    bool braked = (command.flags & RailHandbrake) != 0u || command.brakeMps2 > 0.0;
+    float pullNs = 0.0;
+    if (build.tractiveEffortN > 0.0 && command.throttleMps2 > 0.0 && !braked)
+    {
+        precise float asked = command.throttleMps2 * build.massKg;
+        precise float shared_ = min(asked, build.tractiveEffortN) / float(bogies);
+        precise float spent = shared_ * world.dtS;
+        pullNs = spent * ((command.flags & RailReverse) != 0u ? -1.0 : 1.0);
+    }
+
+    for (int bogie = 0; bogie < bogies; bogie++)
+    {
+        vec2 arm = armM[bogie];
+        vec2 way = along[bogie];
+        float massKg = massAt(inverses, arm, way);
+        precise vec2 pointMps = velocity + turning(yaw, arm);
+        float alongMps = shapeDot(pointMps, way);
+        precise float stopNs = -alongMps * massKg;
+        float impulseNs;
+        if (braked)
+        {
+            impulseNs = clamp(stopNs, -holdsNs, holdsNs);
+        }
+        else
+        {
+            precise float resisting = world.railRolling * loadN * world.dtS;
+            float rollingNs = min(resisting, abs(stopNs));
+            precise float pushed = clamp(pullNs, -holdsNs, holdsNs) - (alongMps >= 0.0 ? rollingNs : -rollingNs);
+            impulseNs = pushed;
+        }
+
+        precise vec2 spent = way * impulseNs;
+        precise vec2 gained = spent * inverses.x;
+        velocity += gained;
+        precise float turned = inverses.y * shapeCross(arm, spent);
+        yaw += turned;
+        spentNs[bogie] += spent;
+    }
+
+    // Spent on the body as the host spends each wheel (PhysicsWorld.ApplyImpulseAt), bogie by bogie at its pivot.
+    for (int bogie = 0; bogie < bogies; bogie++)
+    {
+        precise vec2 atM = positionM + armM[bogie];
+        moving = impulsedAt(moving, positionM, inverses, spentNs[bogie], atM);
+    }
+
+    motion[body] = moving;
+}

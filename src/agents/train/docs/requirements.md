@@ -34,9 +34,10 @@ it and every way one of those shares ground with — the other way of a track ru
 it on the level. A train whose drawn leg shares ground with one still out waits and draws again, so trains
 run at once on legs apart and never meet by construction rather than by a check.
 
-**TRN-6** `P5` **A train comes now and then**, and when is drawn off the town's seed (`SIM-4`): each line
-waits a gap drawn between two figures before its next train, and that train's kind and its leg are drawn as
-it is sent (`SimConfig.Train`). The same town at the same seed runs the same trains.
+**TRN-6** `P5` **A train comes now and then**, and when is drawn off the town's seed (`SIM-4`): a line has a
+train for every lane its tracks lead onto the map by, and each waits a gap drawn between two figures before it
+comes again; its kind and its leg are drawn as it is sent (`SimConfig.Train`). The same town at the same seed
+runs the same trains.
 
 **TRN-7** `P3` **A train off the map is out of the world, and its trip there is a wait, not a run.** Every
 vehicle a line can field is laid once with the town and held out of the world (`AGT-*`'s fixed roster, rule

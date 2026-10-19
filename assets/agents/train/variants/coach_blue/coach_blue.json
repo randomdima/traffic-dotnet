@@ -8,5 +8,6 @@
     3.4
   ],
   "cornerRadiusM": 0.2,
-  "bogiePitchM": 17.0
+  "bogiesM": [8.5, -8.5],
+  "massKg": 58000
 }

@@ -24,11 +24,11 @@ internal static class RibbonCensus
         Console.WriteLine($"  {atlas.PointCount} points, {atlas.EntryCount} entries, {atlas.Bytes / 1048576.0:F1} MiB, " +
                           $"at most {atlas.MostWaysAtAPoint} ways over one point");
 
-        const int Kinds = 5;
-        var pairs = new int[Kinds, Kinds];
-        var marked = new int[Kinds];
-        var most = new int[Kinds];
-        var counted = new int[Kinds];
+        var kinds = Enum.GetValues<WayKind>().Length;
+        var pairs = new int[kinds, kinds];
+        var marked = new int[kinds];
+        var most = new int[kinds];
+        var counted = new int[kinds];
         for (var way = 0; way < ways.Count; way++)
         {
             var kind = (int)ways.KindOf(way);
@@ -43,7 +43,7 @@ internal static class RibbonCensus
         }
 
         Console.WriteLine("  marks per way, by kind — mean, most");
-        for (var kind = 0; kind < Kinds; kind++)
+        for (var kind = 0; kind < kinds; kind++)
         {
             if (counted[kind] == 0) continue;
 
@@ -51,9 +51,9 @@ internal static class RibbonCensus
         }
 
         Console.WriteLine("  pairs sharing ground, by the two kinds");
-        for (var one = 0; one < Kinds; one++)
+        for (var one = 0; one < kinds; one++)
         {
-            for (var other = 0; other < Kinds; other++)
+            for (var other = 0; other < kinds; other++)
             {
                 var count = pairs[one, other] + (one == other ? 0 : pairs[other, one]);
                 if (other < one || count == 0) continue;
@@ -143,7 +143,7 @@ internal static class RibbonCensus
         var pairs = 0;
         for (var way = ways.FirstFootwayWay; way < ways.Count; way++)
         {
-            if (world.IsTheCrossing(way)) continue;
+            if (!ways.IsWalked(way) || world.IsTheCrossing(way)) continue;
 
             foreach (var mark in world.Atlas.Marks.Of(way))
             {

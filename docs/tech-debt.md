@@ -706,14 +706,6 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   states GEN-4f's way in kept on the road and passes with `ParkingIn.TheStopIsDeadAhead` taken out, so what holds the
   rule is Odesa's and River's stuck probes (decision log of the parking slice, 2026-10-16). A fixture street with a
   car park just past a bend closes it.
-- **The pointer names a way's kind one off** (`DebugOverlay.Pointer.cs`, `WayWords`, 2026-10-19): the table has five
-  words for `WayKind`'s four and is indexed by the kind, so a footway reads "bay way" and a mitre "footway". Dropping
-  "bay way" (a bay is a `Lane`) closes it.
-- **`SimConfig.Rail.RunOffM` cites a check that does not exist** (2026-10-19): its doc says a train longer than the
-  run-off is refused by `TrainFleet`, and there is no such type, so nothing compares the longest train — 173.8 m, an
-  intercity — or the warning reach against it. `Trains.Send` also starts a train twice the warning reach short of the
-  edge, 616 m at intercity speed, which the exam track's 600 m clamps. A lay-time comparison of the run-off with the
-  longest train plus the warning reach at its line's speed closes it.
 - **A chain of links is not solved whole in a step** (SOL-38, 2026-10-19; the owner asked it kept track of): the links
   are Gauss–Seidel rows, so a pull on the head of ten bodies on nine bars leaves the head at 7.0 m/s of a common 5.0
   after the sixteen passes, and the chain moves as one only some ticks later (`LinkTests`). A train therefore stretches

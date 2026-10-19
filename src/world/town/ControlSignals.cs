@@ -15,7 +15,11 @@ internal enum ControlAction : ushort
     /// <summary>A walker's aim (x, y); flags <see cref="ControlSignal.Moving"/>, <see cref="ControlSignal.OnFeet"/>, <see cref="ControlSignal.Faces"/>. Kept until the next.</summary>
     Walk,
 
-    /// <summary>A body put down at (x, y) facing a heading, at rest and back in the world (<see cref="PhysicsWorld.Release"/>).</summary>
+    /// <summary>
+    /// A body put down at (x, y) facing a heading, moving along it at a speed — a rail vehicle put on its run-in at its
+    /// line's (TRN-7), every other body at rest — and back in the world (<see cref="PhysicsWorld.Release"/>); a rail
+    /// vehicle's look in its flags, for the world to draw.
+    /// </summary>
     Place,
 
     /// <summary>A body taken out of the world into a container (<see cref="PhysicsWorld.Contain"/>).</summary>
@@ -43,11 +47,13 @@ internal enum ControlAction : ushort
     Follow,
 
     /// <summary>
-    /// A wagon put at (x, y) facing a heading and moving along it at a speed, and back in the world if it was out of it
-    /// (<see cref="PhysicsWorld.Run"/>, TRN-2); the look it wears in its flags, for the world to draw. Sent every tick its
-    /// train is on the map.
+    /// A rail vehicle coupled behind the one whose agent is the first parameter's bits, or uncoupled where that is −1: the
+    /// solver's bar between the two coupler heads (SOL-38).
     /// </summary>
-    Run,
+    Couple,
+
+    /// <summary>A switch set (TRN-9): its number in the first parameter's bits, its position in the flags. Any agent may name it.</summary>
+    Switch,
 }
 
 /// <summary>
@@ -79,13 +85,17 @@ internal readonly record struct ControlSignal(int Agent, ControlAction Action, u
         agent, ControlAction.Walk, (ushort)((moving ? Moving : 0) | (onFeet ? OnFeet : 0) | (faces ? Faces : 0)),
         new Vector4(aimM, 0f, 0f));
 
-    public static ControlSignal Place(int agent, Vector2 atM, float headingRad) =>
-        new(agent, ControlAction.Place, 0, new Vector4(atM, headingRad, 0f));
+    public static ControlSignal Place(int agent, Vector2 atM, float headingRad, float speedMps = 0f, int look = 0) =>
+        new(agent, ControlAction.Place, (ushort)look, new Vector4(atM, headingRad, speedMps));
 
     public static ControlSignal Contain(int agent) => new(agent, ControlAction.Contain, 0, default);
 
-    public static ControlSignal Run(int agent, Vector2 atM, float headingRad, float speedMps, int look) =>
-        new(agent, ControlAction.Run, (ushort)look, new Vector4(atM, headingRad, speedMps));
+    /// <param name="ahead">The agent of the rail vehicle it is coupled behind, or −1 to uncouple it.</param>
+    public static ControlSignal Couple(int agent, int ahead) =>
+        new(agent, ControlAction.Couple, 0, new Vector4(BitConverter.Int32BitsToSingle(ahead), 0f, 0f, 0f));
+
+    public static ControlSignal Switch(int agent, int railSwitch, int position) =>
+        new(agent, ControlAction.Switch, (ushort)position, new Vector4(BitConverter.Int32BitsToSingle(railSwitch), 0f, 0f, 0f));
 
     public static ControlSignal Layer(int agent, CollisionLayer layer) => new(agent, ControlAction.Layer, (ushort)layer, default);
 
@@ -112,7 +122,7 @@ internal readonly record struct ControlSignal(int Agent, ControlAction Action, u
     public DriveCommand Command => new(
         Params.X, Params.Y, Params.Z, (Flags & Handbrake) != 0, (Flags & Reverse) != 0);
 
-    /// <summary>The tractor's agent a <see cref="ControlAction.Tow"/> names, or −1.</summary>
+    /// <summary>The tractor's agent a <see cref="ControlAction.Tow"/> names, the vehicle ahead a <see cref="ControlAction.Couple"/> does, or −1; and the switch a <see cref="ControlAction.Switch"/> sets.</summary>
     public int Tractor => BitConverter.SingleToInt32Bits(Params.X);
 }
 

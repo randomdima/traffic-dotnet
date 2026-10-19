@@ -22,6 +22,9 @@ internal enum WayKind : byte
 
     /// <summary>The mitre between two stretches of pavement, which is a footway's join.</summary>
     Mitre,
+
+    /// <summary>A rail lane: one segment of track as a train runs it one way (RAIL-9).</summary>
+    Rail,
 }
 
 /// <summary>
@@ -41,8 +44,8 @@ internal enum WayKind : byte
 /// <para>
 /// <b>The blocks are in this order and the order is load-bearing</b>: the carriageway's lanes are numbered
 /// first so that a lane and its way are the same integer, and the connectors follow so that a connector's id
-/// is an offset from the lane count. The pavement is last because nothing on the road needs to know it is
-/// there. <b>A bay is a lane</b> (GEN-53), numbered with the rest.
+/// is an offset from the lane count. The pavement follows because nothing on the road needs to know it is
+/// there, and the railway's lanes last, for the same reason. <b>A bay is a lane</b> (GEN-53), numbered with the rest.
 /// </para>
 /// <para>
 /// <b>What is handed over is lengths and never networks</b> (SIM-7). The road is the lowest thing that can
@@ -56,29 +59,33 @@ internal sealed class TownWays
     readonly int _firstConnector;
     readonly int _firstFootway;
     readonly int _firstMitre;
+    readonly int _firstRail;
 
     readonly float[] _lengthM;
 
     TownWays(
         int laneCount, int connectorCount, ReadOnlySpan<float> laneLengthM, ReadOnlySpan<float> connectorLengthM,
-        ReadOnlySpan<float> footwayLengthM, ReadOnlySpan<float> mitreLengthM)
+        ReadOnlySpan<float> footwayLengthM, ReadOnlySpan<float> mitreLengthM, ReadOnlySpan<float> railLengthM)
     {
         _firstConnector = laneCount;
         _firstFootway = laneCount + connectorCount;
         _firstMitre = _firstFootway + footwayLengthM.Length;
+        _firstRail = _firstMitre + mitreLengthM.Length;
 
-        _lengthM = new float[_firstMitre + mitreLengthM.Length];
+        _lengthM = new float[_firstRail + railLengthM.Length];
         laneLengthM.CopyTo(_lengthM);
         connectorLengthM.CopyTo(_lengthM.AsSpan(_firstConnector));
         footwayLengthM.CopyTo(_lengthM.AsSpan(_firstFootway));
         mitreLengthM.CopyTo(_lengthM.AsSpan(_firstMitre));
+        railLengthM.CopyTo(_lengthM.AsSpan(_firstRail));
     }
 
     /// <summary>
-    /// <b>The whole town's ways</b>: the road's and the pavement's, in the one numbering everything
+    /// <b>The whole town's ways</b>: the road's, the pavement's and the railway's, in the one numbering everything
     /// downstream reads.
     /// </summary>
-    public static TownWays Of(RoadGraph roads, ReadOnlySpan<float> footwayLengthM, ReadOnlySpan<float> mitreLengthM)
+    public static TownWays Of(
+        RoadGraph roads, ReadOnlySpan<float> footwayLengthM, ReadOnlySpan<float> mitreLengthM, ReadOnlySpan<float> railLengthM = default)
     {
         // Laid once with the town, so the array is the standing cost of having a table at all.
         var connectorLengthM = new float[roads.ConnectorCount];
@@ -86,13 +93,13 @@ internal sealed class TownWays
 
         return new TownWays(
             roads.LaneCount, roads.ConnectorCount, roads.LaneLengthM, connectorLengthM, footwayLengthM,
-            mitreLengthM);
+            mitreLengthM, railLengthM);
     }
 
     /// <summary>
     /// <b>The road's ways alone</b> — for a fixture that stands a carriageway and nothing else. The town
-    /// itself always has the pavement's two blocks, and they are empty here rather than absent, so that
-    /// everything reading a way number reads the same numbering either way.
+    /// itself always has the pavement's two blocks and the railway's, and they are empty here rather than absent, so
+    /// that everything reading a way number reads the same numbering either way.
     /// </summary>
     public static TownWays OfTheRoad(RoadGraph roads) => Of(roads, [], []);
 
@@ -103,7 +110,7 @@ internal sealed class TownWays
     /// </summary>
     public static int WayOfRoadConnector(int laneCount, int connector) => laneCount + connector;
 
-    /// <summary>Where the pavement's two blocks begin: every way from here on is walked.</summary>
+    /// <summary>Where the pavement's two blocks begin: every way from here to the railway's is walked.</summary>
     public int FirstFootwayWay => _firstFootway;
 
     public int Count => _lengthM.Length;
@@ -118,10 +125,17 @@ internal sealed class TownWays
         way < _firstConnector ? WayKind.Lane
         : way < _firstFootway ? WayKind.Connector
         : way < _firstMitre ? WayKind.Footway
-        : WayKind.Mitre;
+        : way < _firstRail ? WayKind.Mitre
+        : WayKind.Rail;
 
-    /// <summary>Whether this way is one the town's traffic drives, as against one it walks.</summary>
+    /// <summary>Whether this way is one the town's road traffic drives, as against one it walks or a train runs.</summary>
     public bool IsDriven(int way) => way < _firstFootway;
+
+    /// <summary>Whether this way is walked: a footway or a mitre.</summary>
+    public bool IsWalked(int way) => way >= _firstFootway && way < _firstRail;
+
+    /// <summary>How many rail lanes there are, the last block.</summary>
+    public int RailCount => _lengthM.Length - _firstRail;
 
     /// <summary>A carriageway lane's own way number. The lanes are numbered first, so the two are one integer.</summary>
     public int OfRoadLane(int lane) => lane;
@@ -134,6 +148,11 @@ internal sealed class TownWays
 
     /// <summary>And the mitre between two of them, named by the walking network's own turn slot.</summary>
     public int OfMitre(int slot) => _firstMitre + slot;
+
+    /// <summary>A rail lane's way, named by the rail graph's own lane number.</summary>
+    public int OfRail(int lane) => _firstRail + lane;
+
+    public int RailLaneOf(int way) => way - _firstRail;
 
     /// <summary>The trip back, for a caller holding a way it already knows the kind of.</summary>
     public int RoadLaneOf(int way) => way;

@@ -8,8 +8,8 @@ on it is [agents/train](../../../agents/train/docs/requirements.md).
 **RAIL-2** `P6` **The railway is a network of tracks, every loose end of it past an edge of the map**
 (`TRN-1`), and a track is never bent tighter than the least radius a railway is laid round (`SimConfig.Rail`). A
 map holds its tracks as lines (`TownMap.Rails`), each named for the **line** it belongs to — two tracks of one
-railway side by side are one line, which fields one train at a time — and tracks meet only end to end or end on
-line: a switch stands wherever they do, and nothing about it is stored (`TRN-9`).
+railway side by side are one line, whose trains run the both of them (`TRN-6`) — and tracks meet only end to end or
+end on line: a switch stands wherever they do, and nothing about it is stored (`TRN-9`).
 
 **RAIL-9** `P4` **A track is a lane of its own kind, one each way it is run**: routed over by a train as a road
 lane is by a car, claimed as one, and laid as ground of its own (`RAIL-4`). Two ways over one track, and two tracks

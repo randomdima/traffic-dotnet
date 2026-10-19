@@ -1,9 +1,9 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// The wagons' part of the shallow state handed back behind every step (WorldView.Wagons; ManagedWorld.WriteTheView), one
-// thread a wagon: where its body is, how it points, the look it was last signalled to wear, and whether it is in the
-// world at all (TRN-7).
+// The rail vehicles' part of the shallow state handed back behind every step (WorldView.Wagons;
+// ManagedWorld.WriteTheView), one thread a vehicle: where its body is, how it points and moves, the look it was put down
+// in, and whether it is in the world at all (TRN-7).
 
 layout(local_size_x = 64) in;
 
@@ -14,6 +14,7 @@ layout(std430, binding = 1) readonly buffer HeadingB { float headingRad[]; };
 layout(std430, binding = 2) readonly buffer Filter { uint filter_[]; };
 layout(std430, binding = 3) readonly buffer WagonLooks { uint wagonLooks[]; };
 layout(std430, binding = 4) writeonly buffer WagonViews { WagonViewRow wagonViews[]; };
+layout(std430, binding = 5) readonly buffer Motion { vec4 motion[]; };
 
 void main()
 {
@@ -22,5 +23,6 @@ void main()
 
     int body = world.firstWagonBody + int(wagon);
     uint inWorld = (filter_[body] & world.enabledBit) != 0u ? WagonInWorld : 0u;
-    wagonViews[wagon] = WagonViewRow(pose[body].xy, headingRad[body], (wagonLooks[wagon] & 0xffffu) | inWorld);
+    vec4 moving = motion[body];
+    wagonViews[wagon] = WagonViewRow(pose[body].xy, headingRad[body], (wagonLooks[wagon] & 0xffffu) | inWorld, moving.xy, moving.z, 0.0);
 }

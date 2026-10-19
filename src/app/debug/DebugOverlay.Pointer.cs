@@ -560,7 +560,7 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>What each kind of way is called on a card, by <see cref="WayKind"/>.</summary>
-    static readonly string[] WayWords = ["lane", "join", "bay way", "footway", "corner"];
+    static readonly string[] WayWords = ["lane", "join", "footway", "corner", "track"];
 
     /// <summary>
     /// What each rung of the ladder is called on a card, by <see cref="ClaimPriority"/>. <b>A table and not the

@@ -11,7 +11,7 @@ internal enum BodyKind : byte
     Person,
     Car,
 
-    /// <summary>A train's wagon (TRN-3): put where its train is each tick, and moved by nothing else.</summary>
+    /// <summary>A rail vehicle (TRN-3): a body on its own wheels, on the trains' roster.</summary>
     Train,
 }
 
@@ -216,43 +216,6 @@ internal sealed partial class PhysicsWorld
         positionM, headingRad, new Vector2(_config.Car.LengthM * 0.5f, _config.Car.WidthM * 0.5f),
         cornerRadiusM: 0f, _config.Car.MassKg);
 
-    /// <summary>
-    /// <b>A train's wagon</b> (TRN-3, TRN-7): a rounded box of unbounded mass — no inverse mass and no inverse inertia, so a
-    /// contact moves only what it meets — laid out of the world, and put into it by <see cref="Run"/>.
-    /// </summary>
-    public BodyId AddWagon(Vector2 halfSizeM, float cornerRadiusM)
-    {
-        var body = Add(
-            Vector2.Zero, 0f, halfSizeM - new Vector2(cornerRadiusM), cornerRadiusM, CollisionLayer.Train,
-            BodyFlags.Enabled | BodyFlags.RotationLocked, massKg: 0f);
-
-        _dynamicCount++;
-        Join(body.Index);
-        Contain(body);
-        return body;
-    }
-
-    /// <summary>
-    /// <b>A wagon put where its train is, moving as its train does</b> (TRN-2): its pose written and its motion set, and
-    /// back in the world if it was out of it. Nothing the step does to it is kept past the next of these, so the solver
-    /// moves what it meets and never the wagon.
-    /// </summary>
-    public void Run(BodyId body, Vector2 atM, float headingRad, Vector2 velocityMps)
-    {
-        var index = body.Index;
-        Place(index, atM, headingRad);
-        _velocityMps[index] = velocityMps;
-        _yawRateRadPerS[index] = 0f;
-        if ((_flags[index] & BodyFlags.Enabled) != 0)
-        {
-            Wake(index);
-            return;
-        }
-
-        _flags[index] |= BodyFlags.Enabled;
-        Join(index);
-    }
-
     /// <summary>A prop: a static shape with no core, which is the disc its canopy is.</summary>
     public BodyId AddStaticDisc(Vector2 centreM, float radiusM) => AddStatic(centreM, 0f, Vector2.Zero, radiusM);
 
@@ -312,15 +275,15 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>
-    /// And back out, at the place its container put it down. The pose is written before the body is
-    /// enabled, or it re-enters the broad phase where it went in and the solver sees a body teleport
-    /// across the town.
+    /// And back out, at the place its container put it down — at rest, or moving as it is put down: a train put back on
+    /// its run-in at its line's speed (TRN-7). The pose is written before the body is enabled, or it re-enters the broad
+    /// phase where it went in and the solver sees a body teleport across the town.
     /// </summary>
-    public void Release(BodyId body, Vector2 atM, float headingRad)
+    public void Release(BodyId body, Vector2 atM, float headingRad, Vector2 velocityMps = default)
     {
         var index = body.Index;
         Place(index, atM, headingRad);
-        _velocityMps[index] = Vector2.Zero;
+        _velocityMps[index] = velocityMps;
         _yawRateRadPerS[index] = 0f;
         _flags[index] |= BodyFlags.Enabled;
         Join(index);

@@ -1,5 +1,22 @@
 # The train — decision log
 
+## 2026-10-19 — how the vehicles, the claim and the crossings were built
+
+- **A rail vehicle is an agent past the roster, not a car of the fleet.** It is a body like a car's — mass, its own
+  wheels, the solver's couplings, every step on the device as on the host — but a car of the fleet is read by parking,
+  lamps, wrecks, road routes and the road's line reading, none of which a rail vehicle has. Its driver is its train's,
+  run every tick for the few trains a town has (`Trains`), rather than a turn of its own.
+- **A crossing keeps its own hold, fed from the real trains.** A train's claim reaching a road through the marks would be
+  a secondary claim over the crossing, and a secondary claim is refused by no body: a car already standing on the
+  crossing when it closed would be held on the track, against `RAIL-6`. The crossing's hold ends at the first body on its
+  approach, as before, and is laid off where each train actually is on each track its leg runs, a warning ahead of its
+  front. The train's own claim lies on its rail lanes alone.
+- **A train a way onto the map.** A double track's two ways share no ground, so a line has a train for each lane its
+  tracks lead onto the map by, each with its own pool and clock (`TRN-6`), and two run at once where their legs keep
+  apart (`TRN-5`).
+- **What a locomotive pulls with is its own file's** (`tractiveEffortN`), as its mass and its bogies are: a figure of the
+  vehicle and not of the town.
+
 ## 2026-10-19 — a train is vehicles on rail lanes, coupled by the solver's link
 
 **The owner asked for working trains, not a scripted event**: "they are basically just cars towing each other with

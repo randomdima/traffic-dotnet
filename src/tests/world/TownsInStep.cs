@@ -31,5 +31,15 @@ internal static class TownsInStep
             var otherBody = (otherPeople.PositionM[person], otherPeople.VelocityMps[person], otherPeople.HeadingRad[person], other.WalkHold(person));
             if (!body.Equals(otherBody)) unlike.Add($"tick {tick} walker {person}: {body} against {otherBody}");
         }
+
+        var wagons = one.World.View.Wagons;
+        var otherWagons = other.World.View.Wagons;
+        for (var wagon = 0; wagon < wagons.Length; wagon++)
+        {
+            var (row, otherRow) = (wagons[wagon], otherWagons[wagon]);
+            var stands = (row.PositionM, row.HeadingRad, row.VelocityMps, row.YawRateRadPerS, row.Flags);
+            var otherStands = (otherRow.PositionM, otherRow.HeadingRad, otherRow.VelocityMps, otherRow.YawRateRadPerS, otherRow.Flags);
+            if (!stands.Equals(otherStands)) unlike.Add($"tick {tick} rail vehicle {wagon}: {stands} against {otherStands}");
+        }
     }
 }

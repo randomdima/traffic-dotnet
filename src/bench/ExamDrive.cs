@@ -541,6 +541,7 @@ internal sealed class ExamDrive
         {
             LaneRoster.Signal => $"light stretch {occupant}",
             LaneRoster.Crossing => $"level crossing stretch {occupant}",
+            LaneRoster.Rail => $"train {occupant}",
             LaneRoster.Walking => occupant < _walkers.Length
                 ? $"walker {_walkers[occupant].Walker} of card {_walkers[occupant].Card}"
                 : $"walker {occupant}, staged by no card",

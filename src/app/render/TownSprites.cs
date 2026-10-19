@@ -280,7 +280,7 @@ internal sealed class TownSprites
         return new SpriteRoom(
             config.Marks.Capacity + ScenerySprites.CapacityFor(plan, config.View.SceneryMostDrawn),
             StandingSprites.CapacityFor(plan),
-            plan.Spawns.Count + carSprites + SignalHeads.MostFor(plan) + Trains.WagonsFor(plan.Rails, config.Train)
+            plan.Spawns.Count + carSprites + SignalHeads.MostFor(plan) + Trains.WagonsFor(RailGraph.Of(plan.Rails, plan.WorldSizeM), config.Train)
             + (2 * LevelCrossings.Of(plan, config).Crossings * CrossingSprites.EachGear),
             Array.Exists(plan.Roads.Level, static level => level != CityPlan.RoadArrays.Ground) ? carSprites : 0,
             Math.Max(1, config.Marks.Capacity),

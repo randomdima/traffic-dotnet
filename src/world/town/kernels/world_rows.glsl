@@ -27,7 +27,6 @@ const uint SignalTow = 7u;
 const uint SignalClearWheels = 8u;
 const uint SignalShow = 9u;
 const uint SignalFollow = 10u;
-const uint SignalRun = 11u;
 
 // ControlSignal's flags.
 const uint DriveHandbrake = 1u;
@@ -111,13 +110,16 @@ const uint ViewFrozenThroughLastStep = 2u;
 // world_view.comp's mode bit: the pass is the step's own, and keeps what the step settled (DeviceWorld.ViewStepped).
 const uint ViewStepped = 2u;
 
-// A wagon's shallow state handed back (WagonView): where it is, how it points, the look it was last signalled to wear in
-// the low half of its flags and whether it is in the world above that.
+// A rail vehicle's shallow state handed back (WagonView): where it is, how it points, the look it was put down in in the
+// low half of its flags and whether it is in the world above that, and how it moves.
 struct WagonViewRow
 {
     vec2 positionM;
     float headingRad;
     uint flags;
+    vec2 velocityMps;
+    float yawRateRadPerS;
+    float unused;
 };
 
 const uint WagonInWorld = 0x10000u;

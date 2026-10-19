@@ -40,7 +40,7 @@ internal sealed partial class TownWorld
 
             return new WorldLaying(_config, _plan.WorldSizeM, Statics, _atlas, WheelGrounds, _builds, cars, walkers, _roads)
             {
-                Wagons = WagonsLaid,
+                Wagons = WagonsLaid, Rails = _rails,
             };
         }
     }

@@ -111,12 +111,20 @@ void takeAnEvent(WorldSignal s)
 
     if (action == SignalPlace)
     {
-        // p01 where, p23 the rotation the host worked out of p45.x, the heading (PhysicsWorld.Release).
+        // p01 where, p23 the rotation the host worked out of p45.x, the heading, and p45.y the speed it is put down moving
+        // along that heading at — nought but for a rail vehicle put on its run-in (PhysicsWorld.Release).
         pose[body] = vec4(s.p01, s.p23);
         headingRad[body] = s.p45.x;
         vec2 half_ = halfBounds(s.p23, shape[body]);
         bounds[body] = vec4(s.p01 - half_, s.p01 + half_);
         still(body, car);
+        if (s.p45.y != 0.0)
+        {
+            precise vec2 velocityMps = s.p23 * s.p45.y;
+            motion[body] = vec4(velocityMps, 0.0, 0.0);
+            motionIntoTick[body] = motion[body];
+        }
+
         thaw(body, car);
         filter_[body] |= world.enabledBit;
         if (car >= 0)
@@ -134,21 +142,6 @@ void takeAnEvent(WorldSignal s)
             walkers[walker].aimM = s.p01;
         }
 
-        return;
-    }
-
-    if (action == SignalRun)
-    {
-        // A wagon (PhysicsWorld.Run): p01 where, p23 the rotation the host worked out of p45.x, the heading, and p45.y the
-        // speed it runs along that heading at — the motion it carries into the step as well as through it.
-        pose[body] = vec4(s.p01, s.p23);
-        headingRad[body] = s.p45.x;
-        vec2 half_ = halfBounds(s.p23, shape[body]);
-        bounds[body] = vec4(s.p01 - half_, s.p01 + half_);
-        motion[body] = vec4(s.p23 * s.p45.y, 0.0, 0.0);
-        motionIntoTick[body] = motion[body];
-        thaw(body, car);
-        filter_[body] |= world.enabledBit;
         return;
     }
 

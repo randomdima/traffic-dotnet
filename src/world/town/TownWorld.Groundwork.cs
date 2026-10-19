@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using TrafficSimulation.Agents.TrafficLight.Body;
 using TrafficSimulation.Agents.TrafficLight.Control;
+using TrafficSimulation.Agents.Train.Body;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Parking;
+using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 using TrafficSimulation.World.Statics;
@@ -79,6 +81,11 @@ internal sealed partial class TownWorld
         public double WalkingMs { get; private set; }
 
         public TownWays Ways { get; private set; } = null!;
+
+        /// <summary>The railway as a network (RAIL-9, <see cref="RailGraph"/>), and its lanes as the town's ways are laid from.</summary>
+        public RailGraph Rails { get; private set; } = null!;
+
+        public RailWayLines RailLines { get; private set; } = null!;
 
         public LaneFurniture Furniture { get; private set; } = null!;
 
@@ -159,7 +166,9 @@ internal sealed partial class TownWorld
             // <b>And then the one table all of them are numbered in</b> (TER-4c.2, <see cref="TownWays"/>). It is
             // laid last of the networks because it is laid over them: what it takes from each is a run of
             // lengths, so no network below it learns that the others are there.
-            Ways = TownWays.Of(Roads, PavementLengthsM(Walking, out var mitreLengthM), mitreLengthM);
+            Rails = RailGraph.Of(plan.Rails, plan.WorldSizeM);
+            RailLines = Rails.WayLines(TrainCatalog.Shared.RibbonWidthM(config.Rail));
+            Ways = TownWays.Of(Roads, PavementLengthsM(Walking, out var mitreLengthM), mitreLengthM, RailLines.LengthsM());
             Furniture = LaneFurniture.Project(Bars, Roads);
             CrossingEdges = CrossingEdges.Of(Zebras, Walking.Foot, config.Grid.Main);
             SignalHolds = SignalHolds.Of(Signals, Bars, CrossingEdges, Roads, Ways);
@@ -183,7 +192,7 @@ internal sealed partial class TownWorld
             yield return OpenWatch.Passed("town: collected before the atlas");
 
             var atlasAt = Stopwatch.GetTimestamp();
-            Lines = new WayLines(Roads, Walking, Ways, CrossingEdges, config);
+            Lines = new WayLines(Roads, Walking, Ways, CrossingEdges, config, RailLines);
             void AfterTheMarks()
             {
                 OpenWatch.Passed("town: the atlas's marks");

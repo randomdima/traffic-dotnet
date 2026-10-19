@@ -3,9 +3,11 @@ using System.Runtime.InteropServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Control;
+using TrafficSimulation.Agents.Train.Body;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -139,11 +141,25 @@ internal sealed class ManagedWorld : WorldLayer
     /// <summary>The motion each car and walker carried into the step: what a contact is read against (phase 5).</summary>
     readonly Vector2[] _carIntoMps, _walkerIntoMps;
 
-    /// <summary>Each wagon's body (TRN-7), the motion it carried into the step, and the look it was last signalled to wear.</summary>
+    /// <summary>
+    /// Each rail vehicle's body (TRN-7), the motion it carried into the step, the look it was put down in, its wheels and
+    /// weight, the command it was last signalled and where each of its wheels stands on the railway (TRN-9).
+    /// </summary>
     readonly BodyId[] _wagonBody;
 
     readonly Vector2[] _wagonIntoMps;
     readonly ushort[] _wagonLook;
+    readonly RailBuild[] _railBuild;
+    readonly DriveCommand[] _railCommand;
+    readonly RailCursor[] _railCursors;
+    readonly WheelImpulse[] _railSpent = new WheelImpulse[TrainVehicle.MostBogies];
+    readonly float[] _wagonHalfLengthM;
+
+    /// <summary>The railway the rail vehicles' wheels stand on, and how each of its switches is set.</summary>
+    readonly RailGraph _rails;
+
+    readonly byte[] _switches;
+    readonly WorldLaying _laying;
 
     /// <param name="stepsAside">Whether the step runs beside the caller (<see cref="StepsAsideWherever"/> where unsaid) or at once.</param>
     public ManagedWorld(WorldLaying laying, bool? stepsAside = null) : base(laying)
@@ -159,7 +175,7 @@ internal sealed class ManagedWorld : WorldLayer
 
         var cars = laying.Cars;
         var count = cars.Length;
-        _physics.FitLinks(count);
+        _laying = laying;
         _carBody = new BodyId[count];
         _variant = new byte[count];
         _build = new CarBuild[count];
@@ -217,10 +233,24 @@ internal sealed class ManagedWorld : WorldLayer
             _inside[person] = walkers[person].Inside;
         }
 
-        _wagonBody = new BodyId[laying.Wagons.Length];
-        _wagonIntoMps = new Vector2[laying.Wagons.Length];
-        _wagonLook = new ushort[laying.Wagons.Length];
-        for (var wagon = 0; wagon < _wagonBody.Length; wagon++) _wagonBody[wagon] = BodyOf(laying, laying.AgentOfWagon(wagon));
+        var wagons = laying.Wagons.Length;
+        _wagonBody = new BodyId[wagons];
+        _wagonIntoMps = new Vector2[wagons];
+        _wagonLook = new ushort[wagons];
+        _railBuild = new RailBuild[wagons];
+        _railCommand = new DriveCommand[wagons];
+        _railCursors = new RailCursor[wagons * TrainVehicle.MostBogies];
+        _wagonHalfLengthM = new float[wagons];
+        Array.Fill(_railCursors, RailCursor.Nowhere);
+        for (var wagon = 0; wagon < wagons; wagon++)
+        {
+            _wagonBody[wagon] = BodyOf(laying, laying.AgentOfWagon(wagon));
+            _railBuild[wagon] = laying.Wagons[wagon].Build;
+            _wagonHalfLengthM[wagon] = laying.Wagons[wagon].HalfSizeM.X;
+        }
+
+        _rails = laying.Rails;
+        _switches = new byte[Math.Max(1, _rails.SwitchCount)];
 
         WriteTheView(View);
         ReadCovers(View);
@@ -327,6 +357,8 @@ internal sealed class ManagedWorld : WorldLayer
 
         for (var car = 0; car < _carBody.Length; car++) StepTheTyres(car);
 
+        for (var wagon = 0; wagon < _wagonBody.Length; wagon++) StepTheRailWheels(wagon);
+
         _physics.Step(dtS);
         SettleTheLoads(dtS);
         WriteTheView(into, stepped: true);
@@ -406,16 +438,25 @@ internal sealed class ManagedWorld : WorldLayer
         }
     }
 
-    /// <summary>What a wagon is asked: to run where its train is, or to leave the world with it (TRN-7).</summary>
+    /// <summary>
+    /// What a rail vehicle is asked (TRN-7, TRN-9): its pedals; to be put on its run-in moving at its line's speed, or taken
+    /// out of the world; coupled behind the vehicle ahead or not; put on a bridge's channel; a switch set.
+    /// </summary>
     void TakeForAWagon(in ControlSignal signal)
     {
-        var body = _wagonBody[signal.Agent - _roster.Count];
+        var wagon = signal.Agent - _roster.Count;
+        var body = _wagonBody[wagon];
         switch (signal.Action)
         {
-            case ControlAction.Run:
+            case ControlAction.Drive:
+                _railCommand[wagon] = signal.Command;
+                break;
+
+            case ControlAction.Place:
                 var headingRad = signal.Params.Z;
-                _physics.Run(body, new Vector2(signal.Params.X, signal.Params.Y), headingRad, Heading.Unit(headingRad) * signal.Params.W);
-                _wagonLook[signal.Agent - _roster.Count] = signal.Flags;
+                _physics.Release(body, new Vector2(signal.Params.X, signal.Params.Y), headingRad, Heading.Unit(headingRad) * signal.Params.W);
+                _wagonLook[wagon] = signal.Flags;
+                _railCursors.AsSpan(wagon * TrainVehicle.MostBogies, TrainVehicle.MostBogies).Fill(RailCursor.Nowhere);
                 break;
 
             case ControlAction.Contain:
@@ -425,7 +466,51 @@ internal sealed class ManagedWorld : WorldLayer
             case ControlAction.Channels:
                 _physics.PutOnChannels(body, (byte)signal.Flags);
                 break;
+
+            case ControlAction.Couple:
+                CoupleBehind(wagon, signal.Tractor);
+                break;
+
+            case ControlAction.Switch:
+                _switches[signal.Tractor] = (byte)signal.Flags;
+                break;
         }
+    }
+
+    /// <summary>
+    /// <b>A rail vehicle coupled behind the one ahead of it</b>, or uncoupled (SOL-38): the solver's bar from its front
+    /// coupler head to the rear one of the vehicle ahead, the coupling's gap long — in its own slot.
+    /// </summary>
+    void CoupleBehind(int wagon, int aheadAgent)
+    {
+        var slot = _laying.LinkSlotOfWagon(wagon);
+        if (aheadAgent < 0)
+        {
+            _physics.Unlink(slot);
+            return;
+        }
+
+        var ahead = aheadAgent - _roster.Count;
+        _physics.Link(
+            slot, _wagonBody[ahead], new Vector2(-_wagonHalfLengthM[ahead], 0f), _wagonBody[wagon],
+            new Vector2(_wagonHalfLengthM[wagon], 0f), Config.Train.CouplingGapM);
+    }
+
+    /// <summary>
+    /// <b>A rail vehicle's wheels</b> (<see cref="RailWheels.Step"/>, TRN-8): each bogie's impulse spent at its pivot, as
+    /// a car's tyres are. Nothing for a vehicle out of the world.
+    /// </summary>
+    void StepTheRailWheels(int wagon)
+    {
+        var body = _wagonBody[wagon];
+        if (!_physics.IsEnabled(body)) return;
+
+        ref readonly var build = ref _railBuild[wagon];
+        RailWheels.Step(
+            Config, _stepDtS, _rails, _switches, build, _physics.PositionOf(body), _physics.RotationOf(body), _physics.VelocityOf(body),
+            _physics.YawRateOf(body), _physics.InverseMassOf(body), _physics.InverseInertiaOf(body), _railCommand[wagon],
+            _railCursors.AsSpan(wagon * TrainVehicle.MostBogies, TrainVehicle.MostBogies), _railSpent);
+        for (var bogie = 0; bogie < build.Bogies; bogie++) _physics.ApplyImpulseAt(body, _railSpent[bogie].ImpulseNs, _railSpent[bogie].AtM);
     }
 
     /// <summary>
@@ -637,6 +722,8 @@ internal sealed class ManagedWorld : WorldLayer
             row.PositionM = _physics.PositionOf(body);
             row.HeadingRad = _physics.HeadingOf(body);
             row.Flags = _wagonLook[wagon] | (_physics.IsEnabled(body) ? WagonView.InWorld : 0u);
+            row.VelocityMps = _physics.VelocityOf(body);
+            row.YawRateRadPerS = _physics.YawRateOf(body);
         }
     }
 

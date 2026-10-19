@@ -78,16 +78,20 @@ internal struct WalkerView
     public float OverlapM;
 }
 
-/// <summary>One train's wagon as the world's last step left it (TRN-7): where it is, how it points, and what it shows.</summary>
-/// <remarks>16 B, as the device writes the row (<c>world_view_wagons.comp</c>).</remarks>
+/// <summary>One rail vehicle as the world's last step left it (TRN-7): where it is, how it points and moves, and what it shows.</summary>
+/// <remarks>32 B, as the device writes the row (<c>world_view_wagons.comp</c>).</remarks>
 [StructLayout(LayoutKind.Sequential)]
 internal struct WagonView
 {
     public Vector2 PositionM;
     public float HeadingRad;
 
-    /// <summary>The look it was last signalled to wear in the low half (<see cref="ControlAction.Run"/>), and <see cref="InWorld"/>.</summary>
+    /// <summary>The look it was put down in, in the low half (<see cref="ControlAction.Place"/>), and <see cref="InWorld"/>.</summary>
     public uint Flags;
+
+    public Vector2 VelocityMps;
+    public float YawRateRadPerS;
+    public float Unused;
 
     /// <summary>Whether the wagon is in the world at all, rather than held out of it until its train runs.</summary>
     public const uint InWorld = 0x10000;

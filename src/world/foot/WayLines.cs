@@ -7,7 +7,7 @@ namespace TrafficSimulation.World.Foot;
 
 /// <summary>
 /// <b>The line any one of the town's ways is travelled on, and how wide it is</b> — a lane's own arcs, a junction's
-/// join, one side of a pavement or the mitre at its corner — and the zebra a way is the paint of. <b>The one place the
+/// join, one side of a pavement, the mitre at its corner or a rail lane — and the zebra a way is the paint of. <b>The one place the
 /// kinds are told apart</b>, because this is the lowest slice that knows all of them. It is what the atlas lays every
 /// ribbon from (<see cref="RibbonAtlas"/>, TER-4c.4).
 /// </summary>
@@ -22,14 +22,21 @@ namespace TrafficSimulation.World.Foot;
 /// </para>
 /// </remarks>
 internal sealed class WayLines(
-    RoadGraph roads, WalkingNetwork walking, TownWays ways, CrossingEdges crossings, SimConfig config) : IRibbonLines
+    RoadGraph roads, WalkingNetwork walking, TownWays ways, CrossingEdges crossings, SimConfig config, RailWayLines? rails = null)
+    : IRibbonLines
 {
+    readonly RailWayLines _rails = rails ?? RailWayLines.None;
+
     public int WayCount => ways.Count;
 
     public ReadOnlySpan<ArcSeg> LineOf(int way, out float widthM)
     {
         switch (ways.KindOf(way))
         {
+            case WayKind.Rail:
+                widthM = _rails.WidthM;
+                return _rails.Arcs[ways.RailLaneOf(way)];
+
             case WayKind.Lane:
                 var lane = ways.RoadLaneOf(way);
                 widthM = roads.IsABayArm(lane) ? config.ParkingSpaceWidthM : roads.LaneWidthM[lane];
@@ -78,6 +85,7 @@ internal sealed class WayLines(
     {
         WayKind.Lane => CityPlan.RoadArrays.ChannelOf(roads.LaneLevel[ways.RoadLaneOf(way)]),
         WayKind.Connector => roads.ConnectorChannels(ways.RoadConnectorOf(way)),
+        WayKind.Rail => _rails.Channels[ways.RailLaneOf(way)],
         _ => CityPlan.RoadArrays.GroundChannel,
     };
 }

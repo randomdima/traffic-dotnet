@@ -1,9 +1,11 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Train.Body;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -14,8 +16,11 @@ internal readonly record struct CarLaid(Vector2 PositionM, float HeadingRad, byt
 /// <summary>One walker as a world is laid with it: where it stands and faces, and whether a container holds it (PHY-7).</summary>
 internal readonly record struct WalkerLaid(Vector2 PositionM, float HeadingRad, bool Inside);
 
-/// <summary>One train's wagon as a world is laid with it: its shape, and out of the world until its train runs (TRN-7).</summary>
-internal readonly record struct WagonLaid(Vector2 HalfSizeM, float CornerRadiusM);
+/// <summary>
+/// One rail vehicle as a world is laid with it: its shape, and its wheels and weight (<see cref="RailBuild"/>) — out of the
+/// world until its train is put on the map (TRN-7).
+/// </summary>
+internal readonly record struct WagonLaid(Vector2 HalfSizeM, float CornerRadiusM, RailBuild Build);
 
 /// <summary>
 /// <b>What a world is laid off</b>, once and as plain data: the furniture, the ground, the builds, each agent's body
@@ -40,8 +45,17 @@ internal sealed record WorldLaying(
 {
     public AgentRoster Roster => new(Walkers.Length, Cars.Length);
 
-    /// <summary>Every wagon the town's trains can field, each a body of its own (TRN-7).</summary>
+    /// <summary>Every rail vehicle the town's trains can field, each a body of its own (TRN-7).</summary>
     public WagonLaid[] Wagons { get; init; } = [];
+
+    /// <summary>The railway the rail vehicles' wheels stand on (TRN-9).</summary>
+    public RailGraph Rails { get; init; } = RailGraph.None;
+
+    /// <summary>How many links a world holds room for (SOL-38): a tow a car, and a coupling a rail vehicle — each in its own slot.</summary>
+    public int LinkSlots => Cars.Length + Wagons.Length;
+
+    /// <summary>The link slot a rail vehicle's coupling to the vehicle ahead of it is held in.</summary>
+    public int LinkSlotOfWagon(int wagon) => Cars.Length + wagon;
 
     /// <summary>Everything a signal may name: the roster, then the wagons.</summary>
     public int Agents => Walkers.Length + Cars.Length + Wagons.Length;
@@ -103,10 +117,13 @@ internal sealed record WorldLaying(
 
         for (var wagon = 0; wagon < Wagons.Length; wagon++)
         {
-            var body = bodies.AddWagon(Wagons[wagon].HalfSizeM, Wagons[wagon].CornerRadiusM);
+            ref readonly var laid = ref Wagons[wagon];
+            var body = bodies.AddCar(Vector2.Zero, 0f, laid.HalfSizeM, laid.CornerRadiusM, laid.Build.MassKg, onRails: true);
             bodies.Tag(body, new BodyTag(BodyKind.Train, wagon));
+            bodies.Contain(body);
         }
 
+        bodies.FitLinks(LinkSlots);
         return bodies;
     }
 }

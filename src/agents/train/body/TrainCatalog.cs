@@ -47,8 +47,16 @@ internal sealed class TrainVehicleFile
 
     public float CornerRadiusM { get; init; }
 
-    /// <summary>Between its two bogies' pivots (TRN-8).</summary>
-    public required float BogiePitchM { get; init; }
+    /// <summary>
+    /// Each bogie's pivot, ahead of the body's middle along it, front first (TRN-8): each is one wheel held on the rail
+    /// (<see cref="TrainVehicle.MostBogies"/> at most).
+    /// </summary>
+    public required float[] BogiesM { get; init; }
+
+    public required float MassKg { get; init; }
+
+    /// <summary>The most its engine pulls with at the rail, shared among its bogies; nought for a vehicle with none.</summary>
+    public float TractiveEffortN { get; init; }
 }
 
 [JsonSourceGenerationOptions(
@@ -60,7 +68,24 @@ internal sealed partial class TrainVehicleJson : JsonSerializerContext;
 /// <summary>One vehicle a train may be made of, as the catalogue reads it.</summary>
 /// <param name="SpritePath">Where its picture is, or null where it has none yet.</param>
 internal readonly record struct TrainVehicle(
-    string Id, VehicleKind Kind, string? SpritePath, Vector2 FootprintM, float CornerRadiusM, float BogiePitchM);
+    string Id, VehicleKind Kind, string? SpritePath, Vector2 FootprintM, float CornerRadiusM, float[] BogiesM, float MassKg,
+    float TractiveEffortN)
+{
+    /// <summary>The most bogies a vehicle stands on: a wheel row a bogie, and four rows a body on the device as a car's.</summary>
+    public const int MostBogies = 4;
+
+    /// <summary>
+    /// How far its body reaches out past its line on the tightest curve a track is laid round (RAIL-2): the outside at its
+    /// ends, the inside in its middle between the bogies — what its ribbon has to hold beside its width.
+    /// </summary>
+    public float OverhangM(float radiusM)
+    {
+        var pitchM = BogiesM[0] - BogiesM[^1];
+        var middleM = pitchM * pitchM / (8f * radiusM);
+        var endsM = ((FootprintM.X * FootprintM.X) - (pitchM * pitchM)) / (8f * radiusM);
+        return MathF.Max(middleM, endsM);
+    }
+}
 
 /// <summary>
 /// <b>The rolling stock</b>, read from <c>assets/agents/train/variants/common/Rolling.json</c>: every vehicle a train may be
@@ -86,10 +111,17 @@ internal sealed class TrainCatalog
 
             foreach (var vehicle in of)
             {
-                if (vehicles[vehicle].FootprintM != vehicles[of[0]].FootprintM || vehicles[vehicle].CornerRadiusM != vehicles[of[0]].CornerRadiusM
-                    || vehicles[vehicle].BogiePitchM != vehicles[of[0]].BogiePitchM)
+                ref readonly var one = ref vehicles[vehicle];
+                ref readonly var first = ref vehicles[of[0]];
+                if (one.FootprintM != first.FootprintM || one.CornerRadiusM != first.CornerRadiusM || !one.BogiesM.AsSpan().SequenceEqual(first.BogiesM)
+                    || one.MassKg != first.MassKg || one.TractiveEffortN != first.TractiveEffortN)
                 {
-                    throw new InvalidDataException($"{vehicles[vehicle].Id} is not the shape of {vehicles[of[0]].Id}, the {(VehicleKind)kind} it is a look of.");
+                    throw new InvalidDataException($"{one.Id} is not the vehicle {first.Id} is, the {(VehicleKind)kind} it is a look of.");
+                }
+
+                if (one.BogiesM.Length is 0 or > TrainVehicle.MostBogies)
+                {
+                    throw new InvalidDataException($"{one.Id} stands on {one.BogiesM.Length} bogies, not 1 to {TrainVehicle.MostBogies}.");
                 }
             }
 
@@ -105,6 +137,17 @@ internal sealed class TrainCatalog
     /// <summary>A kind's one shape: the first of its looks.</summary>
     public ref readonly TrainVehicle ShapeOf(VehicleKind kind) => ref Vehicles[_ofKind[(int)kind][0]];
 
+    /// <summary>
+    /// <b>How wide a rail lane's ribbon is</b> (RAIL-9): the widest vehicle and the most any vehicle reaches past its line on
+    /// the tightest curve a track is laid round, either side — so every vehicle on a lane stands on its ribbon.
+    /// </summary>
+    public float RibbonWidthM(RailFigures rail)
+    {
+        var widthM = 0f;
+        foreach (var vehicle in Vehicles) widthM = MathF.Max(widthM, vehicle.FootprintM.Y + (2f * vehicle.OverhangM(rail.LeastRadiusM)));
+        return widthM;
+    }
+
     /// <summary>The rolling stock, read once: data, the same for every town.</summary>
     public static TrainCatalog Shared { get; } = Load();
 
@@ -118,7 +161,7 @@ internal sealed class TrainCatalog
             var file = AssetJson.Read(files[at], TrainVehicleJson.Default.TrainVehicleFile);
             vehicles[at] = new TrainVehicle(
                 file.Id, file.Kind, file.Sprite is { } sprite ? AssetJson.Beside(files[at], sprite) : null, file.FootprintM,
-                file.CornerRadiusM, file.BogiePitchM);
+                file.CornerRadiusM, file.BogiesM, file.MassKg, file.TractiveEffortN);
         }
 
         return new TrainCatalog(vehicles);

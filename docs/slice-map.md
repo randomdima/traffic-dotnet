@@ -27,7 +27,7 @@ other only in the one direction the tier's own row gives.
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →
-road, containment → physics and terrain, rail → road and foot, for the lanes and walks a crossing holds. `agents/train/` depends on `world/rail/` alone, for the line its wagons stand on. **The ground is split across the Plan tier and the World tier on purpose**:
+road, containment → physics and terrain, rail → road and foot, for the lanes and walks a crossing holds. `agents/train/` depends on `world/rail/`, for the track its wheels stand on, and on `agents/car/body/` for the command and the wheel impulse a rail vehicle shares with a car. **The ground is split across the Plan tier and the World tier on purpose**:
 what shape is at a point is the plan's (`citygen/GroundShapes`), so a town half-laid can be asked where a
 thing may stand, and what that kind of ground *permits* is `world/terrain/`'s, because a permission is a
 rule about agents and the plan does not know what an agent is (TER-2a). **The lines a car is driven on are

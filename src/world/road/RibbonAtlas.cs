@@ -83,6 +83,9 @@ internal sealed partial class RibbonAtlas
     /// <summary>How finely a metre along a way is kept: a tenth, well inside half a lattice step.</summary>
     internal const float AlongPerMetre = 10f;
 
+    /// <summary>The longest way the atlas files: its points' distance along it is a <see cref="ushort"/> of tenths.</summary>
+    internal const float LongestWayM = ushort.MaxValue / AlongPerMetre;
+
     /// <summary>What a whole reach outside a band is filed as (<see cref="Entry.Outside"/>).</summary>
     internal const float OutsidePerReach = byte.MaxValue;
 

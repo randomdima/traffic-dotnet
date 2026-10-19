@@ -488,8 +488,8 @@ internal sealed class RailFigures
     public float ChordToleranceM { get; init; } = 0.01f;
 
     /// <summary>
-    /// How far past the map's edge a generated track runs on (TRN-1): where a train is stood before it enters and taken
-    /// out after it leaves, so it must outrun the longest train (<c>TrainFleet</c> refuses one longer).
+    /// How far past the map's edge a generated track runs on (TRN-1): the run-in a train is put down on, a warning's run
+    /// short of the map with its whole length behind that (RAIL-1, <c>RollingStockTests</c>).
     /// </summary>
     public float RunOffM { get; init; } = 600f;
 
@@ -504,6 +504,9 @@ internal sealed class RailFigures
     /// town's pace to stop short of it, and short enough that a queue a train is coming for is seen to form.
     /// </summary>
     public float WarningS { get; init; } = 14f;
+
+    /// <summary>How far short of a switch on its leg a train's driver sets it (TRN-9).</summary>
+    public float SwitchSetAheadM { get; init; } = 100f;
 
     /// <summary>How long a barrier takes to come down once its crossing has closed, and to go up once it opens (RAIL-7).</summary>
     public float BarrierS { get; init; } = 5f;

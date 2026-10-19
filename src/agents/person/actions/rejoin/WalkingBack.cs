@@ -65,7 +65,7 @@ internal sealed class WalkingBack(WalkingGround ground, PersonActions actions)
     {
         foreach (ref readonly var cover in under)
         {
-            if (!ground.Ways.IsDriven(cover.Way)) return true;
+            if (ground.Ways.IsWalked(cover.Way)) return true;
         }
 
         return false;

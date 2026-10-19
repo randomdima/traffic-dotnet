@@ -8,5 +8,7 @@
     3.4
   ],
   "cornerRadiusM": 0.3,
-  "bogiePitchM": 9.4
+  "bogiesM": [4.7, -4.7],
+  "massKg": 120000,
+  "tractiveEffortN": 250000
 }

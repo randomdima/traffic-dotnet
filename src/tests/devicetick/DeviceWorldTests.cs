@@ -51,6 +51,34 @@ public class DeviceWorldTests(Lavapipe device) : IClassFixture<Lavapipe>
     }
 
     /// <summary>
+    /// <b>Trains run on the device as in the managed world</b> (TRN-8, TRN-9, SOL-38): a town with a double track, a
+    /// train put on each way's run-in and run across it on its own wheels and couplings — every rail vehicle where the
+    /// managed world has it, to the bit, every tick.
+    /// </summary>
+    [Fact]
+    public void TrainsRunOnTheDeviceAsInTheManagedWorld()
+    {
+        var plan = Towns.LayFresh(Towns.Brief(seed: 3, cars: 0, railTracks: 2));
+        var config = new SimConfig { Train = new TrainFigures { FirstLeastS = 0.1f, FirstMostS = 0.5f } };
+        using var managed = new TownWorld(plan, config);
+        using var onTheDevice = new TownWorld(plan, config);
+        onTheDevice.HandTheWorldTo(laying => new DeviceWorld(device.Vk, laying));
+        var managedLoop = new SimLoop<TownWorld>(managed, config);
+        var deviceLoop = new SimLoop<TownWorld>(onTheDevice, config);
+
+        var unlike = new List<string>();
+        for (var tick = 1; tick <= Ticks && unlike.Count == 0; tick++)
+        {
+            managedLoop.Advance();
+            deviceLoop.Advance();
+            TownsInStep.Compare(managed, onTheDevice, tick, unlike);
+        }
+
+        Assert.True(unlike.Count == 0, string.Join('\n', unlike.Take(8)));
+        Assert.True(managed.Trains.Sent > 0, "no train was sent, so the test says nothing");
+    }
+
+    /// <summary>
     /// <b>A town laid with its world made on the device is the town handed over to it</b> (<see cref="DeviceWorldMaker"/>):
     /// its atlas filed by the device, and no managed world ever stood — and every car and walker where the town laid whole
     /// and handed over has it, every tick.

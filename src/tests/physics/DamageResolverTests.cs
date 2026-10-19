@@ -65,14 +65,18 @@ public class DamageResolverTests
     {
         Participant.Person => Config.Person.MassKg,
         Participant.Car => Config.Car.MassKg,
+        Participant.Train => TrainKg,
         _ => float.PositiveInfinity,
     };
+
+    /// <summary>A coach's weight: a train is a real, heavy mass (TRN-3).</summary>
+    const float TrainKg = 58_000f;
 
     static DamageSubject SubjectOf(Participant kind, bool spent = false) => kind switch
     {
         Participant.Person => DamageSubject.Person(Config.Person.MassKg, spent),
         Participant.Car => DamageSubject.Car(Config.Car.MassKg, spent),
-        Participant.Train => DamageSubject.Train,
+        Participant.Train => DamageSubject.Train(TrainKg),
         _ => DamageSubject.Static,
     };
 

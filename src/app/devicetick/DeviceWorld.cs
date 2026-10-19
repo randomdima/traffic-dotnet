@@ -73,6 +73,12 @@ internal sealed partial class DeviceWorld : WorldLayer
         public float OnTheTrailerAxleShare;
         public float LookaheadS;
         public int FirstWagonBody;
+        public int RailSegments;
+        public uint RailPasses;
+        public float RailOntoTheLine;
+        public float RailFriction;
+        public float RailRolling;
+        public float RailGravityMps2;
     }
 
     /// <summary>The covers kernel's push constants (<c>world_covers.comp</c>): the atlas's, then the bodies'.</summary>
@@ -161,8 +167,11 @@ internal sealed partial class DeviceWorld : WorldLayer
     readonly BoundSet[] _wagonsViewSets = new BoundSet[2];
     readonly GpuBuffer[] _wagonViews = new GpuBuffer[2];
 
-    /// <summary>The links the solve holds (SOL-38), each in its car's slot, as the signals leave them (<see cref="Couple"/>).</summary>
+    /// <summary>The links the solve holds (SOL-38), each in its car's or rail vehicle's slot, as the signals leave them (<see cref="Couple"/>).</summary>
     readonly LinkSlots _links;
+
+    /// <summary>The railway and the rail vehicles' wheels (<see cref="DeviceRail"/>).</summary>
+    readonly DeviceRail _rail;
 
     WorldPush _push;
 
@@ -182,7 +191,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         _walkers = laying.Walkers.Length;
         _wagons = laying.Wagons.Length;
         _last = new LastInBatch[laying.Agents];
-        _links = new LinkSlots(_cars);
+        _links = new LinkSlots(laying.LinkSlots);
         var config = laying.Config;
         _heldAroundAWheelM = config.Road.HeldAroundAWheelM;
 
@@ -225,6 +234,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         var tyres = _tyres.Table;
 
         _wagonLooks = _held.Mapped<uint>(Math.Max(1, _wagons));
+        _wagonLooks.Span<uint>().Clear();
         var pushBytes = (uint)Marshal.SizeOf<WorldPush>();
         _signalsKernel = _held.Kernel("world_signals.comp", 16, pushBytes);
         _signalsBound =
@@ -255,7 +265,8 @@ internal sealed partial class DeviceWorld : WorldLayer
 
         _viewKernel = _held.Kernel("world_view.comp", 13 + _lanes.Tables.Length, pushBytes, sets: _viewSets.Length);
         _walkersViewKernel = _held.Kernel("world_view_walkers.comp", 8, pushBytes, sets: _walkersViewSets.Length);
-        _wagonsViewKernel = _held.Kernel("world_view_wagons.comp", 5, pushBytes, sets: _wagonsViewSets.Length);
+        _wagonsViewKernel = _held.Kernel("world_view_wagons.comp", 6, pushBytes, sets: _wagonsViewSets.Length);
+        _rail = new DeviceRail(_held, laying, pose, motion, mass, filter, pushBytes);
         for (var slot = 0; slot < _viewSets.Length; slot++)
         {
             var carViews = _carViews[slot] = _held.Mapped<CarView>(_cars);
@@ -263,7 +274,7 @@ internal sealed partial class DeviceWorld : WorldLayer
             var wagonViews = _wagonViews[slot] = _held.Mapped<WagonView>(Math.Max(1, _wagons));
             ViewInSlot(slot).ReadOver(carViews.Span<CarView>(), walkerViews.Span<WalkerView>());
             ViewInSlot(slot).ReadWagonsOver(wagonViews.Span<WagonView>());
-            _wagonsViewSets[slot] = _wagonsViewKernel.Bind([pose, heading, filter, _wagonLooks, wagonViews]);
+            _wagonsViewSets[slot] = _wagonsViewKernel.Bind([pose, heading, filter, _wagonLooks, wagonViews, motion]);
             _viewSets[slot] = _viewKernel.Bind(
             [
                 _carRows, _tyres.ImpulseTable, tyres.Poses.Device, tyres.Cars.Device, pose, heading, motion, filter,
@@ -289,6 +300,12 @@ internal sealed partial class DeviceWorld : WorldLayer
             OnTheTrailerAxleShare = config.Evacuator.OnTheTrailerAxleShare,
             LookaheadS = config.Driving.LookaheadS,
             FirstWagonBody = laying.BodyOf(laying.AgentOfWagon(0)),
+            RailSegments = laying.Rails.SegmentCount,
+            RailPasses = (uint)config.Solver.VelocityIterations,
+            RailOntoTheLine = 1f / config.Train.WheelOntoTheLineS,
+            RailFriction = config.Train.WheelRailFriction,
+            RailRolling = config.Train.RollingResistance,
+            RailGravityMps2 = config.Tyre.StandardGravityMps2,
         };
 
         // Every car read off its body as laid, and the first view and covers off the world as it was laid, before any step —
@@ -552,6 +569,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         _walkersKernel.Dispatch(commands, _walkersSet, Groups(_walkers), _push with { Count = (uint)_walkers });
         _vk.BetweenKernels(commands);
         _towKernel.Dispatch(commands, _towSet, Groups(_cars), _push with { Count = (uint)_cars });
+        _rail.Record(commands, _push);
         _vk.BetweenKernels(commands);
         _solver.Record(commands, dtS);
         _vk.BetweenKernels(commands);
@@ -627,6 +645,8 @@ internal sealed partial class DeviceWorld : WorldLayer
         {
             ref readonly var signal = ref written[at];
             ref readonly var last = ref _last[signal.Agent];
+            if (TakenOnTheHost(signal)) continue;
+
             var superseded = signal.Action switch
             {
                 ControlAction.Drive => last.Drive != at,
@@ -652,6 +672,53 @@ internal sealed partial class DeviceWorld : WorldLayer
         return new SignalCounts(commands, events);
     }
 
+    /// <summary>
+    /// <b>Whether a signal is the host's to take</b> rather than <c>world_signals.comp</c>'s: a rail vehicle's pedals, its
+    /// coupling and a switch, which the host writes where the rail pass reads them (<see cref="TakeOnTheHost"/>).
+    /// </summary>
+    bool TakenOnTheHost(in ControlSignal signal)
+    {
+        if (signal.Agent < _laying.Roster.Count || signal.Action is not (ControlAction.Drive or ControlAction.Couple or ControlAction.Switch)) return false;
+
+        TakeOnTheHost(signal);
+        return true;
+    }
+
+    /// <summary>
+    /// A rail vehicle's pedals, its coupling or a switch, taken where the rail pass and the solve read them, as
+    /// <see cref="ManagedWorld"/> takes them in its own order.
+    /// </summary>
+    void TakeOnTheHost(in ControlSignal signal)
+    {
+        var wagon = signal.Agent - _laying.Roster.Count;
+        switch (signal.Action)
+        {
+            case ControlAction.Drive:
+                _rail.Drive(wagon, signal.Command);
+                break;
+
+            case ControlAction.Switch:
+                _rail.Set(signal.Tractor, signal.Flags);
+                break;
+
+            default:
+                var slot = _laying.LinkSlotOfWagon(wagon);
+                if (signal.Tractor < 0)
+                {
+                    _links.Unlink(slot);
+                    break;
+                }
+
+                var ahead = signal.Tractor - _laying.Roster.Count;
+                _links.Link(
+                    slot,
+                    new LinkRow(
+                        _laying.BodyOf(signal.Tractor), _laying.BodyOf(signal.Agent), new Vector2(-_laying.Wagons[ahead].HalfSizeM.X, 0f),
+                        new Vector2(_laying.Wagons[wagon].HalfSizeM.X, 0f), Config.Train.CouplingGapM));
+                break;
+        }
+    }
+
     /// <summary>How many signal rows the buffers hold, the events counted from the last of them back.</summary>
     int RoomForSignals => (int)(_signalsIn.SizeBytes / (ulong)Unsafe.SizeOf<SignalRow>());
 
@@ -672,15 +739,18 @@ internal sealed partial class DeviceWorld : WorldLayer
         {
             case ControlAction.Place:
                 _solver.CountAfresh(body);
-                return new SignalRow(body, actionAndFlags, p01, Shape.Rotation(signal.Params.Z), new Vector2(signal.Params.Z, 0f));
+                if (signal.Agent >= _laying.Roster.Count)
+                {
+                    _wagonLooks.Span<uint>()[signal.Agent - _laying.Roster.Count] = signal.Flags;
+                    _rail.PutDown(signal.Agent - _laying.Roster.Count);
+                }
+
+                return new SignalRow(
+                    body, actionAndFlags, p01, Shape.Rotation(signal.Params.Z), new Vector2(signal.Params.Z, signal.Params.W));
 
             case ControlAction.Contain:
                 _solver.CountAfresh(body);
                 break;
-
-            case ControlAction.Run:
-                _wagonLooks.Span<uint>()[body - _push.FirstWagonBody] = signal.Flags;
-                return new SignalRow(body, actionAndFlags, p01, Shape.Rotation(signal.Params.Z), new Vector2(signal.Params.Z, signal.Params.W));
 
             case ControlAction.Layer:
                 var layer = (CollisionLayer)signal.Flags;

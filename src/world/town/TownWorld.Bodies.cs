@@ -127,7 +127,7 @@ internal sealed partial class TownWorld
         BodyKind.Person => DamageSubject.Person(People.MassKg[tag.Index], People.Wounded[tag.Index]),
         BodyKind.Car => DamageSubject.Car(
             Cars.MassKgOf(tag.Index), Cars.Broken[tag.Index], CarCatalog.Shared.UnbreakableOf(Cars.Variant[tag.Index])),
-        BodyKind.Train => DamageSubject.Train,
+        BodyKind.Train => DamageSubject.Train(_trains.VehicleOf(tag.Index).MassKg),
         _ => DamageSubject.Static,
     };
 

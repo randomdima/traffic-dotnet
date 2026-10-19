@@ -89,6 +89,8 @@ internal sealed class CrossingHolds
         var meetings = new List<(float AlongWayM, int Track, float AlongTrackM, float Sin)>();
         for (var each = 0; each < lines.WayCount; each++)
         {
+            if (ways.KindOf(each) == WayKind.Rail) continue;
+
             var level = ways.KindOf(each) switch
             {
                 WayKind.Lane => roads.LaneLevel[ways.RoadLaneOf(each)],

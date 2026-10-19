@@ -22,6 +22,12 @@ internal enum LaneRoster : byte
     /// <see cref="ClaimPriority.Hard"/>.
     /// </summary>
     Crossing,
+
+    /// <summary>
+    /// <b>The trains</b> (RAIL-9): a holder is one train, its claim over the rail lanes from its tail to a warning's run
+    /// ahead of its front, at <see cref="ClaimPriority.Hard"/>.
+    /// </summary>
+    Rail,
 }
 
 /// <summary><b>What a claim is</b>: ground a body stands on, or ground somebody means to use.</summary>
@@ -165,12 +171,15 @@ internal sealed partial class LaneOccupancy
 
     public static float MetresOf(ushort dm) => dm / DmPerM;
 
-    /// <summary>One holder as one integer: its index in its roster, and the roster.</summary>
-    public static int KeyOf(int occupant, LaneRoster of) => occupant < 0 ? NoKey : (occupant << 2) | (int)of;
+    /// <summary>One holder as one integer: its index in its roster, and the roster in the low <see cref="RosterBits"/>.</summary>
+    public static int KeyOf(int occupant, LaneRoster of) => occupant < 0 ? NoKey : (occupant << RosterBits) | (int)of;
 
-    public static int OccupantOf(int key) => key >> 2;
+    public static int OccupantOf(int key) => key >> RosterBits;
 
-    public static LaneRoster RosterOf(int key) => (LaneRoster)(key & 3);
+    public static LaneRoster RosterOf(int key) => (LaneRoster)(key & ((1 << RosterBits) - 1));
+
+    /// <summary>How many bits a key names its roster in: room for every <see cref="LaneRoster"/>.</summary>
+    const int RosterBits = 3;
 
     readonly TownWays _ways;
 

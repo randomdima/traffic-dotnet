@@ -41,7 +41,7 @@ internal sealed class TrackLine
         var chord = ChordAt(alongM);
         var lengthM = _atM[chord + 1] - _atM[chord];
         var share = lengthM > 0f ? Math.Clamp((alongM - _atM[chord]) / lengthM, 0f, 1f) : 0f;
-        return Vector2.Lerp(_pointM[chord], _pointM[chord + 1], share);
+        return _pointM[chord] + ((_pointM[chord + 1] - _pointM[chord]) * share);
     }
 
     /// <summary>The level the track stands at a distance along it: at grade, or on a bridge.</summary>
@@ -84,6 +84,103 @@ internal sealed class TrackLine
         }
 
         return bestM;
+    }
+
+    /// <summary>
+    /// <b>How far along the track the place nearest a point stands, walked from a distance it was last near</b>: chord to
+    /// chord the way the point lies, never back, so a wheel read every tick walks a chord or two (TRN-9). Past either end
+    /// it says so, in how far the point stands beyond it along the end chord.
+    /// </summary>
+    /// <returns>The distance along, held to the track; <paramref name="beyondM"/> negative before its start, positive past its end.</returns>
+    public float NearestAlongFromM(Vector2 pointM, float nearM, out float beyondM)
+    {
+        var chord = ChordAt(nearM);
+        var step = 0;
+        while (true)
+        {
+            var runM = _pointM[chord + 1] - _pointM[chord];
+            var lengthM = _atM[chord + 1] - _atM[chord];
+            var alongChordM = lengthM > 0f ? Vector2.Dot(pointM - _pointM[chord], runM) / lengthM : 0f;
+            if (alongChordM < 0f && chord > 0 && step <= 0)
+            {
+                (chord, step) = (chord - 1, -1);
+                continue;
+            }
+
+            if (alongChordM > lengthM && chord < _pointM.Length - 2 && step >= 0)
+            {
+                (chord, step) = (chord + 1, 1);
+                continue;
+            }
+
+            beyondM = alongChordM < 0f && chord == 0 ? alongChordM
+                : alongChordM > lengthM && chord == _pointM.Length - 2 ? alongChordM - lengthM
+                : 0f;
+            return _atM[chord] + Math.Clamp(alongChordM, 0f, lengthM);
+        }
+    }
+
+    /// <summary>
+    /// <b>The way the track runs at a distance along it, eased across its points</b>: a chord's own way, turned toward its
+    /// neighbour's over the half of the shorter of the two either side of the point they share — the mean of the two at
+    /// the point — so what is square to the track does not jump a chord's turn as a wheel passes a point, and a curve's
+    /// chords read as its tangent (TRN-8).
+    /// </summary>
+    public Vector2 EasedAlongAt(float alongM)
+    {
+        var chord = ChordAt(alongM);
+        var lengthM = ChordLengthM(chord);
+        var intoM = Math.Clamp(alongM - _atM[chord], 0f, lengthM);
+        var way = ChordWay(chord);
+        if (chord > 0)
+        {
+            var windowM = MathF.Min(ChordLengthM(chord - 1), lengthM) * 0.5f;
+            if (intoM < windowM) return Eased(ChordWay(chord - 1), way, 0.5f + (0.5f * intoM / windowM));
+        }
+
+        if (chord + 2 < _pointM.Length)
+        {
+            var windowM = MathF.Min(ChordLengthM(chord + 1), lengthM) * 0.5f;
+            var leftM = lengthM - intoM;
+            if (leftM < windowM) return Eased(ChordWay(chord + 1), way, 0.5f + (0.5f * leftM / windowM));
+        }
+
+        return way;
+    }
+
+    float ChordLengthM(int chord) => _atM[chord + 1] - _atM[chord];
+
+    Vector2 ChordWay(int chord)
+    {
+        var runM = _pointM[chord + 1] - _pointM[chord];
+        var lengthM = runM.Length();
+        return lengthM > 0f ? runM / lengthM : Vector2.UnitX;
+    }
+
+    /// <summary>Two ways blended, <paramref name="share"/> of the second, and made a unit again.</summary>
+    static Vector2 Eased(Vector2 one, Vector2 other, float share)
+    {
+        var blended = (one * (1f - share)) + (other * share);
+        var lengthM = blended.Length();
+        return lengthM > 0f ? blended / lengthM : other;
+    }
+
+    /// <summary>The stretch of the track between two distances along it as a line of its own, its levels kept (<see cref="RailGraph"/>).</summary>
+    public TrackLine Piece(float fromM, float toM)
+    {
+        var points = new List<Vector2> { PlaceAt(fromM) };
+        var levels = new List<byte> { LevelAt(fromM) };
+        for (var point = 0; point < _pointM.Length; point++)
+        {
+            if (_atM[point] <= fromM || _atM[point] >= toM) continue;
+
+            points.Add(_pointM[point]);
+            levels.Add(_level[point]);
+        }
+
+        points.Add(PlaceAt(toM));
+        levels.Add(TownMap.RailArrays.AtGrade);
+        return new TrackLine([.. points], [.. levels]);
     }
 
     /// <summary>The chord a distance along the track falls on: the last point at or before it, short of the last point.</summary>

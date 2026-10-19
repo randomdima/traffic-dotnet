@@ -1084,6 +1084,18 @@ internal sealed class TrainFigures
 
     public float FirstMostS { get; init; } = 40f;
 
-    /// <summary>Between one vehicle's buffers and the next's, coupled.</summary>
+    /// <summary>Between one vehicle's buffers and the next's, coupled: the solver's bar between their coupler heads (SOL-38).</summary>
     public float CouplingGapM { get; init; } = 0.3f;
+
+    /// <summary>
+    /// <b>Steel on steel</b> (TRN-8): what a braked wheel slides on, and the most a driven one pulls before it spins —
+    /// a wheel's share of its vehicle's weight times this, either way.
+    /// </summary>
+    public float WheelRailFriction { get; init; } = 0.25f;
+
+    /// <summary>What a rolling wheel loses to the rail, as a coefficient of its load: a small share of a tyre's.</summary>
+    public float RollingResistance { get; init; } = 0.0015f;
+
+    /// <summary>How long a wheel off its rail's line takes to be brought back onto it — a flange's, held without limit.</summary>
+    public float WheelOntoTheLineS { get; init; } = 0.1f;
 }

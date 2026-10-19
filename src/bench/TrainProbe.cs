@@ -32,13 +32,15 @@ internal static class TrainProbe
         var trains = world.Trains;
         var tracks = TrackLine.Of(plan.Rails);
         Console.WriteLine(
-            $"train probe — {map}: {plan.Rails.Count} tracks, {trains.Lines} lines, {trains.WagonCount} wagon slots, " +
+            $"train probe — {map}: {plan.Rails.Count} tracks, {trains.Count} trains, {trains.WagonCount} vehicle slots, " +
             $"{world.CrossingStretches} crossing stretches; {ticks / config.Sim.TickRateHz:F0} s");
 
         var (onTheMapTicks, mostWagons, mostHeld, carsMet, peopleMet, firstOnS) = (0, 0, 0, 0, 0, double.NaN);
         var (mostCarsHeld, mostWalkersHeld) = (0, 0);
         var met = new List<string>();
         var firstAtM = Vector2.Zero;
+        var speeds = (Least: float.PositiveInfinity, Most: 0f, Short: 0f, Readings: 0);
+        var worstOffM = 0f;
         for (var tick = 0; tick < ticks; tick++)
         {
             loop.Advance(1);
@@ -58,6 +60,7 @@ internal static class TrainProbe
             {
                 var (carsHeld, walkersHeld) = world.HeldByACrossing;
                 (mostCarsHeld, mostWalkersHeld) = (Math.Max(mostCarsHeld, carsHeld), Math.Max(mostWalkersHeld, walkersHeld));
+                ReadTheTrains(world, ref speeds, ref worstOffM);
             }
             foreach (ref readonly var touch in world.World.View.TouchesBegun)
             {
@@ -70,7 +73,7 @@ internal static class TrainProbe
                 {
                     var atM = other.Kind == BodyKind.Car ? world.Cars.PositionM[other.Index] : world.People.PositionM[other.Index];
                     met.Add($"{other.Kind} {other.Index} at {atM.X:F0},{atM.Y:F0}, {(tick + 1) * config.TickSeconds:F1} s; {OnTheTrack(tracks, atM)}, " +
-                            $"wagon {wagon.Index} {(trains.ChannelsOf(wagon.Index) == CityPlan.RoadArrays.GroundChannel ? "at grade" : "on a bridge")}");
+                            $"vehicle {wagon.Index}");
                 }
             }
         }
@@ -82,6 +85,40 @@ internal static class TrainProbe
         Console.WriteLine($"  held at a crossing at most {mostCarsHeld} cars and {mostWalkersHeld} walkers at once, read each second");
         Console.WriteLine($"  met by a train     {carsMet} cars, {peopleMet} walkers");
         foreach (var where in met) Console.WriteLine($"    {where}");
+        Console.WriteLine(
+            $"  locomotive speed   {speeds.Least:F2}–{speeds.Most:F2} m/s, short of its line's by {speeds.Short / Math.Max(1, speeds.Readings):F3} m/s on the mean " +
+            $"({speeds.Readings} readings, each second)");
+        Console.WriteLine($"  bogie off its line at most {worstOffM:F3} m, read each second");
+    }
+
+    /// <summary>
+    /// <b>How each running train holds its line's speed and its vehicles their rails</b> (TRN-2, TRN-8): the locomotive's
+    /// speed against its line's, and every bogie's pivot's distance off the track, as the world left them.
+    /// </summary>
+    static void ReadTheTrains(TownWorld world, ref (float Least, float Most, float Short, int Readings) speeds, ref float worstOffM)
+    {
+        var trains = world.Trains;
+        var views = world.World.View.Wagons;
+        for (var train = 0; train < trains.Count; train++)
+        {
+            var vehicles = trains.VehiclesOf(train);
+            if (vehicles.Length == 0) continue;
+
+            ref readonly var loco = ref views[vehicles[0]];
+            var speedMps = loco.VelocityMps.Length();
+            speeds = (MathF.Min(speeds.Least, speedMps), MathF.Max(speeds.Most, speedMps), speeds.Short + (trains.SpeedMps(train) - speedMps), speeds.Readings + 1);
+            foreach (var vehicle in vehicles)
+            {
+                ref readonly var view = ref views[vehicle];
+                var forward = new Vector2(MathF.Cos(view.HeadingRad), MathF.Sin(view.HeadingRad));
+                foreach (var bogieM in trains.VehicleOf(vehicle).BogiesM)
+                {
+                    var pivotM = view.PositionM + (forward * bogieM);
+                    var nearest = world.Rails.Nearest(pivotM);
+                    worstOffM = MathF.Max(worstOffM, Vector2.Distance(world.Rails.Segments[nearest.Segment].PlaceAt(nearest.AlongM), pivotM));
+                }
+            }
+        }
     }
 
     /// <summary>

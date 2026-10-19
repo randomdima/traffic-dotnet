@@ -37,8 +37,17 @@ layout(push_constant) uniform World
     // How far ahead the wheel is aimed, as a time (DrivingFigures.LookaheadS).
     float lookaheadS;
 
-    // The body row the first train's wagon stands in (WorldLaying.AgentOfWagon): every wagon's row is it and on.
+    // The body row the first rail vehicle stands in (WorldLaying.AgentOfWagon): every rail vehicle's row is it and on.
     int firstWagonBody;
+
+    // A rail vehicle's wheels (RailWheels.Step): how many segments the railway has, the passes the wheels are held to
+    // their rails in, the pull back onto the line a second, steel on steel, the rolling resistance, and gravity.
+    int railSegments;
+    uint railPasses;
+    float railOntoTheLine;
+    float railFriction;
+    float railRolling;
+    float railGravityMps2;
 } world;
 
 #define WALKER_FIGURES world

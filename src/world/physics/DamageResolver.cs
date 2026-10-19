@@ -11,7 +11,7 @@ internal enum Participant : byte
     Person,
     Car,
 
-    /// <summary>A train's wagon (TRN-3): a vehicle of unbounded mass that harms what it meets and is never harmed.</summary>
+    /// <summary>A rail vehicle (TRN-3): a real, heavy mass that harms what it meets by its weight and is never harmed.</summary>
     Train,
 }
 
@@ -52,8 +52,8 @@ internal readonly record struct DamageSubject(Participant Kind, float MassKg, bo
 
     public static DamageSubject Person(float massKg, bool down) => new(Participant.Person, massKg, down);
 
-    /// <summary>A wagon: its mass unbounded, as a wall's is, so what it meets takes the whole of its own (TRN-3).</summary>
-    public static DamageSubject Train => new(Participant.Train, float.PositiveInfinity, Spent: false, Unbreakable: true);
+    /// <summary>A rail vehicle: a real, heavy mass, and built never to break (TRN-3).</summary>
+    public static DamageSubject Train(float massKg) => new(Participant.Train, massKg, Spent: false, Unbreakable: true);
 
     public static DamageSubject Car(float massKg, bool broken, bool unbreakable = false) =>
         new(Participant.Car, massKg, broken, unbreakable);
