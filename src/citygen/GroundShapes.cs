@@ -153,6 +153,7 @@ internal sealed partial class GroundShapes
         if (roads.Bay) return Ground.Parking;
         if (_carriageway.Encloses(pointM)) return Ground.Road;
         if (SlabReaches(pointM)) return Ground.Parking;
+        if (_rail.Covers(pointM)) return Ground.Rail;
         if (roads.Deck) return Ground.Sidewalk;
         if (_water.Covers(pointM)) return Ground.Water;
         if (_shore.Covers(pointM)) return Ground.Sidewalk;

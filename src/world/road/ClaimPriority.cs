@@ -21,6 +21,7 @@ internal enum ClaimPriority : byte
     /// <summary>
     /// <b>p0 — a body</b>: the ground its collider stands on (TER-4c.2). Never compared, never cut and never taken, and
     /// free to overlap another body's, because it is a record of where real things are rather than of what anybody plans.
+    /// <b>And a level crossing's hold</b> while a train closes it (RAIL-1): the one claim that is not a body held here.
     /// </summary>
     Hard = 0,
 

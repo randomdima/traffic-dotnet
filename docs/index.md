@@ -35,6 +35,8 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [agents/evacuator/](../src/agents/evacuator/) — the recovery | [requirements](../src/agents/evacuator/docs/requirements.md) | [log](../src/agents/evacuator/docs/decision-log.md) |
 | [agents/person/](../src/agents/person/) — the walker | [requirements](../src/agents/person/docs/requirements.md) | [log](../src/agents/person/docs/decision-log.md) |
 | [agents/trafficlight/](../src/agents/trafficlight/) — the signal | [requirements](../src/agents/trafficlight/docs/requirements.md) | [log](../src/agents/trafficlight/docs/decision-log.md) |
+| [world/rail/](../src/world/rail/) — the track and the level crossing | [requirements](../src/world/rail/docs/requirements.md) | [log](../src/world/rail/docs/decision-log.md) |
+| [agents/train/](../src/agents/train/) — the train | [requirements](../src/agents/train/docs/requirements.md) | [log](../src/agents/train/docs/decision-log.md) |
 | [app/camera/](../src/app/camera/) | [requirements](../src/app/camera/docs/requirements.md) | [log](../src/app/camera/docs/decision-log.md) |
 | [app/screen/](../src/app/screen/) — the chrome | [requirements](../src/app/screen/docs/requirements.md) | — |
 | [app/render/](../src/app/render/) — the picture | [requirements](../src/app/render/docs/requirements.md) | [log](../src/app/render/docs/decision-log.md) |
@@ -83,6 +85,8 @@ retired number, which the owning slice's log records.
 | `SRV-1…11` | Police stations and depots, what a service vehicle is and the crew it carries, what a wrecked one costs, the district beat half of every fleet drives, the station's parking a police car starts on, and the road it closes by standing at its entrances with those lanes out of every route | [agents/service](../src/agents/service/docs/requirements.md) |
 | `EVA-1…8` | The wreck as a call, a depot's yard, the recovery, the tow's priority, the arm and the set-down | [agents/evacuator](../src/agents/evacuator/docs/requirements.md) |
 | `TLT-1…4` | The signal agent and its cycle | [agents/trafficlight](../src/agents/trafficlight/docs/requirements.md) |
+| `RAIL-1…8` | The track, the railway's ground, its bridges, and the level crossing that closes ahead of a train | [world/rail](../src/world/rail/docs/requirements.md) |
+| `TRN-1…8` | The train: what it is, its unbounded mass, one a line, its timetable and its bodies | [agents/train](../src/agents/train/docs/requirements.md) |
 | `OBS-1…1c` | The camera | [app/camera](../src/app/camera/docs/requirements.md) |
 | `OBS-2`, `OBS-2a`, `OBS-2e…2g`, `OBS-2i`, `OBS-2k…2n` | The status panel and its claims, the menu, the legend, Escape, the ruler, the unit read-out, the density a panel gives way at, the card a map is opened behind | [app/hud](../src/app/hud/docs/requirements.md) |
 | `OBS-2b…2d`, `OBS-2h`, `OBS-2j`, `OBS-2o`, `OBS-2p`, `OBS-2r…2x` | The debug layers: the read-out, the turn circle, the ground's triangulation and layers, the driven ground and its outside, the pointer, the shell probe and the solver's grid | [app/debug](../src/app/debug/docs/requirements.md) |
@@ -205,6 +209,14 @@ owning slice's log; this list says only what is absent now and what closes it.
   like anywhere else (`WLK-1`, `TER-3b.1`), and the ground answers walk there — but the ground stack is laid
   under the deck rather than across it, so the concrete is not drawn. What is owed is a boundary that knows
   where a deck carries the walk.
+
+- **No car keeps a level crossing clear** (`RAIL-1`): a crossing holds its approach while a train closes it, but nothing
+  stops a car pulling onto the track behind a queue that has no room past it, and one left standing there when the
+  crossing closes is met by the train. `--bench trains` counts what the trains met.
+- **A rail bridge is a level only to the claims and the solver**: a chord of a traced map's track on a bridge makes no
+  crossing and a wagon on it meets nothing under it, but the railway is drawn at grade, under the road it passes over
+  (`RAIL-3`), and a tunnel is not a level at all. `OdesaOsm`'s railway is one line: its other main lines meet it in
+  yards, which no route is laid through (`qq osm --rails`).
 
 **The verge is a decision rather than a gap**: it is one rectangle under the whole town, and whether it
 must be cut to the complement of the paving is a question for the owner. It costs nothing under `TER-7b`

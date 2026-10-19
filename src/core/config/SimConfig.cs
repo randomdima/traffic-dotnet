@@ -38,6 +38,8 @@ internal sealed partial class SimConfig
     public BuildingFigures Building { get; init; } = new();
     public PropFigures Prop { get; init; } = new();
     public SignalFigures Signals { get; init; } = new();
+    public RailFigures Rail { get; init; } = new();
+    public TrainFigures Train { get; init; } = new();
     public TerrainFigures Terrain { get; init; } = new();
     public MarkFigures Marks { get; init; } = new();
     public CityGenFigures CityGen { get; init; } = new();

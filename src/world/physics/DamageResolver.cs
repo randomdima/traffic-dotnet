@@ -10,6 +10,9 @@ internal enum Participant : byte
 
     Person,
     Car,
+
+    /// <summary>A train's wagon (TRN-3): a vehicle of unbounded mass that harms what it meets and is never harmed.</summary>
+    Train,
 }
 
 /// <summary>
@@ -48,6 +51,9 @@ internal readonly record struct DamageSubject(Participant Kind, float MassKg, bo
     public static DamageSubject Static => new(Participant.Static, float.PositiveInfinity, Spent: false);
 
     public static DamageSubject Person(float massKg, bool down) => new(Participant.Person, massKg, down);
+
+    /// <summary>A wagon: its mass unbounded, as a wall's is, so what it meets takes the whole of its own (TRN-3).</summary>
+    public static DamageSubject Train => new(Participant.Train, float.PositiveInfinity, Spent: false, Unbreakable: true);
 
     public static DamageSubject Car(float massKg, bool broken, bool unbreakable = false) =>
         new(Participant.Car, massKg, broken, unbreakable);
@@ -119,7 +125,7 @@ internal static class DamageResolver
             // Person against person and person against static geometry are harmless at any energy, so a
             // vehicle is the only thing that can harm a person. Who was moving carries no weight — only
             // the closing speed and the two masses are in the arithmetic.
-            if (other.Kind != Participant.Car) return DamageOutcome.None;
+            if (other.Kind is not (Participant.Car or Participant.Train)) return DamageOutcome.None;
 
             return energyKj >= config.PersonCasualtyKj ? DamageOutcome.Wounded : DamageOutcome.None;
         }

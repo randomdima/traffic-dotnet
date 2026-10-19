@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Benchmark image models on two fixed 3x3 sheets — buildings (roof sheet 9) and cars — against the art
+"""Benchmark OpenRouter image models on fixed sheets — roofs, cars, trains, one locomotive — against the art
 already in the game.
 
   prepare                                   layout, style picture, in-game composite and brief per suite
-  models  [--json]                          every model the harness knows, local and OpenRouter, and its frames
+  models                                    every OpenRouter image model and its frames
   run     --suite S --model M [-n 2] [--extra TEXT]   n new frames of one model
-  sweep   [--suite S] [--models all|local|remote|ID,..] [-n 2] [--jobs 4]   tops every model up to n frames
+  sweep   [--suite S] [--models ID,..] [-n 2] [--jobs 4]   tops every model (or those) up to n frames
   score   [--suite S] [--cells]             measured figures, captioned comparison sheets, results.md
   judge   [--suite S]                       blind sheets and the score card to fill in by eye
   reveal                                    joins the filled card to the models: judged.md
@@ -18,13 +18,13 @@ model instead of vanishing; a nudged frame (--extra) is reported apart from the 
 `score` measures are evidence for the judge, never the verdict: the verdict is the card `judge` writes,
 scored by eye on sheets that do not name the model.
 
-Inputs and results go to .tmp/bench/; frames to .tmp/gen/frames/bench_<suite>_<tag>-vN.<ext>, where
-remotegen writes every frame, recorded in its index.jsonl. Nothing here touches assets/ or raw_assets/.
+Everything goes to .tmp/bench/, frames to .tmp/bench/frames/bench_<suite>_<tag>-vN.<ext>. It shares only
+remotegen's OpenRouter client (openrouter.py): never remotegen's settings, frames, index or attempt cap, and
+nothing here touches assets/ or raw_assets/.
 """
 
 import argparse
 import concurrent.futures
-import fcntl
 import glob
 import hashlib
 import html as html_lib
@@ -44,17 +44,14 @@ from PIL.PngImagePlugin import PngInfo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(HERE, "..", "localgen"))
 sys.path.insert(0, os.path.join(HERE, "..", "remotegen"))
-import localgen as lg  # noqa: E402  the index reader, which skips the lines a crash left unreadable
-import remotegen as rg  # noqa: E402  the OpenRouter catalogue and the key's credit
+import openrouter  # noqa: E402
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 WORK = os.path.join(ROOT, ".tmp", "bench")
+FRAMES = os.path.join(WORK, "frames")
 RUNS = os.path.join(WORK, "runs.jsonl")
 CARD = os.path.join(WORK, "judge.md")
 CARD_KEY = os.path.join(WORK, "judge_key.json")
-LOCALGEN = os.path.join(ROOT, ".claude", "skills", "localgen", "localgen.py")
-REMOTEGEN = os.path.join(ROOT, ".claude", "skills", "remotegen", "remotegen.py")
 KEY = (255, 0, 255)
 OUTLINE, FILL, EDGE_PX = (30, 30, 30), (235, 235, 235), 7
 
@@ -150,8 +147,10 @@ SUITES = {"bld": {"size": (1200, 1200), "aspect": "1:1"},
           "train": {"size": (1800, 1200), "aspect": "3:2"},
           # One cell of the train sheet, at its scale, asked of each model at its smallest output: what one
           # vehicle per frame costs and looks like against nine to a sheet.
-          "loco": {"size": TRAIN_CELL_PX, "aspect": "3:2", "remote": ["--image-size", "min"]}}
+          "loco": {"size": TRAIN_CELL_PX, "aspect": "3:2", "resolution": "min"}}
 LOCO = "electric_blue"
+# What `report` covers: its sections are written for the roof and car sheets. The train sheets are `tries`'s.
+REPORT_SUITES = ("bld", "car")
 # A model with no image input gets the brief without the pictures, led by this.
 TEXT_LEAD = {
     "bld": "Nine flat building roofs seen straight from above, as top-down sprites for a 2D city game, in a "
@@ -159,55 +158,14 @@ TEXT_LEAD = {
     "car": "Nine top-down car sprites for a 2D city game in a 3×3 grid on a flat magenta #FF00FF "
            "background, one per cell, every car pointing to the right, all at one shared scale.",
 }
-# Local models: output size per suite at about the megapixels each was trained at, and what each one needs
-# to run at all. Z-Image Turbo's pixel-art LoRA is the car style and not the roofs', so it is on for cars
-# only, with its trigger word. LongCat takes one picture, the layout.
-LOCAL = {
-    "klein": {"input": "ref", "size": {"bld": "1200x1200", "car": "1440x960"}},
-    "kleinbase": {"input": "ref", "size": {"bld": "1200x1200", "car": "1440x960"}},
-    "zimage": {"input": "text", "size": {"bld": "1248x1248", "car": "1536x1024"},
-               "lead": {"car": "Pixel art. "}, "flags": {"bld": ["--lora-strength", "0"]}},
-    "zimagebase": {"input": "text", "size": {"bld": "1248x1248", "car": "1536x1024"},
-                   "revision": "negative-encoded"},
-    "longcat": {"input": "layout", "size": {"bld": "1024x1024", "car": "1248x832"}},
-    # Swept last, heaviest first: Qwen offloads half its 20 GB to RAM, and OmniGen2's server was the one
-    # that died when the GPU reset (with a second sweep on the same server, so not proven its own fault).
-    "qwen8": {"input": "ref", "size": {"bld": "1024x1024", "car": "1248x832"}},
-    "qwen": {"input": "ref", "size": {"bld": "1024x1024", "car": "1248x832"}},
-    "omnigen2": {"input": "ref", "size": {"bld": "1024x1024", "car": "1248x832"}},
-    "klein9b": {"input": "ref", "broken": "not installed: gated on Hugging Face, needs a token and the "
-                                          "licence accepted"},
-}
-# Local frames run one at a time, each on a fresh server, with localgen's everyday 3 GB kept back for the
-# desktop and what does not fit offloaded to RAM: at 0.5 GB the desktop session died mid-sweep
-# (2026-10-18). The VAE decodes on the CPU, in fp32: in bf16 Qwen-Image's decoded any brief longer than
-# ~200 words to NaN (a flat grey frame), and in fp32 on the card it ran out of memory, fell back to tiles
-# that failed too, and left black and grey blocks in 12 of 30 frames.
-LOCAL_ENV = dict(os.environ, LOCALGEN_VAE="cpu", LOCALGEN_RESERVE_VRAM="3", LOCALGEN_ATTENTION="pytorch",
-                 LOCALGEN_SERVER_ARGS="")
-# Recorded on every local frame. A local frame of another setup — a shared, starved server, a bf16 VAE, a
-# VAE that ran out of memory, two sweeps on one server — is not compared: it measures the server as much as
-# the model.
-LOCAL_SETUP = "fresh-server vae-cpu locked"
-LOCAL_LOCK = os.path.join(WORK, "local.lock")
-
-
-def setup_of(model):
-    """What a frame's setup must be to be compared. A local model's `revision` marks a change to its own
-    graph since its first frames, which those frames did not have."""
-    if model not in LOCAL:
-        return REMOTE_SETUP
-    revision = LOCAL[model].get("revision")
-    return f"{LOCAL_SETUP} {revision}" if revision else LOCAL_SETUP
-# A remote frame goes through the Image API at the model's own resolution and quality, with as many of the
-# two pictures as it takes (remote_models): over chat gpt-image and FLUX.3 were refused, and a model that
-# takes one reference was handed two.
+# A frame goes through the Image API at the model's own resolution and quality unless a suite or `run` asks
+# otherwise, with as many of the two pictures as it takes (remote_models).
 # No retry inside a frame: a busy model's backoff held a worker for minutes while others waited their first
 # frame. The sweep retries in its own passes instead, once every model has been tried.
-REMOTE_FLAGS = ["--api", "images", "--retries", "0", "--quality", "auto", "--past-cap"]
-REMOTE_SETUP = "images-api"
+FRAME_RETRIES = 0
+# Recorded on every frame; a frame of another setup is never compared.
+SETUP = "images-api"
 SEED0 = 1
-STATUS = re.compile(r"image\(s\) in ([\d.]+)s(?:, \$([\d.]+))?")   # `$?`: the reply stated no cost
 
 
 def work(suite, name):
@@ -392,54 +350,40 @@ BRIEF_FOR_INPUT = {"ref": lambda suite, p: p, "layout": lambda suite, p: layout_
 def remote_models():
     """{id: {input, priceOut}} for every OpenRouter image model that takes a text prompt; a -preview twin
     of a released model is left out."""
-    out, catalogue = {}, rg.image_models()
+    out, catalogue = {}, openrouter.image_models()
     ids = {m["id"] for m in catalogue}
     for m in catalogue:
         arch, price = m.get("architecture") or {}, m.get("pricing") or {}
         inputs = arch.get("input_modalities") or []
         if "text" not in inputs or (m["id"].endswith("-preview") and m["id"][:-8] in ids):
             continue
-        # A model that takes one reference gets the layout and the style in words, like local LongCat.
-        most = rg.references_most(m["id"]) if "image" in inputs else 0
+        # A model that takes one reference gets the layout and the style in words.
+        most = (openrouter.references_most(m["id"]) or 0) if "image" in inputs else 0
         out[m["id"]] = {"input": "ref" if most >= 2 else "layout" if most == 1 else "text",
                         "priceOut": float(price.get("image_output") or 0) + float(price.get("image") or 0)}
     return out
 
 
-def input_of(model, remote=None):
-    if model in LOCAL:
-        return LOCAL[model]["input"]
-    return (remote or remote_models()).get(model, {}).get("input", "ref")
-
-
 def cmd_models(args):
     remote, records = remote_models(), read_runs()
-    rows = [(m, "local", c["input"], None, c.get("broken", "")) for m, c in LOCAL.items()]
-    rows += [(m, "openrouter", c["input"], c["priceOut"], "") for m, c in
-             sorted(remote.items(), key=lambda kv: kv[1]["priceOut"])]
-    if args.json:
-        print(json.dumps([dict(zip(("id", "where", "input", "imageOutUsdPerToken", "unavailable"), r)) for r in rows],
-                         indent=1))
-        return
-    print(f"{'model':<44} {'where':<10} {'input':<6} {'bld':>7} {'car':>7}  note  (ok/tried on the current "
-          "brief and setup)")
-    briefs = {s: brief_of(s) for s in SUITES}
-    for m, where, inp, _, broken in rows:
+    rows = sorted(remote.items(), key=lambda kv: kv[1]["priceOut"])
+    print(f"{'model':<44} {'input':<6} " + " ".join(f"{s:>7}" for s in SUITES)
+          + "  (ok/tried on the current brief and setup)")
+    briefs = {s: brief_of(s) for s in SUITES if os.path.exists(work(s, "layout.png"))}
+    for m, c in rows:
         done = []
         for s in SUITES:
             rs = [r for r in records if r["model"] == m and r["suite"] == s and not r.get("transient")
-                  and comparable(r, briefs[s])]
+                  and s in briefs and comparable(r, briefs[s])]
             done.append(f"{sum(r['ok'] for r in rs)}/{len(rs)}")
-        print(f"{m:<44} {where:<10} {inp:<6} {done[0]:>7} {done[1]:>7}  {broken}")
+        print(f"{m:<44} {c['input']:<6} " + " ".join(f"{d:>7}" for d in done))
 
 
 # ---------------------------------------------------------------------- run
 
 def comparable(r, brief):
     """On the current comparison: the current brief and the current setup."""
-    if r.get("brief", brief) != brief:
-        return False
-    return r.get("setup") == setup_of(r["model"])
+    return r.get("brief", brief) == brief and r.get("setup") == SETUP
 
 
 def read_runs():
@@ -451,7 +395,7 @@ def read_runs():
             if line.strip():
                 r = json.loads(line)
                 r.setdefault("ok", True)
-                r.setdefault("input", LOCAL.get(r["model"], {}).get("input", "ref"))
+                r.setdefault("input", "ref")
                 if not r["ok"] and r.get("error") and not r["error"].startswith("not a raster image"):
                     # Classified by today's rules, so one rule decides what counts against a model.
                     r["kind"] = classify(r["error"])
@@ -460,7 +404,7 @@ def read_runs():
     return out
 
 
-NETWORK = ("cannot reach", "ComfyUI: down", "Connection refused", "IncompleteRead", "timed out",
+NETWORK = ("cannot reach", "Connection refused", "IncompleteRead", "timed out",
            "RemoteDisconnected", "Connection reset")
 
 
@@ -495,73 +439,44 @@ def stamp(path, meta, caption_lines=None, img=None):
     img.save(path, pnginfo=info)
 
 
-def run_frame(suite, model, extra, seed, remote, remote_args=()):
-    """One frame, one record. Never raises: a failure is a record too."""
+def run_frame(suite, model, extra, seed, remote, options=None):
+    """One frame, one record. Never raises: a failure is a record too. `options` are the quality and resolution
+    asked for, over the suite's and the model's own."""
     layout, style = work(suite, "layout.png"), work(suite, "style.png")
-    inp = input_of(model, remote)
+    inp = remote.get(model, {}).get("input", "ref")
     brief = open(work(suite, "prompt.txt")).read()
     prompt = BRIEF_FOR_INPUT[inp](suite, brief)
     if extra:
         # A per-model nudge, after the brief so it is read last; recorded with every frame it made.
         prompt = prompt.rstrip() + "\n\n" + extra + "\n"
-    name = f"bench_{suite}_{tag_of(model)}"
-    if model in LOCAL:
-        cfg = LOCAL[model]
-        tail = ["--model", model, "--size", cfg["size"][suite], "--name", name, "--seed", str(seed)]
-        if inp == "text":
-            call = [LOCALGEN, "gen", cfg.get("lead", {}).get(suite, "") + prompt] + tail + cfg.get("flags", {}).get(suite, [])
-        else:
-            refs = [layout, style] if inp == "ref" else [layout]
-            call = [LOCALGEN, "edit"] + [a for r in refs for a in ("--image", r)] + ["-p", prompt] + tail
-        # ComfyUI does not give VRAM back between prompts: ~6 GB stays held outside torch's allocator,
-        # where /free cannot reach it, and a later model runs offloaded on ~1 GB — LongCat returned grey
-        # mush there and a clean frame on a fresh server, and Qwen faulted the GPU ("Memory access
-        # fault ... Page not present"). A fresh server per frame gives every model the card's whole
-        # budget; the restart is outside the generator's clock, below.
-    else:
-        refs = {"ref": [layout, style], "layout": [layout], "text": []}[inp]
-        call = ([REMOTEGEN, "edit"] + [a for r in refs for a in ("--image", r)] + ["-p", prompt] if refs
-                else [REMOTEGEN, "gen", prompt])
-        call += ["--model", model, "--aspect", SUITES[suite]["aspect"], "--name", name, "--seed", str(seed)]
-        call += REMOTE_FLAGS + SUITES[suite].get("remote", []) + list(remote_args)
-    with open(LOCAL_LOCK, "w") as lock:
-        if model in LOCAL:
-            # One local frame on the card at a time, across processes too: two sweeps sharing the server
-            # restarted it under each other's frames, and the GPU reset that took the desktop down came then.
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            up = subprocess.run([LOCALGEN, "up", "--restart"], capture_output=True, text=True, env=LOCAL_ENV)
-        t0 = time.time()
-        if model in LOCAL and up.returncode:
-            # Never a frame on a server that is not fresh: recorded as the service's failure, retried later.
-            done = subprocess.CompletedProcess(call, 1, "", "ComfyUI: down, the restart failed: "
-                                               + (up.stderr.strip().splitlines() or ["?"])[-1])
-        else:
-            done = subprocess.run(call, capture_output=True, text=True, env=LOCAL_ENV if model in LOCAL else None)
+    refs = {"ref": [layout, style], "layout": [layout], "text": []}[inp]
+    asked = {"quality": "auto", "resolution": SUITES[suite].get("resolution"), **(options or {})}
     rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "suite": suite, "model": model, "input": inp,
-           "brief": brief_of(suite), "extra": extra, "seed": seed, "ok": False}
-    rec["setup"] = setup_of(model)
-    settings = re.search(r"^settings (\{.*\})$", done.stderr, re.M)
-    if settings:
-        rec["settings"] = json.loads(settings.group(1))
-    usage = re.findall(r"^usage (\{.*\})$", done.stderr, re.M)
-    if usage:
-        rec["usage"] = json.loads(usage[-1])
-    # The last: localgen retries a blank frame once on a fresh server and reports both attempts.
-    status = ([None] + list(STATUS.finditer(done.stderr)))[-1]
-    # The generator's own clock: the time to the image, without process start or the catalogue lookup.
-    rec["seconds"] = float(status.group(1)) if status else round(time.time() - t0, 1)
-    if status and status.group(2):
-        rec["costUsd"] = float(status.group(2))
-    files = done.stdout.split()
-    if done.returncode or not files:
-        lines = [l for l in done.stderr.splitlines() if l.strip()]
-        rec["error"] = (lines[-1] if lines else f"exit {done.returncode}")[:300]
-        rec["kind"] = classify(done.stderr)
+           "brief": brief_of(suite), "extra": extra, "seed": seed, "ok": False, "setup": SETUP}
+    t0 = time.time()
+    try:
+        rec["settings"] = openrouter.settings_for(model, refs, aspect=SUITES[suite]["aspect"], seed=seed, **asked)
+        blobs, cost, seconds, rec["usage"] = openrouter.request(model, prompt, refs, rec["settings"],
+                                                                 retries=FRAME_RETRIES, echo=False)
+    except SystemExit as e:
+        rec.update(seconds=round(time.time() - t0, 1), error=str(e.code)[:300], kind=classify(str(e.code)))
         rec["transient"] = rec["kind"] in ("transient", "fatal", "unavailable")
         return rec
-    rec["file"] = files[0]
+    # The generator's own clock: the time to the image, without the catalogue lookup.
+    rec["seconds"] = round(seconds, 1)
+    if cost is not None:
+        rec["costUsd"] = cost
+    blob, ext = blobs[0]
+    os.makedirs(FRAMES, exist_ok=True)
+    name, n = f"bench_{suite}_{tag_of(model)}", 1
+    while os.path.exists(os.path.join(FRAMES, f"{name}-v{n}.{ext}")):
+        n += 1
+    path = os.path.join(FRAMES, f"{name}-v{n}.{ext}")
+    with open(path, "wb") as f:
+        f.write(blob)
+    rec["file"] = os.path.relpath(path, ROOT)
     try:
-        img = Image.open(os.path.join(ROOT, files[0]))
+        img = Image.open(path)
         img.load()
         rec["size"] = f"{img.width}x{img.height}"
     except OSError as e:
@@ -569,7 +484,7 @@ def run_frame(suite, model, extra, seed, remote, remote_args=()):
         return rec
     rec["ok"] = True
     if img.format == "PNG":
-        stamp(os.path.join(ROOT, files[0]), frame_meta(rec), img=img)
+        stamp(path, frame_meta(rec), img=img)
     return rec
 
 
@@ -596,26 +511,21 @@ class Guard:
         return self.budget is None or self.spent + self.max_frame_usd <= self.budget
 
 
-def frames(guard, suite, model, seeds, extra, remote, remote_args=()):
+def frames(guard, suite, model, seeds, extra, remote, options=None):
     """Runs one model's frames in order; stops at the first frame a later one would fail the same way."""
     for seed in seeds:
         if guard.stopped:
             return
-        if model not in LOCAL and not guard.affords():
+        if not guard.affords():
             print(f"[{suite}] {model}: skipped, budget spent", flush=True)
             return
-        rec = run_frame(suite, model, extra, seed, remote, remote_args)
+        rec = run_frame(suite, model, extra, seed, remote, options)
         guard.log(rec)
         if rec.get("kind") in ("unsupported", "fatal", "unavailable"):
             return
         if (rec.get("costUsd") or 0) > guard.max_frame_usd:
             print(f"[{suite}] {model}: ${rec['costUsd']:.2f} a frame is over --max-frame-usd, no more frames", flush=True)
             return
-
-
-def credit_left():
-    d = rg.call("GET", "/key", timeout=30).get("data", {})
-    return d.get("limit_remaining")
 
 
 def cmd_run(args):
@@ -625,28 +535,24 @@ def cmd_run(args):
     brief = brief_of(args.suite)
     start = 1 + max((r.get("seed") or 0 for r in read_runs() if r["suite"] == args.suite and r["model"] == args.model
                      and comparable(r, brief)), default=SEED0 - 1)
-    remote = None if args.model in LOCAL else remote_models()
-    remote_args = (["--quality", args.quality] if args.quality else []) + \
-                  (["--image-size", "min", "--quality", "min"] if args.cheapest else [])
-    frames(guard, args.suite, args.model, range(start, start + args.count), args.extra, remote, remote_args)
+    remote = remote_models()
+    options = ({"resolution": "min", "quality": "min"} if args.cheapest
+               else {"quality": args.quality} if args.quality else {})
+    frames(guard, args.suite, args.model, range(start, start + args.count), args.extra, remote, options)
     if guard.stopped:
         sys.exit(f"stopped: {guard.stopped}")
 
 
 def pick(args, remote):
-    if args.models in ("all", "local", "remote"):
-        local = [m for m, c in LOCAL.items() if "broken" not in c] if args.models != "remote" else []
-        far = sorted(remote, key=lambda m: remote[m]["priceOut"]) if args.models != "local" else []
-        chosen = local + far
+    if not args.models:
+        chosen = sorted(remote, key=lambda m: remote[m]["priceOut"])
     else:
         chosen = args.models.split(",")
         for m in chosen:
-            if m not in LOCAL and m not in remote:
+            if m not in remote:
                 sys.exit(f"unknown model {m}; `models` lists them")
-            if m in LOCAL and "broken" in LOCAL[m]:
-                print(f"{m}: {LOCAL[m]['broken']}", file=sys.stderr)
     skip = set(filter(None, args.skip.split(",")))
-    return [m for m in chosen if m not in skip and not (m in LOCAL and "size" not in LOCAL[m])]
+    return [m for m in chosen if m not in skip]
 
 
 def cmd_sweep(args):
@@ -658,12 +564,10 @@ def cmd_sweep(args):
             sys.exit("run `prepare` first")
     remote = remote_models()
     models = pick(args, remote)
-    budget = None
-    if any(m not in LOCAL for m in models):
-        left = credit_left()
-        if left is not None:
-            budget = left - args.reserve
-            print(f"credit ${left:.2f}, budget ${budget:.2f} (reserve ${args.reserve:.2f})", flush=True)
+    budget, left = None, openrouter.credit()[2]
+    if left is not None:
+        budget = left - args.reserve
+        print(f"credit ${left:.2f}, budget ${budget:.2f} (reserve ${args.reserve:.2f})", flush=True)
     guard = Guard(budget, args.max_frame_usd)
     briefs = {s: brief_of(s) for s in suites}
 
@@ -691,11 +595,8 @@ def cmd_sweep(args):
         if not tasks or guard.stopped:
             continue
         print(f"-- pass to {depth} frame(s): {len(tasks)} model-suite pairs", flush=True)
-        with concurrent.futures.ThreadPoolExecutor(args.jobs + 1) as pool:
-            # Local models share one GPU: one worker runs them all in turn, beside the remote workers.
-            local = [t for t in tasks if t[1] in LOCAL]
-            jobs = [pool.submit(lambda ts=local: [frames(guard, s, m, seeds, "", remote) for s, m, seeds in ts])]
-            jobs += [pool.submit(frames, guard, s, m, seeds, "", remote) for s, m, seeds in tasks if m not in LOCAL]
+        with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+            jobs = [pool.submit(frames, guard, s, m, seeds, "", remote) for s, m, seeds in tasks]
             for j in jobs:
                 j.result()
     if guard.stopped:
@@ -809,11 +710,10 @@ def mean(xs):
 
 
 def cmd_score(args):
-    records, index = read_runs(), {r["file"]: r for r in lg.read_index() if "file" in r}
+    records = read_runs()
 
     def cost_of(r):
-        # Records from before the run log kept it hold it only in the generator's index.
-        return r.get("costUsd", index.get(r.get("file"), {}).get("costUsd"))
+        return r.get("costUsd")
 
     lines =["# Image model benchmark — measured", "",
              "Evidence for the judge, not a ranking: `judge` and `reveal` give the verdict. IoU is the outline's "
@@ -826,7 +726,9 @@ def cmd_score(args):
         groups = {}
         for r in current:
             groups.setdefault(group_of(r), []).append(r)
-        scored = {"in-game": [score_frame(work(suite, "ingame.png"), cells, size, mirror)]}
+        # The train sheets have no in-game art to measure.
+        ingame = [("in-game", work(suite, "ingame.png"))] if os.path.exists(work(suite, "ingame.png")) else []
+        scored = {g: [score_frame(p, cells, size, mirror)] for g, p in ingame}
         for g, rs in groups.items():
             scored[g] = [score_frame(os.path.join(ROOT, r["file"]), cells, size, mirror) for r in rs
                          if r["ok"] and os.path.exists(os.path.join(ROOT, r["file"]))]
@@ -834,7 +736,7 @@ def cmd_score(args):
         head = ["model", "input", "ok/tried", "s (median)", "$/frame", "IoU", "shape IoU", "aspect err max",
                 "outside", "holes"] + (["mirror"] if mirror else [])
         lines += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
-        for g in ["in-game"] + sorted(groups):
+        for g in [g for g, _ in ingame] + sorted(groups):
             rs = groups.get(g, [])
             tried = [r for r in rs if not r.get("transient")]
             ok = [r for r in rs if r["ok"]]
@@ -845,7 +747,7 @@ def cmd_score(args):
             row = [g, "" if g == "in-game" else rs[0]["input"],
                    "" if g == "in-game" else f"{len(ok)}/{len(tried)}",
                    f"{statistics.median(r['seconds'] for r in ok):.0f}" if ok else "",
-                   f"{mean(cost):.3f}" if cost else ("0" if rs and rs[0]["model"] in LOCAL else ""),
+                   f"{mean(cost):.3f}" if cost else "",
                    f"{mean([c['iou'] for c in cs]):.3f}" if cs else "",
                    f"{mean([c['shapeIou'] for c in cs]):.3f}" if cs else "",
                    f"{max(c['aspectErr'] for c in cs):.0%}" if cs else "",
@@ -872,7 +774,7 @@ def cmd_score(args):
                     lines.extend(f"| ↳ {x['id']} | | | | {x['iou']:.3f} | {x['shapeIou']:.3f} | {x['aspectErr']:.0%} | "
                                  f"{x['outside']:.1%} | {x['holes']:.1%} |" for x in c)
             if ok:
-                tiles = [("in-game", work(suite, "ingame.png"))] + [
+                tiles = ingame + [
                     (f"{os.path.basename(r['file'])}  {r.get('size', '')}  {r['seconds']:.0f}s"
                      + (f"  ${cost_of(r):.3f}" if cost_of(r) else ""), os.path.join(ROOT, r["file"]))
                     for r in ok]
@@ -1042,7 +944,7 @@ def given_section(models, best, names):
         inputs.setdefault(r["input"], set()).add(m)
     targets = {"bld": BLD_IDS, "car": list(CARS)}
     styles = {"bld": BLD_STYLE_IDS, "car": list(CAR_STYLE_BODIES)}
-    words = {s: len(open(work(s, "prompt.txt")).read().split()) for s in SUITES}
+    words = {s: len(open(work(s, "prompt.txt")).read().split()) for s in REPORT_SUITES}
     lines = ["", "## What the models were given", "",
              "Every model got the same brief for a sheet and, as far as it takes pictures, the same two:", "",
              f"- **The layout** — the nine cells as outlines on flat magenta, each at its true footprint: roofs "
@@ -1057,7 +959,7 @@ def given_section(models, best, names):
              "- **Not given:** the game's own art for the nine cells, shown beside each sheet above only as the "
              "judge's reference.", "",
              "| | asked to draw | style sheet |", "|---|---|---|"]
-    lines += [f"| {names[s]} | {', '.join(targets[s])} | {', '.join(styles[s])} |" for s in SUITES]
+    lines += [f"| {names[s]} | {', '.join(targets[s])} | {', '.join(styles[s])} |" for s in REPORT_SUITES]
     cells = {"bld": (building_cells(BLD_IDS), building_cells(BLD_STYLE_IDS)),
              "car": (car_cells({i: body for i, (body, _) in CARS.items()}), car_cells(CAR_STYLE_BODIES))}
     shared = [(s, a["id"], b["id"]) for s, (ts, ss) in cells.items() for a in ts for b in ss
@@ -1072,13 +974,9 @@ def given_section(models, best, names):
              "layout": "brief + layout; the style in words instead of the style sheet",
              "text": "the brief's rules and cell lines only, led by a sentence describing the 3×3 grid"}
     lines += [f"| `{k}` | {given[k]} | {', '.join(sorted(inputs[k]))} |" for k in given if k in inputs]
-    lines += ["", "Each model was asked for the sheet's aspect (1:1 roofs, 3:2 cars) or its nearest. Remote "
-              "models got the pictures at full size; local Klein and Qwen scale each to about 0.5 MP, as more "
-              "overloads the card. A nudged frame is the same input plus one line for that model alone, quoted "
+    lines += ["", "Each model was asked for the sheet's aspect (1:1 roofs, 3:2 cars) or its nearest, and got the "
+              "pictures at full size. A nudged frame is the same input plus one line for that model alone, quoted "
               "where it is shown."]
-    if "longcat" in models:
-        lines[-1] += (" LongCat's text encoder keeps only the first 512 tokens of a brief, so it never read the "
-                      "last cells' lines: a limit of the model, left as it is.")
     return lines
 
 
@@ -1094,6 +992,8 @@ def cmd_report(args):
     records = read_runs()
     judged = {}   # (suite, model) -> [(total, marks, note, record)]
     for (suite, code), cols in card.items():
+        if suite not in REPORT_SUITES:
+            continue
         try:
             marks = [float(c) for c in cols[2:2 + len(CRITERIA)]]
         except ValueError:
@@ -1114,7 +1014,7 @@ def cmd_report(args):
              "Scored by eye, blind to the model, out of 25. The numbers are at the end."]
     if os.path.exists(VERDICT):
         lines += ["", "## Verdict", "", open(VERDICT).read().strip()]
-    for suite in SUITES:
+    for suite in REPORT_SUITES:
         ranked = sorted((best[k] for k in best if k[0] == suite), key=lambda j: (-j[0], j[3]["seconds"]))
         lines += ["", f"## {names[suite]}", "", '<div class="grid" style="--cols:3">',
                   figure(work(suite, "layout.png"), "given: the layout", base),
@@ -1127,27 +1027,27 @@ def cmd_report(args):
                   for i, (tot, _, note, r) in enumerate(ranked)]
         lines.append("</div>")
     notes = read_notes()
-    overall = sorted(models, key=lambda m: -sum(best[(s, m)][0] for s in SUITES if (s, m) in best))
+    overall = sorted(models, key=lambda m: -sum(best[(s, m)][0] for s in REPORT_SUITES if (s, m) in best))
     lines += ["", "## Ranking", "",
-              f"Both sheets together, out of {25 * len(SUITES)}: each model's best roof frame plus its best car frame."]
+              f"Both sheets together, out of {25 * len(REPORT_SUITES)}: each model's best roof frame plus its best car "
+              "frame."]
     for i, m in enumerate(overall):
-        scores = " · ".join(f"{names[s].lower()} {best[(s, m)][0]:.0f}" for s in SUITES if (s, m) in best)
-        total = sum(best[(s, m)][0] for s in SUITES if (s, m) in best)
+        scores = " · ".join(f"{names[s].lower()} {best[(s, m)][0]:.0f}" for s in REPORT_SUITES if (s, m) in best)
+        total = sum(best[(s, m)][0] for s in REPORT_SUITES if (s, m) in best)
         lines += ["", '<div class="model" markdown="1">', "",
                   f"### {i + 1}. {m} — {total:.0f} ({scores})", "", '<div class="grid" style="--cols:2">']
         lines += [figure(os.path.join(ROOT, best[(s, m)][3]["file"]),
                          names[s] + (f" · nudged: “{best[(s, m)][3]['extra']}”" if best[(s, m)][3].get("extra") else ""),
-                         base) for s in SUITES if (s, m) in best]
+                         base) for s in REPORT_SUITES if (s, m) in best]
         lines += ["</div>", "", notes.get(m, "_No verdict written for this model._"), "", "</div>"]
     lines += given_section(models, best, names)
     lines += ["", "## Numbers", "",
               "Criteria, 0–5 each: " + "; ".join(f"**{k}** — {v}" for k, v in CRITERIA.items()) + ". "
-              "Input: `ref` both pictures, `layout` the layout only with the style in words, `text` none. Remote "
-              "models ran through OpenRouter's Image API at their own default resolution and quality; local ones on "
-              "the RX 9070 XT, one frame at a time on a fresh ComfyUI server, VAE on the CPU, at their makers' template "
-              "steps and cfg, model load included in their time. Shape IoU and paint outside are measured on the "
-              "best frame with each drawing centred on its outline: evidence, not the score."]
-    for suite in SUITES:
+              "Input: `ref` both pictures, `layout` the layout only with the style in words, `text` none. Every "
+              "model ran through OpenRouter's Image API at its own default resolution and quality. Shape IoU and "
+              "paint outside are measured on the best frame with each drawing centred on its outline: evidence, "
+              "not the score."]
+    for suite in REPORT_SUITES:
         cells = json.load(open(work(suite, "cells.json")))
         size = SUITES[suite]["size"]
         rows = []
@@ -1162,25 +1062,25 @@ def cmd_report(args):
             per = [mean([j[1][i] for j in js]) for i in range(len(CRITERIA))]
             cost = [x["costUsd"] for x in tried if x["ok"] and x.get("costUsd")]
             rows.append((tot, mean([j[0] for j in js]), [
-                m, "local" if m in LOCAL else "OpenRouter", r["input"], f"{tot:.0f}", f"{mean([j[0] for j in js]):.1f}",
+                m, r["input"], f"{tot:.0f}", f"{mean([j[0] for j in js]):.1f}",
                 *(f"{p:.1f}" for p in per), f"{mean([c['shapeIou'] for c in s]):.2f}",
                 f"{mean([c['outside'] for c in s]):.0%}", f"{sum(x['ok'] for x in tried)}/{len(tried)}",
                 f"{mean(cost):.3f}" if cost else "0",
                 f"{statistics.median(x['seconds'] for x in tried if x['ok']):.0f}"]))
-        head = ["#", "model", "where", "input", "best", "mean", *CRITERIA, "shape IoU", "outside", "ok/tried",
+        head = ["#", "model", "input", "best", "mean", *CRITERIA, "shape IoU", "outside", "ok/tried",
                 "$/frame", "s"]
         lines += ["", f"### {names[suite]}", "", "| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
         lines += [f"| {i + 1} | " + " | ".join(row) + " |"
                   for i, (_, _, row) in enumerate(sorted(rows, key=lambda x: (-x[0], -x[1])))]
         lines += ["", "Best frames:", ""]
         for tot, marks, note, r in sorted((best[k] for k in best if k[0] == suite), key=lambda j: -j[0]):
-            seed = r.get("seed") if r["model"] in LOCAL or "seed" in (r.get("settings") or {}) else "not taken"
+            seed = r.get("seed") if "seed" in (r.get("settings") or {}) else "not taken"
             seed = f"{seed} · nudged: “{r['extra']}”" if r.get("extra") else seed
             lines.append(f"- {r['model']}: `{os.path.basename(r['file'])}` · {r.get('size', '')} · seed {seed} · "
                          f"{r['seconds']:.0f} s · ${r.get('costUsd') or 0:.3f} · "
                          + ", ".join(f"{k} {v:.0f}" for k, v in zip(CRITERIA, marks)) + (f" — {note}" if note else ""))
     lines += ["", "## The briefs"]
-    for suite in SUITES:
+    for suite in REPORT_SUITES:
         lines += ["", f"### {suite}", "", "```", open(work(suite, "prompt.txt")).read().strip(), "```"]
     md = os.path.join(WORK, "report.md")
     open(md, "w").write("\n".join(lines) + "\n")
@@ -1331,9 +1231,7 @@ def main():
     p = sub.add_parser("prepare")
     p.add_argument("--suite", choices=SUITES, help="only this suite (default every one)")
     p.set_defaults(func=cmd_prepare)
-    m = sub.add_parser("models")
-    m.add_argument("--json", action="store_true")
-    m.set_defaults(func=cmd_models)
+    sub.add_parser("models").set_defaults(func=cmd_models)
     r = sub.add_parser("run")
     r.add_argument("--suite", choices=SUITES, required=True)
     r.add_argument("--model", required=True)
@@ -1346,11 +1244,10 @@ def main():
     r.set_defaults(func=cmd_run)
     w = sub.add_parser("sweep")
     w.add_argument("--suite", choices=SUITES)
-    # Local models are not used (the owner, 2026-10-18): they never made a worthwhile frame.
-    w.add_argument("--models", default="remote", help="remote (default) | all | local | comma-separated ids")
+    w.add_argument("--models", default="", help="comma-separated ids (default every image model, cheapest first)")
     w.add_argument("--skip", default="", help="comma-separated ids to leave out")
     w.add_argument("-n", "--count", type=int, default=2, help="frames per model and suite on the plain brief")
-    w.add_argument("--jobs", type=int, default=4, help="remote models at once; local ones always run one at a time")
+    w.add_argument("--jobs", type=int, default=4, help="models at once")
     w.add_argument("--reserve", type=float, default=0.5, help="USD of credit left untouched")
     w.add_argument("--max-frame-usd", type=float, default=0.5,
                    help="a model whose frame costs more gets no more frames; also the per-worker budget margin")

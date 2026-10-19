@@ -1,0 +1,12 @@
+{
+  "id": "coal_olive",
+  "sprite": "coal_olive.webp",
+  "kind": "Coal",
+  "describe": "open gondola wagon seen from straight above: olive-green ribbed steel walls, the open top heaped with lumpy black coal",
+  "footprintM": [
+    13.9,
+    3.2
+  ],
+  "cornerRadiusM": 0.2,
+  "bogiePitchM": 8.65
+}

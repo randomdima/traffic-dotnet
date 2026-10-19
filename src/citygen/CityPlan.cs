@@ -110,7 +110,13 @@ internal sealed class CityPlan
     /// </summary>
     public GroundPieces Ground => new(
         Seed, WorldSizeM, PavementWidthM, Roads, Bridges, Junctions, JunctionCorners, Roundabouts,
-        ParkingLots, PavedAreas, Crosswalks, Water);
+        ParkingLots, PavedAreas, Crosswalks, Water)
+    {
+        Rails = Rails,
+    };
+
+    /// <summary>The railway (RAIL-2): its tracks, and the ballast each is laid on.</summary>
+    public RailArrays Rails { get; init; } = RailArrays.None;
 
     Paving? _paving;
 
@@ -639,6 +645,41 @@ internal sealed class CityPlan
 
         public ReadOnlySpan<Vector2> RingOf(int ring) =>
             PointM.AsSpan(Offsets[ring], Offsets[ring + 1] - Offsets[ring]);
+    }
+
+    /// <summary>
+    /// <b>The railway</b> (RAIL-2, RAIL-4): each track's line, past the map at both ends, the railway line it is one of
+    /// and which way it is run, and the ballast's band round it cut to the map — the ring the ground answers and draws
+    /// the railway off (TER-7).
+    /// </summary>
+    internal sealed class RailArrays
+    {
+        public static RailArrays None => new() { Line = [], Runs = [], PointOffsets = [0], PointM = [], Level = [], Ballast = RingArrays.None };
+
+        public required int[] Line { get; init; }
+
+        public required Map.TownMap.TrackRuns[] Runs { get; init; }
+
+        /// <summary>Count + 1 entries, over <see cref="PointM"/>.</summary>
+        public required int[] PointOffsets { get; init; }
+
+        public required Vector2[] PointM { get; init; }
+
+        /// <summary>The level of the chord each point starts (<see cref="Map.TownMap.RailArrays.Level"/>).</summary>
+        public required byte[] Level { get; init; }
+
+        /// <summary>The ballast round every track, cut to the map: a ring a piece of track on it.</summary>
+        public required RingArrays Ballast { get; init; }
+
+        /// <summary>
+        /// <b>The collision channel a wagon on a bridge is on</b> (PHY-1a): a bit no road's level is, so it meets nothing
+        /// it passes over.
+        /// </summary>
+        public const byte BridgeChannel = 1 << 7;
+
+        public int Count => Line.Length;
+
+        public ReadOnlySpan<Vector2> TrackOf(int track) => PointM.AsSpan(PointOffsets[track], PointOffsets[track + 1] - PointOffsets[track]);
     }
 
     /// <summary>

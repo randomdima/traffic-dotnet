@@ -23,6 +23,9 @@ internal enum CollisionLayer : ulong
     /// traffic. The ground it fetched up against is all that is left holding it.
     /// </summary>
     Downed = 1UL << 3,
+
+    /// <summary>A train's wagon (TRN-3): it meets the traffic and nothing else — not the town's furniture, not another wagon, not a casualty.</summary>
+    Train = 1UL << 4,
 }
 
 /// <summary>
@@ -46,7 +49,7 @@ internal enum CollisionLayer : ulong
 internal static class CollisionLayers
 {
     /// <summary>How many layers there are, which is how wide the matrix is.</summary>
-    public const int Count = 4;
+    public const int Count = 5;
 
     /// <summary>
     /// What each layer goes looking for, in layer order. This is the declaration and the masks are
@@ -62,6 +65,10 @@ internal static class CollisionLayers
         // anything: neither of the two rows above names Downed, so a casualty is in nobody's mask and
         // nothing but the ground can reach it (PHY-5b).
         CollisionLayer.Static,
+
+        // A wagon of unbounded mass against the furniture or another wagon is two bodies neither of which may move, so it
+        // looks for the traffic alone (TRN-3).
+        CollisionLayer.Person | CollisionLayer.Car,
     ];
 
     static readonly CollisionLayer[] Masks = Symmetrise(Scans);

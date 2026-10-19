@@ -109,7 +109,7 @@ internal sealed partial class Game
     /// desktop is already on the disk.
     /// </summary>
     private partial TownRenderer NewRenderer(GroundMesh mesh, SpriteRoom room) => TownRenderer.OnScreen(
-        mesh, _sheets.Count == 0 ? [] : ProjectPaths.GroundSurfaceFiles(), _sheets, room);
+        mesh, _sheets.Count == 0 ? [] : GroundMesh.SurfaceFiles(), _sheets, room);
 
     private partial long Crossings() => WebGpu.Crossings;
 

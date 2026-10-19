@@ -25,7 +25,7 @@ internal readonly record struct MapEntry(string Name, MapKind Kind, string Descr
 /// can be opened one way can be opened the other.
 /// </summary>
 /// <remarks>
-/// <b><see cref="Maps.Shipped"/> is the authority for which maps exist</b> — the map files in <c>towns/</c> and the maps
+/// <b><see cref="Maps.Offered"/> is the authority for which maps exist</b> — the map files in <c>towns/</c> and the maps
 /// this build lays in code — so a map cannot exist and be unlisted. <b>A town says what it is in its own map's head</b>;
 /// this catalogue is the authority for the rest, which is the maps laid to measure one thing. The unit suite guards the
 /// pair in both directions.
@@ -41,12 +41,14 @@ internal static class MapCatalogue
     [
         new(ExamPlan.Name, MapKind.Scenario,
             "A lattice of junctions, one traffic scenario staged at each and marked passed or failed"),
+        new(ShowroomPlan.Name, MapKind.Scenario,
+            "One big car park with every car look parked in it once, and every building look once round it"),
     ];
 
-    /// <summary>The shipped maps in menu order, places first — read off the folder and described from the catalogue.</summary>
+    /// <summary>The offered maps in menu order, places first — read off the folder and described from the catalogue.</summary>
     public static MapEntry[] Shipped()
     {
-        var names = Maps.Shipped();
+        var names = Maps.Offered();
         var entries = new MapEntry[names.Length];
         for (var map = 0; map < names.Length; map++) entries[map] = Describe(names[map]);
 

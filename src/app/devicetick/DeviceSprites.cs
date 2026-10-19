@@ -9,6 +9,7 @@ using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
 using static TrafficSimulation.App.DeviceTick.DeviceHoldings;
@@ -157,7 +158,27 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         public uint WalkHeadFrames;
         public float CycleS;
         public float AmberTailS;
+        public uint WagonCount;
+        public uint FirstTrainSheet;
+        public uint GearCount;
+        public uint BarrierSheet;
+        public uint CrossingHeadSheet;
+        public uint GlowTint;
+        public float BarrierWidthM;
+        public float HeadHalfM;
+        public float LampGlowHalfM;
+        public float GearPastKerbM;
     }
+
+    /// <summary>One approach's crossing gear (<c>GearRow</c>, <see cref="CrossingGear"/>), laid once.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct GearRow(
+        Vector2 PivotM, Vector2 DownAlong, Vector2 HeadM, Vector2 LampAcrossM, float ArmM, float ArmHeadingRad, float HeadHeadingRad,
+        float Pad = 0f);
+
+    /// <summary>What one approach's gear shows a frame (<c>GearShownRow</c>, <see cref="CrossingSprites.Shown"/>).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct GearShownRow(float ShownM, int Lit);
 
     /// <summary>Where the scan keeps its grand total (<c>TotalAt</c>).</summary>
     const uint TotalAt = 0;
@@ -194,10 +215,18 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     readonly DescriptorSet _laySet, _countSet, _writeSet;
     readonly ComputeBatch _batch;
 
+    /// <summary>The crossings' gear, and what each approach's shows a frame: a row each, written as the frame's words are.</summary>
+    readonly CrossingGear _gear;
+
+    readonly GpuBuffer _gearShown, _gearShownIn;
+
+    /// <summary>Each swapchain image's gear rows, beside its frame words.</summary>
+    readonly List<GpuBuffer> _gearFrames = [];
+
     /// <param name="levelled">Whether the town has a level above its ground (<see cref="TownWorld.Levelled"/>).</param>
     public DeviceSprites(
         Vk vk, SimConfig config, TownSprites looks, SpriteRoom room, CarFleet cars, PersonFleet people, SignalHeads heads,
-        SignalTable signals, bool levelled, DeviceWorld world)
+        SignalTable signals, bool levelled, CrossingGear gear, DeviceWorld world)
     {
         _vk = vk;
         _held = new DeviceHoldings(vk);
@@ -205,11 +234,32 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _room = room;
         _cars = cars.Count;
         _people = people.Count;
-        _units = people.Capacity + cars.Capacity + heads.Count;
-        _slots = people.Capacity + (CarParts(levelled) * cars.Capacity) + heads.Count;
+        _gear = gear;
+        var wagons = world.View.Wagons.Length;
+        _units = people.Capacity + cars.Capacity + wagons + heads.Count + gear.Count;
+        _slots = people.Capacity + (CarParts(levelled) * cars.Capacity) + wagons + heads.Count + (CrossingSprites.EachGear * gear.Count);
         if (_slots > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(cars), _slots, "more sprite slots than one scan covers");
 
-        var figures = FiguresOf(config, looks, room, cars.Capacity, people.Capacity, heads.Count, signals, levelled);
+        var rail = config.Rail;
+        var figures = FiguresOf(config, looks, room, cars.Capacity, people.Capacity, heads.Count, signals, levelled) with
+        {
+            WagonCount = (uint)wagons, FirstTrainSheet = (uint)looks.FirstTrainSheet, GearCount = (uint)gear.Count,
+            BarrierSheet = (uint)looks.BarrierSheet, CrossingHeadSheet = (uint)looks.CrossingHeadSheet, GlowTint = CrossingSprites.GlowTint,
+            BarrierWidthM = rail.BarrierWidthM, HeadHalfM = rail.HeadSizeM * 0.5f, LampGlowHalfM = rail.LampGlowM * 0.5f,
+            GearPastKerbM = rail.GearPastKerbM,
+        };
+        var gearRows = new GearRow[Math.Max(1, gear.Count)];
+        for (var each = 0; each < gear.Count; each++)
+        {
+            gearRows[each] = new GearRow(
+                gear.PivotM[each], gear.DownAlong[each], gear.HeadM[each], gear.LampAcrossM[each], gear.ArmM[each], gear.ArmHeadingRad[each],
+                gear.HeadHeadingRad[each]);
+        }
+
+        _gearShown = _held.Device<GearShownRow>(gearRows.Length);
+        _gearShownIn = _held.Own(_vk.CreateBuffer(Bytes<GearShownRow>(gearRows.Length), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
+        var trainLooks = new Vector2[Math.Max(1, looks.Rolling.Vehicles.Length)];
+        for (var vehicle = 0; vehicle < looks.Rolling.Vehicles.Length; vehicle++) trainLooks[vehicle] = looks.Rolling.Vehicles[vehicle].FootprintM * 0.5f;
         var personRows = _held.Device<PersonRow>(Math.Max(1, people.Capacity));
         var carRows = _held.Device<CarRow>(Math.Max(1, cars.Capacity));
         GpuBuffer[] set =
@@ -234,6 +284,11 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             // A slot above at the least: a frame binds the run above at its own offset, which may not be the buffer's end.
             _instances = _held.Device<SpriteInstance>(room.Over + Math.Max(1, room.Above), BufferUse.Vertex),
             _draws = _held.Device<DrawIndirectCommand>(2, BufferUse.Indirect),
+            Laid<Vector2>(trainLooks),
+            world.Drawn.WagonViews[0],
+            world.Drawn.WagonViews[1],
+            Laid<GearRow>(gearRows),
+            _gearShown,
         ];
 
         _frameIn = _held.Own(_vk.CreateBuffer(
@@ -265,7 +320,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
     /// <summary>The emit for a running town whose world is on the device.</summary>
     public static DeviceSprites For(Vk vk, SimConfig config, TownWorld town, TownSprites looks, SpriteRoom room, DeviceWorld world) =>
-        new(vk, config, looks, room, town.Cars, town.People, town.Heads, town.Signals.Table, town.Levelled, world);
+        new(vk, config, looks, room, town.Cars, town.People, town.Heads, town.Signals.Table, town.Levelled, town.CrossingGear, world);
 
     /// <summary>
     /// The two runs as the last emit wrote them, on the device — the over run from the first instance and the run above
@@ -303,8 +358,9 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     {
         _batch.Wait();
         _frameIn.Span<FrameWords>()[0] = WordsFor(viewCentreM, viewSpanM, pixelsPerMetre, elapsedS, lay: true);
+        WriteTheGear(_gearShownIn, elapsedS);
         var commands = _batch.Begin();
-        RecordTheEmit(commands, _frameIn);
+        RecordTheEmit(commands, _frameIn, _gearShownIn);
         _vk.BeforeTransfer(commands);
         _instancesOut ??= _held.Own(_vk.CreateBuffer(_instances.SizeBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads));
         _vk.Copy(commands, _instances, _instancesOut, _instances.SizeBytes);
@@ -326,9 +382,12 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
                 Bytes<FrameWords>(1), BufferUsageFlags.TransferSrcBit | BufferUsageFlags.IndirectBufferBit, HostAccess.Streams));
             words.Span<FrameWords>()[0] = default;
             _frames.Add(words);
+            var gear = _held.Own(_vk.CreateBuffer(_gearShown.SizeBytes, BufferUsageFlags.TransferSrcBit, HostAccess.Streams));
+            gear.Span<GearShownRow>().Clear();
+            _gearFrames.Add(gear);
         }
 
-        RecordTheEmit(commands, _frames[image]);
+        RecordTheEmit(commands, _frames[image], _gearFrames[image]);
         _vk.Barrier(
             commands, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageWriteBit,
             PipelineStageFlags2.DrawIndirectBit | PipelineStageFlags2.VertexAttributeInputBit,
@@ -345,6 +404,18 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         var lay = signalsTaken != _laidFor;
         _laidFor = signalsTaken;
         _frames[image].Span<FrameWords>()[0] = WordsFor(viewCentreM, viewSpanM, pixelsPerMetre, elapsedS, lay);
+        WriteTheGear(_gearFrames[image], elapsedS);
+    }
+
+    /// <summary>What every approach's crossing gear shows at the frame's moment (<see cref="CrossingSprites.Shown"/>), written where the frame copies it from.</summary>
+    void WriteTheGear(GpuBuffer into, float elapsedS)
+    {
+        var rows = into.Span<GearShownRow>();
+        for (var each = 0; each < _gear.Count; each++)
+        {
+            var (shownM, lit) = CrossingSprites.Shown(_gear, each, elapsedS);
+            rows[each] = new GearShownRow(shownM, lit);
+        }
     }
 
     FrameWords WordsFor(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, float elapsedS, bool lay) => new(
@@ -358,11 +429,12 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     /// The emit recorded off frame words <paramref name="words"/>: the frame's row sent, every row laid off the world as
     /// many workgroups as the words say, then count, scan and write.
     /// </summary>
-    void RecordTheEmit(CommandBuffer commands, GpuBuffer words)
+    void RecordTheEmit(CommandBuffer commands, GpuBuffer words, GpuBuffer gear)
     {
         var vk = _vk;
         vk.AfterTheSubmitsBefore(commands);
         vk.Copy(commands, words, _frame, Bytes<FrameRow>(1));
+        vk.Copy(commands, gear, _gearShown, _gearShown.SizeBytes);
         vk.AfterTransfer(commands);
 
         _lay.DispatchIndirect(commands, _laySet, words, LayCarsAt, new LayPush((uint)_cars, 0u));

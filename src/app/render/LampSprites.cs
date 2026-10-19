@@ -12,8 +12,8 @@ namespace TrafficSimulation.App.Render;
 /// <remarks>
 /// <para>
 /// <b>A lit lamp is the car's own section of picture, burning</b> (CAR-14a). The lens is the piece of
-/// bodywork the variant's art draws one on (<see cref="CarLens"/>), and the sheet holds that very
-/// section cut from that very sprite and driven emissive (<see cref="LampAtlasBake"/>). So a lamp lands
+/// bodywork the variant's art draws one on (<see cref="CarLens"/>), and the sheet holds the texels its zone map
+/// paints as the lens, cut from that very sprite and driven emissive (<see cref="LampAtlasBake"/>). So a lamp lands
 /// on the texel grid the body is drawn on, wears the bezel the artist gave it, and cannot overhang an
 /// outline it was cut from the inside of.
 /// </para>
@@ -101,7 +101,7 @@ internal static class LampSprites
 
                 var lens = shown[lamp].Lens;
                 var glowM = glowsM[lamp] = GlowM(lens, config);
-                if (glowM < leastGlowM) continue;
+                if (glowM < leastGlowM || !Glows(shown[lamp].Colour)) continue;
 
                 into[written++] = new SpriteInstance(
                     centreM + (forward * lens.AtBodyM.X) + (right * lens.AtBodyM.Y),
@@ -128,6 +128,13 @@ internal static class LampSprites
 
         return written;
     }
+
+    /// <summary>
+    /// Whether a lamp burning <paramref name="colour"/> lays a glow under its lens. <b>A headlamp does not</b>
+    /// (CAR-14.8): it is lit glass that says the car is driven, and a glow on every moving car's nose is a town washed in
+    /// bloom. Its lens is still culled by the glow it would have (<see cref="GlowM"/>), as every lens is.
+    /// </summary>
+    public static bool Glows(CarLamp colour) => colour != CarLamp.Head;
 
     /// <summary>
     /// How wide a lit lens's glow is drawn: sized off the lens the art draws and not off the cell that carries

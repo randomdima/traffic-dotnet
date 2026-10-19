@@ -291,16 +291,6 @@ driver inside a wreck no ambulance can reach (`AMB-7`).
 general path answers every pair and the two closed forms are kept because they cover most of a town's narrow
 phase; `TheDiscShortcutsAgreeWithTheGeneralShape` holds them together over forty thousand pairs.
 
-## 2026-08-26 — a car is collided as its picture, not as the rectangle the picture was drawn in
-
-A footprint is the rectangle art is drawn *into*, so its width is whatever reaches furthest — the police
-car's wing mirrors, a fifth of a metre outside the panels. The shape is now the largest rounded box
-*within* the silhouette, measured off the alpha and authored as `collisionM`, which by construction never
-stands outside the bodywork. That retires `hullM` as a source, since it traces the mirrors too. Two
-authoring mistakes both produced plausible answers — an ellipse in metres from eroding a squashed picture,
-and a notch closing up at a sixth resolution — and the gate caught both, which is the argument for asking
-the art rather than another figure in the same file.
-
 ## 2026-08-26 — the box got a corner radius, and the town did not get polygons
 
 A square footprint corner reaches 0.21–0.43 m past the bodywork, which is a car stopped by a car it

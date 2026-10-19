@@ -162,6 +162,15 @@ word.
 On OdesaOsm the mesh is 133 → 50 MB on the device and as much again off it, and laying it holds 1 774 → 1 655 MiB at
 most; the corners are the same 4 165 049. The visual tier passes whole and a shot of each head is the picture it was.
 
+## 2026-10-18 — the sheet table holds 2048, and a device with less is refused
+
+Nine civilian cars and their wrecks took the town past 512 sheets. **The table is 2048 places, 64 KB** (`SheetAtlas.Slots`):
+WebGPU's default `maxUniformBufferBindingSize`, which every adapter offers, and what desktop and handset Vulkan drivers
+report, so it stays a uniform and no head changes binding. Vulkan promises only 16 KB, so the Vulkan head reads
+`maxUniformBufferRange` and refuses a device under the table rather than drawing past it; a storage buffer is the step
+if 2048 is ever spent. What bounds the art past that is the pages' memory, not the count. The length is one constant,
+and `SheetAtlasTests` holds both shaders' arrays to it.
+
 ## 2026-10-04 — a prefab with no picture is a plain block, and the sheet table holds 512
 
 A traced town's buildings are 355 prefabs, most with no art yet ([citygen's log](../../../citygen/docs/decision-log.md)).

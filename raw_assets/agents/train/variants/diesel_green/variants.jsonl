@@ -1,0 +1,2 @@
+{"variant": "diesel_green-v1", "frame": "trains_a-v2", "cell": 6, "box": [923, 452, 573, 107], "pxPerM": 31.5, "score": 4, "status": "candidate", "ts": "2026-10-18T23:17:25"}
+{"variant": "diesel_green-v2", "frame": "trains_b-v2", "cell": 5, "box": [40, 460, 573, 107], "pxPerM": 31.5, "score": 4, "status": "used", "ts": "2026-10-19T01:52:59"}

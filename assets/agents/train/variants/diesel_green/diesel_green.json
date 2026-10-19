@@ -1,0 +1,12 @@
+{
+  "id": "diesel_green",
+  "sprite": "diesel_green.webp",
+  "kind": "Diesel",
+  "describe": "one-way mainline freight diesel locomotive seen from straight above: one driving cab only, at the front (right) end, its dark windscreens facing forward; behind it a long engine hood with two big round radiator fans and an exhaust stack, a dark green roof with a yellow stripe along each side, a walkway with handrails along both sides, and at the rear (left) end a plain flat hood end with no cab and no windscreen, no text or emblem",
+  "footprintM": [
+    18.2,
+    3.4
+  ],
+  "cornerRadiusM": 0.3,
+  "bogiePitchM": 9.4
+}

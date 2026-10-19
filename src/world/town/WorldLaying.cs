@@ -14,6 +14,9 @@ internal readonly record struct CarLaid(Vector2 PositionM, float HeadingRad, byt
 /// <summary>One walker as a world is laid with it: where it stands and faces, and whether a container holds it (PHY-7).</summary>
 internal readonly record struct WalkerLaid(Vector2 PositionM, float HeadingRad, bool Inside);
 
+/// <summary>One train's wagon as a world is laid with it: its shape, and out of the world until its train runs (TRN-7).</summary>
+internal readonly record struct WagonLaid(Vector2 HalfSizeM, float CornerRadiusM);
+
 /// <summary>
 /// <b>What a world is laid off</b>, once and as plain data: the furniture, the ground, the builds, each agent's body
 /// as the town stood it, and the lanes a car is read along (<see cref="LineReading"/>). Nothing in it is the actor
@@ -22,8 +25,10 @@ internal readonly record struct WalkerLaid(Vector2 PositionM, float HeadingRad, 
 /// <remarks>
 /// <para>
 /// <b>One numbering</b>: a world stands the furniture first, then every walker, then every car, each in roster order
-/// (<see cref="AgentRoster"/>). A signal names an agent (<see cref="ControlSignal.Agent"/>), and only the world knows
-/// which body that is (<see cref="BodyOf"/>).
+/// (<see cref="AgentRoster"/>), then every wagon the town's trains can field (<see cref="Wagons"/>), signalled as the
+/// agents past the roster (<see cref="AgentOfWagon"/>) — a wagon decides nothing, so it is on no roster the loop walks.
+/// A signal names an agent (<see cref="ControlSignal.Agent"/>), and only the world knows which body that is
+/// (<see cref="BodyOf"/>).
 /// </para>
 /// <para>
 /// <b>No atlas for a world that keeps its own</b>, filed into it as the town was laid (<see cref="IWorldMaker"/>).
@@ -34,6 +39,15 @@ internal sealed record WorldLaying(
     CarLaid[] Cars, WalkerLaid[] Walkers, RoadGraph Roads)
 {
     public AgentRoster Roster => new(Walkers.Length, Cars.Length);
+
+    /// <summary>Every wagon the town's trains can field, each a body of its own (TRN-7).</summary>
+    public WagonLaid[] Wagons { get; init; } = [];
+
+    /// <summary>Everything a signal may name: the roster, then the wagons.</summary>
+    public int Agents => Walkers.Length + Cars.Length + Wagons.Length;
+
+    /// <summary>The agent a signal names a wagon by.</summary>
+    public int AgentOfWagon(int wagon) => Walkers.Length + Cars.Length + wagon;
 
     /// <summary>How many of the furniture's bodies the table stands first, which every agent's row is counted past.</summary>
     public int FurnitureCount { get; } = Statics.Count;
@@ -53,9 +67,11 @@ internal sealed record WorldLaying(
         var agent = body - FurnitureCount;
         if (agent < 0) return BodyTag.None;
 
-        return agent < Walkers.Length
-            ? new BodyTag(BodyKind.Person, agent)
-            : new BodyTag(BodyKind.Car, agent - Walkers.Length);
+        if (agent < Walkers.Length) return new BodyTag(BodyKind.Person, agent);
+
+        return agent < Walkers.Length + Cars.Length
+            ? new BodyTag(BodyKind.Car, agent - Walkers.Length)
+            : new BodyTag(BodyKind.Train, agent - Walkers.Length - Cars.Length);
     }
 
     /// <summary>
@@ -65,7 +81,7 @@ internal sealed record WorldLaying(
     public PhysicsWorld StandTheBodies()
     {
         var bodies = new PhysicsWorld(Config);
-        bodies.Fit(Statics.Count + Walkers.Length + Cars.Length);
+        bodies.Fit(Statics.Count + Agents);
         bodies.AddStatics(Statics);
         for (var person = 0; person < Walkers.Length; person++)
         {
@@ -83,6 +99,12 @@ internal sealed record WorldLaying(
                 laid.PositionM, laid.HeadingRad, build.CollisionSizeM * 0.5f, build.CornerRadiusM, build.MassKg);
             bodies.Tag(body, new BodyTag(BodyKind.Car, car));
             if (laid.Channels != CityPlan.RoadArrays.GroundChannel) bodies.PutOnChannels(body, laid.Channels);
+        }
+
+        for (var wagon = 0; wagon < Wagons.Length; wagon++)
+        {
+            var body = bodies.AddWagon(Wagons[wagon].HalfSizeM, Wagons[wagon].CornerRadiusM);
+            bodies.Tag(body, new BodyTag(BodyKind.Train, wagon));
         }
 
         return bodies;

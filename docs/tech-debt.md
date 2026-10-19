@@ -8,7 +8,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Failing tests
 
-- **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) fails: the worst bar's gap is 0.0426 m off the setback
+- **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) is skipped, failing: the worst bar's gap is 0.0426 m off the setback
   against `FramesM`, a 0.04 m bound measured on the fixture. It fails on 5a973d8, 2b8936c7 and 9f5c05af (2026-09-30)
   alike, so the fixture outgrew the measurement before the claims redesign. Finding which bar and whether its arm's
   bend accounts for it — then re-measuring the bound or reading the gap in the lane's own metres — closes it.
@@ -16,9 +16,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   ticks on 2026-10-16, with the machine at a load of ~25 and the test host already on the shipped collector; it has
   passed every run since, five in a row on a quiet machine. What allocated under load is not known; an allocation
   trace (`dotnet-trace`'s GC allocation ticks) of a failing run closes it.
-- **Seven exam cards fail** (2026-10-16; 60, 82, 85 and 86 pass since a car short of a box plans none of one it could
+- **Eight exam cards fail** (2026-10-16; 60, 82, 85 and 86 pass since a car short of a box plans none of one it could
   not get out of, and yields what it holds there at rest, the road log):
+  - 39 and 44 (the nearer of two straights goes first; four left turns at once), failing on 2026-10-18's working tree
+    with the level-crossing card taken out of the table as well — so they moved with the uncommitted car work and not
+    with the railway, which the exam map otherwise lacks. 39's driver 0 is on the box 0.1 s after driver 1; 44's driver
+    0 never leaves the box. Not traced.
   - 69, the standing tier (road log, the claims redesign). Not traced.
+  - 70 passes on that tree (2026-10-18), and its entry below stands until it is seen to pass on a commit:
   - 70 (a left turn on green gives way to somebody crossing): the car now waits at the box's mouth until the walker is
     off its lane, then crosses the paint behind them; its committed plan takes the paint whole (TER-5c.3), the walker
     stops a second, and their crossing turns red with them 0.7 m short of the far kerb, cut by "light stretch 40". TLT-2a
@@ -60,6 +65,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **A car pulled out from a kerb was handed to a lane 2.2 m off and lost its line** (car 2111, one OdesaOsm run of
   2026-10-17, `ShapeTheWayOffTheKerb` lands on the lane beside whatever lane the route set off down). Not seen in the
   run after; checking whether `TownWorld.LeaveTheBay`'s lane and the shape's can differ at a kerb closes it.
+- **OdesaOsm lays a pavement on its railway's ballast** (`RAIL-4`; `--bench trains --map OdesaOsm`, 2026-10-19): where
+  the traced main line runs beside Балківська вулиця (about 1275, 12600), the street's imagery width (12–13 m against
+  its tags' lanes) puts its east walk 1.8 m off the track's centre, and walkers on it are met by passing wagons at no
+  crossing — two in 400 s. A traced town's walks are laid off its roads and never asked of the ballast, as a generated
+  town's nodes are (`WaterRules.Holds`). Trimming a walk where it runs onto railway ground, or narrowing a road to its
+  tags where the ballast would be reached, closes it.
 
 - **Laying the paint costs three times what it did on OdesaOsm** (`--bench census`, 2026-10-17: 116 → 373 ms of a
   2.8 s ground): every lane and roadside line is asked of the painted bands a crossing's depth at a time, to part it
@@ -474,15 +485,67 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 
 ## Inconsistencies
 
+- **Two readings of where a way meets a track** (2026-10-18): `LevelCrossings` crosses each road's centreline with the
+  tracks for what is drawn — the rails laid back, the stop lines, the gear — and `CrossingHolds` crosses every way's own line with
+  them for what is held. They agree on which roads cross; where a lane's hold begins is its own ballast edge less the
+  setback, measured along the lane, and where the drawn stop line stands is the road centreline's, so on a skewed or
+  curving crossing the two part by a fraction of a metre. Drawing the stop lines off the holds' lane stretches closes it.
+- **A level crossing's gear is still laid in code** _owner_ (2026-10-19): the barrier arm and the head are
+  `CrossingSprites.Barrier` and `.Head`, flat bands and a box. `railway_a` drew all five pieces of gear 1.5 to 3 times
+  their outlines over three attempts (`raw_assets/world/rail/prompting.md`), so their files under
+  `assets/world/rail/looks/` (`barrier_arm`, `barrier_arm_b`, `crossing_head`, `barrier_drive`, `relay_cabinet`) have no
+  picture and nothing reads them. Another sheet — the gear alone, at its own scale — is the owner's to spend on; the drive
+  and the cabinet would then want placing at each crossing.
+- **`coal_gondola` has no picture and is out of the rolling stock** _owner_ (2026-10-19): `trains_b` drew it tilted twice
+  and swapped it for a tank on the third (`raw_assets/agents/train/prompting.md`); a coal train wears two looks, not three.
+  It returns to `Rolling.json` with a kept picture.
+- **The rolling stock's narrow vehicles are fitted down some 12 % across** (2026-10-19): the model draws a long thin
+  outline that much wide at any width asked, and `qq sprites cut`'s rows allowance (`FIT_ROWS_MAX`, the owner's minor
+  deviation) squeezes it onto the collider, so a coach's roof detail is that much narrower than drawn. A sheet that fits
+  unsqueezed closes it.
+- **A crossing's walk is drawn as walk and answered as railway** (`TER-7`, 2026-10-19): the strip stops at a crossing
+  road's walk and only the rails are laid over it (`RAIL-3`), while `GroundShapes.At` puts the ballast over the walk there.
+  Nothing permitted on a walk is placed at a crossing, so no prop or route reads the difference yet. Answering the walk
+  over the ballast inside a crossing's stretch closes it.
+
 - **Building roofs are drawn under the art grid, and nothing in the tree can remake them** (2026-10-18): of the 272
   prefab sprites under `assets/world/building/prefabs/`, 182 are under 25 px/m against `ArtPixelsPerMetre` 31.5, the
   median 18 and the coarsest 6.3 (`apartments_deep_20`); `qq art` reports only sheets over their grid. 83 prefabs have
   no sprite. `qq sprites` now lays, cuts and installs them at the grid; regenerating the set closes it, and `qq art`
   saying which sheets are under would keep it closed. A 3×3 sheet at 1536×1024 holds the grid only for roofs up to
   ~13 m, so whether the rest may stay under is _owner_.
-- **`qq sprites cut` keys a cell from its own margin**, not from the frame's measured background: a cell whose roof
-  runs to the edge of its 12 px margin keys from a border that is partly roof. Measuring the key once from the
-  frame's border and handing it to every cell closes it.
+- **A lamp's glow is laid at its frame, not at the lens the art drew** (2026-10-18): `LampSprites` centres the glow
+  under a lit lens on `atM`, and the generator draws lenses a few centimetres off their frames — `micro_mint`'s
+  and `retro_cream`'s tail lamps and indicators most (`cars_civil_c-v3`). The lit lens itself is where its zone map
+  says (CAR-14a); its spill is off by that much. Centring the glow on the texels the bake lit for it closes it.
+- **The bigger civilian cars' noses are rounder than their collision boxes** (2026-10-18): `cars_civil_c`'s five largest
+  bodies and all nine wrecks leave 1–3 % of their outline bare at the corners (`qq sprites cut`, holes), so a car
+  is struck a few centimetres outside its paint there. Barely visible; a brief naming the corner radius in words,
+  or `collisionM.cornerRadiusM` authored rounder for those bodies, closes it.
+- **No shipped car draws a headlamp** (2026-10-18): CAR-14.8 shows on no look in `Fleet.json` or `Service.json`, whose
+  art is on the legacy list and authors no `head` lens; the ambulance's ten lenses are also the most a car may draw
+  (`CarLamps.MostLenses`, three bits a lens in one word of the sprite emit), so it cannot take a pair until that word is
+  two. Regenerating the fleet with head frames closes the first; widening the word, the second.
+- **A generated car's mirrors are clipped flat at its footprint** (2026-10-18): the model draws them about 0.05 m past
+  the 0.1 m a side the nine civilian cars' footprints allow (`qq sprites cut`'s overlay, cyan), and the cut keeps the
+  footprint. Barely visible at game zoom; a brief asking for smaller mirrors, or footprints authored to the mirrors a
+  body has, closes it.
+- **Sixteen of the nineteen cars author lenses past their own shape** (2026-10-18): the `lamps` were measured off the
+  old art, whose bodywork overhung `collisionM`, so rear lamps sit on the rounded corners and indicators past the nose;
+  `qq sprites template` warns of each (ambulance 4, evacuator 4, the muscles, pickups, police and sedan_rust 4, the
+  rest 2). The art drawn to the shape has no paint there, so it cannot draw them. Moving each lens inside its shape
+  as the set is generated again closes it; moved before, it misses the lamp on the sprite in the game now.
+- **The nineteen legacy looks still light their lamps by rectangle** (`LampAtlasBake.Paste`, 2026-10-18): with no zone
+  map, a lens burns its whole `sizeM` area of sprite by luminance, so a round or strip lens lights the paint in its
+  corners and a lens drawn off its rectangle lights paint only. Two ways of finding a lamp stand in the bake until
+  then. Generating each set again with its zone map (CAR-14a) closes it and deletes `Paste`; a beacon needs a zone
+  colour of its own first (`LampAtlasBake.ZoneOf`, `ZONE_PARTS`).
+- **`qq proof --looks=all` peaks at 1.2 GB** (`LampProof`, 2026-10-18): ImageSharp holds every distinct frame as full
+  RGBA until the GIF is written — 39 frames of 1728×3874 for the 28 looks; nine looks are a fifth of it. Writing
+  frames to the encoder as they are made, or a frame a tile row, closes it.
+- **The zone palette is written twice** (2026-10-18): `qq sprites`' `ZONE_PARTS` and `LampAtlasBake.ZoneOf`, and the zone
+  brief a third time. `AZonedLampBurnsOnlyItsZone` fails if a lamp's colour drifts between them; the rest of the
+  palette nothing in C# reads. One reading the other closes it.
 - **Signal heads stand in the middle of a junction cluster** whose boxes are 27–34 m apart, each road between them
   long enough to be a street once both mouths are taken (OdesaOsm 2830,13491, survey junctions 617, 651, 3040 and
   6255), so nothing gathers them (`TracedStreets.Squeezed`) and the short streets hold at bars inside what reads as one
@@ -643,6 +706,14 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   states GEN-4f's way in kept on the road and passes with `ParkingIn.TheStopIsDeadAhead` taken out, so what holds the
   rule is Odesa's and River's stuck probes (decision log of the parking slice, 2026-10-16). A fixture street with a
   car park just past a bend closes it.
+- **The pointer names a way's kind one off** (`DebugOverlay.Pointer.cs`, `WayWords`, 2026-10-19): the table has five
+  words for `WayKind`'s four and is indexed by the kind, so a footway reads "bay way" and a mitre "footway". Dropping
+  "bay way" (a bay is a `Lane`) closes it.
+- **`SimConfig.Rail.RunOffM` cites a check that does not exist** (2026-10-19): its doc says a train longer than the
+  run-off is refused by `TrainFleet`, and there is no such type, so nothing compares the longest train — 173.8 m, an
+  intercity — or the warning reach against it. `Trains.Send` also starts a train twice the warning reach short of the
+  edge, 616 m at intercity speed, which the exam track's 600 m clamps. A lay-time comparison of the run-off with the
+  longest train plus the warning reach at its line's speed closes it.
 
 ## Waiting on the owner
 

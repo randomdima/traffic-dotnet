@@ -18,8 +18,8 @@ other only in the one direction the tier's own row gives.
 |---|---|---|
 | **Kernel** | `core/` — config, geometry, simulation | Nothing else in the project. **Not a town** |
 | **Plan** | `citygen/` — the plan, its ground vocabulary, the lines a car is driven on, the map file a town is laid off and the zones that lay it, the wheel that lays a brief's streets, and the tracing that lays a real place's | core |
-| **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking | core, citygen, and each other in one direction |
-| **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight | core, citygen, world |
+| **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking, rail | core, citygen, and each other in one direction |
+| **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight, train | core, citygen, world |
 | **Composition** | `world/town/` | Everything before it. **This is the seam, and it is the only thing allowed to be** |
 | **Machine** | `runtime/` — the window, the device, the swapchain, `runtime/web/` — the canvas and WebGPU, and `runtime/android/` — the glass and the surface made of it | core. **Not the shell, not an agent, not a town** |
 | **Chrome** | `app/screen/` — the quad, the glyphs, the theme, the text buffer | Nothing. It is the vocabulary a frame's overlay is written in |
@@ -27,7 +27,7 @@ other only in the one direction the tier's own row gives.
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →
-road, containment → physics and terrain. **The ground is split across the Plan tier and the World tier on purpose**:
+road, containment → physics and terrain, rail → road and foot, for the lanes and walks a crossing holds. `agents/train/` depends on `world/rail/` alone, for the line its wagons stand on. **The ground is split across the Plan tier and the World tier on purpose**:
 what shape is at a point is the plan's (`citygen/GroundShapes`), so a town half-laid can be asked where a
 thing may stand, and what that kind of ground *permits* is `world/terrain/`'s, because a permission is a
 rule about agents and the plan does not know what an agent is (TER-2a). **The lines a car is driven on are

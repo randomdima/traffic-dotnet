@@ -78,11 +78,13 @@ internal static class TownPlan
                 worldSizeM, config));
         }
 
+        // <b>The railway stands with the water, before a node is placed</b> (GEN-10, RAIL-5).
+        var rails = RailLines.Lay(survey.Rails, worldSizeM, config);
         yield return Took("water");
 
         // A wheel's streets say their own stages, and are not paused in.
         var streets = wheel
-            ? Laid(WheelStreets.Lay(zoned, survey.Seed, worldSizeM, water, survey.Bridgeable, config, sizes, stage => Took(stage)))
+            ? Laid(WheelStreets.Lay(zoned, survey.Seed, worldSizeM, water, rails, survey.Bridgeable, config, sizes, stage => Took(stage)))
             : Laid(TracedCarParks.Bays(survey, TracedStreets.Lay(survey, config), config), config);
         if (!wheel) yield return Took("streets");
 
@@ -90,7 +92,10 @@ internal static class TownPlan
         var paving = Paving.Lay(
             new GroundPieces(
                 survey.Seed, worldSizeM, config.PavementWidthM, streets.Roads, streets.Bridges, streets.Junctions, streets.Corners,
-                streets.Roundabouts, lots, CityPlan.PavedAreaArrays.None, streets.Crosswalks, water),
+                streets.Roundabouts, lots, CityPlan.PavedAreaArrays.None, streets.Crosswalks, water)
+            {
+                Rails = rails,
+            },
             config);
         yield return Took("paving");
 
@@ -145,6 +150,7 @@ internal static class TownPlan
             Scenery = scenery,
             Spawns = spawns,
             Water = water,
+            Rails = rails,
             Zones = zoned,
             PavingLaidWithIt = paving,
             LaidMs = [.. laidMs],

@@ -170,7 +170,7 @@ public class RosterTests
     }
 
     /// <summary>One house prefab, of 12 by 8 m.</summary>
-    static readonly BuildingSizes Houses = new(new Vector2[BuildingSizes.Uses], [new(12f, 8f)], [0.5f], [BuildingLook.House]);
+    static readonly BuildingSizes Houses = new(new Vector2[BuildingSizes.Uses], [new(12f, 8f)], [0.5f], [BuildingLook.House], []);
 
     /// <summary>A residential way of a lane each way.</summary>
     static SurveyWay Street(params int[] points) => new()

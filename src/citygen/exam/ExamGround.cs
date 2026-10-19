@@ -19,8 +19,12 @@ namespace TrafficSimulation.CityGen.Exam;
 /// <param name="Roundabout">Whether the cell's node is opened out into a ring (GEN-19).</param>
 /// <param name="In">The bearings, as a mask, whose road runs one way into the cell's junction.</param>
 /// <param name="Out">And the ones whose road runs one way out of it.</param>
+/// <param name="OverTheRailway">
+/// Whether its spur runs on across the strip the exam's railway is laid along (<see cref="ExamGround.RailStripM"/>):
+/// the one road the railway crosses.
+/// </param>
 internal readonly record struct ExamCell(
-    ExamArm? Spur, bool AtTheHead, bool Lit, bool Roundabout, byte In, byte Out)
+    ExamArm? Spur, bool AtTheHead, bool Lit, bool Roundabout, byte In, byte Out, bool OverTheRailway = false)
 {
     public static byte Mask(ExamArm arm) => (byte)(1 << (int)arm);
 
@@ -87,6 +91,12 @@ internal sealed class ExamGround
 
     /// <summary>The ground left round the lattice past the spurs, which is room for the pavement and the camera.</summary>
     public const float MarginM = 30f;
+
+    /// <summary>
+    /// <b>The strip under the lattice the railway is laid along</b>, where a card asks for it: past every other spur's
+    /// head by half of it, where the track runs, so only the one spur run on across it meets the railway.
+    /// </summary>
+    public const float RailStripM = 60f;
 
     public const int NoRoad = -1;
 
@@ -160,11 +170,27 @@ internal sealed class ExamGround
     /// <inheritdoc cref="RingRoads"/>
     public ReadOnlySpan<int> RingOffsets => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_ringOffsets);
 
-    /// <summary>How big the ground has to be to hold the lattice with its spurs and its margin.</summary>
+    /// <summary>How big the ground has to be to hold the lattice with its spurs and its margin, and the railway's strip under it.</summary>
     public Vector2 WorldSizeM =>
         new(
             (2f * (MarginM + SpurM)) + ((Columns - 1) * BlockM),
-            (2f * (MarginM + SpurM)) + ((Rows - 1) * BlockM));
+            (2f * (MarginM + SpurM)) + ((Rows - 1) * BlockM) + (HasARailway ? RailStripM : 0f));
+
+    /// <summary>Whether a card asked for the railway.</summary>
+    public bool HasARailway => Array.Exists(_cells, cell => cell.OverTheRailway);
+
+    /// <summary>Whether the cell whose spur the railway crosses stands in the map's east half: a train run east to west reaches it first.</summary>
+    public bool RailwayCrossedInTheEast
+    {
+        get
+        {
+            var cell = Array.FindIndex(_cells, cell => cell.OverTheRailway);
+            return cell >= 0 && CentreM(cell).X > WorldSizeM.X * 0.5f;
+        }
+    }
+
+    /// <summary>How far down the map the railway runs, west to east across it: the middle of its strip.</summary>
+    public float RailwayM => MarginM + SpurM + 0.5f + ((Rows - 1) * BlockM) + SpurM + (RailStripM * 0.5f);
 
     /// <summary>The middle of a cell, which is its junction or the middle of its ring.</summary>
     /// <remarks>
@@ -293,7 +319,8 @@ internal sealed class ExamGround
         {
             if (_cells[cell].Spur is not { } spur) continue;
 
-            _head[cell] = Add(CentreM(cell) + (Bearing(spur) * SpurM), lit: false, phaseS: 0f);
+            var spurM = SpurM + (_cells[cell].OverTheRailway ? RailStripM : 0f);
+            _head[cell] = Add(CentreM(cell) + (Bearing(spur) * spurM), lit: false, phaseS: 0f);
         }
     }
 

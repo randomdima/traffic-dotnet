@@ -4,8 +4,8 @@ namespace TrafficSimulation.Agents.Car.Body;
 
 /// <summary>
 /// Where a lit lamp's picture is in the town's one lamp sheet, and what colour each lamp burns.
-/// <b>A lit lamp is the car's own texels driven emissive</b> (CAR-14a) — cut from the variant's sprite
-/// at the sprite's own resolution by <see cref="LampAtlasBake"/> — so the layout the sheet is indexed by
+/// <b>A lit lamp is the car's own texels driven emissive</b> (CAR-14a) — those its zone map paints as the lens, cut
+/// from the variant's sprite at its own resolution by <see cref="LampAtlasBake"/> — so the layout the sheet is indexed by
 /// and the layout it is cut by are this one file.
 /// </summary>
 /// <remarks>
@@ -58,6 +58,9 @@ internal static class LampAtlas
         CarLamp.Reverse => new Vector4(1f, 0.96f, 0.88f, 1f),
         CarLamp.BeaconBlue => new Vector4(0.05f, 0.40f, 1f, 1f),
 
+        // Warmer than a reversing lamp, so the nose and the tail of a car backing up are not one light.
+        CarLamp.Head => new Vector4(1f, 0.92f, 0.74f, 1f),
+
         // The indicator's amber and a works beacon's are the one colour: both are an amber lamp. It sits
         // at the orange end of amber because the vehicles that carry most of it are painted yellow — a
         // works bar the shade of the cab it is bolted to is a bar nobody sees.
@@ -74,15 +77,16 @@ internal static class LampAtlas
         CarLampFitting.Indicator => CarLamp.Indicator,
         CarLampFitting.BeaconRed => state == 0 ? CarLamp.BeaconRed : CarLamp.BeaconBlue,
         CarLampFitting.BeaconAmber => CarLamp.BeaconAmber,
+        CarLampFitting.Head => CarLamp.Head,
         _ => state == 0 ? CarLamp.BeaconBlue : CarLamp.BeaconRed,
     };
 
     /// <summary>
-    /// How many cells a fitting owns. An indicator and an amber beacon burn one colour each and leave
-    /// their second column empty.
+    /// How many cells a fitting owns. An indicator, an amber beacon and a headlamp burn one colour each and
+    /// leave their second column empty.
     /// </summary>
     public static int StatesOf(CarLampFitting fitting) =>
-        fitting is CarLampFitting.Indicator or CarLampFitting.BeaconAmber ? 1 : StatesPerLens;
+        fitting is CarLampFitting.Indicator or CarLampFitting.BeaconAmber or CarLampFitting.Head ? 1 : StatesPerLens;
 
     /// <summary>Which of a lens's cells is the one showing this colour, read off <see cref="ColourAt"/> so the two cannot drift.</summary>
     public static int StateOf(CarLampFitting fitting, CarLamp colour) => ColourAt(fitting, 0) == colour ? 0 : 1;

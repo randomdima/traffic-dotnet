@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
@@ -79,7 +80,24 @@ internal static class ExamPlan
             Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], BearingRad = [], Kind = [] },
             Spawns = spawns,
             Water = CityPlan.WaterArrays.None,
+            Rails = ground.HasARailway ? RailLines.Lay(Railway(ground, config), ground.WorldSizeM, config) : CityPlan.RailArrays.None,
             PavingLaidWithIt = paving,
+        };
+    }
+
+    /// <summary>
+    /// <b>The exam's one track</b>, straight along the strip under the lattice from past its west edge to past its east
+    /// (<see cref="ExamGround.RailwayM"/>), run one way alone: from the end nearer the card it is about, so a train comes
+    /// onto the map there and that card's crossing closes early in the exam.
+    /// </summary>
+    static TownMap.RailArrays Railway(ExamGround ground, SimConfig config)
+    {
+        var (runOffM, alongM) = (config.Rail.RunOffM, ground.RailwayM);
+        var runs = ground.RailwayCrossedInTheEast ? TownMap.TrackRuns.Backward : TownMap.TrackRuns.Forward;
+        return new TownMap.RailArrays
+        {
+            Line = [0], Runs = [runs], PointOffsets = [0, 2],
+            PointM = [new Vector2(-runOffM, alongM), new Vector2(ground.WorldSizeM.X + runOffM, alongM)], Level = new byte[2],
         };
     }
 

@@ -79,6 +79,9 @@ internal sealed class Survey
     /// <summary>The car parks the map sets down (<see cref="TownMap.Lots"/>).</summary>
     public TownMap.LotArrays Lots { get; init; } = TownMap.LotArrays.None;
 
+    /// <summary>The railway's tracks (<see cref="TownMap.Rails"/>), as the map holds them.</summary>
+    public TownMap.RailArrays Rails { get; init; } = TownMap.RailArrays.None;
+
     public int PointCount => PointsM.Length / 2;
 
     public Vector2 PointM(int point) => new(PointsM[2 * point], PointsM[(2 * point) + 1]);
@@ -163,6 +166,7 @@ internal sealed class Survey
             Buildings = map.Buildings,
             Props = map.Props,
             Lots = map.Lots,
+            Rails = map.Rails,
         };
     }
 

@@ -1,0 +1,31 @@
+{
+ "id": "trains_b-v2",
+ "ts": "2026-10-19T01:49:57",
+ "op": "edit",
+ "name": "trains_b",
+ "file": ".tmp/gen/frames/trains_b-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.035846,
+ "prompt": "Two images are attached. The first is a layout: 12 rail vehicle outlines seen from above, packed in 5 rows on a flat magenta background. Every outline is the vehicle's true length and width on one shared scale, so they are long thin strips, and every vehicle lies along its row from left to right, its front at its outline's thick right edge. The second image shows finished road vehicles from the same game, in the art style to match. Copy its style only, not its vehicles or colours.\n\nMake one image with exactly the same layout as the first image: the same 12 outlines in the same places at the same sizes. Inside each outline, draw the rail vehicle described for that cell below, as a strictly top-down sprite for a 2D city game.\n\nAn earlier attempt drew every vehicle as if seen a little from the front of the picture: a strip of side wall, ribs or frame showing along each vehicle's bottom edge and not its top edge, which made every vehicle about 12% wider than its outline. Not this time: the camera is exactly overhead, so each vehicle's top edge and bottom edge look exactly alike — the same rim, the same colour, the same thickness — and there is no side wall, no darker band and no ribs along the bottom edge. Light is flat from directly above, with no shadow side.\n\nShape comes first:\n- Fill each outline edge to edge: same length, same width, horizontal. The vehicle's roof seen from straight above is the whole outline.\n- Draw nothing outside the outlines: no track, rails, sleepers or ballast, no couplings between cells, no buffers or ladders sticking out past an outline's ends.\n- Each vehicle is mirror-symmetric about its long centre line.\n- Inside a vehicle there is no magenta at all.\n\nRules for every vehicle:\n- Strictly top-down: the camera looks straight down from high above (orthographic plan view). Only the roof and what stands on it shows: no side walls, no windows along the sides, no wheels, no bogies, no perspective, no three-quarter view, no tilt, no ground, no shadow.\n- Style: match the style image. Chunky pixel art with crisp hard-edged pixels and no blur. A dark near-black outline about 2 pixels thick. Flat colour with one highlight and one shadow tone. Flat light from directly above, no shadow side. A cab's windscreen, seen from above, is a dark slate blue strip with one pale glint along the cab's end.\n- Couplers or buffers show as short stubs just inside the outline's ends.\n- No text, logos, numbers, people or watermark anywhere.\n- Outside the vehicles, keep the background flat pure magenta #FF00FF. No grid lines or frames.\n\nThe two diesel locomotives (cells 5 and 7) are one-way: a single driving cab at the front (right) end only, with its windscreen; the rest of the body is a long engine hood, and the rear (left) end is a plain hood end with no cab and no windscreen. The two electric locomotives (cells 1 and 3) have a cab at both ends.\n\nVehicles, row by row, left to right, length x width:\n1. 19 x 3.4 m - mainline electric locomotive: a pale grey roof with two folded pantographs, insulators and roof boxes, deep blue body edges, a cab at both ends with dark windscreens\n2. 25.5 x 3.4 m - long intercity passenger coach: a light grey ribbed roof with a row of ventilators down its middle, dark green body edges, a bellows gangway at both ends\n3. 19 x 3.4 m - mainline electric locomotive: a grey roof with two folded pantographs and insulators, red body edges with a cream band, a cab at both ends with dark windscreens\n4. 25.5 x 3.4 m - long intercity passenger coach: a grey ribbed roof with a row of ventilators down its middle, dark red body edges, a bellows gangway at both ends\n5. 18.2 x 3.4 m - one-way freight diesel locomotive: one driving cab at the right end only with its dark windscreen; a long dark green engine hood with two big round radiator fans and an exhaust stack, a yellow stripe along each side, a walkway with handrails along both sides; the left end a plain flat hood end, no cab\n6. 25.5 x 3.4 m - long intercity passenger coach: a white roof with a row of ventilators down its middle, blue body edges, a bellows gangway at both ends\n7. 18.2 x 3.4 m - one-way freight diesel locomotive: one driving cab at the right end only with its dark windscreen; a long blue and light grey engine hood with two big round radiator fans and an exhaust stack, a walkway with handrails along both sides; the left end a plain flat hood end, no cab\n8. 13.9 x 3.2 m - open gondola wagon: dark grey ribbed steel walls, the open top heaped with lumpy black coal\n9. 12 x 3.3 m - oil tank wagon: a black cylindrical tank seen from above with a soft highlight along its top, a round filling dome with a small railed platform in the middle, the frame and couplers showing at both ends\n10. 13.9 x 3.2 m - open gondola wagon: rust-brown ribbed steel walls, the open top heaped with lumpy black coal\n11. 12 x 3.3 m - oil tank wagon: a weathered light grey cylindrical tank seen from above with a highlight along its top, a round filling dome with a small railed platform in the middle, the frame and couplers showing at both ends\n12. 13.9 x 3.2 m - open gondola wagon: olive-green ribbed steel walls, the open top heaped with lumpy black coal",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "2c71f1bf36cfbce4",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/trains_b.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "ba433c3aa4de2852",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/trains_b_style.png"
+  }
+ ]
+}

@@ -182,10 +182,10 @@ internal static class Roundabouts
         {
             var edge = layout.Edges[arm];
             if ((layout.NodeM[edge.To] - layout.NodeM[edge.From]).Length() < clearM) return false;
-            if (water.Wet(centreM + (Heading.Unit(layout.OutwardRad(arm, node)) * radiusM))) return false;
+            if (!water.Holds(centreM + (Heading.Unit(layout.OutwardRad(arm, node)) * radiusM))) return false;
         }
 
-        if (water.Wet(centreM)) return false;
+        if (!water.Holds(centreM)) return false;
 
         for (var other = 0; other < layout.NodeM.Count; other++)
         {

@@ -9,7 +9,8 @@ namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
 /// <b>A map authored off a brief</b> (GEN-58, <c>--author</c>): the brief's water drawn once and fixed in the map as the
-/// course it runs along (<see cref="TownMap.Courses"/>), and its wheel drawn once and zoned — the whole map a
+/// course it runs along (<see cref="TownMap.Courses"/>), its railway the same way (<see cref="TownMap.Rails"/>), and its
+/// wheel drawn once and zoned — the whole map a
 /// <see cref="ZoneKind.Wheel"/> saying its hub, its spokes, its orbital and the town's counts, and a zone for each
 /// district saying the sector it is and the lattice its streets are laid on. Everything else is laid off those when the
 /// map is opened (<see cref="TownPlan"/>), off the brief's seed — its streets as the brief's own generator laid them.
@@ -79,10 +80,12 @@ internal static class TownAuthor
             }
             : TownMap.CourseArrays.None;
 
+        var railway = new Rng(brief.Seed, Streams.Railway);
         var map = TownMap.Bare(brief.Name, brief.Description, brief.Seed, worldSizeM, ZoneKind.Wheel, []) with
         {
             Courses = courses,
             Zones = zones.Arrays(),
+            Rails = RailLines.Author(brief, config, ref railway),
         };
         return map.Held();
     }

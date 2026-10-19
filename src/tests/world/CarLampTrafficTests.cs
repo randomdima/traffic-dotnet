@@ -24,17 +24,21 @@ public class CarLampTrafficTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    /// <summary>Every car starts standing in a bay with nobody in it, and a parked car says nothing (CAR-14.5).</summary>
+    /// <summary>
+    /// Before the first tick no car has a pedal down or a turn to announce, so <b>what is lit is the headlamps,
+    /// exactly on the cars something already drives</b> (CAR-14.8) — the fixture puts its own cars on its lanes as
+    /// it is stood up — and nothing on a car parked (CAR-14.5).
+    /// </summary>
     [Fact]
-    public void ATownNobodyHasDrivenYetShowsNoLampAtAll()
+    public void ATownNobodyHasDrivenYetShowsOnlyTheHeadlampsOfWhatIsDriven()
     {
-        // Before the first tick, which is what "nobody has driven yet" is: the town stands its cars on its
-        // own lanes and they are away inside a second of town time.
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
 
         for (var car = 0; car < world.Cars.Count; car++)
         {
-            Assert.Equal(CarLampSet.None, CarLamps.Showing(world.Cars, car, Config, handAtTheWheel: false));
+            Assert.Equal(
+                world.Cars.Driven[car] ? CarLampSet.Head : CarLampSet.None,
+                CarLamps.Showing(world.Cars, car, Config, handAtTheWheel: false));
         }
     }
 

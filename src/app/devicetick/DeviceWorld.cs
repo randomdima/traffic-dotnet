@@ -75,6 +75,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         public float HitchSideShare;
         public float OnTheTrailerAxleShare;
         public float LookaheadS;
+        public int FirstWagonBody;
     }
 
     /// <summary>The covers kernel's push constants (<c>world_covers.comp</c>): the atlas's, then the bodies'.</summary>
@@ -147,6 +148,22 @@ internal sealed partial class DeviceWorld : WorldLayer
 
     readonly GpuBuffer[] _walkerViews = new GpuBuffer[2];
 
+    /// <summary>
+    /// The trains' wagons (TRN-7): how many, the look each was last signalled to wear, and their view's pass and rows by
+    /// slot, which the host reads where they are written as it reads the rest.
+    /// </summary>
+    readonly int _wagons;
+
+    /// <summary>
+    /// The look each wagon was last signalled to wear, written by the host as it files the signal (<see cref="RowOf"/>) and
+    /// read by the wagons' view: <c>world_signals.comp</c> already binds the sixteen storage buffers a browser lets one
+    /// stage have. A look changes only as its train is sent, while the wagon is out of the world and drawn by no view.
+    /// </summary>
+    readonly GpuBuffer _wagonLooks;
+    readonly ComputeKernel _wagonsViewKernel;
+    readonly BoundSet[] _wagonsViewSets = new BoundSet[2];
+    readonly GpuBuffer[] _wagonViews = new GpuBuffer[2];
+
     /// <summary>Whether each car hangs off a tow bar as last signalled (<see cref="ControlAction.Tow"/>), and how many do.</summary>
     readonly bool[] _towed;
 
@@ -168,7 +185,8 @@ internal sealed partial class DeviceWorld : WorldLayer
         _laying = laying.WithoutTheGround();
         _cars = laying.Cars.Length;
         _walkers = laying.Walkers.Length;
-        _last = new LastInBatch[laying.Roster.Count];
+        _wagons = laying.Wagons.Length;
+        _last = new LastInBatch[laying.Agents];
         _towed = new bool[_cars];
         var config = laying.Config;
         _heldAroundAWheelM = config.Road.HeldAroundAWheelM;
@@ -211,6 +229,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         var (shape, bounds, motionIntoTick) = _solver.Rows;
         var tyres = _tyres.Table;
 
+        _wagonLooks = _held.Mapped<uint>(Math.Max(1, _wagons));
         var pushBytes = (uint)Marshal.SizeOf<WorldPush>();
         _signalsKernel = _held.Kernel("world_signals.comp", 16, pushBytes);
         _signalsBound =
@@ -241,11 +260,15 @@ internal sealed partial class DeviceWorld : WorldLayer
 
         _viewKernel = _held.Kernel("world_view.comp", 13 + _lanes.Tables.Length, pushBytes, sets: _viewSets.Length);
         _walkersViewKernel = _held.Kernel("world_view_walkers.comp", 8, pushBytes, sets: _walkersViewSets.Length);
+        _wagonsViewKernel = _held.Kernel("world_view_wagons.comp", 5, pushBytes, sets: _wagonsViewSets.Length);
         for (var slot = 0; slot < _viewSets.Length; slot++)
         {
             var carViews = _carViews[slot] = _held.Mapped<CarView>(_cars);
             var walkerViews = _walkerViews[slot] = _held.Mapped<WalkerView>(_walkers);
+            var wagonViews = _wagonViews[slot] = _held.Mapped<WagonView>(Math.Max(1, _wagons));
             ViewInSlot(slot).ReadOver(carViews.Span<CarView>(), walkerViews.Span<WalkerView>());
+            ViewInSlot(slot).ReadWagonsOver(wagonViews.Span<WagonView>());
+            _wagonsViewSets[slot] = _wagonsViewKernel.Bind([pose, heading, filter, _wagonLooks, wagonViews]);
             _viewSets[slot] = _viewKernel.Bind(
             [
                 _carRows, _tyres.ImpulseTable, tyres.Poses.Device, tyres.Cars.Device, pose, heading, motion, filter,
@@ -273,6 +296,7 @@ internal sealed partial class DeviceWorld : WorldLayer
             HitchSideShare = config.Evacuator.HitchSideShare,
             OnTheTrailerAxleShare = config.Evacuator.OnTheTrailerAxleShare,
             LookaheadS = config.Driving.LookaheadS,
+            FirstWagonBody = laying.BodyOf(laying.AgentOfWagon(0)),
         };
 
         // Every car read off its body as laid, and the first view and covers off the world as it was laid, before any step —
@@ -667,6 +691,10 @@ internal sealed partial class DeviceWorld : WorldLayer
                 _solver.CountAfresh(body);
                 break;
 
+            case ControlAction.Run:
+                _wagonLooks.Span<uint>()[body - _push.FirstWagonBody] = signal.Flags;
+                return new SignalRow(body, actionAndFlags, p01, Shape.Rotation(signal.Params.Z), new Vector2(signal.Params.Z, signal.Params.W));
+
             case ControlAction.Layer:
                 var layer = (CollisionLayer)signal.Flags;
                 return new SignalRow(
@@ -760,6 +788,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         if (_cars > 0) _viewKernel.Dispatch(commands, _viewSets[into.Slot], Groups(_cars), _push with { Count = (uint)_cars, Mode = mode });
         _walkersViewKernel.Dispatch(
             commands, _walkersViewSets[into.Slot], Groups(_walkers), _push with { Count = (uint)_walkers, Mode = mode });
+        if (_wagons > 0) _wagonsViewKernel.Dispatch(commands, _wagonsViewSets[into.Slot], Groups(_wagons), _push with { Count = (uint)_wagons });
     }
 
     /// <summary><c>world_covers_out.comp</c>'s push constants: each list's room.</summary>

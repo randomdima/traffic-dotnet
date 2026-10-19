@@ -22,6 +22,10 @@ internal sealed partial class GroundShapes
 
     Rings _water;
     Rings _shore;
+    Rings _rail;
+
+    /// <summary>Whether the railway's ballast covers a point or stands within reach of it (RAIL-4, RAIL-5).</summary>
+    public bool RailWithin(Vector2 pointM, float reachM) => _rail.Within(pointM, reachM);
 
     /// <summary>A set of closed rings, the box each of them fits in, and the edges of each long one by cell and of every other by row.</summary>
     readonly record struct Rings(CityPlan.RingArrays Of, Vector2[] LeastM, Vector2[] MostM, EdgeCells?[] Cells, EdgeRows?[] Rows)
@@ -358,5 +362,6 @@ internal sealed partial class GroundShapes
 
         _water = Rings.Boxed(plan.Water.Outline, config.Grid.Main.CellM);
         _shore = Rings.Boxed(plan.Water.Shore, config.Grid.Main.CellM);
+        _rail = Rings.Boxed(plan.Rails.Ballast, config.Grid.Main.CellM);
     }
 }

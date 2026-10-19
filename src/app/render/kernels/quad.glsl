@@ -34,7 +34,7 @@ struct SheetPlace {
 };
 
 layout(set = 0, binding = 1) uniform Sheets {
-    SheetPlace place[512];
+    SheetPlace place[2048]; // SheetAtlas.Slots
 } sheets;
 
 layout(location = 0) out vec3 outUv;

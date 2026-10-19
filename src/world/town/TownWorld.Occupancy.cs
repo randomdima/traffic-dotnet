@@ -89,6 +89,7 @@ internal sealed partial class TownWorld
         // A light's hold is placed where it stands, as far as the first body on its way (TLT-1).
         at = Spent(TurnStage.Passes, at);
         _signalHolds.Lay(_occupancy, _signals, _elapsedS, turns, tick);
+        LayTheCrossings(turns, tick);
 
         at = Spent(TurnStage.Lights, at);
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];

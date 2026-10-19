@@ -1,0 +1,26 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The wagons' part of the shallow state handed back behind every step (WorldView.Wagons; ManagedWorld.WriteTheView), one
+// thread a wagon: where its body is, how it points, the look it was last signalled to wear, and whether it is in the
+// world at all (TRN-7).
+
+layout(local_size_x = 64) in;
+
+#include "world/town/kernels/world.glsl"
+
+layout(std430, binding = 0) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 1) readonly buffer HeadingB { float headingRad[]; };
+layout(std430, binding = 2) readonly buffer Filter { uint filter_[]; };
+layout(std430, binding = 3) readonly buffer WagonLooks { uint wagonLooks[]; };
+layout(std430, binding = 4) writeonly buffer WagonViews { WagonViewRow wagonViews[]; };
+
+void main()
+{
+    uint wagon = gl_GlobalInvocationID.x;
+    if (wagon >= world.count) return;
+
+    int body = world.firstWagonBody + int(wagon);
+    uint inWorld = (filter_[body] & world.enabledBit) != 0u ? WagonInWorld : 0u;
+    wagonViews[wagon] = WagonViewRow(pose[body].xy, headingRad[body], (wagonLooks[wagon] & 0xffffu) | inWorld);
+}

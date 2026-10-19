@@ -51,6 +51,20 @@ internal sealed class SheetAtlas
     /// </summary>
     public const int PagePx = 4096;
 
+    /// <summary>
+    /// How many sheets the shaders' table of places holds — every walker's look, two a car (the car and its
+    /// wreck), one a roof, prefab and prop look. It is the length of the uniform array in <c>quad.glsl</c> and
+    /// <c>town.wgsl</c>, which <c>SheetAtlasTests</c> holds them to.
+    /// </summary>
+    /// <remarks>
+    /// <b>Sixty-four kilobytes of places</b>, thirty-two bytes each: WebGPU's default
+    /// <c>maxUniformBufferBindingSize</c>, which every adapter offers, and what desktop and handset Vulkan drivers
+    /// report as <c>maxUniformBufferRange</c>. Vulkan itself promises only sixteen, so the Vulkan head refuses a
+    /// device that offers less rather than drawing past it. What bounds the art beyond that is the pages'
+    /// memory (<see cref="PagePx"/>), not this count.
+    /// </remarks>
+    public const int Slots = 2048;
+
     const int GutterPx = 1;
 
     readonly IReadOnlyList<SheetSource> _sources;

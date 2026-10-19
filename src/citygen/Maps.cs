@@ -35,27 +35,40 @@ internal static class Maps
     public const string Fixture = "Test";
 
     /// <summary>
-    /// The maps laid in code: the ring the start menu stands over (GEN-1b), and the scenario map — a lattice
-    /// with one traffic scenario staged at each of its junctions (<see cref="ExamPlan"/>).
+    /// The maps laid in code: the ring the start menu stands over (GEN-1b), the same ring showing the fleet's
+    /// looks (<see cref="ShowroomPlan"/>), and the scenario map — a lattice with one traffic scenario staged at
+    /// each of its junctions (<see cref="ExamPlan"/>).
     /// </summary>
-    static readonly (string Name, Func<SimConfig, CityPlan> Lay)[] Laid =
+    static readonly (string Name, Func<SimConfig, BuildingSizes, CityPlan> Lay)[] Laid =
     [
-        (IdlePlan.Name, IdlePlan.Lay),
-        (ExamPlan.Name, ExamPlan.Lay),
+        (IdlePlan.Name, static (config, _) => IdlePlan.Lay(config)),
+        (ShowroomPlan.Name, ShowroomPlan.Lay),
+        (ExamPlan.Name, static (config, _) => ExamPlan.Lay(config)),
     ];
 
     /// <summary>
-    /// Every map there is to open, in name order — the map files in <c>towns/</c> and the laboratories laid in code.
-    /// <b>A map is a file or code</b> (GEN-58): every town is its map's file, whatever authored it.
+    /// Every map the probes and sweeps ask questions of, in name order — the map files in <c>towns/</c> and the
+    /// laboratories laid in code. <b>A map is a file or code</b> (GEN-58): every town is its map's file, whatever
+    /// authored it.
     /// </summary>
     /// <remarks>
-    /// <b>The idle ring is laid but not shipped.</b> Every probe and every sweep reads this list, and the
-    /// ring is a frame for the menu rather than a town to ask questions of — so it is opened by name
-    /// (<see cref="Lay"/>) and swept by nobody.
+    /// <b>The idle ring and the showroom are laid but not shipped</b>: each is a picture rather than a town to ask
+    /// questions of, so it is swept by nobody. The showroom is still offered (<see cref="Offered"/>).
     /// </remarks>
     public static string[] Shipped()
     {
         var names = new List<string>(ProjectPaths.MapFiles()) { ExamPlan.Name };
+        names.Sort(StringComparer.Ordinal);
+        return [.. names];
+    }
+
+    /// <summary>
+    /// Every map a person is offered to open — the start menu's list and the command line's — which is the shipped
+    /// ones and the showroom: a picture to look at, so it is offered, and swept by nobody.
+    /// </summary>
+    public static string[] Offered()
+    {
+        var names = new List<string>(Shipped()) { ShowroomPlan.Name };
         names.Sort(StringComparer.Ordinal);
         return [.. names];
     }
@@ -108,7 +121,7 @@ internal static class Maps
     /// <param name="sizes">
     /// The prefabs a town stands its buildings as and the roofs its services wear, read off the art by the catalogue
     /// above this slice and handed down as data (<see cref="BuildingSizes"/>, GEN-54, GEN-58). A map laid in code stands
-    /// what its own code stands and never reads this.
+    /// what its own code stands, which only the showroom's does off these.
     /// </param>
     public static CityPlan Plan(string name, SimConfig config, BuildingSizes sizes) => Planning(name, config, sizes).Through();
 
@@ -146,7 +159,7 @@ internal static class Maps
     {
         foreach (var (laid, lay) in Laid)
         {
-            if (string.Equals(laid, name, StringComparison.Ordinal)) return Staged<CityPlan>.Whole(() => lay(config));
+            if (string.Equals(laid, name, StringComparison.Ordinal)) return Staged<CityPlan>.Whole(() => lay(config, sizes));
         }
 
         if (IsCity(name)) return TownPlan.Reading(ProjectPaths.MapFile(name), config, sizes);

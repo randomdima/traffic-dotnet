@@ -164,7 +164,10 @@ internal sealed class BuildingCatalog
             prefabLook[prefab] = Variants[FirstPrefab + prefab].Look!.Value;
         }
 
-        return new BuildingSizes(byUseM, prefabM, prefabCornerM, prefabLook);
+        var ordinaryM = new Vector2[Ordinary];
+        for (var roof = 0; roof < Ordinary; roof++) ordinaryM[roof] = Variants[roof].FootprintM;
+
+        return new BuildingSizes(byUseM, prefabM, prefabCornerM, prefabLook, ordinaryM);
     }
 
     public (int Variant, bool Swapped) Match(Vector2 sizeM)

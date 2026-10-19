@@ -44,11 +44,25 @@ const uint CHANNEL_STEPS = 511u;
 const uint PAINT_FILED = 31u;
 const uint PAINT = 255u;
 
+// The track's strip files where on it a corner stands in place of a tint, said again from GroundVertex.OnTheTrack:
+// pictures along in eighteen bits of 256 steps each, and across in the nine above them.
+const uint TRACK = 5u;
+const float TRACK_STEPS_PER_PICTURE = 256.0;
+const uint ALONG_STEPS = 262143u;
+const float ACROSS_STEPS = 511.0;
+
 void main() {
     // +y is down in the world and +y is down in Vulkan's clip space, so nothing is flipped anywhere.
     gl_Position = toClip(inPositionM);
 
     uint filed = inShade >> 27;
+    if (filed == TRACK) {
+        outUv = vec2(float(inShade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, float((inShade >> 18) & CHANNEL_STEPS) / ACROSS_STEPS);
+        outTint = vec3(1.0);
+        outSurface = TRACK;
+        return;
+    }
+
     float period = filed < 4u ? camera.surfacePeriodsM[filed] : filed == 4u ? camera.waterPeriodM.x : 1.0;
     outUv = inPositionM / period;
     outTint = vec3(uvec3(inShade, inShade >> 9, inShade >> 18) & uvec3(CHANNEL_STEPS)) * (BRIGHTEST_TINT / float(CHANNEL_STEPS));

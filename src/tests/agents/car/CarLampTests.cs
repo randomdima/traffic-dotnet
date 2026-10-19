@@ -43,8 +43,12 @@ public class CarLampTests
         return fleet;
     }
 
+    /// <summary>
+    /// What the car says besides its headlamps, which every driven car burns (CAR-14.8) and which the cases about
+    /// the other lamps are not asking about; the headlamps' own cases read <see cref="CarLamps.Showing"/> whole.
+    /// </summary>
     static CarLampSet Showing(CarFleet fleet, bool handAtTheWheel = false) =>
-        CarLamps.Showing(fleet, 0, Config, handAtTheWheel);
+        CarLamps.Showing(fleet, 0, Config, handAtTheWheel) & ~CarLampSet.Head;
 
     /// <summary>What this car's lenses are showing, and how many of them are lit.</summary>
     static int Lit(CarFleet fleet, float elapsedS, Span<ShownLamp> into)
@@ -92,6 +96,42 @@ public class CarLampTests
         fleet.Broken[0] = true;
         fleet.Command[0] = DriveCommand.Locked;
         Assert.Equal(CarLampSet.None, Showing(fleet));
+    }
+
+    /// <summary>CAR-14.8: the headlamps are the car being driven — under way or standing with nobody's foot down.</summary>
+    [Fact]
+    public void TheHeadlampsAreTheCarBeingDriven()
+    {
+        var fleet = Rolling();
+        Assert.Equal(CarLampSet.Head, CarLamps.Showing(fleet, 0, Config, handAtTheWheel: false) & CarLampSet.Head);
+    }
+
+    /// <summary>CAR-14.8: and a parked car's are dark, and so are a wreck's whatever it was doing.</summary>
+    [Fact]
+    public void AParkedCarAndAWreckBurnNoHeadlamps()
+    {
+        var fleet = Rolling();
+        fleet.Driven[0] = false;
+        fleet.Command[0] = DriveCommand.Parked;
+        Assert.Equal(CarLampSet.None, CarLamps.Showing(fleet, 0, Config, handAtTheWheel: false));
+
+        fleet.Driven[0] = true;
+        fleet.Broken[0] = true;
+        Assert.Equal(CarLampSet.None, CarLamps.Showing(fleet, 0, Config, handAtTheWheel: false));
+    }
+
+    /// <summary>CAR-14.8: a headlamp lens is lit exactly while the car says it is driven.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AHeadlampLensBurnsWithTheHeadBit(bool driven)
+    {
+        ReadOnlySpan<CarLens> lenses = [new CarLens(CarLampFitting.Head, new Vector2(1.8f, 0.4f), new Vector2(0.12f, 0.26f))];
+        Span<ShownLamp> into = stackalloc ShownLamp[1];
+
+        CarLamps.Shown(lenses, driven ? CarLampSet.Head : CarLampSet.None, Config, 0f, 1f, into);
+
+        Assert.Equal(new ShownLamp(lenses[0], CarLamp.Head, driven), into[0]);
     }
 
     /// <summary>

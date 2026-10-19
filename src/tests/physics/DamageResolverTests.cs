@@ -39,6 +39,7 @@ public class DamageResolverTests
         "static" => Participant.Static,
         "person" => Participant.Person,
         "car" => Participant.Car,
+        "train" => Participant.Train,
         _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Not a participant this table knows."),
     };
 
@@ -71,6 +72,7 @@ public class DamageResolverTests
     {
         Participant.Person => DamageSubject.Person(Config.Person.MassKg, spent),
         Participant.Car => DamageSubject.Car(Config.Car.MassKg, spent),
+        Participant.Train => DamageSubject.Train,
         _ => DamageSubject.Static,
     };
 
@@ -116,6 +118,14 @@ public class DamageResolverTests
     // A static object is never affected by anything (PHY-2, PHY-4a).
     [InlineData("static", "person", WreckKj, "none")]
     [InlineData("static", "car", WreckKj, "none")]
+    // A train is a vehicle of unbounded mass (TRN-3): what it meets takes the contact at its own tolerance, as against a
+    // car, and it is never harmed.
+    [InlineData("person", "train", BrushKj, "none")]
+    [InlineData("person", "train", KnockKj, "wounded")]
+    [InlineData("car", "train", KnockKj, "none")]
+    [InlineData("car", "train", WreckKj, "broken")]
+    [InlineData("train", "car", WreckKj, "none")]
+    [InlineData("train", "person", WreckKj, "none")]
     public void EveryOrderedPairAndEveryBandGivesTheArithmeticsOutcome(
         string first, string second, float energyKj, string expected)
     {
@@ -126,7 +136,7 @@ public class DamageResolverTests
     [Fact]
     public void EveryKindAndOutcomeIsNamedExactlyOnce()
     {
-        string[] kinds = ["static", "person", "car"];
+        string[] kinds = ["static", "person", "car", "train"];
         string[] outcomes = ["none", "wounded", "broken"];
 
         Assert.Equal(Enum.GetValues<Participant>(), Array.ConvertAll(kinds, KindNamed));

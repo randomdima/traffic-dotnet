@@ -334,9 +334,11 @@ internal sealed class RoadLines(
         var lengthM = Spline.TotalLengthM(chain);
         for (var alongM = 0f; ; alongM += 1f)
         {
-            var atM = Spline.SampleAt(chain, MathF.Min(alongM, lengthM)).PositionM;
+            var sample = Spline.SampleAt(chain, MathF.Min(alongM, lengthM));
+            var atM = sample.PositionM;
             if (atM.X < 0f || atM.Y < 0f || atM.X > extentM.X || atM.Y > extentM.Y) return true;
             if (roadClass != RoadClass.Bridge && water.Wet(atM)) return true;
+            if (!water.Crosses(atM, sample.Direction, roadClass)) return true;
             if (alongM >= lengthM) return false;
         }
     }

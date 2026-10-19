@@ -1,0 +1,15 @@
+{
+  "variants": [
+    "../electric_blue/electric_blue.json",
+    "../electric_red/electric_red.json",
+    "../diesel_green/diesel_green.json",
+    "../diesel_blue/diesel_blue.json",
+    "../coach_green/coach_green.json",
+    "../coach_red/coach_red.json",
+    "../coach_blue/coach_blue.json",
+    "../tank_black/tank_black.json",
+    "../tank_grey/tank_grey.json",
+    "../coal_rust/coal_rust.json",
+    "../coal_olive/coal_olive.json"
+  ]
+}

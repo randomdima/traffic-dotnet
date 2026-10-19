@@ -41,9 +41,17 @@ const float BeamLeastSquareM2 = 1e-6;
 // Where the scan keeps the grand total (DeviceSprites).
 const uint TotalAt = 0u;
 
-uint spritesHeadsFrom() { return figures.personCapacity + CarParts * figures.carCapacity; }
+// The trains' wagons (TRN-7), a slot each between the cars' parts and the heads, as TownSprites.FillMoving draws them.
+uint spritesWagonsFrom() { return figures.personCapacity + CarParts * figures.carCapacity; }
 
-uint spritesAboveFrom() { return spritesHeadsFrom() + figures.headCount; }
+uint spritesHeadsFrom() { return spritesWagonsFrom() + figures.wagonCount; }
+
+// The crossings' gear (RAIL-7), three slots an approach — its barrier, its head, its lit lamp — after the heads.
+const uint GearParts = 3u;
+
+uint spritesGearFrom() { return spritesHeadsFrom() + figures.headCount; }
+
+uint spritesAboveFrom() { return spritesGearFrom() + GearParts * figures.gearCount; }
 
 uint spritesSlotCount() { return spritesAboveFrom() + (figures.levelled != 0u ? CarParts * figures.carCapacity : 0u); }
 
@@ -166,6 +174,59 @@ SpriteOut spritesPerson(uint person)
     return spritesQuad(row.positionM, look.standingHalfM, cell, SpritePlain, variant, 0.0);
 }
 
+// The wagon as the view the frame shows left it (WorldView.Wagons).
+WagonViewRow spritesWagonRow(uint wagon) { return frame.viewSlot == 0u ? wagonViews0[wagon] : wagonViews1[wagon]; }
+
+// TrainSprites.Fill's cull for one wagon: in the world, and its length's reach in view.
+bool spritesWagonShown(uint wagon)
+{
+    WagonViewRow row = spritesWagonRow(wagon);
+    if ((row.flags & WagonInWorld) == 0u) return false;
+
+    return !spritesOutside(row.positionM, vec2(trainLooks[row.flags & 0xffffu].x));
+}
+
+// And its picture, in the look its train put on it.
+SpriteOut spritesWagon(uint wagon)
+{
+    WagonViewRow row = spritesWagonRow(wagon);
+    uint look = row.flags & 0xffffu;
+    return spritesPlain(row.positionM, trainLooks[look], figures.firstTrainSheet + look, row.headingRad);
+}
+
+// CrossingSprites.Fill's cull for one approach's gear, and what of it is drawn: its barrier where enough of it shows, its
+// head, and its lit lamp — one each, or none.
+uvec3 spritesGearShown(uint gear)
+{
+    GearRow row = gearRows[gear];
+    precise float reachM = row.armM + figures.gearPastKerbM;
+    if (spritesOutside(row.pivotM, vec2(reachM))) return uvec3(0u);
+
+    GearShownRow shown = gearShown[gear];
+    return uvec3(shown.shownM > figures.barrierWidthM ? 1u : 0u, 1u, shown.lit >= 0 ? 1u : 0u);
+}
+
+SpriteOut spritesBarrier(uint gear)
+{
+    GearRow row = gearRows[gear];
+    float shownM = gearShown[gear].shownM;
+    precise vec2 centreM = row.pivotM + row.downAlong * (shownM * 0.5);
+    return spritesPlain(centreM, vec2(shownM, figures.barrierWidthM) * 0.5, figures.barrierSheet, row.armHeadingRad);
+}
+
+SpriteOut spritesCrossingHead(uint gear)
+{
+    GearRow row = gearRows[gear];
+    return spritesPlain(row.headM, vec2(figures.headHalfM), figures.crossingHeadSheet, row.headHeadingRad);
+}
+
+SpriteOut spritesCrossingLamp(uint gear)
+{
+    GearRow row = gearRows[gear];
+    precise vec2 lampM = gearShown[gear].lit == 0 ? row.headM - row.lampAcrossM : row.headM + row.lampAcrossM;
+    return spritesQuad(lampM, vec2(figures.lampGlowHalfM), SpriteWhole, figures.glowTint, figures.glowSheet, row.headHeadingRad);
+}
+
 // CarSprites.FillFrontTyres' cull for one car: two tyres, or none.
 uint spritesTyresShown(uint car)
 {
@@ -278,6 +339,21 @@ uvec2 spritesLamps(uint car)
     }
 
     return shown;
+}
+
+// LampSprites.Glows: a headlamp burns its lens and lays no glow (CAR-14.8).
+bool spritesGlows(uint colour) { return colour != LampHeadWhite; }
+
+// How many of the lenses spritesLamps drew lay a glow.
+uint spritesGlowing(uvec2 shown)
+{
+    uint glowing = 0u;
+    for (uint lens = 0u; lens < figures.mostLenses; lens++)
+    {
+        if ((shown.x & (1u << lens)) != 0u && spritesGlows((shown.y >> (3u * lens)) & 7u)) glowing++;
+    }
+
+    return glowing;
 }
 
 // A drawn lens's glow, laid under every lens of its car.

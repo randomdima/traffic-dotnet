@@ -41,6 +41,13 @@ internal enum ControlAction : ushort
     /// join's bits, where the stretch stops, and where along it the car is; its serial in the flags. Kept until the next.
     /// </summary>
     Follow,
+
+    /// <summary>
+    /// A wagon put at (x, y) facing a heading and moving along it at a speed, and back in the world if it was out of it
+    /// (<see cref="PhysicsWorld.Run"/>, TRN-2); the look it wears in its flags, for the world to draw. Sent every tick its
+    /// train is on the map.
+    /// </summary>
+    Run,
 }
 
 /// <summary>
@@ -76,6 +83,9 @@ internal readonly record struct ControlSignal(int Agent, ControlAction Action, u
         new(agent, ControlAction.Place, 0, new Vector4(atM, headingRad, 0f));
 
     public static ControlSignal Contain(int agent) => new(agent, ControlAction.Contain, 0, default);
+
+    public static ControlSignal Run(int agent, Vector2 atM, float headingRad, float speedMps, int look) =>
+        new(agent, ControlAction.Run, (ushort)look, new Vector4(atM, headingRad, speedMps));
 
     public static ControlSignal Layer(int agent, CollisionLayer layer) => new(agent, ControlAction.Layer, (ushort)layer, default);
 

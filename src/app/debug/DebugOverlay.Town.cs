@@ -41,8 +41,8 @@ internal sealed partial class DebugOverlay
             ref readonly var build = ref cars.BuildOf(car);
             if (!OnScreen(centreM, viewCentreM, viewSpanM, build.HalfLengthM)) continue;
 
-            // The shape the solver is given, which is this car's own (CAR-11) — fitted inside its picture
-            // (CAR-12b), so it is inside the bodywork as well as inside the tyres and the mirrors.
+            // The shape the solver is given, which is this car's own (CAR-11) — its authored rounded box
+            // (CAR-12b), the outline its picture's bodywork was drawn to.
             draw.RoundedBoxM(
                 centreM, build.CollisionSizeM, cars.HeadingRad[car], build.CornerRadiusM, lineM, Theme.Collision);
         }

@@ -86,6 +86,17 @@ internal sealed unsafe partial class Vk : IDisposable
         }
     }
 
+    /// <summary>The most one uniform binding may span on this device (<c>maxUniformBufferRange</c>), in bytes.</summary>
+    public ulong MaxUniformBufferRangeBytes
+    {
+        get
+        {
+            Count();
+            _api.GetPhysicalDeviceProperties(Physical, out var properties);
+            return properties.Limits.MaxUniformBufferRange;
+        }
+    }
+
     public string DeviceApiVersionText =>
         $"{DeviceApiVersion >> 22}.{(DeviceApiVersion >> 12) & 0x3FF}.{DeviceApiVersion & 0xFFF}";
 

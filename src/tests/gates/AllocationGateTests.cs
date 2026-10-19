@@ -199,6 +199,27 @@ public class AllocationGateTests
     }
 
     /// <summary>
+    /// <b>And with a train crossing the town</b> (TRN-7, RAIL-1): no map the gates above are asked of carries a railway, so
+    /// this one lays the suite's city with two tracks and a train sent at once and every few seconds after, and measures
+    /// from the moment a crossing first closes — the wagons, the crossings' holds and their gear all running.
+    /// </summary>
+    [Fact]
+    public void AWholeTickWithATrainCrossingTheTownAllocatesNothing()
+    {
+        var config = new SimConfig { Train = new TrainFigures { FirstLeastS = 1f, FirstMostS = 1f, GapLeastS = 5f, GapMostS = 5f } };
+        var brief = Towns.Brief(Towns.CitySeed, buildings: Towns.BuildingsBuilt, people: Towns.PeopleBuilt, railTracks: 2);
+        using var world = new TownWorld(Towns.LayFresh(brief), config);
+        var loop = new SimLoop<TownWorld>(world, config);
+        loop.Advance(Towns.SettleTicks(Towns.City));
+        for (var tick = 0; tick < Towns.SettleTicks(Towns.City) && world.CrossingStretchesHeld == 0; tick++) loop.Advance();
+
+        var before = GC.GetAllocatedBytesForCurrentThread() + world.AllocatedAsideBytes;
+        loop.Advance(600);
+
+        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread() + world.AllocatedAsideBytes);
+    }
+
+    /// <summary>
     /// Phase 5, which the gate above cannot reach: it never steps, so the solver reports no contacts
     /// and the arbiter walks an empty list however long it is run for. This one steps, on the town whose
     /// cars actually queue against each other.

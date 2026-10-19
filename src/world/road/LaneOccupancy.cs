@@ -16,6 +16,12 @@ internal enum LaneRoster : byte
     /// stands on no way.
     /// </summary>
     Signal,
+
+    /// <summary>
+    /// <b>The level crossings</b> (RAIL-1): a holder is one stretch of a way a crossing holds while a train closes it, at
+    /// <see cref="ClaimPriority.Hard"/>.
+    /// </summary>
+    Crossing,
 }
 
 /// <summary><b>What a claim is</b>: ground a body stands on, or ground somebody means to use.</summary>
@@ -75,8 +81,11 @@ internal readonly record struct Refusal(float CutLineM, int Way, ushort AtDm, Cl
 
     public float AtM => LaneOccupancy.MetresOf(AtDm);
 
-    /// <summary>Whether a light's hold refused it (TLT-1).</summary>
-    public bool ByALight => Refused && Kind != ClaimKind.Body && Rung == ClaimPriority.Signal;
+    /// <summary>
+    /// Whether a light's hold refused it (TLT-1) — a level crossing's among them (RAIL-1), the one claim at
+    /// <see cref="ClaimPriority.Hard"/> that is not a body: a crossing is closed by its lights.
+    /// </summary>
+    public bool ByALight => Refused && Kind != ClaimKind.Body && Rung is ClaimPriority.Signal or ClaimPriority.Hard;
 }
 
 /// <summary>

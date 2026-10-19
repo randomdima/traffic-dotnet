@@ -1,0 +1,2 @@
+{"variant": "saloon_beige-v1", "frame": "cars_civil_a-v3", "cell": 4, "box": [40, 416, 432, 192], "pxPerM": 105.455, "score": 4, "status": "candidate", "ts": "2026-10-18T18:14:59"}
+{"variant": "saloon_beige-v2", "frame": "cars_civil_c-v1", "cell": 5, "box": [552, 416, 432, 192], "pxPerM": 105.455, "score": 4, "status": "used", "ts": "2026-10-18T19:45:17"}

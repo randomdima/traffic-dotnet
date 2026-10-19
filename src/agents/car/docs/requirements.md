@@ -274,17 +274,15 @@ fleck beside the car on screen and a false flank for a track to be authored agai
 picture is what says where the panels end, so a body stretched to another car's size is one whose tyres,
 mirrors and overhangs are all in the wrong place.
 
-**CAR-12b** `P3` A car is **collided as a rounded box fitted inside the picture of it** — the largest one that
-lies within the bodywork — and never as the footprint that picture was drawn in. A footprint is a
-rectangle art is drawn into: its corners are empty, and its width is set by whatever reaches furthest,
-which on a police car is the mirrors. Collided at the footprint a car is stopped by a car it visibly is
-not touching, half a car's width of it. The fit is measured off the art and authored beside it, it is
-**inside the panels and so inside the mirrors and the tyres**, and it takes about a twentieth off the
-length and a tenth off the width. A variant that names no fit is collided at its footprint with square
-corners, and so is the nominal car, which is a figure rather than a picture and has nothing to be fitted
-inside.
+**CAR-12b** `P3` A car is **collided as its authored shape** — a rounded box (`collisionM`) centred in its
+footprint — and never as the footprint itself. **The shape comes first and the picture is made to it**: the
+generator is handed the shape as the outline the bodywork fills, so nothing about it is measured off the
+art. A footprint is the rectangle the art is drawn into, and what stands off the panels — mirrors, tyres —
+may reach past the shape into it; collided at the footprint a car is stopped by a car it visibly is not
+touching. A variant that names no shape is collided at its footprint with square corners, and so is the
+nominal car.
 
-**A car is still drawn, driven, parked and measured at its footprint** (CAR-11, CAR-12a). What the fit
+**A car is still drawn, driven, parked and measured at its footprint** (CAR-11, CAR-12a). What the shape
 changes is one thing: the shape the solver is handed.
 
 ## Soft rules
@@ -430,12 +428,14 @@ carries. **No lamp is state of its own** — there is nothing to set, nothing to
 disagree with the car it is bolted to.
 
 **CAR-14a** `P6` A lamp is a **section of the car's own picture**, and the variant's file says which one: every
-lens is measured off the art it is drawn on, so a lamp lights the panel an artist drew a lens on and
-nothing arithmetic put somewhere near it. **A lit lamp is that section cut from that sprite and driven
-emissive**, at the resolution the sprite is drawn at — it therefore wears the shape, the bezel and the
-pixel grid the artist gave it, and cannot overhang an outline it was cut from the inside of. **An unlit
-lamp is drawn by nobody**: the dull lens is the car's own picture and is already on screen. A variant
-that draws no lens for a fitting cannot show it.
+lens is authored with the car's shape and the art is asked to draw it there, unlit, so a lamp lights the
+panel the art drew a lens on and nothing arithmetic put somewhere near it. **Which texels a lens is, is the
+generator's to say**: each car's sheet is repainted by it as a zone map, every part one flat contrasting colour, and a
+lens is the sprite's texels its zone covers (the owner, 2026-10-18) — the shape and the place the art drew it, not the
+rectangle the file frames. **A lit lamp is those texels driven emissive**, at the resolution the sprite is drawn at, so
+it wears the bezel and the pixel grid the artist gave it; a look with no zone map lights its lens's whole rectangle.
+**An unlit lamp is drawn by nobody**: the dull lens is the car's own picture and is already on screen. A variant that
+draws no lens for a fitting cannot show it.
 
 **CAR-14b** `P9` Where the art **already draws a lamp**, the lens is a section of that lamp and not a shape
 beside it: a front cluster's indicator is the end of it nearest the flank, so what flashes is the part
@@ -501,6 +501,12 @@ ends before there is room to come back onto it, a zebra off a call, a bend, a pl
 decision and says nothing; room held by something that will move on is waited for, and is. **A car meaning to move
 across onto the lane beside** (CAR-53) says so the same way: toward it from when it means to, through its step,
 and nothing once it is on it.
+
+**CAR-14.8** `P6` The **headlamps are the car being driven**: they burn for as long as anything drives it (CAR-1,
+CTL-5c) — under way, held at a light, waiting at a bay — and are dark on a car parked or wrecked (CAR-14.5). **They
+are how a car that is going somewhere is told from one that is not** at a glance, so they say nothing else: not the
+hour, not the speed, and no main beam apart from the dipped one. **A lit headlamp is its lens burning and nothing
+round it**: no glow on the body or the road (the owner, 2026-10-18), which on every moving nose washes a town in bloom.
 
 Where the numbers are: `SimConfig.Lamps` — how much of the line is read for a turn and how far that
 stretch must bend, how long before the step back a pass says it, the rates the flashing ones flash at, and

@@ -15,6 +15,15 @@
     "../van_purple/van_purple.json",
     "../coupe_black/coupe_black.json",
     "../sedan_silver/sedan_silver.json",
-    "../pickup_maroon/pickup_maroon.json"
+    "../pickup_maroon/pickup_maroon.json",
+    "../micro_mint/micro_mint.json",
+    "../citybox_sky/citybox_sky.json",
+    "../retro_cream/retro_cream.json",
+    "../hatch_coral/hatch_coral.json",
+    "../saloon_beige/saloon_beige.json",
+    "../suv_graphite/suv_graphite.json",
+    "../estate_navy/estate_navy.json",
+    "../minivan_wine/minivan_wine.json",
+    "../panelvan_forest/panelvan_forest.json"
   ]
 }

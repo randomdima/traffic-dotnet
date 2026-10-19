@@ -38,7 +38,10 @@ internal sealed partial class TownWorld
                 walkers[person] = new WalkerLaid(People.PositionM[person], People.HeadingRad[person], People.Inside[person].Any);
             }
 
-            return new WorldLaying(_config, _plan.WorldSizeM, Statics, _atlas, WheelGrounds, _builds, cars, walkers, _roads);
+            return new WorldLaying(_config, _plan.WorldSizeM, Statics, _atlas, WheelGrounds, _builds, cars, walkers, _roads)
+            {
+                Wagons = WagonsLaid,
+            };
         }
     }
 

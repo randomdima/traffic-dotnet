@@ -141,6 +141,12 @@ internal static class ExamJudge
 
                 return null;
 
+            case ExamRule.AtTheCrossing:
+                if (subject.Crossing < 0) return $"{name} stands on no road the railway crosses";
+                if (subject.OnTheTrackClosed) return $"{name} was on the track while its crossing was closed";
+
+                return subject.WaitedAtTheCrossing ? null : $"{name} never waited at the crossing while it was closed";
+
             default:
                 return $"no judge for {claim.Rule}";
         }

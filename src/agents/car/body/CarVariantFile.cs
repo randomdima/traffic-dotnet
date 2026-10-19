@@ -101,7 +101,7 @@ internal sealed class LampFile
     public required Vector2 SizeM { get; init; }
 }
 
-/// <summary>The rounded box a car is collided as, in its own axes and measured off its picture.</summary>
+/// <summary>The rounded box a car is collided as, in its own axes, centred in its footprint (CAR-12b).</summary>
 /// <remarks>
 /// <see cref="SizeM"/> is what the shape <em>reaches</em>, rounding included, so it is comparable with
 /// the footprint beside it: the core the solver holds is this less the radius on both axes.
@@ -126,7 +126,16 @@ internal sealed class CarVariantFile
 
     public required string Sprite { get; init; }
 
+    /// <summary>The car seen from above, in a line, for whoever draws its picture. Read by no code here.</summary>
+    public string? Describe { get; init; }
+
     public WreckFile? Wreck { get; init; }
+
+    /// <summary>
+    /// The same picture as flat zones, one colour a part (CAR-14a): which of the sprite's texels each lamp lens is, as
+    /// the generator drew it. A variant that names none has each lamp lit over its lens's whole rectangle.
+    /// </summary>
+    public string? Zones { get; init; }
 
     /// <summary>The arm this one tows on (EVA-5). A car that tows nothing names none.</summary>
     public TowBeamFile? Beam { get; init; }
@@ -146,9 +155,9 @@ internal sealed class CarVariantFile
     /// The whole distance between the wheel centres on an axle, as <see cref="SimConfig.CarTrackM"/> is.
     /// <b>It is the width of the bodywork over the axles</b> (CAR-12): the wheel centres stand on this car's
     /// own flanks, as the nominal car's stand on the corners of its footprint, so half of each tyre is
-    /// outside the panels and can be seen. It is measured off the picture with the mirrors ignored, which
-    /// is why a police car — whose sheet is as wide as its mirrors — carries a narrower track than a van
-    /// drawn to the same sheet.
+    /// outside the panels and can be seen. It is authored against the car's shape (<see cref="CollisionM"/>)
+    /// with the mirrors ignored, which is why a police car — whose footprint is as wide as its mirrors —
+    /// carries a narrower track than a van with the same footprint.
     /// </summary>
     public required float TrackM { get; init; }
 
@@ -223,20 +232,17 @@ internal sealed class CarVariantFile
     public bool Unbreakable { get; init; }
 
     /// <summary>
-    /// <b>The shape this car is collided as</b> (CAR-12b): the largest rounded box that fits inside the
-    /// picture, measured off it. A variant that names none is collided as the whole of its footprint with
-    /// square corners, which is what every car was before the shape was fitted.
+    /// <b>The shape this car is collided as</b> (CAR-12b), authored first: the outline the picture's
+    /// bodywork is drawn to. A variant that names none is collided as the whole of its footprint with
+    /// square corners.
     /// </summary>
     public CollisionFile? CollisionM { get; init; }
 
-    /// <summary>The car's outline in its own axes, anticlockwise. Authored art, read by no code here.</summary>
-    public Vector2[] HullM { get; init; } = [];
-
     /// <summary>
-    /// The lenses this car's art draws (CAR-14a), which are the only lamps it can show. A rectangle
-    /// measured over a lamp the artist painted takes the section of it the fitting is — a front
-    /// cluster's flank end for an indicator — and one is painted onto bodywork only for a nose that
-    /// draws no lamp at all (CAR-14b).
+    /// The lenses this car's art draws (CAR-14a), which are the only lamps it can show: authored with
+    /// its shape, and drawn unlit where they stand. One over a lamp the art draws larger takes the
+    /// section of it the fitting is — a front cluster's flank end for an indicator — and one is painted
+    /// onto bodywork only for a nose that draws no lamp at all (CAR-14b).
     /// </summary>
     public LampFile[] Lamps { get; init; } = [];
 

@@ -1,0 +1,38 @@
+{
+ "id": "cars_civil_c-v3",
+ "ts": "2026-10-18T19:44:32",
+ "op": "edit",
+ "name": "cars_civil_c",
+ "file": ".tmp/gen/frames/cars_civil_c-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.032591,
+ "prompt": "Two images are attached. Image 1 is a finished sheet of 9 top-down car sprites for a 2D city game, on flat magenta. Image 2 is its layout: each car's outline at its true size, the thick right edge its nose, and small thin coloured frames inside each outline marking exactly where each lamp lens goes. Redraw only the transparent cells of the sheet; keep every other cell exactly as it is, and match their style: chunky pixel art, crisp hard-edged pixels, a dark outline about 2 pixels thick, flat colour with one highlight and one shadow, light from the top-left, dark slate blue glass.\n\nOn these cars the lamps keep being drawn out on the curve of the corners, outside their frames. Look at where each frame is in image 2 and put each lens there, even if that is not where such a car usually has its lamps.\n\nRedraw these cells (numbered left to right, top to bottom), each as the same car as before, same colours and details:\n1. mint green two-seat microcar with a pale grey safety-cell frame. Its two red tail-lamp frames are on the flat back face, a little in from the rear corners towards the centre line: draw each tail lamp there, inside its frame, not on the corner. Its amber frames are behind the headlamps, on the front flanks, not at the nose: draw a clearly orange indicator lens inside each one.\n3. cream round retro two-door car with a white closed roof. Its red tail-lamp frames are on the rounded back, a little in from the corners towards the centre line: draw each tail lamp inside its frame. Its two round headlamps go inside the blue frames, set back from the very tip of the nose. Its amber frames are just behind each headlamp on the front flanks: draw a clearly orange indicator lens inside each one.\n7. navy blue estate car with silver roof rails. Draw a clearly orange indicator lens inside each small amber frame, just behind the headlamp on the flank side; the last version drew the indicators further back along the flanks than their frames.\n\nFor every redrawn car:\n- Fill its outline in image 2 exactly: the long sides on the outline's top and bottom edges, the corners rounded exactly as the outline's corners, nose at the thick edge. Only the two small side mirrors may stand outside it.\n- Six lenses, each inside its own frame in image 2 and nowhere else: dark red tail lamp glass in each red frame, clear headlamp glass with a chrome reflector in each blue frame, a separate orange indicator lens in each small amber frame.\n- Every lamp is switched off: unlit glass with one small pale glint, no glow, no light cast.\n- No tyres or wheels, roof on, mirror-symmetric about the long centre line, straight down, no shadow, no text or badges, no magenta inside the car. Do not draw the frames' lines.\n- Outside the cars, flat pure magenta #FF00FF.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "878b32d9243f7873",
+   "ext": "png",
+   "frame": "cars_civil_c-v2",
+   "was": ".tmp/gen/frames/cars_civil_c-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "6239485e7ee8d7d7",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/cars_civil_c.png"
+  },
+  {
+   "role": "mask",
+   "sha": "c9a96b0864696c75",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/cars_civil_c-v2/_mask_micro_mint_retro_cream_estate_navy.png"
+  }
+ ]
+}

@@ -155,6 +155,8 @@ function buildLayout() {
 
     entries.push({ binding: 9, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
     entries.push({ binding: 10, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
+    // The track's strip, the sixth surface, after the samplers (town.wgsl).
+    entries.push({ binding: 11, visibility: GPUShaderStage.FRAGMENT, texture: {} });
     state.layout = state.device.createBindGroupLayout({ entries, label: 'town' });
 }
 
@@ -297,6 +299,7 @@ function rebuild(indexCount, overOffset) {
 
     entries.push({ binding: 9, resource: state.samplers.clamped });
     entries.push({ binding: 10, resource: state.samplers.repeated });
+    entries.push({ binding: 11, resource: state.textures[TEXTURE.surfaces + 5].createView() });
     const group = state.device.createBindGroup({ layout: state.layout, entries });
 
     const pass = state.device.createRenderBundleEncoder({ colorFormats: [state.format] });

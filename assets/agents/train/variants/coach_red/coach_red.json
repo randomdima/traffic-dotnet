@@ -1,0 +1,12 @@
+{
+  "id": "coach_red",
+  "sprite": "coach_red.webp",
+  "kind": "Coach",
+  "describe": "long intercity passenger coach seen from straight above: a grey ribbed roof with a row of ventilators down its middle, dark red body edges, a bellows gangway at both ends",
+  "footprintM": [
+    25.5,
+    3.4
+  ],
+  "cornerRadiusM": 0.2,
+  "bogiePitchM": 17.0
+}

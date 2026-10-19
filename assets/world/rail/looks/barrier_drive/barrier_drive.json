@@ -1,0 +1,9 @@
+{
+  "id": "barrier_drive",
+  "kind": "Drive",
+  "describe": "a level-crossing barrier machine seen from straight above, top-down only: a compact metal housing painted yellow and grey with a rounded lid and vents, the barrier's pivot shaft hub at its right end, a short dark counterweight at its left end",
+  "footprintM": [
+    0.9,
+    0.6
+  ]
+}

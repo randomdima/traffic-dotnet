@@ -1,5 +1,41 @@
 # CityGen — decision log
 
+## 2026-10-18 — a map holds its railway, and a traced one OSM's main lines
+
+**The owner asked for trains** ([agents/train](../../agents/train/docs/decision-log.md)), on the generated cities and on
+`OdesaOsm` — which **reverses the 2026-10-04 entry below for rail, at the owner's word**: the trams stay off the map, and
+the main lines come on.
+
+- **The tracks are the map's** (`TownMap.Rails`, version 9): each a line of points past the map at both ends, the railway
+  line it is one of, which way it is run, and the level of each chord — a traced bridge is above what it passes over. A
+  brief lays its own (`RailLines.Author`: `railTracks`, `railBearingDeg`, `railOffsetShare`, `railMeander`), at most two
+  tracks a run-off past the map, wandering no tighter than the least radius; `Odesa` and `River` were authored again.
+- **The railway stands with the water, before a node is placed** (GEN-10, RAIL-5): a node is refused a clearance off the
+  ballast, and a road whose line meets the ballast is refused unless it crosses square enough — so a generated town's
+  crossings are square and stand clear of its boxes, and a few of its streets near the line are not laid.
+- **Two tracks' bands are cut to the map one at a time** (`RailLines.Lay`): cut together, the runs of a double track were
+  closed into each other along the map's edge, and a run closed round a corner enclosed everything between the line and
+  that corner — a wedge of ballast a third of Odesa wide, which the streets then avoided.
+- **A traced map's railway is an edit, not an import** (`qq osm --rails`): OSM's main lines (no yard, siding, spur or
+  crossover), every route from where a line leaves the map to where another does, the longest first and each kept only
+  where it is mostly its own, routes sharing a track one line. `OdesaOsm` comes out one 18.3 km line: the city's other
+  main lines meet it in yards, which the routes are not laid through.
+
+## 2026-10-18 — the showroom is one big car park with every look in it once
+
+**The owner asked for the showroom to be a big parking map: the cars parked from the start, and every building asset
+once all round it.** It was the idle ring with the looks driving it.
+
+- **A loop with ranks of bays down both kerbs of its long sides** (`ShowroomPlan`), the ring's own shape drawn out
+  wide (`IdlePlan.Loop`), each bay the one every town lays: 64 bays, a car spawn on each, so the town parks each of the
+  28 looks in one and the rest stand empty.
+- **Every building look once** — 18 ordinary roofs, 3 civic, 355 prefabs — in rings of rows round the car park, the
+  shallowest nearest, doors facing in. The plan is handed the catalogue's footprints like any town
+  (`BuildingSizes`, which now carries the ordinary roofs' too, since nothing else stands one on purpose), so the code-laid
+  maps' laying takes the sizes as the file-read ones do.
+- **Its civic buildings stand no fleet** (`TownWorld.ApronBaysWantedBy`): a hospital would park its own ambulances, and
+  each service look is already one of the showroom's own cars.
+
 ## 2026-10-17 — a traced car park is laid as a mall's, inside the outline OSM gives it
 
 **The owner asked for the car parks whose aisles were dropped to be laid again by the engine, as a mall's are: dense

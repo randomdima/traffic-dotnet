@@ -175,6 +175,33 @@ public class LampSpriteTests
         Assert.Equal(written, lit * 2);
     }
 
+    /// <summary>
+    /// CAR-14.8 through the renderer: <b>a driven car's headlamps are their lenses burning and no glow</b>, so each
+    /// head lens is one quad on the lens sheet and no glow stands where it is.
+    /// </summary>
+    [Fact]
+    public void AHeadlampBurnsItsLensAndLaysNoGlow()
+    {
+        var variant = Array.FindIndex(Catalogue.Variants, look => look.Id == "hatch_coral");
+        var fleet = Lit(variant);
+        var drawn = Drawn(fleet, fleet.PositionM[0], out var written);
+
+        var forward = new Vector2(MathF.Cos(HeadingRad), MathF.Sin(HeadingRad));
+        var right = new Vector2(-forward.Y, forward.X);
+        var heads = 0;
+        foreach (var lens in Catalogue.LensesOf(variant))
+        {
+            if (lens.Fitting != CarLampFitting.Head) continue;
+
+            heads++;
+            var atM = fleet.PositionM[0] + (forward * lens.AtBodyM.X) + (right * lens.AtBodyM.Y);
+            var standing = drawn.AsSpan(0, written).ToArray().Where(quad => Vector2.Distance(quad.CentreM, atM) < 1e-4f).ToArray();
+            Assert.Equal(LensSheet, (int)Assert.Single(standing).Sheet);
+        }
+
+        Assert.Equal(2, heads);
+    }
+
     /// <summary>A quad standing on this spot of the town, turned the way the car is.</summary>
     static void AssertQuadAt(SpriteInstance instance, Vector2 atM)
     {

@@ -62,14 +62,14 @@ void writeCar(uint car)
 
     uint variant = row.variant % figures.carSheets;
     uint glowAt = starts[slot];
-    uint lensAt = glowAt + drawn;
+    uint lensAt = glowAt + spritesGlowing(shown);
     for (uint lens = 0u; lens < figures.mostLenses; lens++)
     {
         if ((shown.x & (1u << lens)) == 0u) continue;
 
         LensRow at = lenses[variant * figures.mostLenses + lens];
         uint colour = (shown.y >> (3u * lens)) & 7u;
-        put(run, glowAt++, spritesGlow(row, at, colour));
+        if (spritesGlows(colour)) put(run, glowAt++, spritesGlow(row, at, colour));
         put(run, lensAt++, spritesLens(row, at, colour));
     }
 }
@@ -100,6 +100,26 @@ void main()
     }
 
     unit -= figures.carCapacity;
-    uint slot = spritesHeadsFrom() + unit;
-    if (unit < figures.headCount && countAt(slot) != 0u) put(RunOver, starts[slot], spritesHead(unit));
+    if (unit < figures.wagonCount)
+    {
+        uint wagonSlot = spritesWagonsFrom() + unit;
+        if (countAt(wagonSlot) != 0u) put(RunOver, starts[wagonSlot], spritesWagon(unit));
+        return;
+    }
+
+    unit -= figures.wagonCount;
+    if (unit < figures.headCount)
+    {
+        uint slot = spritesHeadsFrom() + unit;
+        if (countAt(slot) != 0u) put(RunOver, starts[slot], spritesHead(unit));
+        return;
+    }
+
+    unit -= figures.headCount;
+    if (unit >= figures.gearCount) return;
+
+    uint from = spritesGearFrom() + GearParts * unit;
+    if (countAt(from) != 0u) put(RunOver, starts[from], spritesBarrier(unit));
+    if (countAt(from + 1u) != 0u) put(RunOver, starts[from + 1u], spritesCrossingHead(unit));
+    if (countAt(from + 2u) != 0u) put(RunOver, starts[from + 2u], spritesCrossingLamp(unit));
 }

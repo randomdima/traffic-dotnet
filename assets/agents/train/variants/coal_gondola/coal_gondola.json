@@ -1,0 +1,11 @@
+{
+  "id": "coal_gondola",
+  "kind": "Coal",
+  "describe": "open gondola wagon seen from straight above: dark grey ribbed steel walls, the open top heaped with lumpy black coal",
+  "footprintM": [
+    13.9,
+    3.2
+  ],
+  "cornerRadiusM": 0.2,
+  "bogiePitchM": 8.65
+}

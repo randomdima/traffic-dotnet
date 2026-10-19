@@ -1,0 +1,38 @@
+{
+ "id": "trains_b-v3",
+ "ts": "2026-10-19T01:51:40",
+ "op": "edit",
+ "name": "trains_b",
+ "file": ".tmp/gen/frames/trains_b-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031996,
+ "prompt": "Two images are attached. Image 1 is a finished sprite sheet of 12 rail vehicles for a top-down 2D city game; image 2 is its layout: the outline each vehicle must fill, on flat magenta. Redraw only the five vehicles in the bottom two rows (cells 8 to 12) inside their outlines from image 2, and keep everything else in image 1 exactly as it is. Match the style of image 1's other cells: chunky pixel art with crisp hard-edged pixels, a dark near-black outline about 2 pixels thick, flat colour with one highlight and one shadow tone, flat light from directly above.\n\nWhat was wrong and must be fixed:\n- The three open coal gondolas (cells 8, 10 and 12) were drawn tilted, a strip of ribbed side wall showing along their bottom edge only. Draw them strictly top-down, the camera exactly overhead: all four walls are the same thin rim seen from above, the top rim and the bottom rim exactly alike, and the heaped coal fills everything inside the rim. No side wall face, no ribs on the outside, no perspective.\n- The two oil tank wagons (cells 9 and 11) were drawn about 10% longer than their outlines, their couplers and frame ends sticking out past the outline's ends. Draw each tank wagon inside its outline exactly: the tank's rounded ends just inside the outline's left and right ends, the couplers as short stubs inside the outline. Strictly top-down: the cylinder seen from straight above, a highlight along its middle, a round filling dome with a small railed platform in the middle.\n\nCells, length x width:\n8. 13.9 x 3.2 m - open gondola wagon: dark grey steel rim, heaped with lumpy black coal\n9. 12 x 3.3 m - oil tank wagon: a black tank\n10. 13.9 x 3.2 m - open gondola wagon: rust-brown steel rim, heaped with lumpy black coal\n11. 12 x 3.3 m - oil tank wagon: a weathered light grey tank\n12. 13.9 x 3.2 m - open gondola wagon: olive-green steel rim, heaped with lumpy black coal\n\nDraw nothing outside the outlines; the background stays flat pure magenta #FF00FF. No text, logos or numbers.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "287d2256df24a51e",
+   "ext": "png",
+   "frame": "trains_b-v2",
+   "was": ".tmp/gen/frames/trains_b-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "2c71f1bf36cfbce4",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/trains_b.png"
+  },
+  {
+   "role": "mask",
+   "sha": "5d4d8bb4812e8658",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/trains_b-v2/_mask_coal_gondola_tank_black_coal_rust_tank_grey_coal_olive.png"
+  }
+ ]
+}

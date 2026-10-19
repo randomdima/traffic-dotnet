@@ -30,9 +30,9 @@ internal readonly record struct CarBuild
 
     /// <summary>
     /// <b>The shape this body is collided as</b> (CAR-12b), reaching this far along its own axes with
-    /// <see cref="CornerRadiusM"/> off each corner. It is inside the picture rather than around it, so it
-    /// is smaller than <see cref="LengthM"/> by <see cref="WidthM"/> — which stay what the car is drawn,
-    /// driven and parked at.
+    /// <see cref="CornerRadiusM"/> off each corner. It is inside the footprint rather than the footprint, so
+    /// it is within <see cref="LengthM"/> by <see cref="WidthM"/> — which stay what the car is drawn, driven
+    /// and parked at.
     /// </summary>
     public required Vector2 CollisionSizeM { get; init; }
 

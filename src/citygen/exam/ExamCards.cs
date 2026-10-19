@@ -492,7 +492,22 @@ internal static class ExamCards
                 Siren(South, North, QueueCallBackM, ExamStart.OnRed, FurthestM),
             ],
             [Before(5, 0)]) with { Lit = true },
+
+
+        // The railway: a spur the exam's one track crosses, and a car sent down it as the crossing closes.
+        Card("Held at a level crossing", ExamFamily.Signals, ExamShape.DeadEnd,
+            "A car sent down a spur as the crossing over its railway closes waits short of the track while the train goes "
+            + "by, and crosses once it opens.", Crossing,
+            [new ExamDriver(South, South, NearTheHeadM, OverTheTrackM, ExamStart.OnClosed, 0f, Emergency: false, Parked: false, Outbound: true)],
+            [new ExamClaim(ExamRule.AtTheCrossing, 0)]) with { Railway = true },
     ];
+
+    /// <summary>The level crossing's card: a car near the spur's head, sent on past the track (<see cref="ExamGround.RailStripM"/>) to short of the lattice.</summary>
+    const float NearTheHeadM = 8f;
+
+    const float OverTheTrackM = 75f;
+
+    const string Crossing = "RAIL-1, RAIL-6";
 
     /// <summary>
     /// The <paramref name="place"/>th car from the head of a queue waiting at a red on the south arm: stood

@@ -78,6 +78,25 @@ internal struct WalkerView
     public float OverlapM;
 }
 
+/// <summary>One train's wagon as the world's last step left it (TRN-7): where it is, how it points, and what it shows.</summary>
+/// <remarks>16 B, as the device writes the row (<c>world_view_wagons.comp</c>).</remarks>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WagonView
+{
+    public Vector2 PositionM;
+    public float HeadingRad;
+
+    /// <summary>The look it was last signalled to wear in the low half (<see cref="ControlAction.Run"/>), and <see cref="InWorld"/>.</summary>
+    public uint Flags;
+
+    /// <summary>Whether the wagon is in the world at all, rather than held out of it until its train runs.</summary>
+    public const uint InWorld = 0x10000;
+
+    public readonly bool IsInWorld => (Flags & InWorld) != 0;
+
+    public readonly int Look => (int)(Flags & 0xFFFF);
+}
+
 /// <summary>Where one body's covers are in its kind's list (<see cref="WorldView.CarCovers"/>), and how many.</summary>
 [StructLayout(LayoutKind.Sequential)]
 internal readonly record struct CoverRange(int From, int Count);
@@ -103,21 +122,26 @@ internal sealed unsafe class WorldView
 {
     CarView* _cars;
     WalkerView* _walkers;
-    readonly int _carCount, _walkerCount;
+    WagonView* _wagons;
+    readonly int _carCount, _walkerCount, _wagonCount;
 
     /// <summary>The view's own rows, pinned, until it reads over somebody else's.</summary>
     CarView[]? _ownCars;
 
     WalkerView[]? _ownWalkers;
 
-    public WorldView(int people, int cars, int slot)
+    WagonView[]? _ownWagons;
+
+    public WorldView(int people, int cars, int slot, int wagons = 0)
     {
         Slot = slot;
-        (_carCount, _walkerCount) = (cars, people);
+        (_carCount, _walkerCount, _wagonCount) = (cars, people, wagons);
         _ownCars = GC.AllocateArray<CarView>(Math.Max(1, cars), pinned: true);
         _ownWalkers = GC.AllocateArray<WalkerView>(Math.Max(1, people), pinned: true);
+        _ownWagons = GC.AllocateArray<WagonView>(Math.Max(1, wagons), pinned: true);
         _cars = (CarView*)Unsafe.AsPointer(ref MemoryMarshal.GetArrayDataReference(_ownCars));
         _walkers = (WalkerView*)Unsafe.AsPointer(ref MemoryMarshal.GetArrayDataReference(_ownWalkers));
+        _wagons = (WagonView*)Unsafe.AsPointer(ref MemoryMarshal.GetArrayDataReference(_ownWagons));
         CarCoverRanges = new CoverRange[cars];
         WalkerCoverRanges = new CoverRange[people];
         CarCovers = new WayCover[Math.Max(16, cars * 4)];
@@ -130,6 +154,18 @@ internal sealed unsafe class WorldView
     public Span<CarView> Cars => new(_cars, _carCount);
 
     public Span<WalkerView> Walkers => new(_walkers, _walkerCount);
+
+    /// <summary>Every wagon the trains can field, in or out of the world (TRN-7).</summary>
+    public Span<WagonView> Wagons => new(_wagons, _wagonCount);
+
+    /// <summary>The wagons' rows read straight out of memory the world writes them into, as <see cref="ReadOver"/> reads the rest.</summary>
+    public void ReadWagonsOver(Span<WagonView> wagons)
+    {
+        if (wagons.Length < _wagonCount) throw new ArgumentException("A view reads over a row for every wagon.");
+
+        _wagons = (WagonView*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(wagons));
+        _ownWagons = null;
+    }
 
     /// <summary>The rows read straight out of memory the world writes them into, from here on, and no copy of them kept.</summary>
     /// <param name="cars">At least a row a car, staying put for the view's life.</param>

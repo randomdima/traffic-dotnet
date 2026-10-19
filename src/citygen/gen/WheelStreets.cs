@@ -47,20 +47,22 @@ internal static class WheelStreets
     internal sealed record Laid(RoadStage.Laid Roads, CarParks.Laid CarParks, Districts Districts);
 
     /// <param name="water">The water the town stands on, which no node is placed in and only a bridge crosses.</param>
+    /// <param name="rails">The railway, which no node stands near and a road crosses only square to it (RAIL-5).</param>
     /// <param name="bridgeable">Whether that water is a river, which a road may span (GEN-14b).</param>
     /// <param name="sizes">The service buildings' footprints, which say how far across its rank a yard reaches.</param>
     /// <param name="took">Told each stage's name as it finishes.</param>
     public static Laid Lay(
-        TownMap.ZoneArrays zones, ulong seed, Vector2 worldSizeM, CityPlan.WaterArrays water, bool bridgeable, SimConfig config,
-        BuildingSizes sizes, Action<string> took)
+        TownMap.ZoneArrays zones, ulong seed, Vector2 worldSizeM, CityPlan.WaterArrays water, CityPlan.RailArrays rails, bool bridgeable,
+        SimConfig config, BuildingSizes sizes, Action<string> took)
     {
         // <b>The ground, asked about while the town is still being laid.</b> Every stage below reads it to
         // decide where a thing may stand, and it is the same reading the finished map answers with — the
         // shapes laid so far and nothing else (TER-7).
-        var wet = new GroundShapes(GroundPieces.None(seed, worldSizeM, config.PavementWidthM).With(water), config);
+        var wet = new GroundShapes(GroundPieces.None(seed, worldSizeM, config.PavementWidthM).With(water).With(rails), config);
         var rules = new WaterRules(
             wet, config.Terrain.GroundStepM, bridgeable, config.CityGen.BridgeDeckLongestM,
-            Lattice.CorridorM(config), (config.RoadWidthM * 0.5f) + config.PavementWidthM);
+            Lattice.CorridorM(config), (config.RoadWidthM * 0.5f) + config.PavementWidthM,
+            rails, Lattice.CorridorM(config) + config.Rail.JunctionClearanceM, MathF.Cos(config.Rail.CrossingSkewMostDeg * MathF.PI / 180f));
         var districts = Districts.Of(zones);
         took("districts");
 

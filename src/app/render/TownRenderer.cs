@@ -36,16 +36,6 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// </summary>
     const int Surfaces = 5;
 
-    /// <summary>
-    /// Every walker's look, <em>two</em> per car — the car and the wreck it becomes — one per roof, prefab and
-    /// prop look, with room over the shipped art's four hundred and ninety-eight. It is the length of the shader's
-    /// uniform array of places, so this is the only place the number lives.
-    /// </summary>
-    /// <remarks>
-    /// <b>No longer than sixteen kilobytes of places</b>, thirty-two bytes each: the uniform range every Vulkan
-    /// device is bound to offer (<c>maxUniformBufferRange</c>), so the handset's head draws what the desktop's does.
-    /// </remarks>
-    const int SheetSlots = 512;
 
     /// <summary>
     /// The one set's bindings, in the order the shaders declare them. <b>The shaders and this list are
@@ -70,7 +60,14 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
     const int SceneryLooksBinding = SceneryPiecesBinding + 1;
     const int ScenerySpansBinding = SceneryLooksBinding + 1;
-    const int Bindings = ScenerySpansBinding + 1;
+
+    /// <summary>
+    /// The track's strip (<see cref="Surface.Track"/>), the sixth picture the ground is painted with: the last binding and
+    /// not beside the five, so none of the bindings after them moved when it came.
+    /// </summary>
+    const int TrackBinding = ScenerySpansBinding + 1;
+
+    const int Bindings = TrackBinding + 1;
 
     /// <summary>The words a frame's scenery runs open with (<c>scenery.vert</c>'s <c>Spans</c>): the draw, the thinning, how many runs.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -273,14 +270,17 @@ internal sealed unsafe partial class TownRenderer : IDisposable
             (ulong)(Room.SceneryPieces * sizeof(SceneryPiece)), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit,
             hostVisible: false);
         _sceneryLooks = vk.CreateBuffer(
-            (ulong)(SheetSlots * sizeof(SceneryLook)), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit,
+            (ulong)(SheetAtlas.Slots * sizeof(SceneryLook)), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit,
             hostVisible: false);
 
         _textures = new GpuTexture[surfaceTextures.Count];
         for (var texture = 0; texture < _textures.Length; texture++) _textures[texture] = GpuTexture.Load(vk, surfaceTextures[texture]);
 
-        if (sheetTextures.Count > SheetSlots) throw new InvalidOperationException(
-            $"{sheetTextures.Count} sheets, and the sprite shader's table holds {SheetSlots}.");
+        if (sheetTextures.Count > SheetAtlas.Slots) throw new InvalidOperationException(
+            $"{sheetTextures.Count} sheets, and the sprite shader's table holds {SheetAtlas.Slots}.");
+        var tableBytes = (ulong)(SheetAtlas.Slots * sizeof(SheetPlace));
+        if (vk.MaxUniformBufferRangeBytes < tableBytes) throw new NotSupportedException(
+            $"{vk.DeviceName} binds {vk.MaxUniformBufferRangeBytes} bytes of uniforms, and the sprite shader's table is {tableBytes}.");
 
         // Every sheet onto the layers of one array texture. What a sheet was is then a row of the table
         // the vertex shader reads.
@@ -289,10 +289,10 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
         // Read by every sprite's every corner and written once, so it is the device's own memory and not the host's.
         _sheetTable = vk.CreateBuffer(
-            (ulong)(SheetSlots * sizeof(SheetPlace)), BufferUsageFlags.UniformBufferBit | BufferUsageFlags.TransferDstBit,
+            tableBytes, BufferUsageFlags.UniformBufferBit | BufferUsageFlags.TransferDstBit,
             hostVisible: false);
         _sheetTable.Upload<SheetPlace>(
-            SheetSlots, into =>
+            SheetAtlas.Slots, into =>
             {
                 into.Clear();
                 _atlas.Places.CopyTo(into);
@@ -373,7 +373,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
             Math.Min(scenery.Count, Room.SceneryPieces), into => scenery.Pieces[..into.Length].CopyTo(into),
             PipelineStageFlags2.VertexShaderBit, AccessFlags2.ShaderStorageReadBit);
         _sceneryLooks.Upload<SceneryLook>(
-            SheetSlots, into =>
+            SheetAtlas.Slots, into =>
             {
                 into.Clear();
                 var sizes = scenery.HalfSizePerM;

@@ -170,6 +170,10 @@ internal static class MapCut
         return y == offM ? new Vector2(x, 0f) : new Vector2(x, sizeM.Y);
     }
 
+    /// <summary>The share of a straight on the map, from where it comes on to where it goes off, or false where none of it is.</summary>
+    public static bool Shares(Vector2 fromM, Vector2 toM, Vector2 sizeM, out float enters, out float leaves) =>
+        Crossing(fromM, toM, sizeM, out enters, out leaves);
+
     /// <summary>
     /// Where a straight comes on to the map and goes off it, as shares of its length (Liang–Barsky), or false where no
     /// share of it stands on the map.

@@ -137,6 +137,21 @@ void takeAnEvent(WorldSignal s)
         return;
     }
 
+    if (action == SignalRun)
+    {
+        // A wagon (PhysicsWorld.Run): p01 where, p23 the rotation the host worked out of p45.x, the heading, and p45.y the
+        // speed it runs along that heading at — the motion it carries into the step as well as through it.
+        pose[body] = vec4(s.p01, s.p23);
+        headingRad[body] = s.p45.x;
+        vec2 half_ = halfBounds(s.p23, shape[body]);
+        bounds[body] = vec4(s.p01 - half_, s.p01 + half_);
+        motion[body] = vec4(s.p23 * s.p45.y, 0.0, 0.0);
+        motionIntoTick[body] = motion[body];
+        thaw(body, car);
+        filter_[body] |= world.enabledBit;
+        return;
+    }
+
     if (action == SignalContain)
     {
         still(body, car);

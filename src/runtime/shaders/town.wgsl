@@ -30,7 +30,7 @@ struct Place {
 };
 
 struct Sheets {
-    place: array<Place, 512>,
+    place: array<Place, 2048>, // SheetAtlas.Slots
 };
 
 @group(0) @binding(1) var<uniform> sheets: Sheets;
@@ -44,6 +44,8 @@ struct Sheets {
 @group(0) @binding(8) var water: texture_2d<f32>;
 @group(0) @binding(9) var clamped: sampler;
 @group(0) @binding(10) var repeated: sampler;
+// The track's strip, after the samplers so nothing before it moved when it came (ground.frag's binding 15).
+@group(0) @binding(11) var track: texture_2d<f32>;
 
 /// The town's own metres to clip. The negation is the whole of what makes a y-up API draw a y-down
 /// world the same way the y-down one does.
@@ -78,6 +80,13 @@ const BRIGHTEST_TINT: f32 = 3.0;
 const CHANNEL_STEPS: u32 = 511u;
 const PAINT_FILED: u32 = 31u;
 
+// The track's strip files where on it a corner stands in place of a tint, said again from GroundVertex.OnTheTrack:
+// pictures along in eighteen bits of 256 steps each, and across in the nine above them.
+const TRACK: u32 = 5u;
+const TRACK_STEPS_PER_PICTURE: f32 = 256.0;
+const ALONG_STEPS: u32 = 262143u;
+const ACROSS_STEPS: f32 = 511.0;
+
 /// A corner carries its place and one word of shade and surface; its texture coordinate is its place over
 /// its surface's period, which anchors every surface to the world origin.
 @vertex
@@ -89,6 +98,13 @@ fn groundVertex(
     result.position = toClip(positionM);
 
     let filed = shade >> 27u;
+    if (filed == TRACK) {
+        result.uv = vec2f(f32(shade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, f32((shade >> 18u) & CHANNEL_STEPS) / ACROSS_STEPS);
+        result.tint = vec3f(1.0);
+        result.surface = TRACK;
+        return result;
+    }
+
     var period = 1.0;
     if (filed < 4u) {
         period = camera.surfacePeriodsM[filed];
@@ -129,6 +145,15 @@ fn groundFragment(frag: GroundOut) -> @location(0) vec4f {
     // ground's own texture through a tint and the grain comes through both.
     if (frag.surface == PAINT) {
         return vec4f(frag.tint, 1.0);
+    }
+
+    // The track's strip: what its picture leaves clear past the ballast is not drawn, the ground laid before it showing.
+    if (frag.surface == TRACK) {
+        let strip = textureSampleGrad(track, repeated, frag.uv, ddx, ddy);
+        if (strip.a < 0.5) {
+            discard;
+        }
+        return vec4f(strip.rgb, 1.0);
     }
 
     return vec4f(surfaceColour(frag.surface, frag.uv, ddx, ddy) * frag.tint, 1.0);

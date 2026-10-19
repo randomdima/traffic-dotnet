@@ -133,6 +133,68 @@ public class LampAtlasTests
     }
 
     /// <summary>
+    /// <b>A zone map is the size of the sprite it maps</b>, texel for texel: it is the same cell of the same sheet cut and
+    /// shrunk the same way, and one of another size says which texel is a lamp about some other picture.
+    /// </summary>
+    [Fact]
+    public void EveryZoneMapIsTheSizeOfItsSprite()
+    {
+        foreach (var variant in Catalogue.Variants)
+        {
+            if (variant.ZonesPath is not { } zonesPath) continue;
+
+            Assert.Equal(Image.Identify(variant.SpritePath).Size, Image.Identify(zonesPath).Size);
+        }
+    }
+
+    /// <summary>
+    /// <b>A zoned lamp burns the texels its zone map paints as it and no others</b> (CAR-14a): every texel of each of its
+    /// lens's cells lies, at the place on the body the lens's quad lays it back on, on its fitting's zone — and every
+    /// lens the file authors finds one, or it is lit over its rectangle on a car that has a map saying where it is.
+    /// </summary>
+    [Fact]
+    public void AZonedLampBurnsOnlyItsZone()
+    {
+        using var sheet = Image.Load<Rgba32>(ProjectPaths.LampAtlasFile());
+        for (var row = 0; row < Catalogue.SheetCount; row++)
+        {
+            var variant = Catalogue.Variants[row];
+            if (variant.ZonesPath is not { } zonesPath) continue;
+
+            using var zones = Image.Load<Rgba32>(zonesPath);
+            var perM = new System.Numerics.Vector2(zones.Width / variant.FootprintM.X, zones.Height / variant.FootprintM.Y);
+            for (var lens = 0; lens < variant.Lenses.Length; lens++)
+            {
+                var fitting = variant.Lenses[lens].Fitting;
+                if (LampAtlasBake.ZoneOf(fitting) is not { } zone) continue;
+
+                var centrePx = ((variant.FootprintM * 0.5f) + variant.Lenses[lens].AtBodyM) * perM;
+                var originX = (int)MathF.Round(centrePx.X) - (LampAtlas.CellPx / 2);
+                var originY = (int)MathF.Round(centrePx.Y) - (LampAtlas.CellPx / 2);
+                var burnt = 0;
+                for (var state = 0; state < LampAtlas.StatesOf(fitting); state++)
+                {
+                    var cellX = ((lens * LampAtlas.StatesPerLens) + state) * LampAtlas.CellPx;
+                    for (var y = 0; y < LampAtlas.CellPx; y++)
+                    {
+                        for (var x = 0; x < LampAtlas.CellPx; x++)
+                        {
+                            if (sheet[cellX + x, (row * LampAtlas.CellPx) + y].A == 0) continue;
+
+                            burnt++;
+                            Assert.True(
+                                zones[originX + x, originY + y] == zone,
+                                $"{variant.Id}'s {fitting} lens {lens} burns {x},{y} of its cell, off its zone.");
+                        }
+                    }
+                }
+
+                Assert.True(burnt > 0, $"{variant.Id}'s zone map gives its {fitting} lens {lens} no texel to burn.");
+            }
+        }
+    }
+
+    /// <summary>
     /// The bake fills a fitting's cells by walking <see cref="LampAtlas.ColourAt"/> and the renderer
     /// picks one with <see cref="LampAtlas.StateOf"/>. <b>They are one table read both ways round</b>,
     /// and a lamp whose two readings disagreed would burn the wrong colour.

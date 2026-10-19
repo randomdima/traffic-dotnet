@@ -228,28 +228,37 @@ internal static class IdlePlan
     /// It starts at the middle of the side to the map's right and each road is half a straight, a corner
     /// and half the next straight — so the four are the same length and a quarter of the lap is a road.
     /// </remarks>
-    public static List<ArcSeg>[] Ring(SimConfig config)
-    {
-        var halfStraightM = HalfStraightM(config);
-        var cornerM = CornerRadiusM(config);
-        var at = new Cursor
-        {
-            AtM = CentreM(config) + new Vector2(HalfSideM(config), 0f),
-            HeadingRad = MathF.PI * 0.5f,
-        };
+    public static List<ArcSeg>[] Ring(SimConfig config) =>
+        Loop(CentreM(config), new Vector2(HalfSideM(config)), CornerRadiusM(config));
 
-        var ring = new List<ArcSeg>[Roads];
+    /// <summary>
+    /// A rectangle with rounded corners, <paramref name="halfM"/> from its centre to its centreline either way, cut into
+    /// four roads at the middle of each side as the ring is (<see cref="Ring"/>): road <c>r</c> ends where road
+    /// <c>r + 1</c> starts, the first at the middle of the side to the map's right.
+    /// </summary>
+    /// <remarks>
+    /// Each road is half a side, a corner and half the next, so roads <c>0</c> and <c>2</c> end on the sides
+    /// <paramref name="halfM"/><c>.Y</c> from the centre and roads <c>1</c> and <c>3</c> start on them — the long sides
+    /// when it is wider than it is tall.
+    /// </remarks>
+    internal static List<ArcSeg>[] Loop(Vector2 centreM, Vector2 halfM, float cornerM)
+    {
+        var at = new Cursor { AtM = centreM + new Vector2(halfM.X, 0f), HeadingRad = MathF.PI * 0.5f };
+        var (upM, acrossM) = (halfM.Y - cornerM, halfM.X - cornerM);
+
+        var loop = new List<ArcSeg>[Roads];
         for (var road = 0; road < Roads; road++)
         {
-            ring[road] =
+            var (firstM, lastM) = road % 2 == 0 ? (upM, acrossM) : (acrossM, upM);
+            loop[road] =
             [
-                Piece(ref at, halfStraightM, 0f),
+                Piece(ref at, firstM, 0f),
                 Piece(ref at, cornerM * MathF.PI * 0.5f, 1f / cornerM),
-                Piece(ref at, halfStraightM, 0f),
+                Piece(ref at, lastM, 0f),
             ];
         }
 
-        return ring;
+        return loop;
     }
 
     public static CityPlan Lay(SimConfig config)
@@ -445,7 +454,7 @@ internal static class IdlePlan
     }
 
     /// <summary>The spawn kinds the format carries.</summary>
-    const byte SpawnKindCar = 1;
+    internal const byte SpawnKindCar = 1;
 
     static T[] Filled<T>(int count, T value)
     {

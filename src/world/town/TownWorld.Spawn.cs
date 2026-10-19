@@ -71,6 +71,9 @@ internal sealed partial class TownWorld
         {
             if (_plan.Spawns.Kind[spawn] == SpawnKindCar)
             {
+                // The showroom's places past the last look stand nobody, so no look is shown twice.
+                if (ShowroomPlan.ShowsEachLookOnce(_plan.Name) && fleet >= CarCatalog.Shared.SheetCount) continue;
+
                 StandCar(spawn, LookOf(fleet++));
                 continue;
             }
@@ -140,11 +143,14 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>A map names looks when the looks are the point of the map.</b> The idle ring stands an escort and
     /// one car passing it (<see cref="IdlePlan"/>), because that is the whole of what there is to look at
-    /// on it.
+    /// on it, and the showroom every look once, the service vehicles' too (<see cref="ShowroomPlan"/>) — each a
+    /// plain car in its paint, since no building stood it (<see cref="IsAServiceVehicle"/>).
     /// </para>
     /// </remarks>
     byte LookOf(int car)
     {
+        if (ShowroomPlan.ShowsEachLookOnce(_plan.Name)) return (byte)car;
+
         if (IdlePlan.StandsConvoys(_plan.Name))
         {
             return (byte)(IdlePlan.PartOf(car) switch

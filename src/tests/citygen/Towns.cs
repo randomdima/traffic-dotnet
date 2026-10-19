@@ -106,12 +106,17 @@ internal static class Towns
     /// <b>None, unless the case is about somebody walking</b> (GEN-7). A walker is stood at a door, so a
     /// brief with no buildings on it stands nobody whatever this says.
     /// </param>
+    /// <param name="railTracks">The railway the case asks about (RAIL-2): none, unless the case is about the railway.</param>
     public static TownBrief Brief(
         ulong seed, WaterKind water = WaterKind.River, int cars = 60, float gridDistrictShare = 0.5f,
-        int buildings = 0, int people = 0) => new()
+        int buildings = 0, int people = 0, int railTracks = 0) => new()
     {
         Buildings = buildings,
         People = people,
+        RailTracks = railTracks,
+        RailBearingDeg = 25f,
+        RailOffsetShare = 0.12f,
+        RailMeander = 0.15f,
         Name = City,
         Description = "The suite's own town, laid to ask questions of a city without shipping one",
         Seed = seed,

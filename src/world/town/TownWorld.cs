@@ -20,6 +20,7 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Parking;
+using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 using TrafficSimulation.World.Statics;
@@ -282,7 +283,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _mostArcsOfALane = LineAssembler.MostArcsOfALane(_roads);
         _manoeuvres = new Manoeuvres(drivers);
 
-        _occupancy = new LaneOccupancy(_ways, marks, drivers + walkers + _signalHolds.Count);
+        _crossingHolds = CrossingHolds.Of(plan, _lines, _ways, _roads, config);
+        _crossingGear = CrossingGear.Of(plan, LevelCrossings.Of(plan, config), config);
+        _trains = TrainsOf(plan, config, _agentSeed);
+        _wagonSent = new bool[_trains.WagonCount];
+        _wagonChannels = new byte[_trains.WagonCount];
+        Array.Fill(_wagonChannels, CityPlan.RoadArrays.GroundChannel);
+        _occupancy = new LaneOccupancy(_ways, marks, drivers + walkers + _signalHolds.Count + _crossingHolds.Count);
         _ground = new DrivingGround(Cars, _occupancy, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
         _decisions = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz);
@@ -904,6 +911,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public void TickTheAgents()
     {
+        RunTheTrains();
         var world = this;
         EveryAgent.Tick(ref world);
     }

@@ -113,8 +113,8 @@ internal sealed class TownLayout(
 
     public IReadOnlyList<LayoutEdge> Edges => _edges;
 
-    /// <summary>Whether a node could stand here at all, which is the one thing the ground refuses (GEN-14).</summary>
-    public bool Dry(Vector2 atM) => !water.Wet(atM);
+    /// <summary>Whether a node could stand here at all, which is the one thing the ground refuses (GEN-14, RAIL-5).</summary>
+    public bool Dry(Vector2 atM) => water.Holds(atM);
 
     /// <summary>
     /// <b>The line one road is laid as</b>, drawn when it was offered (<see cref="RoadLines"/>). It is the
@@ -130,7 +130,7 @@ internal sealed class TownLayout(
     /// </summary>
     public int AddNode(Vector2 atM)
     {
-        if (water.Wet(atM)) return -1;
+        if (!water.Holds(atM)) return -1;
 
         _nodeM.Add(atM);
         _nodesIn?.Add(atM);

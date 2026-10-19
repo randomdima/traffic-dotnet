@@ -75,8 +75,8 @@ are what they set it to:
 solver holds one shape and one narrow phase for all four (`SOL-1`). **A traffic light has no body**: its
 heads are drawn and never collided (`SignalHeads`).
 
-**A car collides as a shape fitted inside its picture** and not as the footprint that picture was drawn
-in (`CAR-12b`). A per-variant hull is still not what the town is laid against.
+**A car collides as its authored shape**, a rounded box inside the footprint its picture is drawn in, and
+not as the footprint (`CAR-12b`). A per-variant shape is still not what the town is laid against.
 
 **OBJ-4** `P5` A building exposes at least one point on walkable terrain through which persons enter and exit
 ([world/containment](../src/world/containment/docs/requirements.md)).

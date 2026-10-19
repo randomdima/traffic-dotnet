@@ -6,9 +6,10 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace TrafficSimulation.Agents.Car.Body;
 
 /// <summary>
-/// Cuts the town's lamp sheet out of the cars themselves: for every lens a variant draws, the section
-/// of that variant's own sprite it is measured off, driven emissive in each colour that lens can burn
-/// (CAR-14a). Laid out by <see cref="LampAtlas"/>.
+/// Cuts the town's lamp sheet out of the cars themselves (CAR-14a): for every lens a variant draws, the texels of its
+/// own sprite that its zone map paints as that lens (<see cref="PasteZoned"/>), or for a look with none, the section the
+/// lens is measured off (<see cref="Paste"/>), driven emissive in each colour that lens can burn. Laid out by
+/// <see cref="LampAtlas"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -70,8 +71,46 @@ internal static class LampAtlasBake
     /// <summary>And how much of a car a colour has to cover to be one the car is made of rather than a detail on it.</summary>
     const float CommonShare = 0.02f;
 
-    /// <summary>One lens cut and lit, as the report prints it.</summary>
-    public readonly record struct CutLamp(string Variant, CarLampFitting Fitting, int WidthPx, int HeightPx, float Distinct);
+    /// <summary>
+    /// The colour a zone map paints a fitting's lens in — the zone brief's, and <c>qq sprites</c>' <c>ZONE_PARTS</c> —
+    /// or none for a fitting no zone map marks yet: a beacon, which only the legacy looks carry.
+    /// </summary>
+    public static Rgba32? ZoneOf(CarLampFitting fitting) => fitting switch
+    {
+        CarLampFitting.Rear => new Rgba32(255, 0, 0),
+        CarLampFitting.Indicator => new Rgba32(255, 255, 0),
+        CarLampFitting.Head => new Rgba32(0, 0, 255),
+        _ => null,
+    };
+
+    /// <summary>
+    /// The texels of one lens's cell its zone map paints as that lens, row-major over a square of
+    /// <see cref="LampAtlas.CellPx"/> from <see cref="OriginPx"/> on the sprite — the cell centred on the lens as its
+    /// quad is.
+    /// </summary>
+    readonly record struct ZoneWindow(Point OriginPx, bool[] Lens)
+    {
+        public Point At(int texel) => new(OriginPx.X + (texel % LampAtlas.CellPx), OriginPx.Y + (texel / LampAtlas.CellPx));
+
+        /// <summary>The smallest rectangle of the sprite holding every texel of the lens, or an empty one.</summary>
+        public Rectangle Bounds()
+        {
+            int left = int.MaxValue, top = int.MaxValue, right = int.MinValue, bottom = int.MinValue;
+            for (var texel = 0; texel < Lens.Length; texel++)
+            {
+                if (!Lens[texel]) continue;
+
+                var at = At(texel);
+                (left, top, right, bottom) = (Math.Min(left, at.X), Math.Min(top, at.Y), Math.Max(right, at.X), Math.Max(bottom, at.Y));
+            }
+
+            return left > right ? Rectangle.Empty : new Rectangle(left, top, right - left + 1, bottom - top + 1);
+        }
+    }
+
+    /// <summary>One lens cut and lit, as the report prints it: <paramref name="Zoned"/> where its zone map gave the shape.</summary>
+    public readonly record struct CutLamp(
+        string Variant, CarLampFitting Fitting, int WidthPx, int HeightPx, float Distinct, bool Zoned);
 
     /// <summary>
     /// Writes the sheet and returns what went into it, a line a lens. <b>The distinctness is the
@@ -88,22 +127,50 @@ internal static class LampAtlasBake
         {
             var entry = catalogue.Variants[variant];
             using var sprite = Image.Load<Rgba32>(entry.SpritePath);
+            using var zones = entry.ZonesPath is { } zonesPath ? Image.Load<Rgba32>(zonesPath) : null;
+            if (zones is not null && zones.Size != sprite.Size)
+            {
+                throw new InvalidDataException(
+                    $"{entry.ZonesPath} is {zones.Width}x{zones.Height}, and the sprite it maps {sprite.Width}x{sprite.Height}.");
+            }
+
             var perM = new Vector2(sprite.Width / entry.FootprintM.X, sprite.Height / entry.FootprintM.Y);
             var common = Common(sprite);
 
             var lenses = entry.Lenses;
+            var centresPx = new Vector2[lenses.Length];
+            var rects = new Rectangle[lenses.Length];
             for (var lens = 0; lens < lenses.Length; lens++)
             {
-                var centrePx = ((entry.FootprintM * 0.5f) + lenses[lens].AtBodyM) * perM;
-                var rect = RectOf(lenses[lens], centrePx, perM, sprite.Size);
-                cut.Add(new CutLamp(
-                    entry.Id, lenses[lens].Fitting, rect.Width, rect.Height, Distinct(sprite, rect, common)));
+                centresPx[lens] = ((entry.FootprintM * 0.5f) + lenses[lens].AtBodyM) * perM;
+                rects[lens] = RectOf(lenses[lens], centresPx[lens], perM, sprite.Size);
+            }
+
+            for (var lens = 0; lens < lenses.Length; lens++)
+            {
+                var fitting = lenses[lens].Fitting;
+                if (zones is not null && Zoned(zones, lenses, rects, centresPx[lens], lens) is { } zoned)
+                {
+                    var drawn = zoned.Bounds();
+                    cut.Add(new CutLamp(entry.Id, fitting, drawn.Width, drawn.Height, Distinct(sprite, drawn, common), true));
+
+                    for (var state = 0; state < LampAtlas.StatesOf(fitting); state++)
+                    {
+                        PasteZoned(sprite, zoned, atlas, CellOf(variant, lens, state),
+                            LampAtlas.ColourOf(LampAtlas.ColourAt(fitting, state)));
+                    }
+
+                    continue;
+                }
+
+                var rect = rects[lens];
+                cut.Add(new CutLamp(entry.Id, fitting, rect.Width, rect.Height, Distinct(sprite, rect, common), false));
 
                 for (var state = 0; state < LampAtlas.StatesOf(lenses[lens].Fitting); state++)
                 {
                     var colour = LampAtlas.ColourAt(lenses[lens].Fitting, state);
                     Paste(
-                        sprite, rect, centrePx, atlas, CellOf(variant, lens, state), LampAtlas.ColourOf(colour));
+                        sprite, rect, centresPx[lens], atlas, CellOf(variant, lens, state), LampAtlas.ColourOf(colour));
                 }
             }
         }
@@ -136,6 +203,79 @@ internal static class LampAtlasBake
         x0 = Math.Clamp(x0, 0, Math.Max(0, sprite.Width - 1));
         y0 = Math.Clamp(y0, 0, Math.Max(0, sprite.Height - 1));
         return new Rectangle(x0, y0, Math.Min(width, sprite.Width - x0), Math.Min(height, sprite.Height - y0));
+    }
+
+    /// <summary>
+    /// The texels of one lens's cell that its zone map paints in the lens's zone, which is the lens in the shape and the
+    /// place the generator drew it rather than the rectangle its file frames; or none, for a fitting no zone marks or a
+    /// lens the map left out. <b>A zone texel is the nearest lens's of its fitting</b>, measured to each one's rectangle,
+    /// so two tail lamps a cell apart each burn their own.
+    /// </summary>
+    static ZoneWindow? Zoned(Image<Rgba32> zones, ReadOnlySpan<CarLens> lenses, Rectangle[] rects, Vector2 centrePx, int lens)
+    {
+        if (ZoneOf(lenses[lens].Fitting) is not { } zone) return null;
+
+        var origin = new Point(
+            (int)MathF.Round(centrePx.X) - (LampAtlas.CellPx / 2), (int)MathF.Round(centrePx.Y) - (LampAtlas.CellPx / 2));
+        var window = new ZoneWindow(origin, new bool[LampAtlas.CellPx * LampAtlas.CellPx]);
+        var any = false;
+        for (var texel = 0; texel < window.Lens.Length; texel++)
+        {
+            var at = window.At(texel);
+            if (at.X < 0 || at.Y < 0 || at.X >= zones.Width || at.Y >= zones.Height || zones[at.X, at.Y] != zone) continue;
+            if (Nearest(rects, lenses, lenses[lens].Fitting, new Vector2(at.X + 0.5f, at.Y + 0.5f)) != lens) continue;
+
+            any = window.Lens[texel] = true;
+        }
+
+        return any ? window : null;
+    }
+
+    static int Nearest(Rectangle[] rects, ReadOnlySpan<CarLens> lenses, CarLampFitting fitting, Vector2 atPx)
+    {
+        var nearest = -1;
+        var leastPx = float.MaxValue;
+        for (var lens = 0; lens < rects.Length; lens++)
+        {
+            if (lenses[lens].Fitting != fitting) continue;
+
+            var rect = rects[lens];
+            var dx = MathF.Max(MathF.Max(rect.Left - atPx.X, atPx.X - rect.Right), 0f);
+            var dy = MathF.Max(MathF.Max(rect.Top - atPx.Y, atPx.Y - rect.Bottom), 0f);
+            var apartPx = (dx * dx) + (dy * dy);
+            if (apartPx < leastPx) (nearest, leastPx) = (lens, apartPx);
+        }
+
+        return nearest;
+    }
+
+    /// <summary>
+    /// A zoned lens's texels of the sprite, lit, into its cell, where the quad that draws it lays them back onto the very
+    /// texels they were taken from. The light is <see cref="Paste"/>'s ramp over the lens's own range of light; the shape
+    /// is the zone's, so it needs no fade at a rectangle's edge, having none.
+    /// </summary>
+    static void PasteZoned(Image<Rgba32> sprite, ZoneWindow zoned, Image<Rgba32> atlas, Point cell, Vector4 colour)
+    {
+        var (least, most) = (1f, 0f);
+        for (var texel = 0; texel < zoned.Lens.Length; texel++)
+        {
+            if (!zoned.Lens[texel]) continue;
+
+            var luminance = Luminance(sprite[zoned.At(texel).X, zoned.At(texel).Y]);
+            (least, most) = (MathF.Min(least, luminance), MathF.Max(most, luminance));
+        }
+
+        var span = MathF.Max(most - least, 1e-3f);
+        var tint = new Vector3(colour.X, colour.Y, colour.Z);
+        for (var texel = 0; texel < zoned.Lens.Length; texel++)
+        {
+            if (!zoned.Lens[texel]) continue;
+
+            var at = zoned.At(texel);
+            var carried = Math.Clamp((Luminance(sprite[at.X, at.Y]) - least) / span, 0f, 1f);
+            atlas[cell.X + (texel % LampAtlas.CellPx), cell.Y + (texel / LampAtlas.CellPx)] =
+                Lit(sprite[at.X, at.Y].A, carried, tint, 1f);
+        }
     }
 
     /// <summary>Where a cell's top-left texel is in the sheet.</summary>

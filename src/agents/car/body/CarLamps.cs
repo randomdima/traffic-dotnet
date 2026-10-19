@@ -22,6 +22,9 @@ internal enum CarLampSet : byte
 
     /// <summary>The job the vehicle is out on (CAR-14.6), which is what an amber bar says and what it grants.</summary>
     Works = 32,
+
+    /// <summary>That something is driving the car at all (CAR-14.8): its headlamps.</summary>
+    Head = 64,
 }
 
 /// <summary>
@@ -52,6 +55,9 @@ internal enum CarLampFitting : byte
     /// it does instead is blink, and a pair of them blinks end for end (CAR-14.4).
     /// </summary>
     BeaconAmber,
+
+    /// <summary>A headlamp, which burns for as long as anything drives the car (CAR-14.8).</summary>
+    Head,
 }
 
 /// <summary>
@@ -60,9 +66,9 @@ internal enum CarLampFitting : byte
 /// </summary>
 /// <remarks>
 /// <para>
-/// Measured off the picture, as <see cref="CarVariantFile.TrackM"/> is, so a lamp lights the panel the
-/// artist drew a lens on rather than a place arithmetic put it. A variant that draws no lens for a
-/// fitting carries none, and that fitting says nothing on that car.
+/// Authored with the car's shape and the art asked to draw it there (CAR-14a), so a lamp lights the panel
+/// a lens is drawn on rather than a place arithmetic put it. A variant that draws no lens for a fitting
+/// carries none, and that fitting says nothing on that car.
 /// </para>
 /// <para>
 /// <b><see cref="AtBodyM"/> is on the art's texel grid</b> — the file's figure snapped to the nearest
@@ -89,6 +95,7 @@ internal enum CarLamp : byte
     BeaconRed,
     BeaconBlue,
     BeaconAmber,
+    Head,
 }
 
 /// <summary>
@@ -124,6 +131,11 @@ internal static class CarLamps
     /// second bar of four, which is the ambulance. The catalogue refuses a variant that draws more,
     /// since the buffer a frame is laid for is this many a car.
     /// </summary>
+    /// <remarks>
+    /// <b>It is also the device's ceiling</b>: the sprite emit packs a car's lens colours three bits a lens into
+    /// one word (<c>spritesLamps</c>), so a car of rear, indicators and headlamps is six and the ambulance, which
+    /// is ten without them, cannot take a headlamp pair until that word is two.
+    /// </remarks>
     public const int MostLenses = 10;
 
     /// <summary>The most quads one car can cost: every lens it has, and the glow under each lit one.</summary>
@@ -149,8 +161,9 @@ internal static class CarLamps
         // Off the command and never off the body: the brake lamps are the pedal (CAR-14.2) and the
         // reversing lamps the gear (CAR-14.3), so a car held on its handbrake with nobody's foot down
         // shows neither, and one shoved backwards does not show reverse.
+        // CAR-14.8: the headlamps are the car being driven, so a parked one reads dark against one under way or held.
         var command = cars.Command[car];
-        var set = CarLampSet.None;
+        var set = CarLampSet.Head;
         if (command.BrakeMps2 > config.Lamps.BrakeMps2) set |= CarLampSet.Brake;
         if (command.Reverse) set |= CarLampSet.Reverse;
         if (cars.BlueLight[car] || handAtTheWheel) set |= CarLampSet.Beacon;
@@ -278,6 +291,7 @@ internal static class CarLamps
                     flashOn && indicating == (onTheRight ? CarLampSet.TurnRight : CarLampSet.TurnLeft)),
                 CarLampFitting.BeaconRed => (swapped ? CarLamp.BeaconBlue : CarLamp.BeaconRed, beaconOn),
                 CarLampFitting.BeaconBlue => (swapped ? CarLamp.BeaconRed : CarLamp.BeaconBlue, beaconOn),
+                CarLampFitting.Head => (CarLamp.Head, (showing & CarLampSet.Head) != 0),
 
                 // An amber bar has no second colour to swap to, so its ends take the burn in turns: each
                 // one blinks between its own lit glass and its own dull glass, half a period apart.

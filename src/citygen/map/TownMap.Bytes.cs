@@ -102,6 +102,7 @@ internal sealed partial record TownMap
             Name = name, Description = description, Licence = licence, OsmBase = osmBase, Seed = seed, Frame = frame,
             PointM = pointM, Roads = roads, Coast = coast, Waters = ReadWaters(ref bytes), Courses = ReadCourses(ref bytes), Buildings = ReadStood(ref bytes),
             Props = ReadProps(ref bytes), Lots = ReadLots(ref bytes), Zones = ReadZones(ref bytes),
+            Rails = version >= RailsFrom ? ReadRails(ref bytes) : RailArrays.None,
         };
     }
 
@@ -176,6 +177,28 @@ internal sealed partial record TownMap
 
         Tally("courses", count, points, count, point);
         return new CourseArrays { Kind = kind, Across = across, NearM = nearM, FarM = farM, PointOffsets = pointOffsets, PointM = pointM };
+    }
+
+    static RailArrays ReadRails(ref Bytes bytes)
+    {
+        var (count, points) = (bytes.Count(), bytes.Count());
+        var (line, runs, pointOffsets, pointM) = (new int[count], new TrackRuns[count], new int[count + 1], new Vector2[points]);
+        var level = new byte[points];
+        var point = 0;
+        for (var track = 0; track < count; track++)
+        {
+            (line[track], runs[track]) = (bytes.Count(), (TrackRuns)bytes.Byte());
+            for (var at = bytes.Count(); at > 0; at--)
+            {
+                pointM[point] = new Vector2(bytes.Single(), bytes.Single());
+                level[point++] = bytes.Byte();
+            }
+
+            pointOffsets[track + 1] = point;
+        }
+
+        Tally("tracks", count, points, count, point);
+        return new RailArrays { Line = line, Runs = runs, PointOffsets = pointOffsets, PointM = pointM, Level = level };
     }
 
     static StoodArrays ReadStood(ref Bytes bytes)
@@ -345,6 +368,27 @@ internal sealed partial record TownMap
         WriteProps(writer, Props);
         WriteLots(writer, Lots);
         WriteZones(writer, Zones);
+        WriteRails(writer, Rails);
+    }
+
+    static void WriteRails(BinaryWriter writer, RailArrays rails)
+    {
+        writer.Write7BitEncodedInt(rails.Count);
+        writer.Write7BitEncodedInt(rails.PointM.Length);
+        for (var track = 0; track < rails.Count; track++)
+        {
+            writer.Write7BitEncodedInt(rails.Line[track]);
+            writer.Write((byte)rails.Runs[track]);
+            var line = rails.TrackOf(track);
+            var levels = rails.LevelsOf(track);
+            writer.Write7BitEncodedInt(line.Length);
+            for (var point = 0; point < line.Length; point++)
+            {
+                writer.Write(line[point].X);
+                writer.Write(line[point].Y);
+                writer.Write(levels[point]);
+            }
+        }
     }
 
     static void WriteRoad(BinaryWriter writer, TracedRoad road, int highway, ref int last)

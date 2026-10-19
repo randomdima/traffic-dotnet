@@ -52,7 +52,25 @@ internal static class Program
         if (options.ManagedWorld && (options.Bench ?? options.Shot ?? options.Sheet) is not null)
             throw new ArgumentException("--managed-world steps a windowed run's world in managed code; a probe and a picture always do.");
 
+        // Before anything reads the catalogue, which is read once a process.
+        if (options.Fleet is not null)
+        {
+            if (options.Lamps)
+                throw new ArgumentException("--lamps cuts the shipped fleet's sheet; a told fleet's is cut as it loads.");
+
+            FleetList.Tell(options.Fleet.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            var lamps = Path.Combine(ProjectPaths.Root, ".tmp", "fleet", "lamp_atlas" + ProjectPaths.Sheet);
+            LampAtlasBake.Write(CarCatalog.Shared, lamps);
+            FleetList.LampsCutTo(lamps);
+        }
+
         if (options.Lamps) return CutTheLamps();
+        if (options.Proof is not null)
+        {
+            Console.WriteLine($"{options.Proof} written — {LampProof.Write(options.Proof, config)} frames");
+            return 0;
+        }
+
         if (options.Author is not null) return Author(options.Author, config);
         if (options.Mend is not null) return Mend(options.Mend, config);
         if (options.Park is not null) return Park(options.Park, config);
@@ -298,7 +316,8 @@ internal static class Program
         foreach (var lamp in cut.OrderBy(lamp => lamp.Distinct))
         {
             Console.WriteLine($"{"",-9}{lamp.Variant,-18} {lamp.Fitting,-11} " +
-                              $"{lamp.WidthPx,3}x{lamp.HeightPx,-3} distinct {lamp.Distinct:F2}");
+                              $"{lamp.WidthPx,3}x{lamp.HeightPx,-3} distinct {lamp.Distinct:F2}" +
+                              (lamp.Zoned ? "  zoned" : ""));
         }
 
         return 0;
@@ -335,6 +354,9 @@ internal static class Program
                 return 0;
             case "stuck" when map is not null || seconds > 0:
                 StuckProbe.Run(map ?? "Odesa", config, seconds);
+                return 0;
+            case "trains" when map is not null || seconds > 0:
+                TrainProbe.Run(map ?? "Odesa", config, seconds);
                 return 0;
             case "trips" when map is not null:
                 TripProbe.Run(config, map);
@@ -499,7 +521,7 @@ internal static class Program
     /// </summary>
     static void ReportArt()
     {
-        var surfaces = ProjectPaths.GroundSurfaceFiles();
+        var surfaces = GroundMesh.SurfaceFiles();
         var started = Stopwatch.GetTimestamp();
         var pixels = 0L;
         foreach (var path in surfaces)
@@ -547,7 +569,7 @@ internal static class Program
         Console.WriteLine($"{"",-9}ground laid as {mesh.Indices.Length / 3} triangles in {mesh.LaidMs:F0} ms " +
                           $"({mesh.BoundaryMs:F0} ms of it the boundary); " +
                           $"the first spawn stands on {ground.Ground} ({ground.Rules})");
-        Console.WriteLine($"{"",-9}maps this build knows: {string.Join(", ", Maps.Shipped())}");
+        Console.WriteLine($"{"",-9}maps this build knows: {string.Join(", ", Maps.Offered())}");
     }
 
     /// <summary>
@@ -647,7 +669,8 @@ internal static class Program
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
         bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
         string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
-        bool BotWaits, string? Author, bool ManagedWorld, string? Mend = null, string? Park = null)
+        bool BotWaits, string? Author, bool ManagedWorld, string? Mend = null, string? Park = null,
+        string? Fleet = null, string? Proof = null)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: a small town laid from a
@@ -888,6 +911,16 @@ internal static class Program
                         options = options with { Park = args[i + 1] };
                         i++;
                         break;
+                    // The looks this run's traffic is drawn from instead of Fleet.json's, by id (FleetList).
+                    case "--fleet" when i + 1 < args.Length:
+                        options = options with { Fleet = args[i + 1] };
+                        i++;
+                        break;
+                    // The fleet's looks put through every lamp state and wrecked, as one GIF (LampProof).
+                    case "--proof" when i + 1 < args.Length:
+                        options = options with { Proof = args[i + 1] };
+                        i++;
+                        break;
                     case "--title" when i + 1 < args.Length:
                         options = options with { Title = args[i + 1], Caption = true };
                         i++;
@@ -904,7 +937,8 @@ internal static class Program
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
                                                     "--windowed, --display NAME|N, --managed-world,--seconds N, --validate, --check, " +
                                                     "--bench NAME|all, --lamps, --drive FILE|-, --live, " +
-                                                    "--frames DIR, --frame-width PX, --out FILE.md, --author BRIEF|all.");
+                                                    "--frames DIR, --frame-width PX, --out FILE.md, --author BRIEF|all, " +
+                                                    "--fleet ID,ID,..., --proof FILE.gif");
                 }
             }
 

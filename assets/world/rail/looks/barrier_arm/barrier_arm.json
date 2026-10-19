@@ -1,0 +1,9 @@
+{
+  "id": "barrier_arm",
+  "kind": "Barrier",
+  "describe": "a level-crossing barrier arm lying flat, seen from straight above: a long thin boom painted in bold alternating red and white bands, its pivot end at the left with a small dark hub, two small round red lamps on its top (unlit, dark red glass), its tip at the right",
+  "footprintM": [
+    4.0,
+    0.3
+  ]
+}

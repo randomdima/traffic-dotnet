@@ -4,6 +4,7 @@ using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.CityGen.Exam;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
@@ -83,13 +84,18 @@ internal sealed class ExamDrive
         _walkers = new ExamWalkerLog[_lattice.Walkers];
 
         var samples = (Ticks / SampleTicks) + 1;
+        _crossings = LevelCrossings.Of(world.Plan, config);
+        _tracks = TrackLine.Of(world.Plan.Rails);
         for (var card = 0; card < _lattice.Cards; card++)
         {
             var of = _lattice.Card(card);
             for (var driver = 0; driver < of.Drivers.Length; driver++)
             {
                 _cars[_lattice.CarOf(card, driver)] = new ExamCarLog(
-                    card, driver, of.Drivers[driver], of.Walkers.Length, samples, ApproachLane(card, driver));
+                    card, driver, of.Drivers[driver], of.Walkers.Length, samples, ApproachLane(card, driver))
+                {
+                    Crossing = of.Railway ? CrossingOn(_lattice.RoadOf(card, of.Drivers[driver].From)) : -1,
+                };
             }
 
             for (var walker = 0; walker < of.Walkers.Length; walker++)
@@ -102,6 +108,34 @@ internal sealed class ExamDrive
         }
 
         for (var car = 0; car < _cars.Length; car++) Stage(car);
+    }
+
+    /// <summary>The map's level crossings and its tracks, for a card about one (RAIL-1).</summary>
+    readonly LevelCrossings _crossings;
+
+    readonly TrackLine[] _tracks;
+
+    /// <summary>The level crossing a road carries, or −1.</summary>
+    int CrossingOn(int road)
+    {
+        for (var crossing = 0; crossing < _crossings.Crossings; crossing++)
+        {
+            if (_crossings.OfRoad[crossing] == road) return crossing;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Whether a body from its tail to its nose is on a crossing's track: within the ballast's half-width of the track
+    /// at the crossing's first meeting, the body's own half-length over.
+    /// </summary>
+    bool OnTheTrack(int crossing, Vector2 atM, float halfLengthM)
+    {
+        var meeting = _crossings.MeetingOffsets[crossing];
+        var track = _tracks[_crossings.Track[meeting]];
+        var nearestM = track.PlaceAt(track.NearestAlongM(atM));
+        return (atM - nearestM).Length() < (_config.Rail.BallastWidthM * 0.5f) + halfLengthM;
     }
 
     /// <summary>How long the exam is watched for, in ticks.</summary>
@@ -209,6 +243,7 @@ internal sealed class ExamDrive
     bool Due(ExamCarLog log, float nowS)
     {
         if (log.Drives.Start == ExamStart.AtOnce) return nowS >= log.Drives.DelayS;
+        if (log.Drives.Start == ExamStart.OnClosed) return log.Crossing >= 0 && _world.CrossingGear.Closed(log.Crossing);
         if (log.ApproachLane < 0) return true;
 
         var colour = _world.Signals.ForApproach(log.ApproachLane, nowS);
@@ -259,6 +294,15 @@ internal sealed class ExamDrive
         log.Touched |= _world.OverlapOfCar(car) > SoakProbe.OverlapAllowanceM;
         log.Wrecked |= cars.Broken[car];
         if (log.Touched && log.TouchedAt < 0) log.TouchedAt = tick;
+
+        // The crossing on its road, read while it is closed: on the track at all, and brought to rest short of it once it
+        // had pulled away towards it.
+        if (log.Crossing >= 0 && _world.CrossingGear.Closed(log.Crossing))
+        {
+            var onTheTrack = OnTheTrack(log.Crossing, atM, halfM);
+            log.OnTheTrackClosed |= onTheTrack;
+            log.WaitedAtTheCrossing |= log.MovedOff && atRest && !onTheTrack && log.ArrivedAt < 0;
+        }
 
         // What its own approach is showing, read at the bar and frozen there: what a red forbids is going
         // past the place it is shown at, and a car already over it when the phase turned is clearing the box
@@ -496,6 +540,7 @@ internal sealed class ExamDrive
         var whose = LaneOccupancy.RosterOf(seen.Holder) switch
         {
             LaneRoster.Signal => $"light stretch {occupant}",
+            LaneRoster.Crossing => $"level crossing stretch {occupant}",
             LaneRoster.Walking => occupant < _walkers.Length
                 ? $"walker {_walkers[occupant].Walker} of card {_walkers[occupant].Card}"
                 : $"walker {occupant}, staged by no card",
@@ -617,6 +662,15 @@ internal sealed class ExamCarLog
     public bool Touched;
     public bool Wrecked;
     public bool CrossedTheBarOnARed;
+
+    /// <summary>
+    /// The level crossing on the road it stands on, or −1 (RAIL-1); whether its body was ever on the track while that
+    /// crossing was closed, and whether it was ever brought to rest short of the track while it was.
+    /// </summary>
+    public int Crossing = -1;
+
+    public bool OnTheTrackClosed;
+    public bool WaitedAtTheCrossing;
 
     /// <summary>Ticks at rest after it had moved off and before it was clear of the box, but for a red.</summary>
     public int HeldTicks;

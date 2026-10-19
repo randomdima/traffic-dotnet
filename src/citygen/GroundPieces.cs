@@ -33,6 +33,9 @@ internal readonly record struct GroundPieces(
     CityPlan.CrosswalkArrays Crosswalks,
     CityPlan.WaterArrays Water)
 {
+    /// <summary>The railway's ballast (RAIL-4), laid with the water before any road.</summary>
+    public CityPlan.RailArrays Rails { get; init; } = CityPlan.RailArrays.None;
+
     /// <summary>Bare ground of the size given: grass everywhere, which is what a town starts as.</summary>
     public static GroundPieces None(ulong seed, Vector2 worldSizeM, float pavementWidthM) =>
         new(seed, worldSizeM, pavementWidthM,
@@ -59,6 +62,9 @@ internal readonly record struct GroundPieces(
 
     /// <summary>The same ground with its water laid, which is the first thing a town gets.</summary>
     public GroundPieces With(CityPlan.WaterArrays water) => this with { Water = water };
+
+    /// <summary>And its railway, which is laid with the water: both stand before a node is placed (GEN-10).</summary>
+    public GroundPieces With(CityPlan.RailArrays rails) => this with { Rails = rails };
 
     /// <summary>And with its roads on it — the carriageways, what each junction shares, and the kerb corners.</summary>
     public GroundPieces With(

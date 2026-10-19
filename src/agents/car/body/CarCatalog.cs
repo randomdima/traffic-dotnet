@@ -52,10 +52,9 @@ internal readonly record struct CarTowBeam(CarTowArm Extended, CarTowArm Collaps
 /// How far a wheel stands off the car's own middle, which is half the <c>trackM</c> its file states.
 /// </param>
 /// <param name="CollisionSizeM">
-/// <b>What this car is collided as</b> (CAR-12b): the outermost reach of the rounded box fitted inside its
-/// picture, rounding included. Smaller than <paramref name="FootprintM"/>, because a footprint is the
-/// rectangle a picture was drawn in and a car does not fill its corners — nor, on a police car, the width
-/// its mirrors set.
+/// <b>What this car is collided as</b> (CAR-12b): the outermost reach of its authored rounded box, rounding
+/// included. Inside <paramref name="FootprintM"/>, which is the rectangle the picture is drawn in and holds
+/// what stands off the panels, the mirrors and the tyres.
 /// </param>
 /// <param name="CornerRadiusM">And how much of that shape's corners is rounded off.</param>
 /// <param name="MaxSteeringDeg">
@@ -70,12 +69,16 @@ internal readonly record struct CarTowBeam(CarTowArm Extended, CarTowArm Collaps
 /// the wheel is drawn at and how wide a mark it leaves.
 /// </param>
 /// <param name="WheelRotatingMassKg">And what one of them behaves like as a straight-line mass (J/r²).</param>
+/// <param name="ZonesPath">
+/// Its zone map (CAR-14a), which only the lamp sheet's bake reads, or nothing for a look whose lamps are lit over their
+/// rectangles.
+/// </param>
 internal readonly record struct CarVariant(
     string Id, string SpritePath, string WreckSpritePath, Vector2 WreckScale, CarTowBeam? Beam, Vector2 FootprintM,
     Vector2 CollisionSizeM, float CornerRadiusM, float MassKg, float FrontAxleM, float RearAxleM, float HalfTrackM,
     int Drivetrain, float? MaxSteeringDeg, float? TyreFriction, float? CgHeightM, float? FrontWeightShare,
     Vector2? WheelM, float? WheelRotatingMassKg,
-    bool Unbreakable, CarHandling Handling, CarLens[] Lenses)
+    bool Unbreakable, CarHandling Handling, CarLens[] Lenses, string? ZonesPath)
 {
     public float WheelbaseM => FrontAxleM - RearAxleM;
 
@@ -93,8 +96,8 @@ internal readonly record struct CarVariant(
 }
 
 /// <summary>
-/// The fleet, read from <c>assets/…/Fleet.json</c>, and the service vehicles beside it from
-/// <c>Service.json</c>.
+/// The fleet, read from <c>assets/…/Fleet.json</c> or the looks a run was told (<see cref="FleetList"/>), and
+/// the service vehicles beside it from <c>Service.json</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -157,6 +160,7 @@ internal sealed class CarCatalog
             throw new InvalidDataException($"Service.json names no variant with the id '{id}'.");
         }
 
+        // A told fleet is a few looks to be looked at (FleetList), so one it does not carry is stood in its first.
         int InTheFleet(string id)
         {
             for (var entry = 0; entry < fleet; entry++)
@@ -164,7 +168,7 @@ internal sealed class CarCatalog
                 if (variants[entry].Id == id) return entry;
             }
 
-            throw new InvalidDataException($"Fleet.json names no variant with the id '{id}'.");
+            return FleetList.IsTold ? 0 : throw new InvalidDataException($"Fleet.json names no variant with the id '{id}'.");
         }
     }
 
@@ -256,7 +260,7 @@ internal sealed class CarCatalog
 
     public static CarCatalog Load()
     {
-        var fleet = AssetJson.Catalog(VariantList("Fleet.json"));
+        var fleet = FleetList.Files();
         var service = AssetJson.Catalog(VariantList("Service.json"));
 
         var variants = new CarVariant[fleet.Length + service.Length];
@@ -286,7 +290,8 @@ internal sealed class CarCatalog
             variant.RearAxleM, variant.TrackM * 0.5f, variant.Drivetrain, variant.MaxSteeringDeg,
             variant.TyreFriction, variant.CgHeightM, variant.FrontWeightShare,
             variant.WheelM, variant.WheelRotatingMassKg, variant.Unbreakable,
-            CarHandling.Of(variant.Handling), Lenses(variant, path, sprite));
+            CarHandling.Of(variant.Handling), Lenses(variant, path, sprite),
+            variant.Zones is { } zones ? AssetJson.Beside(path, zones) : null);
     }
 
     static CarTowArm Arm(TowArmFile arm, string path) =>
@@ -318,6 +323,7 @@ internal sealed class CarCatalog
                 "beaconRed" => CarLampFitting.BeaconRed,
                 "beaconBlue" => CarLampFitting.BeaconBlue,
                 "beaconAmber" => CarLampFitting.BeaconAmber,
+                "head" => CarLampFitting.Head,
                 _ => throw new InvalidDataException($"{path}: names no lamp fitting '{file.Fitting}'."),
             };
 

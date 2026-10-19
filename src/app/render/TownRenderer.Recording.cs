@@ -87,7 +87,7 @@ internal sealed unsafe partial class TownRenderer
         _acquireSpare = images;
         _image = 0;
 
-        // The pictures, in binding order: the atlas, the glyphs and the five surfaces.
+        // The pictures, in binding order: the atlas, the glyphs, the five surfaces and the track's strip after them.
         const int firstPicture = SheetPagesBinding;
         var pictures = stackalloc DescriptorImageInfo[Bindings - firstPicture];
         pictures[SheetPagesBinding - firstPicture] = Picture(_sheetPages);
@@ -97,6 +97,8 @@ internal sealed unsafe partial class TownRenderer
             pictures[FirstSurfaceBinding - firstPicture + surface] =
                 Picture(_textures[Math.Min(surface, _textures.Length - 1)]);
         }
+
+        pictures[TrackBinding - firstPicture] = Picture(_textures[Math.Min(Surfaces, _textures.Length - 1)]);
 
         var buffers = stackalloc DescriptorBufferInfo[Bindings];
         var writes = stackalloc WriteDescriptorSet[Bindings];
@@ -206,7 +208,7 @@ internal sealed unsafe partial class TownRenderer
     static DescriptorType TypeOf(int binding) => binding switch
     {
         CameraBinding or SheetTableBinding or MarkLookBinding => DescriptorType.UniformBuffer,
-        < MarkLookBinding => DescriptorType.CombinedImageSampler,
+        < MarkLookBinding or TrackBinding => DescriptorType.CombinedImageSampler,
         _ => DescriptorType.StorageBuffer,
     };
 

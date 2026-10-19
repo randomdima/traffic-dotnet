@@ -1,0 +1,10 @@
+{
+  "id": "track_timber",
+  "kind": "Track",
+  "sleeperLengthM": 2.6,
+  "describe": "a straight stretch of railway track seen from straight above, as a texture that repeats along its length: brownish-grey ballast filling the whole strip edge to edge; 12 evenly spaced dark brown creosoted timber sleepers lying across it, wood grain showing; two steel rails running the whole length exactly on the two thin grey guide lines, each a bright running strip with a dark rusty edge either side",
+  "footprintM": [
+    7.2,
+    4.4
+  ]
+}

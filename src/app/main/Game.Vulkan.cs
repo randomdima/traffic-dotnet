@@ -27,7 +27,7 @@ internal sealed partial class Game
     Task<LaidTown>? _laying;
 
     private partial TownRenderer NewRenderer(GroundMesh mesh, SpriteRoom room) => TownRenderer.OnScreen(
-        _vk, _window, mesh, ProjectPaths.GroundSurfaceFiles(), _sheets, room);
+        _vk, _window, mesh, GroundMesh.SurfaceFiles(), _sheets, room);
 
     private partial long Crossings() => Runtime.Vk.Crossings;
 

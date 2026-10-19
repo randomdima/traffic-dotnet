@@ -26,12 +26,12 @@ public class CatalogueTests
     /// <summary>
     /// <b>Every map says what it is, and nothing says what it is without being a map.</b> A city says it in
     /// its own brief and a map laid in code says it in the catalogue, so the two halves together have to
-    /// cover the shipped set exactly.
+    /// cover the offered set exactly.
     /// </summary>
     [Fact]
-    public void EveryShippedMapIsDescribedAndEveryDescribedMapIsShipped()
+    public void EveryOfferedMapIsDescribedAndEveryDescribedMapIsOffered()
     {
-        var shipped = Maps.Shipped();
+        var shipped = Maps.Offered();
 
         foreach (var map in shipped)
         {
@@ -57,7 +57,7 @@ public class CatalogueTests
         var places = MapCatalogue.On(MapKind.Place);
         var scenarios = MapCatalogue.On(MapKind.Scenario);
 
-        Assert.Equal(Maps.Shipped().Length, places.Length + scenarios.Length);
+        Assert.Equal(Maps.Offered().Length, places.Length + scenarios.Length);
         Assert.NotEmpty(places);
     }
 

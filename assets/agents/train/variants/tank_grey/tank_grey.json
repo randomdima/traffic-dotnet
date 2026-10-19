@@ -1,0 +1,12 @@
+{
+  "id": "tank_grey",
+  "sprite": "tank_grey.webp",
+  "kind": "Tank",
+  "describe": "oil tank wagon seen from straight above: a weathered light grey cylindrical tank with a highlight along its top, a round filling dome with a small railed platform in the middle, the frame and couplers showing at both ends",
+  "footprintM": [
+    12.0,
+    3.3
+  ],
+  "cornerRadiusM": 0.2,
+  "bogiePitchM": 7.8
+}

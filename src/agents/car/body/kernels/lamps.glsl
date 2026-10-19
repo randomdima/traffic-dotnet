@@ -11,12 +11,14 @@ const uint LampBrake = 4u;
 const uint LampReverse = 8u;
 const uint LampBeacon = 16u;
 const uint LampWorks = 32u;
+const uint LampHead = 64u;
 
 // CarLampFitting, by number.
 const uint FittingRear = 0u;
 const uint FittingIndicator = 1u;
 const uint FittingBeaconRed = 2u;
 const uint FittingBeaconBlue = 3u;
+const uint FittingHead = 5u;
 
 // CarLamp, by number.
 const uint LampIndicator = 0u;
@@ -25,6 +27,7 @@ const uint LampReverseWhite = 2u;
 const uint LampBeaconRed = 3u;
 const uint LampBeaconBlue = 4u;
 const uint LampBeaconAmber = 5u;
+const uint LampHeadWhite = 6u;
 
 // CarLamps.Phase: how far through its own period a flash of this rate is, in [0, 1).
 float lampsPhase(float elapsedS, float rateHz)
@@ -93,6 +96,12 @@ uint lampsLensColour(CarLampMoment moment, uint fitting, vec2 atBodyM, out bool 
     {
         lit = moment.beaconOn;
         return moment.swapped ? LampBeaconRed : LampBeaconBlue;
+    }
+
+    if (fitting == FittingHead)
+    {
+        lit = (moment.showing & LampHead) != 0u;
+        return LampHeadWhite;
     }
 
     lit = moment.amberOn && moment.firstHalf != onTheRight;

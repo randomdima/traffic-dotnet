@@ -4,6 +4,7 @@
 
 #include "app/render/kernels/sprites_car.glsl"
 #include "app/render/kernels/sprites_person.glsl"
+#include "world/town/kernels/world_rows.glsl"
 
 // The frame's own words, written by the host each frame into a buffer rather than pushed, because a frame is recorded
 // once (CameraView): the view as the fill takes it, the narrowest part drawn, the town's clock, its live rosters, and
@@ -67,7 +68,39 @@ layout(std430, binding = 1) readonly buffer Figures
     uint walkHeadFrames;
     float cycleS;
     float amberTailS;
+    uint wagonCount;
+    uint firstTrainSheet;
+    uint gearCount;
+    uint barrierSheet;
+    uint crossingHeadSheet;
+    uint glowTint;
+    float barrierWidthM;
+    float headHalfM;
+    float lampGlowHalfM;
+    float gearPastKerbM;
 } figures;
+
+// One approach's crossing gear (DeviceSprites.GearRow, CrossingGear): where its barrier pivots, the way it lies lowered and
+// on what heading, how long it is, where its head stands and faces, and where its second lamp stands off it.
+struct GearRow
+{
+    vec2 pivotM;
+    vec2 downAlong;
+    vec2 headM;
+    vec2 lampAcrossM;
+    float armM;
+    float armHeadingRad;
+    float headHeadingRad;
+    float pad;
+};
+
+// And what it shows this frame, as the host worked it out (CrossingSprites.Shown): its barrier's length seen from above,
+// and which lamp is lit, or −1.
+struct GearShownRow
+{
+    float shownM;
+    int lit;
+};
 
 // One walker's look (DeviceSprites.PersonLook): its quad standing and lying down, and how far the latter reaches.
 struct PersonLook
@@ -167,6 +200,16 @@ layout(std430, binding = 15) readonly buffer Totals { uint totals[]; };
 layout(std430, binding = 16) buffer LampsShown { uvec2 lampsShown[]; };
 layout(std430, binding = 17) writeonly buffer Instances { SpriteOut instances[]; };
 layout(std430, binding = 18) writeonly buffer Draws { SpriteDraw draws[]; };
+
+// The rolling stock's half-sizes by vehicle (DeviceSprites.TrainLooks), and the world's two views of the wagons (the
+// host showing the frame's slot), which every wagon is drawn off.
+layout(std430, binding = 19) readonly buffer TrainLooks { vec2 trainLooks[]; };
+layout(std430, binding = 20) readonly buffer WagonViews0 { WagonViewRow wagonViews0[]; };
+layout(std430, binding = 21) readonly buffer WagonViews1 { WagonViewRow wagonViews1[]; };
+
+// The crossings' gear, laid once, and what each shows this frame (RAIL-7).
+layout(std430, binding = 22) readonly buffer GearRows { GearRow gearRows[]; };
+layout(std430, binding = 23) readonly buffer GearShown { GearShownRow gearShown[]; };
 
 #define LAMP_FIGURES figures
 #define SIGNAL_FIGURES figures

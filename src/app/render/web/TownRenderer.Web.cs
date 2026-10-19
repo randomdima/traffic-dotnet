@@ -32,10 +32,11 @@ namespace TrafficSimulation.App.Render;
 /// </remarks>
 internal sealed class TownRenderer : IDisposable
 {
-    /// <summary>The five the ground is painted with, each its own binding. See the Vulkan half for why they are not an array.</summary>
-    const int Surfaces = 5;
-
-    const int SheetSlots = 512;
+    /// <summary>
+    /// The six the ground is painted with, the track's strip last (<see cref="Surface.Track"/>), each its own binding. See
+    /// the Vulkan half for why they are not an array.
+    /// </summary>
+    const int Surfaces = 6;
 
     const int GroundStream = 0;
     const int IndexStream = 1;
@@ -79,8 +80,8 @@ internal sealed class TownRenderer : IDisposable
     TownRenderer(
         GroundMesh mesh, IReadOnlyList<string> surfaceTextures, IReadOnlyList<SheetSource> sheetTextures, SpriteRoom room)
     {
-        if (sheetTextures.Count > SheetSlots) throw new InvalidOperationException(
-            $"{sheetTextures.Count} sheets, and the sprite shader's table holds {SheetSlots}.");
+        if (sheetTextures.Count > SheetAtlas.Slots) throw new InvalidOperationException(
+            $"{sheetTextures.Count} sheets, and the sprite shader's table holds {SheetAtlas.Slots}.");
 
         Room = room with { Under = Math.Max(1, room.Under), Over = Math.Max(1, room.Over), Above = Math.Max(0, room.Above) };
         _sprites = new byte[Room.Written * Unsafe.SizeOf<SpriteInstance>()];
@@ -100,7 +101,7 @@ internal sealed class TownRenderer : IDisposable
         // Every sheet onto the layers of one array texture. The table is laid to the shader's full
         // length, so a slot nothing uses is zero.
         _atlas = SheetAtlas.Pack(sheetTextures);
-        var table = new SheetPlace[SheetSlots];
+        var table = new SheetPlace[SheetAtlas.Slots];
         _atlas.Places.CopyTo(table, 0);
         WebGpu.Buffer(TableStream, MemoryMarshal.AsBytes(table.AsSpan()), WebGpu.Uniform);
 

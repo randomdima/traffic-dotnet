@@ -44,9 +44,13 @@ internal sealed partial record TownMap
     /// <summary>Bumped whenever what is written changes, so a file of the old shape is refused rather than misread.</summary>
     /// <remarks>
     /// <b>8 adds a road's second flags byte</b> (whether it is mended, and its roadsides, <see cref="TracedRoad.Mended"/>);
-    /// a file of <see cref="OldestRead"/> is read as one whose roads hold none, which is what it is.
+    /// a file of <see cref="OldestRead"/> is read as one whose roads hold none, which is what it is. <b>9 adds the
+    /// tracks</b> (<see cref="Rails"/>), after the zones; a file older than that holds none.
     /// </remarks>
-    public const ushort Version = 8;
+    public const ushort Version = 9;
+
+    /// <summary>The first version that holds the tracks.</summary>
+    const ushort RailsFrom = 9;
 
     /// <summary>The oldest version read: 7, whose roads carry no second flags byte.</summary>
     const ushort OldestRead = 7;
@@ -122,6 +126,9 @@ internal sealed partial record TownMap
     /// <summary>What the map is zoned for, the whole map the first zone (<see cref="ZoneArrays"/>).</summary>
     public required ZoneArrays Zones { get; init; }
 
+    /// <summary>The railway's tracks, each a line from past one edge of the map to past another (RAIL-2).</summary>
+    public RailArrays Rails { get; init; } = RailArrays.None;
+
     /// <summary>How many people the town stands at its doors (<see cref="ZoneParam.People"/>).</summary>
     public int People => (int)(Zones.Own(ZoneArrays.Root, ZoneParam.People) ?? 0f);
 
@@ -183,6 +190,17 @@ internal sealed partial record TownMap
         for (var water = 0; water < Courses.Count; water++)
         {
             if (Courses.CourseOf(water).Length < 2) throw new InvalidDataException($"{what}: water {water} runs along a course of fewer than two points.");
+        }
+
+        for (var track = 0; track < Rails.Count; track++)
+        {
+            if (Rails.TrackOf(track).Length < 2) throw new InvalidDataException($"{what}: track {track} runs along fewer than two points.");
+            if (Rails.Runs[track] is 0 or > TrackRuns.Both) throw new InvalidDataException($"{what}: track {track} is run {Rails.Runs[track]}.");
+            if (Rails.Line[track] < 0) throw new InvalidDataException($"{what}: track {track} is of line {Rails.Line[track]}.");
+            foreach (var level in Rails.LevelsOf(track))
+            {
+                if (level > RailArrays.Above) throw new InvalidDataException($"{what}: track {track} stands at level {level}.");
+            }
         }
 
         for (var building = 0; building < Buildings.Count; building++)
@@ -283,6 +301,49 @@ internal sealed partial record TownMap
         public int Count => Kind.Length;
 
         public static PropArrays None => new() { Kind = [], CentreM = [], BearingRad = [] };
+    }
+
+    /// <summary>Which way a track is run: from its first point to its last, back, or either.</summary>
+    [Flags]
+    internal enum TrackRuns : byte
+    {
+        Forward = 1,
+        Backward = 2,
+        Both = Forward | Backward,
+    }
+
+    /// <summary>
+    /// <b>The railway's tracks</b> (RAIL-2): each the line it runs along, past the map at both ends, the railway line it
+    /// is one track of (TRN-5) and which way trains run it. <b>Written as they are</b>, a float's own four bytes each, as
+    /// a course is.
+    /// </summary>
+    internal sealed class RailArrays
+    {
+        /// <summary>The line each track is one of: tracks of one line are run one train at a time between them.</summary>
+        public required int[] Line { get; init; }
+
+        public required TrackRuns[] Runs { get; init; }
+
+        /// <summary>Count + 1 entries, over <see cref="PointM"/>.</summary>
+        public required int[] PointOffsets { get; init; }
+
+        public required Vector2[] PointM { get; init; }
+
+        /// <summary>
+        /// The level each chord stands at, by the point it starts at: <see cref="AtGrade"/>, or <see cref="Above"/> on a
+        /// bridge — where no road or walk under it meets it (RAIL-1).
+        /// </summary>
+        public required byte[] Level { get; init; }
+
+        public const byte AtGrade = 0, Above = 1;
+
+        public int Count => Line.Length;
+
+        public ReadOnlySpan<Vector2> TrackOf(int track) => PointM.AsSpan(PointOffsets[track], PointOffsets[track + 1] - PointOffsets[track]);
+
+        public ReadOnlySpan<byte> LevelsOf(int track) => Level.AsSpan(PointOffsets[track], PointOffsets[track + 1] - PointOffsets[track]);
+
+        public static RailArrays None => new() { Line = [], Runs = [], PointOffsets = [0], PointM = [], Level = [] };
     }
 
     /// <summary>The car parks set down by hand: each its middle, its sides and the bearing of its first.</summary>

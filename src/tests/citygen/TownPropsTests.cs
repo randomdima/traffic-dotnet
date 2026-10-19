@@ -134,7 +134,7 @@ public class TownPropsTests
     static bool Inside(Vector2[] box, Vector2 atM) => atM.X > box[0].X && atM.X < box[1].X && atM.Y > box[0].Y && atM.Y < box[2].Y;
 
     /// <summary>One house prefab, of 12 by 8 m.</summary>
-    static readonly BuildingSizes Houses = new(new Vector2[BuildingSizes.Uses], [new(12f, 8f)], [0.5f], [BuildingLook.House]);
+    static readonly BuildingSizes Houses = new(new Vector2[BuildingSizes.Uses], [new(12f, 8f)], [0.5f], [BuildingLook.House], []);
 
     /// <summary>The ground north of the street from 300 to 700 m, reaching to its walk.</summary>
     static readonly Vector2[] North = [new(300f, 100f), new(700f, 100f), new(700f, StreetY - 6f), new(300f, StreetY - 6f)];

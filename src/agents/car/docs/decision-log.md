@@ -3,6 +3,26 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-18 — a car's shape is authored first, and its picture is drawn to it
+
+Art is generated now (raw_assets/index.md), so the flow runs the other way: `collisionM` is the shape the car
+is, and the generator is handed it as the outline the bodywork fills, inside the footprint that holds the mirrors
+and tyres (CAR-12b). Nothing is measured off a picture any more, so the gate that sampled each sprite's silhouette
+against its fit went with it, and `hullM` — a traced outline no code read — is gone from the files. The owner's
+call (2026-10-18). Lamps go the same way: each lens is authored in the file and the picture is asked to draw it
+there switched off, and a lens moved is a car asked for again (raw_assets/index.md, rule 7).
+
+## 2026-10-18 — a lens is what the generator's zone map says it is
+
+The lens rectangle cut from the sprite and driven emissive lit the wrong texels: the model draws a lens a few
+centimetres off its frame and in its own shape, so a lit lamp was a bright square of paint half over the real lens.
+Finding the lens in the art by colour failed where glass and paint are alike — a red lamp on a red body, pale glass on
+a cream one — and a second, lamps-on picture from the generator did not convince the owner. **The owner's call**
+(2026-10-18): the generator repaints each sheet as flat contrasting zones, and Python maps them onto the sprite
+(CAR-14a). A zone map is fitted to the car's outline exactly as the art is, so the two land on one another within a
+texel or two without being an edit of the same pixels; a zone texel belongs to the nearest lens of its fitting. The
+legacy looks keep the rectangle until they are generated again.
+
 ## 2026-10-16 — a leg gives its place up once, and a light excuses only a queue that reaches it
 
 **What the stuck probe found** (Odesa, 300 s): a car in a jam stood 232 s against a patience of 30 s over three

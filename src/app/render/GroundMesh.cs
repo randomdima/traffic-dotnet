@@ -5,11 +5,12 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
+using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.App.Render;
 
-/// <summary>Which of the five surfaces a triangle wears, or <see cref="Paint"/> for a flat colour.</summary>
+/// <summary>Which of the six surfaces a triangle wears, or <see cref="Paint"/> for a flat colour.</summary>
 internal enum Surface : uint
 {
     Grass = 0,
@@ -17,6 +18,13 @@ internal enum Surface : uint
     Pavement = 2,
     Deck = 3,
     Water = 4,
+
+    /// <summary>
+    /// The track's strip (RAIL-3): the one surface laid along a line rather than anchored to the world, so its corners
+    /// carry where on the strip they stand (<see cref="GroundVertex.OnTheTrack"/>) in place of a tint, and what the strip
+    /// leaves clear is not drawn at all.
+    /// </summary>
+    Track = 5,
 
     /// <summary>Not a surface: the tint alone, for anything that is not ground.</summary>
     Paint = 255,
@@ -59,6 +67,31 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
     public static uint Pack(Vector3 tint, Surface surface) =>
         Filed(tint.X) | (Filed(tint.Y) << 9) | (Filed(tint.Z) << 18)
         | ((surface == Surface.Paint ? PaintFiled : (uint)surface) << SurfaceShift);
+
+    /// <summary>The steps a track's corner files how far along its strip it stands: a picture's length in a few hundred.</summary>
+    public const uint TrackStepsPerPicture = 256;
+
+    /// <summary>
+    /// How many of the strip's pictures one filing runs over before it starts again, which the strip is cut at
+    /// (<see cref="GroundMesh.TrackStrip"/>): the whole pictures eighteen bits of steps hold.
+    /// </summary>
+    public const float TrackPicturesFiled = ((1u << 18) / TrackStepsPerPicture) - 1;
+
+    const uint AcrossSteps = (1u << 9) - 1;
+
+    /// <summary>
+    /// <b>A corner of the track's strip</b> (<see cref="Surface.Track"/>): how many of its pictures along the strip it
+    /// stands, and how far across it from nought to one, where a corner of any other surface files its tint.
+    /// </summary>
+    /// <remarks>
+    /// <b>Along is counted on and not wrapped at every picture</b>, so a seam where the coordinate wraps falls once in
+    /// <see cref="TrackPicturesFiled"/> pictures and not at every one: a wrap inside a pixel quad reads as a smear the
+    /// width of the whole picture's smallest mip.
+    /// </remarks>
+    public static uint OnTheTrack(float picturesAlong, float acrossShare) =>
+        (uint)MathF.Round(Math.Clamp(picturesAlong, 0f, TrackPicturesFiled) * TrackStepsPerPicture)
+        |((uint)MathF.Round(Math.Clamp(acrossShare, 0f, 1f) * AcrossSteps) << 18)
+        | ((uint)Surface.Track << SurfaceShift);
 
     static uint Filed(float channel) => (uint)MathF.Round(Math.Clamp(channel / BrightestTint, 0f, 1f) * ChannelSteps);
 
@@ -501,6 +534,13 @@ internal sealed partial class GroundMesh
         mesh.Decks(plan, paving.Lanes, CityPlan.RoadArrays.Ground, config);
         mesh.Laid(GroundPart.Decks, decks);
 
+        // <b>The railway between the decks and the driven ground</b> (RAIL-3, TER-7b): a road crossing it is laid over it,
+        // and the rails are laid back across that road with the paint.
+        var tracks = TrackLine.Of(plan.Rails);
+        var railway = mesh.Starting();
+        mesh.Railway(plan, LevelCrossings.Of(plan, config), tracks, config);
+        mesh.Laid(GroundPart.Rail, railway);
+
         // <b>The carriageway at its own size</b> (TER-7b): the boundary filled as the shape it is, over the
         // walk that reaches under it, and struck after the decks because a bridge carries its carriageway
         // over its own surface and not over the land's.
@@ -534,7 +574,6 @@ internal sealed partial class GroundMesh
         // <b>And the whole of it is what the lanes and the roads say</b>: the lines between two ribbons, the
         // zebra at the end of every arm a junction forks at — or where the town says its zebras are
         // (CityPlan.ZebraAtEveryStation) — and the bar behind each station.
-        mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh._welding = false;
         mesh._welds = [];
 
@@ -563,6 +602,11 @@ internal sealed partial class GroundMesh
         // laid with the bridge, over the bodies on the ground, and what is painted on the road under it is not.
         const byte ground = CityPlan.RoadArrays.Ground;
         var marks = mesh.Starting();
+
+        // The rails laid back over the roads crossing the railway (RAIL-3): on the road and no mark of a lane, so before
+        // the marks start.
+        mesh.CrossingPaint(plan, LevelCrossings.Of(plan, config), tracks, config, Paint);
+        mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh.LaneDashes(runs, plan, config, held, crossed, Paint, ground);
         mesh.RoadsideLines(plan, config, held, crossed, Paint, ground);
         mesh.BayStrokes(plan, config, Paint);

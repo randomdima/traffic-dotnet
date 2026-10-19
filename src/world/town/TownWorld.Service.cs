@@ -3,6 +3,7 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.Service;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
@@ -75,9 +76,14 @@ internal sealed partial class TownWorld
     int EmptyYardSlot(int yard, int slot) =>
         YardSlot(yard, slot) is var bay and >= 0 && _parking.CarInBay(bay) == ParkingRegistry.Nobody ? bay : ParkingRegistry.NoBay;
 
-    /// <summary>How many bays this building's apron asks for: a shift of vehicles, and a depot's yard besides.</summary>
-    int ApronBaysWantedBy(int entry) =>
-        _config.Service.ApronBays + (entry < TheFirstYard ? 0 : _config.Evacuator.YardSlots);
+    /// <summary>
+    /// How many bays this building's apron asks for: a shift of vehicles, and a depot's yard besides — and none in the
+    /// showroom, whose civic buildings are their roofs on show and whose one vehicle of each service look is its own
+    /// (<see cref="ShowroomPlan.ShowsEachLookOnce"/>).
+    /// </summary>
+    int ApronBaysWantedBy(int entry) => ShowroomPlan.ShowsEachLookOnce(_plan.Name)
+        ? 0
+        : _config.Service.ApronBays + (entry < TheFirstYard ? 0 : _config.Evacuator.YardSlots);
 
     int ApronBuildingOf(int entry) => entry < Hospitals.Count
         ? Hospitals.BuildingOf(entry)

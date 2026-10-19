@@ -13,6 +13,9 @@ internal static class Streams
     /// <summary>A brief's wheel and districts, drawn when the map is authored.</summary>
     public const ulong District = 0x6469_7374_7269_6374;
 
+    /// <summary>A brief's railway, drawn when the map is authored (<see cref="RailLines.Author"/>).</summary>
+    public const ulong Railway = 0x7261_696C_7761_7900;
+
     public const ulong CarPark = 0x6361_7270_6172_6B00;
 
     /// <summary>Which junctions of a wheel are lit (<see cref="Gen.LitJunctions"/>).</summary>

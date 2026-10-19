@@ -73,7 +73,7 @@ internal sealed class ShotStage : IDisposable
         var looks = TownSprites.Load(config);
         var vk = Vk.Open("traffic-dotnet", validate);
         var renderer = TownRenderer.Offscreen(
-            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets, looks.RoomFor(plan, config));
+            vk, widthPx, heightPx, ground, GroundMesh.SurfaceFiles(), looks.Sheets, looks.RoomFor(plan, config));
 
         return new ShotStage(config, plan, ground, looks, vk, renderer, widthPx, heightPx);
     }
@@ -92,7 +92,7 @@ internal sealed class ShotStage : IDisposable
         Vk vk, CityPlan plan, GroundMesh ground, TownSprites looks, SimConfig config, int widthPx, int heightPx)
     {
         var renderer = TownRenderer.Offscreen(
-            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets, looks.RoomFor(plan, config));
+            vk, widthPx, heightPx, ground, GroundMesh.SurfaceFiles(), looks.Sheets, looks.RoomFor(plan, config));
 
         return new ShotStage(config, plan, ground, looks, vk, renderer, widthPx, heightPx, ownsDevice: false);
     }

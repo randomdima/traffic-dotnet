@@ -1,7 +1,7 @@
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// The six kinds of ground a town is laid out of. The type is named for the ground rather than for the
+/// The seven kinds of ground a town is laid out of. The type is named for the ground rather than for the
 /// folder it sits in, because a type called <c>Terrain</c> inside <c>…World.Terrain</c> is ambiguous at
 /// every call site that imports both.
 /// </summary>
@@ -33,4 +33,7 @@ internal enum Ground : byte
     Parking = 3,
     Water = 4,
     Sidewalk = 5,
+
+    /// <summary>The railway's ballast (RAIL-4), wherever no road is laid over it.</summary>
+    Rail = 6,
 }

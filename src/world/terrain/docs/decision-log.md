@@ -1,5 +1,12 @@
 # Terrain — decision log
 
+## 2026-10-18 — the railway is a layer of the stack, under the driven ground
+
+**The owner approved it** (`TER-7b` is theirs): the railway's ballast, sleepers and rails are drawn after the
+water and the decks and before the driven ground, so a road crossing a track is laid over it and the rails are
+laid back across the tarmac and the walk, the track's strip stopping short of both ([world/rail](../../rail/docs/decision-log.md)). A track over a river is drawn over
+the water as its own bridge; the railway is ground of its own (`Ground.Rail`), legal to nobody.
+
 ## 2026-10-12 — a kind of ground is a permission and nothing more
 
 **The owner ruled it: no actor is expected to touch water, and a wheel tells the bridge from what it crosses by the

@@ -62,6 +62,21 @@ internal sealed class TownBrief
     /// <summary>How far the shoreline or the bank wanders off its own bearing, as a share of the water's own width.</summary>
     public float WaterMeander { get; init; } = 0.5f;
 
+    /// <summary>How many tracks the town's railway is laid with side by side: none, a single track or a double (RAIL-2).</summary>
+    public int RailTracks { get; init; }
+
+    /// <summary>Which way the railway runs across the town.</summary>
+    public float RailBearingDeg { get; init; }
+
+    /// <summary>How far off the town's middle the railway passes, across its own bearing, as a signed share of the short side.</summary>
+    public float RailOffsetShare { get; init; }
+
+    /// <summary>
+    /// How far the railway wanders off its own bearing, as a share of the short side — <b>as far as its least radius
+    /// allows and no further</b> (<see cref="Core.Config.RailFigures.LeastRadiusM"/>).
+    /// </summary>
+    public float RailMeander { get; init; }
+
     /// <summary>How many districts the streets are laid in, each on its own bearing at its own spacing.</summary>
     public required int Districts { get; init; }
 
@@ -124,6 +139,9 @@ internal sealed class TownBrief
         if (Cars < 0) throw new InvalidDataException($"{what}: a negative roster.");
         if (People < 0) throw new InvalidDataException($"{what}: a negative number of people.");
         if (Buildings < 0) throw new InvalidDataException($"{what}: a negative number of buildings.");
+        if (RailTracks is < 0 or > 2) throw new InvalidDataException($"{what}: a railway of {RailTracks} tracks; a brief lays none, one or two.");
+        if (RailOffsetShare is < -0.5f or > 0.5f) throw new InvalidDataException($"{what}: a railway {RailOffsetShare} of the town off its middle passes outside it.");
+        if (RailMeander < 0f) throw new InvalidDataException($"{what}: a railway wandering {RailMeander}.");
     }
 
     static void Positive(float value, string field, string what)

@@ -1079,3 +1079,43 @@ internal sealed class EvacuatorFigures
     /// </summary>
     public float TowedLineAllowance { get; init; } = 2.5f;
 }
+
+/// <summary>The trains (TRN-1…8): how fast each kind runs, what it is made up of, and how often a line sends one.</summary>
+internal sealed class TrainFigures
+{
+    /// <summary>An intercity train's pace through the town (TRN-2): a main line's in-town limit, quickened as a walker's is (goals).</summary>
+    public float IntercitySpeedMps { get; init; } = 22f;
+
+    /// <summary>And a freight train's, whichever it carries.</summary>
+    public float FreightSpeedMps { get; init; } = 15f;
+
+    /// <summary>How many coaches an intercity locomotive hauls.</summary>
+    public int IntercityCoaches { get; init; } = 6;
+
+    /// <summary>How many tank wagons an oil train's locomotive hauls.</summary>
+    public int OilWagons { get; init; } = 9;
+
+    /// <summary>How many open wagons a coal train's locomotive hauls.</summary>
+    public int CoalWagons { get; init; } = 9;
+
+    /// <summary>Of the trains a line sends, the share that is intercity, and the share that carries oil; the rest carry coal.</summary>
+    public float IntercityShare { get; init; } = 0.4f;
+
+    public float OilShare { get; init; } = 0.3f;
+
+    /// <summary>
+    /// <b>The least and the most a line waits between one train leaving the map and the next being sent</b> (TRN-6),
+    /// drawn evenly between them each time.
+    /// </summary>
+    public float GapLeastS { get; init; } = 45f;
+
+    public float GapMostS { get; init; } = 150f;
+
+    /// <summary>The same of a line's first train, from the town's first tick: soon, so a town just opened shows one.</summary>
+    public float FirstLeastS { get; init; } = 5f;
+
+    public float FirstMostS { get; init; } = 40f;
+
+    /// <summary>Between one vehicle's buffers and the next's, coupled.</summary>
+    public float CouplingGapM { get; init; } = 0.3f;
+}

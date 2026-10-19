@@ -63,6 +63,9 @@ internal enum ExamStart : byte
     AtOnce,
     OnRed,
     OnGreen,
+
+    /// <summary>On the tick the level crossing on the road it stands on closes (RAIL-1).</summary>
+    OnClosed,
 }
 
 /// <summary>Which side of an arm something stands on, read off the bearing that runs out of the junction along it.</summary>
@@ -159,6 +162,12 @@ internal enum ExamRule : byte
     /// they are, and they are on it before it is.
     /// </summary>
     ForWalker,
+
+    /// <summary>
+    /// <b>The subject waits at the level crossing on its road</b> (RAIL-1): it is brought to rest short of the track while
+    /// the crossing is closed, and is never on the track while it is.
+    /// </summary>
+    AtTheCrossing,
 }
 
 /// <summary>
@@ -192,6 +201,12 @@ internal sealed record ExamCard(string Name, ExamFamily Family, ExamShape Shape,
 {
     /// <summary>Whether the junction carries lights (TLT-3). A light is about nothing under three arms.</summary>
     public bool Lit { get; init; }
+
+    /// <summary>
+    /// <b>Whether the exam's railway crosses its spur</b> (RAIL-1): a dead end staged under the lattice, its spur run on
+    /// across the strip the one track is laid along.
+    /// </summary>
+    public bool Railway { get; init; }
 
     /// <summary>The arms, in the card's frame, whose road runs one way <em>into</em> the junction.</summary>
     public ExamArm[] OneWayIn { get; init; } = [];

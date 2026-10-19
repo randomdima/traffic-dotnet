@@ -4,8 +4,8 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>What the water lets a road do</b> (GEN-14). Every road the town lays is asked, so the rules hold by
-/// construction rather than by a sweep that finds a lane in the river afterwards.
+/// <b>What the water and the railway let a road do</b> (GEN-14, RAIL-5). Every road the town lays is asked, so the
+/// rules hold by construction rather than by a sweep that finds a lane in the river afterwards.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,11 +19,18 @@ namespace TrafficSimulation.CityGen.Gen;
 /// water, because a bridge is straight (GEN-14a) and a spoke is a ray; the orbital's own arc stands off its
 /// chord by less than the edges this walks, which is why the arc is not sampled here.
 /// </para>
+/// <para>
+/// <b>The railway is crossed and never stood near</b> (RAIL-5): a junction keeps its own ground and a clearance off the
+/// ballast, and a road meets the ballast square enough to be a level crossing — which a road running along it, or
+/// slanting over it, is not.
+/// </para>
 /// </remarks>
 /// <param name="bridgeable">Whether the water is a river, which a road may span, rather than a sea or a lake (GEN-14b).</param>
+/// <param name="railClearM">How far a junction's node stands off the ballast at the least: its own ground and the clearance.</param>
+/// <param name="squareLeast">How square to a track a road meets it at the least, as the sine of the angle between them.</param>
 internal sealed class WaterRules(
     GroundShapes ground, float stepM, bool bridgeable, float longestDeckM, float abutmentM,
-    float halfWidthM)
+    float halfWidthM, CityPlan.RailArrays rails, float railClearM, float squareLeast)
 {
     /// <summary>How far back from the bank a bridgehead stands: the ground its own junction takes.</summary>
     public float AbutmentM => abutmentM;
@@ -32,6 +39,22 @@ internal sealed class WaterRules(
     public float StepM => stepM;
 
     public bool Wet(Vector2 atM) => ground.At(atM) == Ground.Water;
+
+    /// <summary>Whether a junction may stand here at all: off the water, and clear of the railway (GEN-14, RAIL-5).</summary>
+    public bool Holds(Vector2 atM) => !Wet(atM) && !ground.RailWithin(atM, railClearM);
+
+    /// <summary>
+    /// <b>Whether a road passing here on this heading may be laid</b> (RAIL-5): off the railway, or over it square enough
+    /// — and never a bridge, whose deck is the river's.
+    /// </summary>
+    public bool Crosses(Vector2 atM, Vector2 heading, RoadClass roadClass)
+    {
+        if (ground.At(atM) != Ground.Rail) return true;
+        if (roadClass == RoadClass.Bridge) return false;
+
+        var along = RailLines.AlongNearest(rails, atM);
+        return MathF.Abs((heading.X * along.Y) - (heading.Y * along.X)) >= squareLeast;
+    }
 
     /// <summary>Whether the water stands anywhere under a road laid on this chord.</summary>
     public bool Wets(Vector2 fromM, Vector2 toM)

@@ -1,0 +1,9 @@
+{
+  "id": "crossing_head",
+  "kind": "Head",
+  "describe": "a level-crossing warning signal seen from straight above, top-down only: the round top of its grey post in the middle, and across it, running top to bottom, the top edge of a black backboard carrying two round lamp hoods side by side, one near the top and one near the bottom, each hood a black half-ring open toward the right with dark unlit red glass inside, a thin white and red St Andrew's cross plate edge on top",
+  "footprintM": [
+    0.9,
+    0.9
+  ]
+}

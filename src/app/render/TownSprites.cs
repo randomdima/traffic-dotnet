@@ -3,9 +3,12 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.TrafficLight.Body;
+using TrafficSimulation.Agents.Train.Body;
+using TrafficSimulation.Agents.Train.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
@@ -34,8 +37,8 @@ internal sealed class TownSprites
     /// <summary>The car head's strip and the pedestrian head's.</summary>
     const int HeadSheets = 2;
 
-    /// <summary>The two brushes a mark is stamped through, the two pictures every lamp is drawn through, and a steered tyre's rubber.</summary>
-    const int GroundworkSheets = 5;
+    /// <summary>The two brushes a mark is stamped through, the two pictures every lamp is drawn through, a steered tyre's rubber, and a crossing's barrier and head.</summary>
+    const int GroundworkSheets = 7;
 
     TownSprites(
         PersonCatalog people, CarCatalog cars, BuildingCatalog buildings, PropCatalog props, SheetSource[] sheets,
@@ -122,6 +125,29 @@ internal sealed class TownSprites
     /// <summary>What a steered tyre is drawn with (<see cref="CarSheets.RubberSheet"/>).</summary>
     public int RubberSheet => LampGlowSheet + 1;
 
+    /// <summary>A level crossing's barrier arm and its head (RAIL-7), laid in code (<see cref="CrossingSprites"/>).</summary>
+    public int BarrierSheet => RubberSheet + 1;
+
+    public int CrossingHeadSheet => BarrierSheet + 1;
+
+    /// <summary>Where the rolling stock starts (TRN-4): a sheet a vehicle of the catalogue, last of all so nothing before moves.</summary>
+    public int FirstTrainSheet => CrossingHeadSheet + 1;
+
+    /// <summary>The rolling stock the trains are drawn in.</summary>
+    public TrainCatalog Rolling { get; } = TrainCatalog.Shared;
+
+    /// <summary>
+    /// The committed lamp sheet, or the one cut for a told fleet (<see cref="FleetList.LampAtlasFile"/>): the
+    /// sheet's rows are a catalogue's looks, and the committed one's are the shipped catalogue's.
+    /// </summary>
+    static SheetSource LampSheet()
+    {
+        if (!FleetList.IsTold) return SheetSource.File(ProjectPaths.LampAtlasFile());
+
+        return SheetSource.File(FleetList.LampAtlasFile
+                                ?? throw new InvalidOperationException("A told fleet is drawn with its own lamp sheet: cut it first."));
+    }
+
     public static TownSprites Load(SimConfig config)
     {
         var people = PersonCatalog.Load();
@@ -133,9 +159,10 @@ internal sealed class TownSprites
         // it becomes — a body in the road, a wreck. Going down is then a different number in an instance
         // and nothing else.
         var beams = cars.BeamSpritePaths;
+        var trains = TrainCatalog.Shared.Vehicles;
         var sheets = new SheetSource[
             (people.SheetCount * 2) + (cars.SheetCount * 2) + beams.Length + buildings.Count + props.Count
-            + HeadSheets + GroundworkSheets];
+            + HeadSheets + GroundworkSheets + trains.Length];
         for (var variant = 0; variant < people.SheetCount; variant++)
         {
             sheets[variant] = SheetSource.File(people.Variants[variant].SheetPath);
@@ -188,9 +215,12 @@ internal sealed class TownSprites
 
         sheets[firstHead + HeadSheets] = MarkSprites.Brush(MarkSprites.RubberEdgeShare);
         sheets[firstHead + HeadSheets + 1] = MarkSprites.Brush(MarkSprites.SoilEdgeShare);
-        sheets[firstHead + HeadSheets + 2] = SheetSource.File(ProjectPaths.LampAtlasFile());
+        sheets[firstHead + HeadSheets + 2] = LampSheet();
         sheets[firstHead + HeadSheets + 3] = LampSprites.Glow();
         sheets[firstHead + HeadSheets + 4] = CarSheets.RubberSheet();
+        sheets[firstHead + HeadSheets + 5] = CrossingSprites.Barrier(config.Rail);
+        sheets[firstHead + HeadSheets + 6] = CrossingSprites.Head(config.Rail);
+        for (var vehicle = 0; vehicle < trains.Length; vehicle++) sheets[firstHead + HeadSheets + GroundworkSheets + vehicle] = TrainSprites.Of(trains[vehicle]);
 
         return new TownSprites(people, cars, buildings, props, sheets, carScales)
         {
@@ -250,7 +280,8 @@ internal sealed class TownSprites
         return new SpriteRoom(
             config.Marks.Capacity + ScenerySprites.CapacityFor(plan, config.View.SceneryMostDrawn),
             StandingSprites.CapacityFor(plan),
-            plan.Spawns.Count + carSprites + SignalHeads.MostFor(plan),
+            plan.Spawns.Count + carSprites + SignalHeads.MostFor(plan) + Trains.WagonsFor(plan.Rails, config.Train)
+            + (2 * LevelCrossings.Of(plan, config).Crossings * CrossingSprites.EachGear),
             Array.Exists(plan.Roads.Level, static level => level != CityPlan.RoadArrays.Ground) ? carSprites : 0,
             Math.Max(1, config.Marks.Capacity),
             Math.Max(1, plan.Scenery.Count),
@@ -337,9 +368,17 @@ internal sealed class TownSprites
             world.Cars, world.Recovery, onTheGround, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM,
             over[overCount..], CarSprites.EveryLevel);
 
+        // The trains over the cars: a car on the crossing a train is on is under it.
+        overCount += TrainSprites.Fill(world.World.View.Wagons, Rolling, FirstTrainSheet, viewCentreM, viewSpanM, over[overCount..]);
+
         // The heads last of all: a signal hangs over the carriageway, so nothing driving under it passes
         // in front of it.
         overCount += SignalSprites.Fill(world, config, FirstHeadSheet, viewCentreM, viewSpanM, over[overCount..]);
+
+        // And the crossings' gear with them, stood at the kerb as a head is.
+        overCount += CrossingSprites.Fill(
+            world.CrossingGear, world.ElapsedS, config.Rail, BarrierSheet, CrossingHeadSheet, LampGlowSheet, viewCentreM, viewSpanM,
+            over[overCount..]);
 
         var aboveCount = world.Levelled
             ? FillCars(

@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Text.RegularExpressions;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
@@ -63,6 +64,20 @@ public class SheetAtlasTests
     public void APlaceIsTwoVec4sWide()
     {
         Assert.Equal(32, System.Runtime.CompilerServices.Unsafe.SizeOf<SheetPlace>());
+    }
+
+    /// <summary>
+    /// <b>Each shader's table of places is <see cref="SheetAtlas.Slots"/> long</b>: one shorter reads a sheet past
+    /// its end as nothing, and one longer binds past the buffer the town uploads.
+    /// </summary>
+    [Theory]
+    [InlineData("src/app/render/kernels/quad.glsl", @"SheetPlace place\[(\d+)\]")]
+    [InlineData("src/runtime/shaders/town.wgsl", @"array<Place, (\d+)>")]
+    public void EachShadersTableHoldsTheAtlasSlots(string shader, string declaration)
+    {
+        var source = File.ReadAllText(Path.Combine(ProjectPaths.Root, shader));
+
+        Assert.Equal(SheetAtlas.Slots, int.Parse(Regex.Match(source, declaration).Groups[1].Value));
     }
 
     /// <summary>

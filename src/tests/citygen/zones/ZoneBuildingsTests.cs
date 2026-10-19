@@ -33,7 +33,7 @@ public class ZoneBuildingsTests
     /// <summary>Two house prefabs and a school prefab.</summary>
     static readonly BuildingSizes Sizes = new(
         new Vector2[BuildingSizes.Uses], [HouseM, VillaM, SchoolM], [0.5f, 0.5f, 0.5f],
-        [BuildingLook.House, BuildingLook.House, BuildingLook.School]);
+        [BuildingLook.House, BuildingLook.House, BuildingLook.School], []);
 
     /// <summary>Where the walk's outer face runs on the north side of the street.</summary>
     static float FaceY => StreetY - Config.CityGen.TracedLaneWidthM - Config.WalkOuterM;

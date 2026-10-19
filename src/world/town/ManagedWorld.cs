@@ -140,6 +140,12 @@ internal sealed class ManagedWorld : WorldLayer
     /// <summary>The motion each car and walker carried into the step: what a contact is read against (phase 5).</summary>
     readonly Vector2[] _carIntoMps, _walkerIntoMps;
 
+    /// <summary>Each wagon's body (TRN-7), the motion it carried into the step, and the look it was last signalled to wear.</summary>
+    readonly BodyId[] _wagonBody;
+
+    readonly Vector2[] _wagonIntoMps;
+    readonly ushort[] _wagonLook;
+
     /// <param name="stepsAside">Whether the step runs beside the caller (<see cref="StepsAsideWherever"/> where unsaid) or at once.</param>
     public ManagedWorld(WorldLaying laying, bool? stepsAside = null) : base(laying)
     {
@@ -212,6 +218,11 @@ internal sealed class ManagedWorld : WorldLayer
             _headingRad[person] = walkers[person].HeadingRad;
             _inside[person] = walkers[person].Inside;
         }
+
+        _wagonBody = new BodyId[laying.Wagons.Length];
+        _wagonIntoMps = new Vector2[laying.Wagons.Length];
+        _wagonLook = new ushort[laying.Wagons.Length];
+        for (var wagon = 0; wagon < _wagonBody.Length; wagon++) _wagonBody[wagon] = BodyOf(laying, laying.AgentOfWagon(wagon));
 
         WriteTheView(View);
         ReadCovers(View);
@@ -312,6 +323,8 @@ internal sealed class ManagedWorld : WorldLayer
             _walkerIntoMps[person] = _physics.VelocityOf(_walkerBody[person]);
         }
 
+        for (var wagon = 0; wagon < _wagonBody.Length; wagon++) _wagonIntoMps[wagon] = _physics.VelocityOf(_wagonBody[wagon]);
+
         for (var person = 0; person < _walkerBody.Length; person++) StepTheWalker(person, dtS);
 
         for (var car = 0; car < _carBody.Length; car++) StepTheTyres(car);
@@ -328,6 +341,12 @@ internal sealed class ManagedWorld : WorldLayer
 
     void Take(in ControlSignal signal)
     {
+        if (signal.Agent >= _roster.Count)
+        {
+            TakeForAWagon(signal);
+            return;
+        }
+
         var isCar = _roster.IsCar(signal.Agent);
         var car = isCar ? _roster.CarIndex(signal.Agent) : -1;
         var person = isCar ? -1 : signal.Agent;
@@ -386,6 +405,28 @@ internal sealed class ManagedWorld : WorldLayer
 
             case ControlAction.Follow:
                 _followed[car] = signal.Followed;
+                break;
+        }
+    }
+
+    /// <summary>What a wagon is asked: to run where its train is, or to leave the world with it (TRN-7).</summary>
+    void TakeForAWagon(in ControlSignal signal)
+    {
+        var body = _wagonBody[signal.Agent - _roster.Count];
+        switch (signal.Action)
+        {
+            case ControlAction.Run:
+                var headingRad = signal.Params.Z;
+                _physics.Run(body, new Vector2(signal.Params.X, signal.Params.Y), headingRad, Heading.Unit(headingRad) * signal.Params.W);
+                _wagonLook[signal.Agent - _roster.Count] = signal.Flags;
+                break;
+
+            case ControlAction.Contain:
+                _physics.Contain(body);
+                break;
+
+            case ControlAction.Channels:
+                _physics.PutOnChannels(body, (byte)signal.Flags);
                 break;
         }
     }
@@ -622,6 +663,16 @@ internal sealed class ManagedWorld : WorldLayer
             row.HeadingRad = _headingRad[person];
             row.OverlapM = _physics.OverlapOf(body);
         }
+
+        var wagons = view.Wagons;
+        for (var wagon = 0; wagon < _wagonBody.Length; wagon++)
+        {
+            var body = _wagonBody[wagon];
+            ref var row = ref wagons[wagon];
+            row.PositionM = _physics.PositionOf(body);
+            row.HeadingRad = _physics.HeadingOf(body);
+            row.Flags = _wagonLook[wagon] | (_physics.IsEnabled(body) ? WagonView.InWorld : 0u);
+        }
     }
 
     /// <summary>Every pair the step began touching, each with the speed it closed at off the motion carried into the step.</summary>
@@ -640,6 +691,7 @@ internal sealed class ManagedWorld : WorldLayer
     {
         BodyKind.Person => _walkerIntoMps[tag.Index],
         BodyKind.Car => _carIntoMps[tag.Index],
+        BodyKind.Train => _wagonIntoMps[tag.Index],
         _ => Vector2.Zero,
     };
 

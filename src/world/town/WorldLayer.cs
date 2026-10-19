@@ -43,9 +43,9 @@ internal abstract class WorldLayer : IDisposable
     protected WorldLayer(WorldLaying laying)
     {
         Config = laying.Config;
-        Signals = new ControlSignals(laying.Cars.Length + laying.Walkers.Length);
-        View = new WorldView(laying.Walkers.Length, laying.Cars.Length, slot: 0);
-        _ahead = new WorldView(laying.Walkers.Length, laying.Cars.Length, slot: 1);
+        Signals = new ControlSignals(laying.Agents);
+        View = new WorldView(laying.Walkers.Length, laying.Cars.Length, slot: 0, laying.Wagons.Length);
+        _ahead = new WorldView(laying.Walkers.Length, laying.Cars.Length, slot: 1, laying.Wagons.Length);
         Marks = new DriftMarks(laying.Config.Marks.Capacity, laying.Config.Grid.Main, 0f, laying.WorldSizeM.Y);
     }
 

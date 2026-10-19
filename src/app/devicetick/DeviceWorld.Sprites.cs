@@ -20,10 +20,10 @@ internal sealed partial class DeviceWorld
     /// <summary>
     /// <b>What the emit reads of the world</b> (<c>sprites_world.comp</c>): each car's and walker's own row, the cars'
     /// commands, and the two views' rows by slot (<see cref="WorldView.Slot"/>) — where every body stands and points, and a
-    /// car's channels, as the view the host is showing has them.
+    /// car's channels, as the view the host is showing has them — the wagons' among them.
     /// </summary>
-    public (GpuBuffer Cars, GpuBuffer Walkers, GpuBuffer Commands, GpuBuffer[] CarViews, GpuBuffer[] WalkerViews) Drawn =>
-        (_carRows, _walkerRows, _tyres.Table.Commands.Device, _carViews, _walkerViews);
+    public (GpuBuffer Cars, GpuBuffer Walkers, GpuBuffer Commands, GpuBuffer[] CarViews, GpuBuffer[] WalkerViews, GpuBuffer[] WagonViews) Drawn =>
+        (_carRows, _walkerRows, _tyres.Table.Commands.Device, _carViews, _walkerViews, _wagonViews);
 
     partial void DisposeTheSprites() => Sprites?.Dispose();
 }

@@ -39,6 +39,9 @@ layout(push_constant) uniform World
 
     // How far ahead the wheel is aimed, as a time (DrivingFigures.LookaheadS).
     float lookaheadS;
+
+    // The body row the first train's wagon stands in (WorldLaying.AgentOfWagon): every wagon's row is it and on.
+    int firstWagonBody;
 } world;
 
 #define WALKER_FIGURES world

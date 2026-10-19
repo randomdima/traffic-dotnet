@@ -1,0 +1,12 @@
+{
+  "id": "electric_red",
+  "sprite": "electric_red.webp",
+  "kind": "Electric",
+  "describe": "mainline electric locomotive seen from straight above: a grey roof with two folded pantographs and insulators, red body edges with a cream band, a cab at both ends with dark windscreens, no text or emblem",
+  "footprintM": [
+    19.0,
+    3.4
+  ],
+  "cornerRadiusM": 0.3,
+  "bogiePitchM": 10.0
+}

@@ -10,6 +10,9 @@ internal enum BodyKind : byte
     Ground,
     Person,
     Car,
+
+    /// <summary>A train's wagon (TRN-3): put where its train is each tick, and moved by nothing else.</summary>
+    Train,
 }
 
 /// <summary>A body's identity outside the solver: the roster it is on and its index on it.</summary>
@@ -196,13 +199,50 @@ internal sealed partial class PhysicsWorld
     /// than a fleet — the crash bench, the solver probe and their fixtures. A town never stands one.
     /// </summary>
     /// <remarks>
-    /// <b>Square-cornered</b>, because the nominal car is a figure and not a picture: it has no art to be
-    /// fitted inside, and a rig that measured the solver against a shape nothing is drawn at would be
-    /// measuring an invention.
+    /// <b>Square-cornered</b>, because the nominal car is a figure and not a variant: it authors no shape,
+    /// and a rig that measured the solver against a shape nothing is drawn to would be measuring an
+    /// invention.
     /// </remarks>
     public BodyId AddNominalCar(Vector2 positionM, float headingRad) => AddCar(
         positionM, headingRad, new Vector2(_config.Car.LengthM * 0.5f, _config.Car.WidthM * 0.5f),
         cornerRadiusM: 0f, _config.Car.MassKg);
+
+    /// <summary>
+    /// <b>A train's wagon</b> (TRN-3, TRN-7): a rounded box of unbounded mass — no inverse mass and no inverse inertia, so a
+    /// contact moves only what it meets — laid out of the world, and put into it by <see cref="Run"/>.
+    /// </summary>
+    public BodyId AddWagon(Vector2 halfSizeM, float cornerRadiusM)
+    {
+        var body = Add(
+            Vector2.Zero, 0f, halfSizeM - new Vector2(cornerRadiusM), cornerRadiusM, CollisionLayer.Train,
+            BodyFlags.Enabled | BodyFlags.RotationLocked, massKg: 0f);
+
+        _dynamicCount++;
+        Join(body.Index);
+        Contain(body);
+        return body;
+    }
+
+    /// <summary>
+    /// <b>A wagon put where its train is, moving as its train does</b> (TRN-2): its pose written and its motion set, and
+    /// back in the world if it was out of it. Nothing the step does to it is kept past the next of these, so the solver
+    /// moves what it meets and never the wagon.
+    /// </summary>
+    public void Run(BodyId body, Vector2 atM, float headingRad, Vector2 velocityMps)
+    {
+        var index = body.Index;
+        Place(index, atM, headingRad);
+        _velocityMps[index] = velocityMps;
+        _yawRateRadPerS[index] = 0f;
+        if ((_flags[index] & BodyFlags.Enabled) != 0)
+        {
+            Wake(index);
+            return;
+        }
+
+        _flags[index] |= BodyFlags.Enabled;
+        Join(index);
+    }
 
     /// <summary>A prop: a static shape with no core, which is the disc its canopy is.</summary>
     public BodyId AddStaticDisc(Vector2 centreM, float radiusM) => AddStatic(centreM, 0f, Vector2.Zero, radiusM);
@@ -408,6 +448,9 @@ internal sealed partial class PhysicsWorld
         _velocityMps[index] += byMps;
         _yawRateRadPerS[index] += byYawRadPerS;
     }
+
+    /// <summary>Whether a body is in the world, rather than inside a container (<see cref="Contain"/>).</summary>
+    public bool IsEnabled(BodyId body) => (_flags[body.Index] & BodyFlags.Enabled) != 0;
 
     /// <summary>Whether a body is frozen (SOL-37): at rest, with its pose and motion exactly what they were when it froze.</summary>
     public bool IsFrozen(BodyId body) => (_flags[body.Index] & BodyFlags.Frozen) != 0;

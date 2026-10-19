@@ -13,6 +13,9 @@ internal enum GroundPart : byte
     WalkKerb,
     Water,
     Decks,
+
+    /// <summary>The railway's ballast, sleepers and rails, under the roads that cross it (RAIL-3).</summary>
+    Rail,
     Carriageway,
     Slabs,
     Kerb,
@@ -59,7 +62,7 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Names =
     [
-        "Grass", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Carriageway", "Paved slabs",
+        "Grass", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Railway", "Carriageway", "Paved slabs",
         "Town kerb", "Paint", "Bridges over roads",
     ];
 
@@ -70,7 +73,7 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Words =
     [
-        "grass", "walk", "walk-kerb", "water", "decks", "carriageway", "slabs", "kerb", "paint",
+        "grass", "walk", "walk-kerb", "water", "decks", "rail", "carriageway", "slabs", "kerb", "paint",
         "overpasses",
     ];
 

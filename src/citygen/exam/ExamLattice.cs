@@ -191,6 +191,14 @@ internal sealed class ExamLattice
                 _ => (corners, edges),
             };
 
+            // A dead end the railway crosses is at the head of a spur south out of the lattice's bottom row, the strip
+            // the track runs along being under it.
+            if (of.Railway)
+            {
+                first = [.. first.Where(cell => cell / Columns == 0)];
+                then = [.. then!.Where(cell => cell / Columns == 0)];
+            }
+
             var cell = Free(cards, card, first);
             var list = first;
             if (cell < 0 && then is not null)
@@ -202,10 +210,14 @@ internal sealed class ExamLattice
             if (cell < 0)
             {
                 throw new InvalidOperationException(
-                    $"The exam has no cell left for \"{of.Name}\", a {of.Shape}, on a {Rows} by {Columns} lattice.");
+                    $"The exam has no cell left for \"{of.Name}\", a {of.Shape}, on a {Rows} by {Columns} lattice; free are "
+                    + $"corners [{string.Join(", ", corners)}], edges [{string.Join(", ", edges)}] and middles [{string.Join(", ", middle)}].");
             }
 
+            // The railway's card chose from copies of the two lists, so the cell is taken off whichever holds it.
             list.Remove(cell);
+            corners.Remove(cell);
+            edges.Remove(cell);
             _quarters[card] = Quarters(of, cell);
             _cell[card] = cell;
             _cardAt[cell] = card;
@@ -215,7 +227,8 @@ internal sealed class ExamLattice
                 Lit: of.Lit,
                 Roundabout: of.Shape == ExamShape.Roundabout,
                 In: Mask(card, of.OneWayIn),
-                Out: Mask(card, of.OneWayOut));
+                Out: Mask(card, of.OneWayOut),
+                OverTheRailway: of.Railway);
         }
 
         return cells;
@@ -241,7 +254,7 @@ internal sealed class ExamLattice
     /// </summary>
     static ExamArm? SpurOf(ExamCard card, int cell) => card.Shape switch
     {
-        ExamShape.DeadEnd => FreeBearing(cell),
+        ExamShape.DeadEnd => card.Railway ? ExamArm.South : FreeBearing(cell),
         ExamShape.Crossroads when Arms(cell) < 4 => FreeBearing(cell),
         ExamShape.Tee when Arms(cell) < 3 => FreeBearing(cell),
         _ => null,
@@ -254,6 +267,7 @@ internal sealed class ExamLattice
     static int Quarters(ExamCard card, int cell) => card.Shape switch
     {
         ExamShape.Tee when Arms(cell) < 3 => (int)SecondFreeBearing(cell),
+        ExamShape.DeadEnd when card.Railway => (int)ExamArm.South,
         ExamShape.Tee or ExamShape.DeadEnd => (int)FreeBearing(cell),
         _ => 0,
     };

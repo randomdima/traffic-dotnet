@@ -61,6 +61,16 @@ entries: `--check` prints the dependency read-out, `--shot` takes a picture with
 town for N seconds rather than five minutes. The map list the menu reads is the map list the command line
 reads; the probes are the command line's alone.
 
+**The art is looked at in the showroom**: `--map Showroom` is one big car park with every car look parked in it
+once — the fleet's and the service vehicles' — and every building look stood once in rows round it, on the menu's
+scenario page beside the exam, and `--fleet ID,ID,...` makes this run's fleet those variants instead of `Fleet.json`'s —
+so a look not shipped yet is seen parked and, taken by hand, driven and lit, its lamp sheet cut as it loads.
+`--fleet` works on any map.
+
+```
+dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet micro_mint,estate_navy --shot .tmp/showroom.png --caption --seconds 3
+```
+
 **The menu's `Debug` page is cut into sections, one a thing a session is opened to look at** (`OBS-2y`):
 `Cars`, `Walkers`, `Junctions`, `Physics`, `Road shape`, `Ground mesh` and `Tools`, and `--ui menu-cars`,
 `menu-junctions`, `menu-road`, `menu-ground` and the rest open one. Each switch says what it draws and what
@@ -206,10 +216,13 @@ merge, the boundary struck off it and the layers cut from those — and the town
 graphs. It is a cold open in a fresh process and never
 a benchmark loop: every stage here keeps its answer, so a second run of any of it measures the cache.
 
-`--lamps` cuts the town's lamp sheet out of the fleet's own sprites — every lens a variant draws, in
-each colour it can burn (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.webp`.
+`--lamps` cuts the town's lamp sheet out of the fleet's own pictures — every lens a variant draws, in
+each colour it can burn, the texels its zone map paints as the lens or, for a look with none, the lens's
+rectangle, driven emissive (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.webp`.
 It is a **workshop step and never a build one**: run it when a variant's art or its lens rectangles
-change, and commit the picture. The line it prints per lens is the instrument for the one thing the
+change, and commit the picture. `--proof FILE.gif` (or `qq proof`) is the look at what came of it: the
+fleet's looks — the told ones under `--fleet`, cut afresh — side by side through every lamp state and
+then wrecked, drawn from the very instances a town's frame is built from. The line it prints per lens is the instrument for the one thing the
 arithmetic cannot answer — a rectangle over bodywork nobody painted a lamp on cuts the paint around it
 and comes back undistinguished.
 
@@ -228,10 +241,16 @@ estate of towers, a suburb, a works, a park, a wood…) and the settings its bui
 frontage is built and how far back, how turned and how varied, what is built and at what size, how much of the ground
 behind, how thickly it grows. Everything else is laid off the map's own seed. `--ui zones` washes the town by its
 zones and tells the one under the pointer. **`Odesa`, `River`, `Test`, `O10` and `O30` are authored off briefs**
-(`towns/briefs/<Map>.json`: a seed, an extent, the water, the districts and the counts) by
-`dotnet run -- --author <Map>|all`, which draws their water and their wheel once and writes them into the map — a
-few kilobytes, whose streets the wheel lays when it is opened exactly as the brief always laid them. Authoring again
-replaces the map. `Test` is the fixture every detailed check is staged on.
+(`towns/briefs/<Map>.json`: a seed, an extent, the water, the railway, the districts and the counts) by
+`dotnet run -- --author <Map>|all`, which draws their water, their railway and their wheel once and writes them into the
+map — a few kilobytes, whose streets the wheel lays when it is opened exactly as the brief always laid them. Authoring
+again replaces the map. `Test` is the fixture every detailed check is staged on.
+
+**`Odesa` and `River` run trains** ([agents/train](src/agents/train/docs/requirements.md),
+[world/rail](src/world/rail/docs/requirements.md)): a double track across Odesa and a single one across River, and
+`OdesaOsm`'s main line laid off OSM by `qq osm --rails`. An intercity, an oil or a coal train comes now and then, runs
+the town edge to edge and never stops; every level crossing closes ahead of it — lights, barriers, and the road and the
+walk held — and `--bench trains [--map NAME] [--seconds N]` says what came, what was held and what was hit.
 
 **Two of them are Odesa's brief at scale**, for what a large town costs: `O10` and `O30` at ten and thirty
 times its area with the people, cars and districts at its density. They are desktop maps: a page's runtime
