@@ -1,7 +1,8 @@
 {
   "id": "barrier_arm",
+  "sprite": "barrier_arm.webp",
   "kind": "Barrier",
-  "describe": "a level-crossing barrier arm lying flat, seen from straight above: a long thin boom painted in bold alternating red and white bands, its pivot end at the left with a small dark hub, two small round red lamps on its top (unlit, dark red glass), its tip at the right",
+  "describe": "a sliding level-crossing barrier boom lying flat, seen from straight above: a long straight thin boom of square steel tube painted in bold alternating red and white bands of equal length, its left end cut square, its tip at the right with a small black rubber cap; even width end to end, nothing standing off it",
   "footprintM": [
     4.0,
     0.3

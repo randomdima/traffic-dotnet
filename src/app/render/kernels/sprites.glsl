@@ -5,7 +5,8 @@
 // trig.glsl's arctangent, and every quotient and root a verdict hangs on is rounded.glsl's.
 //
 // One count a part of a unit, laid in the order the instances are drawn: the walkers', then each part of the
-// cars a run apiece, then the heads', then the four car parts again for the level above. A count pass writes them, a
+// cars a run apiece, then the wagons', the heads' and the crossings', then the four car parts again for the level above
+// and the wagons again for those on a bridge (RAIL-8). A count pass writes them, a
 // scan makes them where each part's instances start, and a write pass lays every part there — so the order is the
 // host's whatever order the threads ran in. Every unit is asked, not only those a grid says are near: the cull is the
 // host's own, per part, and the rosters are walked in index order as TownWorld.CarsIn hands them over.
@@ -46,14 +47,22 @@ uint spritesWagonsFrom() { return figures.personCapacity + CarParts * figures.ca
 
 uint spritesHeadsFrom() { return spritesWagonsFrom() + figures.wagonCount; }
 
-// The crossings' gear (RAIL-7), three slots an approach — its barrier, its head, its lit lamp — after the heads.
-const uint GearParts = 3u;
+// The crossings' gear (RAIL-7), two slots an approach — its arm, its housing — after the heads, then a slot an X light.
+const uint GearParts = 2u;
 
 uint spritesGearFrom() { return spritesHeadsFrom() + figures.headCount; }
 
-uint spritesAboveFrom() { return spritesGearFrom() + GearParts * figures.gearCount; }
+uint spritesLightsFrom() { return spritesGearFrom() + GearParts * figures.gearCount; }
 
-uint spritesSlotCount() { return spritesAboveFrom() + (figures.levelled != 0u ? CarParts * figures.carCapacity : 0u); }
+uint spritesAboveFrom() { return spritesLightsFrom() + figures.lightCount; }
+
+// The wagons on a bridge (RAIL-8), a slot each after the cars above, as TownSprites.FillMoving draws them.
+uint spritesWagonsAboveFrom() { return spritesAboveFrom() + (figures.levelled != 0u ? CarParts * figures.carCapacity : 0u); }
+
+uint spritesSlotCount() { return spritesWagonsAboveFrom() + (figures.bridged != 0u ? figures.wagonCount : 0u); }
+
+// Whether the run above is laid at all: cars on a level above, or wagons on a bridge.
+bool spritesAnythingAbove() { return figures.levelled != 0u || figures.bridged != 0u; }
 
 uint spritesCarSlot(uint run, uint part, uint car)
 {
@@ -186,6 +195,9 @@ bool spritesWagonShown(uint wagon)
     return !spritesOutside(row.positionM, vec2(trainLooks[row.flags & 0xffffu].x));
 }
 
+// WagonView.OnABridge: the run a wagon is drawn in is the bridge's where any of it is over one.
+bool spritesWagonOnABridge(uint wagon) { return (spritesWagonRow(wagon).flags >> WagonChannelsShift) == figures.bridgeChannel; }
+
 // And its picture, in the look its train put on it.
 SpriteOut spritesWagon(uint wagon)
 {
@@ -194,37 +206,45 @@ SpriteOut spritesWagon(uint wagon)
     return spritesPlain(row.positionM, trainLooks[look], figures.firstTrainSheet + look, row.headingRad);
 }
 
-// CrossingSprites.Fill's cull for one approach's gear, and what of it is drawn: its barrier where enough of it shows, its
-// head, and its lit lamp — one each, or none.
-uvec3 spritesGearShown(uint gear)
+// CrossingSprites.Fill's cull for one approach's gear, and what of it is drawn: its arm where enough of it shows, and its
+// drive — one each, or none.
+uvec2 spritesGearShown(uint gear)
 {
     GearRow row = gearRows[gear];
-    precise float reachM = row.armM + figures.gearPastKerbM;
-    if (spritesOutside(row.pivotM, vec2(reachM))) return uvec3(0u);
+    if (spritesOutside(row.pivotM, vec2(row.reachM))) return uvec2(0u);
 
     GearShownRow shown = gearShown[gear];
-    return uvec3(shown.shownM > figures.barrierWidthM ? 1u : 0u, 1u, shown.lit >= 0 ? 1u : 0u);
+    return uvec2(length(shown.armToM - shown.armFromM) > figures.barrierWidthM ? 1u : 0u, 1u);
 }
 
 SpriteOut spritesBarrier(uint gear)
 {
-    GearRow row = gearRows[gear];
-    float shownM = gearShown[gear].shownM;
-    precise vec2 centreM = row.pivotM + row.downAlong * (shownM * 0.5);
-    return spritesPlain(centreM, vec2(shownM, figures.barrierWidthM) * 0.5, figures.barrierSheet, row.armHeadingRad);
+    GearShownRow shown = gearShown[gear];
+    precise vec2 armM = shown.armToM - shown.armFromM;
+    precise vec2 centreM = (shown.armFromM + shown.armToM) * 0.5;
+    return spritesPlain(centreM, vec2(length(armM), figures.barrierWidthM) * 0.5, figures.barrierSheet, atan(armM.y, armM.x));
 }
 
-SpriteOut spritesCrossingHead(uint gear)
+SpriteOut spritesBarrierDrive(uint gear)
 {
     GearRow row = gearRows[gear];
-    return spritesPlain(row.headM, vec2(figures.headHalfM), figures.crossingHeadSheet, row.headHeadingRad);
+    precise vec2 centreM = gearShown[gear].armFromM - row.downAlong * figures.driveHalfLengthM;
+    return spritesPlain(
+        centreM, vec2(figures.driveHalfLengthM, figures.driveHalfWidthM), figures.barrierDriveSheet, row.armHeadingRad);
 }
 
-SpriteOut spritesCrossingLamp(uint gear)
+// CrossingSprites.Fill's cull for one X light.
+bool spritesLightShown(uint light)
 {
-    GearRow row = gearRows[gear];
-    precise vec2 lampM = gearShown[gear].lit == 0 ? row.headM - row.lampAcrossM : row.headM + row.lampAcrossM;
-    return spritesQuad(lampM, vec2(figures.lampGlowHalfM), SpriteWhole, figures.glowTint, figures.glowSheet, row.headHeadingRad);
+    return !spritesOutside(lightRows[light].centreM, vec2(length(vec2(figures.lightHalfLengthM, figures.lightHalfWidthM))));
+}
+
+// And the picture its gear's lights show, dark or lit.
+SpriteOut spritesCrossingLight(uint light)
+{
+    LightRow row = lightRows[light];
+    uint sheet = gearShown[row.gear].lit != 0u ? figures.crossingLitSheet : figures.crossingLightSheet;
+    return spritesPlain(row.centreM, vec2(figures.lightHalfLengthM, figures.lightHalfWidthM), sheet, row.headingRad);
 }
 
 // CarSprites.FillFrontTyres' cull for one car: two tyres, or none.
@@ -276,7 +296,7 @@ bool spritesBeamShown(uint car)
     CarLook look = carLooks[row.variant % figures.carSheets];
     if ((row.flags & CarBroken) != 0u || look.hasBeam == 0u) return false;
 
-    return !spritesOutside(row.positionM, vec2(row.towing >= 0 ? look.extendedReachM : look.collapsedReachM));
+    return !spritesOutside(row.positionM, vec2(row.towing != -1 ? look.extendedReachM : look.collapsedReachM));
 }
 
 // And the arm, hinged on its deck and pointing at the fork (TowBar.ForkM), or stowed.
@@ -284,15 +304,15 @@ SpriteOut spritesBeam(uint car)
 {
     CarRow row = cars[car];
     CarLook look = carLooks[row.variant % figures.carSheets];
-    bool towing = row.towing >= 0;
+    bool towing = row.towing != -1;
     vec2 hingeM = spritesOnBody(row.positionM, row.forward, look.pivotM);
     precise vec2 alongTheArm = vec2(0.0);
     if (towing)
     {
-        CarRow towed = cars[row.towing];
-        float endSign = (towed.flags & CarHeldByTheTail) != 0u ? -1.0 : 1.0;
-        precise vec2 gripM = (towed.forward * endSign) * carLooks[towed.variant % figures.carSheets].towGripM;
-        precise vec2 forkM = towed.positionM + gripM;
+        // A car by its index, a rail vehicle as −2 less its index (DeviceWorld.TowingCode), each as the frame's view has it.
+        vec2 loadM = row.towing >= 0 ? cars[row.towing].positionM : spritesWagonRow(uint(-2 - row.towing)).positionM;
+        vec2 loadForward = row.towing >= 0 ? cars[row.towing].forward : trigUnit(spritesWagonRow(uint(-2 - row.towing)).headingRad);
+        precise vec2 forkM = loadM + (loadForward * row.forkAlongM);
         alongTheArm = forkM - hingeM;
     }
 

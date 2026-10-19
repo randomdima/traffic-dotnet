@@ -16,15 +16,27 @@ public class GroundBandsTests
     /// street carried over another (<see cref="TracedPlanTests.OverAStreet"/>).
     /// </summary>
     [Fact]
-    public void TheLevelAboveIsFiledInTheOrderItIsLaid()
+    public void TheLevelAboveIsFiledInTheOrderItIsLaid() =>
+        AssertFiledAsLaid(GroundMesh.Build(TracedPlanTests.OverAStreet(), SimConfig.Shipped()), GroundPart.Above);
+
+    /// <summary>
+    /// <b>The water is drawn in the order it is laid</b> (TER-7b): its shore, the shore's two edges, then the water — so
+    /// filed out of the mesh's order the shore's triangles are drawn over the sea. Asked of a sloping coast
+    /// (<see cref="TracedPlanTests.OnTheCoast"/>), whose triangles reach across as many bands again on one side as on
+    /// the other.
+    /// </summary>
+    [Fact]
+    public void TheWaterIsFiledInTheOrderItIsLaid() =>
+        AssertFiledAsLaid(GroundMesh.Build(TracedPlanTests.OnTheCoast(), SimConfig.Shipped()), GroundPart.Water);
+
+    static void AssertFiledAsLaid(GroundMesh mesh, GroundPart part)
     {
-        var mesh = GroundMesh.Build(TracedPlanTests.OverAStreet(), SimConfig.Shipped());
         GroundBands.Lay(mesh, out var filed);
 
-        var above = mesh.Parts[(int)GroundPart.Above];
-        Assert.True(above.IndexCount > 0, "the town staged has nothing above its ground");
+        var laid = mesh.Parts[(int)part];
+        Assert.True(laid.IndexCount > 0, $"the town staged has no {part}");
         Assert.Equal(
-            mesh.Indices.Slice(above.FirstIndex, above.IndexCount).ToArray(),
-            filed.AsSpan(above.FirstIndex, above.IndexCount).ToArray());
+            mesh.Indices.Slice(laid.FirstIndex, laid.IndexCount).ToArray(),
+            filed.AsSpan(laid.FirstIndex, laid.IndexCount).ToArray());
     }
 }

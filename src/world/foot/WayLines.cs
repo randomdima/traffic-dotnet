@@ -22,11 +22,9 @@ namespace TrafficSimulation.World.Foot;
 /// </para>
 /// </remarks>
 internal sealed class WayLines(
-    RoadGraph roads, WalkingNetwork walking, TownWays ways, CrossingEdges crossings, SimConfig config, RailWayLines? rails = null)
+    RoadGraph roads, WalkingNetwork walking, TownWays ways, CrossingEdges crossings, SimConfig config, RailWayLines rails)
     : IRibbonLines
 {
-    readonly RailWayLines _rails = rails ?? RailWayLines.None;
-
     public int WayCount => ways.Count;
 
     public ReadOnlySpan<ArcSeg> LineOf(int way, out float widthM)
@@ -34,8 +32,8 @@ internal sealed class WayLines(
         switch (ways.KindOf(way))
         {
             case WayKind.Rail:
-                widthM = _rails.WidthM;
-                return _rails.Arcs[ways.RailLaneOf(way)];
+                widthM = rails.WidthM;
+                return rails.Arcs[ways.RailLaneOf(way)];
 
             case WayKind.Lane:
                 var lane = ways.RoadLaneOf(way);
@@ -85,7 +83,7 @@ internal sealed class WayLines(
     {
         WayKind.Lane => CityPlan.RoadArrays.ChannelOf(roads.LaneLevel[ways.RoadLaneOf(way)]),
         WayKind.Connector => roads.ConnectorChannels(ways.RoadConnectorOf(way)),
-        WayKind.Rail => _rails.Channels[ways.RailLaneOf(way)],
+        WayKind.Rail => rails.Channels[ways.RailLaneOf(way)],
         _ => CityPlan.RoadArrays.GroundChannel,
     };
 }

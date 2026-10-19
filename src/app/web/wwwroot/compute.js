@@ -94,7 +94,8 @@ function kernelBuffer(id, byteLength, host) {
     const size = Math.max(16, Math.ceil(byteLength / 4) * 4);
     const buffer = kernels.device.createBuffer({
         size,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.INDIRECT,
+        // VERTEX too: the engine layers' quads are written by a kernel and drawn where they are written (town.js `engine`).
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.INDIRECT | GPUBufferUsage.VERTEX,
         label: `kernel buffer ${id}`,
     });
     // An address crosses as a 32-bit int, and past two gigabytes of heap that is a negative one.
@@ -345,6 +346,11 @@ function fill(encoder, buffer, offset, bytes, word) {
     const groups = Math.ceil(count / 64);
     pass.dispatchWorkgroups(Math.min(groups, 65536), Math.ceil(groups / 65536));
     pass.end();
+}
+
+/// A kernel buffer as the device holds it, for a draw that reads what a kernel wrote (town.js `engine`).
+export function kernelBufferOf(id) {
+    return kernels.buffers.get(id)?.buffer ?? null;
 }
 
 export const compute = { kernelsFit, heapBytes, kernelBuffer, kernelBufferGone, kernelWrite, kernelPipeline, kernelBind, kernelSubmit };

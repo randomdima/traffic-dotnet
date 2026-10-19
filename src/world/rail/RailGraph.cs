@@ -68,7 +68,7 @@ internal sealed class RailGraph
     /// <summary>Each switch's node; its branches are the node's ends after the first, position by position.</summary>
     public int[] NodeOfSwitch { get; }
 
-    /// <summary>Whether a node is a loose end off the map: where a train comes on and goes off (TRN-1).</summary>
+    /// <summary>Whether a node is a loose end off the map: where a train comes on and goes off (TRN-7).</summary>
     public bool[] IsPortal { get; }
 
     /// <summary>Each lane's segment, and whether it runs the segment from its start to its end.</summary>
@@ -250,6 +250,28 @@ internal sealed class RailGraph
         }
 
         return written;
+    }
+
+    /// <summary>
+    /// <b>The position a switch stands at for a train to run from one lane onto the next</b> (TRN-9), or −1 where they meet
+    /// at no switch: the branch it leaves by where it faces the switch from its common end, and the branch it comes in by
+    /// where it trails through it — the position that train, backing, runs back onto the lane it came off.
+    /// </summary>
+    public int PositionThrough(int fromLane, int ontoLane, out bool facing)
+    {
+        var arrives = ArrivesBy(fromLane);
+        var node = NodeOfEnd[arrives];
+        var first = EndOffsets[node];
+        facing = Ends[first] == arrives;
+        if (SwitchOfNode[node] < 0) return -1;
+
+        var branchEnd = facing ? LeavesBy(ontoLane) : arrives;
+        for (var branch = 0; first + 1 + branch < EndOffsets[node + 1]; branch++)
+        {
+            if (Ends[first + 1 + branch] == branchEnd) return branch;
+        }
+
+        return -1;
     }
 
     // The route search's own working rows, laid once so a train sent allocates nothing.

@@ -26,13 +26,6 @@ internal static class PathMarks
     public const float MarkWidthFactor = 1.25f;
 
     /// <summary>
-    /// <b>How near a mark another mark saying the same thing may stand</b> (<see cref="MarkClaims"/>).
-    /// Nearer than this the two are a blot rather than two answers: a chevron is a third of a metre long
-    /// and half of one across, and what a reader has to be able to see is the gap between them.
-    /// </summary>
-    public const float MarkApartM = 1f;
-
-    /// <summary>
     /// Under this a mark on screen is a smudge and not a direction, so none is drawn. It is what keeps
     /// the town layer inside its own quad budget at a district framing, where a metric pitch otherwise puts
     /// three marks on the ground for every one that can be read.

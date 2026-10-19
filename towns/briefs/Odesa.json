@@ -14,6 +14,7 @@
   "railBearingDeg": 22,
   "railOffsetShare": -0.22,
   "railMeander": 0.1,
+  "railLoopDeg": 270,
 
   "districts": 8,
   "gridDistrictShare": 0.66,

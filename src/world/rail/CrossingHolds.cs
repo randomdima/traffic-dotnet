@@ -13,9 +13,8 @@ namespace TrafficSimulation.World.Rail;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Held as a light holds</b> (<c>SignalHolds</c>, TLT-1), from where its holder stands to wait — a lane's stop line, a
-/// setback short of the ballast — to the far edge of the ballast, and a walk's from a setback either side, a walk being
-/// walked both ways. A car or a walker meeting it reads it as a light's hold and waits with no clock running
+/// <b>Held as a light holds</b> (<c>SignalHolds</c>, TLT-1), over each way's stretch (<see cref="CrossingStretches"/>):
+/// from where its holder stands to wait — a lane's stop bar — to the far edge of the ballast, a walk's a setback past it. A car or a walker meeting it reads it as a light's hold and waits with no clock running
 /// (<see cref="Refusal.ByALight"/>): a crossing's lights are lights.
 /// </para>
 /// <para>
@@ -43,18 +42,27 @@ internal sealed class CrossingHolds
     /// <summary>How far along its track each meeting's way reaches either way of where the two lines cross.</summary>
     readonly float[] _reachM;
 
+    /// <summary>Whether each stretch is driven, which a crossing's arm closes, rather than walked.</summary>
+    readonly bool[] _driven;
+
     readonly int[] _holds;
     readonly float[] _heldToM;
+
+    /// <summary>When each stretch was last found closed, in town seconds.</summary>
+    readonly float[] _closedAtS;
+
     readonly RailFigures _rail;
 
-    public static CrossingHolds None(SimConfig config) => new([], [], [], [0], [], [], [], config.Rail);
+    public static CrossingHolds None(SimConfig config) => new([], [], [], [], [0], [], [], [], config.Rail);
 
     CrossingHolds(
-        int[] way, float[] fromM, float[] toM, int[] meetingOffsets, int[] track, float[] atM, float[] reachM, RailFigures rail)
+        int[] way, bool[] driven, float[] fromM, float[] toM, int[] meetingOffsets, int[] track, float[] atM, float[] reachM, RailFigures rail)
     {
-        (_way, _fromM, _toM, _meetingOffsets, _track, _atM, _reachM, _rail) = (way, fromM, toM, meetingOffsets, track, atM, reachM, rail);
+        (_way, _driven, _fromM, _toM, _meetingOffsets, _track, _atM, _reachM, _rail) = (way, driven, fromM, toM, meetingOffsets, track, atM, reachM, rail);
         _holds = LaneOccupancy.NoHolds(way.Length);
         _heldToM = new float[way.Length];
+        _closedAtS = new float[way.Length];
+        Array.Fill(_closedAtS, float.NegativeInfinity);
     }
 
     /// <summary>How many stretches the crossings can hold at once — every one, which the reservations are sized with room for.</summary>
@@ -83,10 +91,13 @@ internal sealed class CrossingHolds
 
         var rail = config.Rail;
         var chords = new TrackChords(rails, config.Grid.Main.CellM);
-        var (way, fromM, toM, offsets) = (new List<int>(), new List<float>(), new List<float>(), new List<int> { 0 });
+        var crossings = LevelCrossings.Of(plan, config);
+        var lights = new List<CrossingLight>();
+        var (way, driven, fromM, toM, offsets) = (new List<int>(), new List<bool>(), new List<float>(), new List<float>(), new List<int> { 0 });
         var (track, atM, reachM) = (new List<int>(), new List<float>(), new List<float>());
         var found = new List<(float AlongPieceM, int Track, float AlongTrackM, float Sin)>();
-        var meetings = new List<(float AlongWayM, int Track, float AlongTrackM, float Sin)>();
+        var meetings = new List<CrossingMeeting>();
+        var stretches = new List<CrossingStretch>();
         for (var each = 0; each < lines.WayCount; each++)
         {
             if (ways.KindOf(each) == WayKind.Rail) continue;
@@ -99,52 +110,36 @@ internal sealed class CrossingHolds
             };
             if (level != CityPlan.RoadArrays.Ground) continue;
 
-            meetings.Clear();
-            var pieceStartM = 0f;
-            var wayLine = lines.LineOf(each, out var wayWidthM);
-            foreach (var piece in wayLine)
-            {
-                chords.Crossings(piece, found);
-                foreach (var (alongPieceM, onTrack, alongTrackM, sin) in found) meetings.Add((pieceStartM + alongPieceM, onTrack, alongTrackM, sin));
-
-                pieceStartM += piece.LengthM;
-            }
-
-            if (meetings.Count == 0) continue;
-
-            meetings.Sort((one, other) => one.AlongWayM.CompareTo(other.AlongWayM));
             var walked = ways.KindOf(each) is WayKind.Footway or WayKind.Mitre;
-            var halfWidthM = wayWidthM * 0.5f;
-            for (var first = 0; first < meetings.Count;)
+            var wayLine = lines.LineOf(each, out var wayWidthM);
+            var kind = walked ? CrossingLineKind.Walked : CrossingLineKind.Driven;
+            CrossingStretches.Along(wayLine, ways.LengthM(each), kind, chords, crossings, rails, rail, found, meetings, stretches);
+            foreach (var stretch in stretches)
             {
-                var line = rails.Line[meetings[first].Track];
-                var last = first;
-                while (last + 1 < meetings.Count && rails.Line[meetings[last + 1].Track] == line
-                       && meetings[last + 1].AlongWayM - meetings[last].AlongWayM
-                       <= LevelCrossings.OneCrossingSpacings * rail.TrackSpacingM / meetings[last + 1].Sin)
-                {
-                    last++;
-                }
-
-                var nearM = meetings[first].AlongWayM - (rail.BallastWidthM * 0.5f / meetings[first].Sin) - rail.StopLineSetbackM;
-                var farM = meetings[last].AlongWayM + (rail.BallastWidthM * 0.5f / meetings[last].Sin) + (walked ? rail.StopLineSetbackM : 0f);
+                if (stretch.Approach >= 0) lights.Add(CrossingLight.Over(wayLine, stretch, config));
                 way.Add(each);
-                fromM.Add(MathF.Max(0f, nearM));
-                toM.Add(MathF.Min(ways.LengthM(each), farM));
-                for (var meeting = first; meeting <= last; meeting++)
+                driven.Add(!walked);
+                fromM.Add(stretch.FromM);
+                toM.Add(stretch.ToM);
+                for (var meeting = stretch.FirstMeeting; meeting <= stretch.LastMeeting; meeting++)
                 {
                     track.Add(meetings[meeting].Track);
                     atM.Add(meetings[meeting].AlongTrackM);
-                    reachM.Add(halfWidthM / meetings[meeting].Sin);
+                    reachM.Add(wayWidthM * 0.5f / meetings[meeting].Sin);
                 }
 
                 offsets.Add(track.Count);
-                first = last + 1;
             }
         }
 
-        return new CrossingHolds([.. way], [.. fromM], [.. toM], [.. offsets], [.. track], [.. atM], [.. reachM], rail);
+        return new CrossingHolds([.. way], [.. driven], [.. fromM], [.. toM], [.. offsets], [.. track], [.. atM], [.. reachM], rail)
+        {
+            Lights = [.. lights],
+        };
     }
+
+    /// <summary>The X light over every driven stretch that meets a barrier coming in, which the crossing's gear shows (RAIL-7).</summary>
+    public CrossingLight[] Lights { get; private init; } = [];
 
     /// <summary>
     /// <b>Whether a stretch is closed</b> by any of the trains running (RAIL-1) — now, or at any time over the next
@@ -164,17 +159,19 @@ internal sealed class CrossingHolds
     }
 
     /// <summary>
-    /// <b>Every stretch whose turn it is, held while a train closes it now or at any time before its next turn</b>, and let
-    /// go otherwise. <b>A hold that would be placed as it stands is kept</b>, so nothing waiting at it is woken by a
-    /// crossing that did not change (as <c>SignalHolds.Lay</c>).
+    /// <b>Every stretch whose turn it is, held while a train closes it now or at any time before its next turn</b> — a
+    /// driven one for as long again as its arm takes to be raised once it opens (RAIL-10) — and let go otherwise. <b>A
+    /// hold that would be placed as it stands is kept</b>, so nothing waiting at it is woken by a crossing that did not
+    /// change (as <c>SignalHolds.Lay</c>).
     /// </summary>
     /// <remarks><b>Laid after the bodies and before any plan</b> of a turn, and every plan asked with it is answered against it.</remarks>
-    public void Lay(LaneOccupancy occupancy, ReadOnlySpan<TrackRun> runs, TickGroups turns, long tick)
+    public void Lay(LaneOccupancy occupancy, ReadOnlySpan<TrackRun> runs, TickGroups turns, long tick, float nowS)
     {
         foreach (var stretch in turns.InTurn(tick, _way.Length))
         {
             var hold = _holds[stretch];
-            if (!Closed(stretch, runs, turns.IntervalS))
+            if (Closed(stretch, runs, turns.IntervalS)) _closedAtS[stretch] = nowS;
+            else if (!_driven[stretch] || nowS - _closedAtS[stretch] >= _rail.BarrierS)
             {
                 occupancy.Release(hold);
                 _holds[stretch] = LaneOccupancy.NoHold;

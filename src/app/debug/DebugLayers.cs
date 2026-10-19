@@ -1,5 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.App.Debug;
 
@@ -23,6 +25,7 @@ internal enum DebugLayer : byte
     Wireframe,
     Ruler,
     Zones,
+    AgentLines,
 }
 
 /// <summary>One colour a layer draws in and the word for what it means, as the menu's key beside that layer's row.</summary>
@@ -67,25 +70,24 @@ internal static class DebugLayers
     /// <summary>Indexed by <see cref="DebugLayer"/>, and the suite holds the two in step.</summary>
     public static readonly LayerEntry[] All =
     [
-        new(DebugLayer.CarLines, "Car lines", "car-lines",
-            "The road each car is on and the piece after it, its pass and circles, and where it must stop",
-            [new("route", Theme.AgentLine(0)), new("ahead / stop", Theme.HeldLine)]),
+        new(DebugLayer.CarLines, "Car manoeuvres", "car-lines",
+            "What a car's driver does past its route: its pass and circles, where its grant ends, where a light holds it",
+            [new("pass", Theme.AgentLine(0)), new("ahead / stop", Theme.HeldLine)]),
         new(DebugLayer.TurnCircles, "Turn circles", "turn-circles",
             "The circle each car's front wheels say it is turning, worked from its axles",
             [new("centre and arc", Theme.TurnCircle)]),
-        new(DebugLayer.WalkerLines, "Walker lines", "walker-lines",
-            "The way each walker is on and the one after it, to where it hands over, and any pass",
-            [new("route", Theme.AgentLine(2))]),
-        new(DebugLayer.Nodes, "Nodes and links", "nodes",
-            "Every lane, movement and pavement the router plans over",
-            [new("lane", Theme.DrivingNodes), new("reverse", Theme.DrivingReverse), new("walk", Theme.WalkingNodes),
-             new("kerb end", Theme.KerbEnd)]),
+        new(DebugLayer.WalkerLines, "Walker passes", "walker-lines",
+            "The line a walker steps out along to pass something, and back",
+            [new("pass", Theme.AgentLine(2))]),
+        new(DebugLayer.Nodes, "Ways", "nodes",
+            "Every way of the town, whatever it is, down its own line the way it runs; and where each kerb ends",
+            [.. KindKeys<WayKind>(EngineLayers.WayKindColourFrom), new("kerb end", Theme.KerbEnd)]),
         new(DebugLayer.Claims, "Lane claims", "claims",
             "Ground held this tick: colour is whose, shade is how strong, outline is only crossed",
             [new("held", Theme.AgentLine(3)), new("furniture", Theme.LaneObstruction)]),
         new(DebugLayer.Collision, "Collision shapes", "collision",
-            "The shape the solver holds for every body, not the one it is drawn at",
-            [new("shape", Theme.Collision)]),
+            "Every body the solver holds, whatever it is, at the shape it holds; and every link between two",
+            [.. KindKeys<CollisionLayer>(0), new("link", Theme.HeldLine)]),
         new(DebugLayer.SolverGrid, "Solver grid", "solver-grid",
             "The broad phase's cells, shaded by how many bodies each holds",
             [new("static", Theme.SolverStaticEdge), new("moving", Theme.SolverMovingEdge)]),
@@ -110,7 +112,31 @@ internal static class DebugLayers
         new(DebugLayer.Zones, "Zones", "zones",
             "What the map is zoned for: each zone washed by its kind and outlined, and what it is laid by under the pointer",
             [new("built", Theme.ZoneWash(Theme.ZoneBuilt)), new("open", Theme.ZoneWash(Theme.ZoneOpen)), new("green", Theme.ZoneWash(Theme.ZoneGreen))]),
+        new(DebugLayer.AgentLines, "Agent lines", "agent-lines",
+            "Where every agent means to go next, whatever it is: the way it is on and the one after, as its driver says",
+            [new("route", Theme.AgentLine(0)), new("another", Theme.AgentLine(3))]),
     ];
+
+    /// <summary>
+    /// A key a member of something the engine numbers its things by — every member, so one added is keyed with no line
+    /// written for it, in the colour the engine layers draw it in (<see cref="Theme.KindColour"/>). A flags enum is keyed
+    /// by bit.
+    /// </summary>
+    static LegendKey[] KindKeys<T>(int colourFrom) where T : struct, Enum
+    {
+        var keys = new List<LegendKey>();
+        var flags = typeof(T).IsDefined(typeof(FlagsAttribute), false);
+        foreach (var member in Enum.GetValues<T>())
+        {
+            var number = Convert.ToUInt64(member, System.Globalization.CultureInfo.InvariantCulture);
+            if (flags && number == 0) continue;
+
+            var index = flags ? System.Numerics.BitOperations.TrailingZeroCount(number) : (int)number;
+            keys.Add(new LegendKey(member.ToString().ToLowerInvariant(), Theme.KindColour(colourFrom + index)));
+        }
+
+        return [.. keys];
+    }
 
     /// <summary>
     /// The sections, in the order the menu lists them. <b>Every switch is in exactly one</b>, which the suite
@@ -119,6 +145,7 @@ internal static class DebugLayers
     /// </summary>
     public static readonly DebugSection[] Sections =
     [
+        new("Agents", "agents", [DebugLayer.AgentLines], SectionFigures.None),
         new("Cars", "cars", [DebugLayer.CarLines, DebugLayer.TurnCircles], SectionFigures.Trims),
         new("Walkers", "walkers", [DebugLayer.WalkerLines], SectionFigures.None),
         new("Junctions", "junctions", [DebugLayer.Nodes, DebugLayer.Claims], SectionFigures.None),

@@ -10,120 +10,9 @@ using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Debug;
 
-/// <summary>What is drawn over the town rather than over an agent — the collision shapes and the networks, relaid only when the view has moved.</summary>
+/// <summary>What is drawn over the town rather than over an agent — how it was laid, relaid only when the view has moved.</summary>
 internal sealed partial class DebugOverlay
 {
-    /// <summary>
-    /// The shapes the solver actually holds — a circle for a person and a prop, a rounded box for a car
-    /// (CAR-12b), and for a building the rectangles its roof is built of (OBJ-5a) — centred on their
-    /// bodies and at the size they were given. The statics are read off the plan rather than the solver:
-    /// the same numbers, one step earlier.
-    /// </summary>
-    void CollisionShapes(
-        ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
-    {
-        var lineM = MathF.Max(CollisionLineM, CollisionLineFloorPx / pixelsPerMetre);
-        Standing(ref draw, world, viewCentreM, viewSpanM, lineM);
-
-        var people = world.People;
-        for (var person = 0; person < people.Count; person++)
-        {
-            var centreM = people.PositionM[person];
-            if (!OnScreen(centreM, viewCentreM, viewSpanM, people.RadiusM[person])) continue;
-
-            draw.RingM(centreM, people.RadiusM[person], lineM, Theme.Collision, segments: 12);
-        }
-
-        var cars = world.Cars;
-        for (var car = 0; car < cars.Count; car++)
-        {
-            var centreM = cars.PositionM[car];
-            ref readonly var build = ref cars.BuildOf(car);
-            if (!OnScreen(centreM, viewCentreM, viewSpanM, build.HalfLengthM)) continue;
-
-            // The shape the solver is given, which is this car's own (CAR-11) — its authored rounded box
-            // (CAR-12b), the outline its picture's bodywork was drawn to.
-            draw.RoundedBoxM(
-                centreM, build.CollisionSizeM, cars.HeadingRad[car], build.CornerRadiusM, lineM, Theme.Collision);
-        }
-    }
-
-    /// <summary>
-    /// The props' and the buildings' shapes as last laid whole, and the framing they were laid at. <b>They stand
-    /// still</b>, and a building's roof is a search of the catalogue, so a frame at the same framing copies them out —
-    /// a prefix of the same quads wherever the buffer runs out, since every one is written or dropped in order.
-    /// </summary>
-    OverlayQuad[] _standingQuads = [];
-
-    int _standingQuadCount;
-    BuildingUses? _standingOf;
-    Vector2 _standingCentreM;
-    Vector2 _standingSpanM;
-    float _standingLineM;
-
-    void Standing(ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float lineM)
-    {
-        if (ReferenceEquals(world.Uses, _standingOf) && viewCentreM == _standingCentreM && viewSpanM == _standingSpanM
-            && lineM == _standingLineM)
-        {
-            draw.Take(_standingQuads.AsSpan(0, _standingQuadCount));
-            return;
-        }
-
-        var from = draw.Written;
-        LayStanding(ref draw, world, viewCentreM, viewSpanM, lineM);
-
-        // A lay the buffer cut short is not the whole of what a roomier frame would draw, so it is not kept.
-        _standingOf = null;
-        if (draw.Full) return;
-
-        var laid = draw.WrittenSince(from);
-        if (_standingQuads.Length < laid.Length) _standingQuads = new OverlayQuad[laid.Length];
-        laid.CopyTo(_standingQuads);
-        (_standingQuadCount, _standingOf) = (laid.Length, world.Uses);
-        (_standingCentreM, _standingSpanM, _standingLineM) = (viewCentreM, viewSpanM, lineM);
-    }
-
-    static void LayStanding(ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float lineM)
-    {
-        var plan = world.Plan;
-        for (var prop = 0; prop < plan.Props.Count; prop++)
-        {
-            var centreM = plan.Props.CentreM[prop];
-            var radiusM = plan.Props.RadiusM[prop];
-            if (!OnScreen(centreM, viewCentreM, viewSpanM, radiusM)) continue;
-
-            draw.RingM(centreM, radiusM, lineM, Theme.Collision, segments: 8);
-        }
-
-        for (var building = 0; building < plan.Buildings.Count; building++)
-        {
-            var centreM = plan.Buildings.CentreM[building];
-            if (!OnScreen(centreM, viewCentreM, viewSpanM, plan.Buildings.SizeM[building].Length() * 0.5f)) continue;
-
-            var roof = BuildingRoofs.Of(plan, BuildingCatalog.Shared, world.Uses, building);
-            ref readonly var variant = ref BuildingCatalog.Shared.Variants[roof.Variant];
-            if (variant.PartsM.Length == 0)
-            {
-                var fittedM = roof.FootprintM / variant.FootprintM;
-                draw.RoundedBoxM(
-                    centreM, roof.FootprintM, roof.HeadingRad, variant.CornerRadiusM * MathF.Min(fittedM.X, fittedM.Y), lineM,
-                    Theme.Collision);
-                continue;
-            }
-
-            var scale = roof.FootprintM / variant.FootprintM;
-            Heading.Frame(roof.HeadingRad, out var forward, out var right);
-            foreach (var part in variant.PartsM)
-            {
-                var atM = part.AtM * scale;
-                draw.BoxM(
-                    centreM + (forward * atM.X) + (right * atM.Y), part.SizeM * scale, roof.HeadingRad,
-                    lineM, Theme.Collision);
-            }
-        }
-    }
-
     /// <summary>
     /// The geometry the town holds still, laid into the cache: the lanes and their connectors under the
     /// nodes switch, the tarmac's own outline under the perimeter, and the ground's own triangles under the
@@ -167,7 +56,7 @@ internal sealed partial class DebugOverlay
         // added, so it belongs in the cache beside the geometry it is an index of. Its moving half cannot.
         if (switches.SolverGrid) SolverStatics(ref into, world, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
 
-        if (switches.Nodes) Nodes(ref into, ref above, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+        if (switches.Nodes) Nodes(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
 
         // Over the graphs where both are on, which is the reading it exists for: what the layer says is
         // which of the lines under it the town's outline actually runs along.
@@ -195,68 +84,16 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// The nodes switch: both networks as what they are — every lane, and every connector between two of
-    /// them, which is the whole of what the router plans over.
+    /// The nodes switch's readings of how the town was laid, cached with the rest of its still geometry: what the pavement
+    /// could not close, where each kerb ends, and the points a crossing hands over at. <b>Every way itself</b> — each lane,
+    /// junction join, pavement, mitre and track, whatever kind — <b>is the engine layers'</b> (<see cref="EngineLayers"/>),
+    /// drawn off the one numbering every way is in.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>There is no disc for a junction, because the town holds none.</b> A picture with a dot in the
-    /// middle of every box says the router plans between intersections when it plans between ways
-    /// (<see cref="World.Routing.TravelGraph"/>). What is left is the lanes and the connectors, which is
-    /// what a body actually chooses between.
-    /// </para>
-    /// <para>
-    /// A movement is drawn as the ground it is travelled over, not as the straight line between its ends:
-    /// what is driven is the connector's own biarc, the one the assembler lays, and the straight would run
-    /// through the box. Without them the layer says a car crosses a junction by teleporting between two
-    /// lane ends.
-    /// </para>
-    /// <para>
-    /// <b>A bridge's lanes and its joins are drawn into <paramref name="above"/></b> (<see cref="IsAbove"/>), over its
-    /// deck; everything else here is on the ground.
-    /// </para>
-    /// </remarks>
     void Nodes(
-        ref ScreenDraw draw, ref ScreenDraw above, TownWorld world, SimConfig config, Vector2 viewCentreM,
-        Vector2 viewSpanM, float pixelsPerMetre)
+        ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
-        var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
-        var sagM = PathMarks.SagPx / pixelsPerMetre;
-
-        // <b>One set of claims over both networks</b> (<see cref="MarkClaims"/>): a pavement runs a metre
-        // off the carriageway it serves, so marks kept clear of each other only within a network still pile
-        // a walk's chevrons onto a lane's.
-        _marks.Clear(
-            config.Grid, viewCentreM, viewSpanM, pitch is not null ? PathMarks.MarkApartM : float.PositiveInfinity);
-
-        // <b>Every lane of the town, whole</b> (OBS-2d), which is the same thing as every lane between its
-        // two connection points: a lane ends where its movements hand over (TER-5d), so the whole of its line
-        // is ground it holds and no part of it is drawn under a join as well. <b>A roadside is drawn bare</b>, with
-        // no way along it marked: nobody is driven down it (<see cref="RoadGraph.IsARoadside"/>).
-        var roads = world.Roads;
-        if (!_laneBoxes.LaidFor(roads, roads.LaneCount))
-        {
-            for (var lane = 0; lane < roads.LaneCount; lane++) _laneBoxes.Lay(lane, roads.ArcsOf(lane));
-        }
-
-        for (var lane = 0; lane < roads.LaneCount; lane++)
-        {
-            if (!_laneBoxes.OnScreen(lane, viewCentreM, viewSpanM)) continue;
-
-            ref var into = ref roads.LaneLevel[lane] != CityGen.CityPlan.RoadArrays.Ground ? ref above : ref draw;
-            Chain(
-                ref into, roads.ArcsOf(lane), sagM, roads.IsARoadside(lane) ? null : pitch, roads.LaneOverOneLine[lane],
-                Theme.DrivingNodes, _marks);
-        }
-
-        Movements(ref draw, ref above, roads, config, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
-        BayApproaches(ref draw, world, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
-
-        // And on the walking side, every lane of the town's pavement as the graph holds it (WLK-1), which is
-        // the same reading as the driving side above: the line a body is actually held on, walked its own way.
-        PavementLanes(ref draw, world.Foot, sagM, pitch, viewCentreM, viewSpanM, _marks);
         Unwalked(
-            ref draw, world.PavementLanes, viewCentreM, viewSpanM, sagM,
+            ref draw, world.PavementLanes, viewCentreM, viewSpanM, PathMarks.SagPx / pixelsPerMetre,
             PathMarks.BarbPitchAt(config.Grid, pixelsPerMetre));
 
         KerbEnds(ref draw, world.Plan.Paving(config).RoadEnds(config), viewCentreM, viewSpanM);
@@ -353,33 +190,6 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// <b>Every lane of the town's pavement</b> (WLK-1, WLK-8, OBS-2d): the fine graph's own lines, as the
-    /// chains they are and walked the way they are walked.
-    /// </summary>
-    /// <remarks>
-    /// <b>Chevrons and not ticks</b> (<see cref="PathMarks.Marks"/>): a lane is walked one way as a car's
-    /// lane is driven one way, and the graph holds it laid that way — so the mark that reads a direction off
-    /// the line is the one that tells the truth about it. <b>Read off the graph and not off the shape it was
-    /// cut from</b>, because what a reader of this layer is asking is what a body may be held on.
-    /// </remarks>
-    void PavementLanes(
-        ref ScreenDraw draw, FootGraph foot, float sagM, GridLevel? pitch, Vector2 viewCentreM, Vector2 viewSpanM,
-        MarkClaims claims)
-    {
-        if (!_footBoxes.LaidFor(foot, foot.EdgeCount))
-        {
-            for (var lane = 0; lane < foot.EdgeCount; lane++) _footBoxes.Lay(lane, foot.ArcsOf(lane));
-        }
-
-        for (var lane = 0; lane < foot.EdgeCount; lane++)
-        {
-            if (!_footBoxes.OnScreen(lane, viewCentreM, viewSpanM)) continue;
-
-            Chain(ref draw, foot.ArcsOf(lane), sagM, pitch, bothWays: false, Theme.WalkingNodes, claims);
-        }
-    }
-
-    /// <summary>
     /// <b>And what the move could not close</b> (<see cref="World.Foot.PavementLanes.LooseOf"/>): a run with
     /// two ends where a course should be, which is nobody's lane and is drawn in the fault colour that every
     /// other open run is.
@@ -397,71 +207,17 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// The movements through every junction: from each lane arriving, the town's own join onto each lane
-    /// it may leave for, read off the graph rather than drawn again here. What the graph holds is what a
-    /// car may drive, so the picture is drawn straight off it (TER-5f).
+    /// <b>Every manoeuvre a car has in hand at a bay</b> (GEN-4f) — each piece of the shape it laid for itself, in the car's
+    /// own colour, with a dot where it leaves one line and a dot where it arrives. It is geometry the car laid for itself and
+    /// on no way of the town, so a car's own layer and not the engine's draws it.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Where a movement leaves a lane and where it lands on one is dotted</b>, at the size an agent dots
-    /// the same places on its own route — they are the same places, and a car's route crossing a junction
-    /// should put its dots on the town's.
-    /// </para>
-    /// <para>
-    /// Every movement sharing a lane end dots one point on top of another, which is the picture of
-    /// `TER-5d` and not a waste: <b>a lane has one end</b>, and a junction that ever grew a second entry
-    /// would show two dots where there is one.
-    /// </para>
-    /// </remarks>
-    void Movements(
-        ref ScreenDraw draw, ref ScreenDraw above, RoadGraph roads, SimConfig config, float sagM, GridLevel? pitch,
-        Vector4 colour, Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
-    {
-        if (!_connectorBoxes.LaidFor(roads, roads.ConnectorCount))
-        {
-            for (var connector = 0; connector < roads.ConnectorCount; connector++)
-            {
-                _connectorBoxes.Lay(connector, roads.ConnectorArcs(connector));
-            }
-        }
-
-        for (var lane = 0; lane < roads.LaneCount; lane++)
-        {
-            var end = roads.EndOf(lane);
-            if (!OnScreen(end.PositionM, viewCentreM, viewSpanM, config.CarTurningRadiusM * 2f)) continue;
-
-            foreach (var connector in roads.ConnectorsFrom(lane))
-            {
-                if (!_connectorBoxes.OnScreen(connector, viewCentreM, viewSpanM)) continue;
-
-                ref var into = ref roads.ConnectorLevel(connector) != CityGen.CityPlan.RoadArrays.Ground ? ref above : ref draw;
-                Link(ref into, roads.ConnectorArcs(connector), sagM, pitch, bothWays: false, colour, claims);
-            }
-        }
-    }
-
-    /// <summary>The boxes of the town's lanes, its junctions' joins and its pavement's lanes, which every relay culls by.</summary>
-    readonly ChainBoxes _laneBoxes = new();
-
-    readonly ChainBoxes _connectorBoxes = new();
-
-    readonly ChainBoxes _footBoxes = new();
-
-    /// <summary>
-    /// <b>Every manoeuvre a car has in hand at a bay</b> (GEN-4f) — each piece of the shape it laid for itself,
-    /// drawn exactly as a junction's movements are (<see cref="Movements"/>), with a dot where it leaves one
-    /// line and a dot where it arrives. There is nothing to draw at a bay nobody is getting into or out of: the
-    /// town lays no way to one.
-    /// </summary>
-    /// <remarks>
-    /// <b>A piece driven in reverse takes the shade of the same colour that says the car is going backwards down
-    /// it</b> (<see cref="Theme.DrivingReverse"/>): a car backing in pulls on past the bay and comes back over
-    /// the same street, and which way it is pointing while it travels each is the whole of what tells the two
-    /// apart.
+    /// <b>A piece driven in reverse is drawn in the colour that says a car is going backwards down it</b>
+    /// (<see cref="Theme.DrivingReverse"/>): a car backing in pulls on past the bay and comes back over the same street, and
+    /// which way it is pointing while it travels each is the whole of what tells the two apart.
     /// </remarks>
     static void BayApproaches(
-        ref ScreenDraw draw, TownWorld world, float sagM, GridLevel? pitch, Vector4 colour, Vector2 viewCentreM,
-        Vector2 viewSpanM, MarkClaims claims)
+        ref ScreenDraw draw, TownWorld world, float sagM, GridLevel? pitch, Vector2 viewCentreM, Vector2 viewSpanM)
     {
         var manoeuvres = world.Manoeuvres;
         for (var car = 0; car < world.Cars.Count; car++)
@@ -473,49 +229,13 @@ internal sealed partial class DebugOverlay
             {
                 var arcs = manoeuvres.PieceOf(car, piece);
                 var (leastM, mostM) = ChainBoxes.Of(arcs);
-                if (!ChainBoxes.Meets(leastM, mostM, viewCentreM, viewSpanM)) continue;
+                if (!ChainBoxes.Meets(leastM, mostM, viewCentreM, viewSpanM) || arcs.Length == 0) continue;
 
-                Link(
-                    ref draw, arcs, sagM, pitch, bothWays: false, shape.IsReverse(piece) ? Theme.DrivingReverse : colour,
-                    claims);
+                var colour = shape.IsReverse(piece) ? Theme.DrivingReverse : Theme.AgentLine(car);
+                PathMarks.Chained(ref draw, arcs, 0f, Spline.TotalLengthM(arcs), pitch, false, sagM, colour, MarkClaims.None);
+                draw.DiscM(arcs[0].StartM, PathMarks.JoinDiscM, colour);
+                draw.DiscM(arcs[^1].EndM, PathMarks.JoinDiscM, colour);
             }
         }
-    }
-
-    /// <summary>
-    /// One way a network gets from one of its stretches onto another — a junction movement, a pavement
-    /// mitre — as the line it is with <b>a dot at each end</b>: the place it leaves the stretch behind it
-    /// and the place it meets the one ahead, at the size an agent dots the same places on its own route.
-    /// </summary>
-    /// <remarks>
-    /// The cull is the caller's, on the link's box and not the line's: a dot drawn outside it is one quad, and there
-    /// are two per movement in the town.
-    /// </remarks>
-    static void Link(
-        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float sagM, GridLevel? pitch, bool bothWays, Vector4 colour,
-        MarkClaims claims)
-    {
-        if (arcs.Length == 0) return;
-
-        PathMarks.Chained(ref draw, arcs, 0f, Spline.TotalLengthM(arcs), pitch, bothWays, sagM, colour, claims);
-        draw.DiscM(arcs[0].StartM, PathMarks.JoinDiscM, colour);
-        draw.DiscM(arcs[^1].EndM, PathMarks.JoinDiscM, colour);
-    }
-
-    /// <summary>
-    /// A chain of arcs as the line it is, with marks down it at a pitch on the ground, once the caller has culled it
-    /// on the box it fits in (<see cref="ChainBoxes"/>). The marks stand where it crosses the town's grid
-    /// (<see cref="MarkGrid"/>), which is the same grid an agent's own layer marks the same ground on.
-    /// </summary>
-    static void Chain(
-        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float sagM, GridLevel? pitch, bool bothWays, Vector4 colour,
-        MarkClaims claims)
-    {
-        if (arcs.Length == 0) return;
-
-        var toM = Spline.TotalLengthM(arcs);
-        if (toM <= 0f) return;
-
-        PathMarks.Chained(ref draw, arcs, 0f, toM, pitch, bothWays, sagM, colour, claims);
     }
 }

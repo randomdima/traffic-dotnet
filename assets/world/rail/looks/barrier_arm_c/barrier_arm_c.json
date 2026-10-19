@@ -1,0 +1,9 @@
+{
+  "id": "barrier_arm_c",
+  "kind": "Barrier",
+  "describe": "a sliding level-crossing barrier boom lying flat, seen from straight above: a long straight thin weathered steel boom in faded red and white diagonal stripes, a little scuffed, its left end cut square, its tip at the right; even width end to end, nothing standing off it",
+  "footprintM": [
+    4.0,
+    0.3
+  ]
+}

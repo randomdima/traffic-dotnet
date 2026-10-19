@@ -5,15 +5,30 @@ using TrafficSimulation.Core.Config;
 namespace TrafficSimulation.World.Rail;
 
 /// <summary>What a piece of the railway's art is.</summary>
-/// <remarks>The crossing's gear has files of its own kinds beside the track's, waiting on art (<c>docs/tech-debt.md</c>); none is read until it is listed.</remarks>
+/// <remarks>A file of a kind not named here (a relay cabinet's) is a candidate nothing lists yet.</remarks>
 internal enum RailLookKind : byte
 {
     /// <summary>A strip of track — ballast, sleepers and rails — the ground repeats along every track (RAIL-3).</summary>
     Track,
+
+    /// <summary>A level crossing's arm, its tip at +x, laid at its body's length across whatever lanes it closes (RAIL-7).</summary>
+    Barrier,
+
+    /// <summary>The housing an arm pivots at, its arm's end at +x.</summary>
+    Drive,
+
+    /// <summary>An upright crossing's head with two lamps, drawn from the front: a candidate nothing lists.</summary>
+    Head,
+
+    /// <summary>A crossing's X light over a lane coming in, drawn flat as a junction's head is, and its lit twin (<see cref="RailLookFile.Lit"/>).</summary>
+    Light,
 }
 
 /// <summary>One piece's file (<c>assets/world/rail/looks/&lt;id&gt;/&lt;id&gt;.json</c>).</summary>
-/// <remarks>Unknown members are skipped: a track's file also carries the sleepers' length its picture was laid with, which is <c>qq sprites</c>' and no figure of the town's.</remarks>
+/// <remarks>
+/// Unknown members are skipped: a track's file also carries the sleepers' length its picture was laid with, and a lamp's
+/// file the glass the template frames for the generator, which are <c>qq sprites</c>' and no figure of the town's.
+/// </remarks>
 internal sealed class RailLookFile
 {
     public required string Id { get; init; }
@@ -28,6 +43,9 @@ internal sealed class RailLookFile
     /// width the band it is laid across.
     /// </summary>
     public required Vector2 FootprintM { get; init; }
+
+    /// <summary>A light's file switched on, beside this one: the same picture with its lamps lit.</summary>
+    public string? Lit { get; init; }
 }
 
 [JsonSourceGenerationOptions(
@@ -36,19 +54,27 @@ internal sealed class RailLookFile
 [JsonSerializable(typeof(RailLookFile))]
 internal sealed partial class RailLookJson : JsonSerializerContext;
 
-/// <summary>A piece of the railway's art as the catalogue reads it: where its picture is, and what it covers.</summary>
-internal readonly record struct RailLook(string Id, RailLookKind Kind, string SpritePath, Vector2 FootprintM);
+/// <summary>A piece of the railway's art as the catalogue reads it: where its picture is, and its lit one if it has one, and what it covers.</summary>
+internal readonly record struct RailLook(string Id, RailLookKind Kind, string SpritePath, string? LitSpritePath, Vector2 FootprintM);
 
 /// <summary>
 /// <b>The railway's art</b>, read from <c>assets/world/rail/looks/common/Railway.json</c>: the track every line is laid as
-/// (RAIL-3).
+/// (RAIL-3), and every level crossing's gear (RAIL-7) — one of each kind, the first listed.
 /// </summary>
 internal sealed class RailLooks
 {
-    RailLooks(RailLook track) => Track = track;
+    RailLooks(RailLook track, RailLook barrier, RailLook drive, RailLook light) =>
+        (Track, Barrier, Drive, Light) = (track, barrier, drive, light);
 
     /// <summary>The strip the ground lays along every track, end to end.</summary>
     public RailLook Track { get; }
+
+    public RailLook Barrier { get; }
+
+    public RailLook Drive { get; }
+
+    /// <summary>An X light, dark and lit (<see cref="RailLook.LitSpritePath"/>).</summary>
+    public RailLook Light { get; }
 
     /// <summary>The railway's art, read once: data, the same for every town.</summary>
     public static RailLooks Shared { get; } = Load();
@@ -56,16 +82,35 @@ internal sealed class RailLooks
     static RailLooks Load()
     {
         var list = Path.Combine(ProjectPaths.Assets, "world", "rail", "looks", "common", "Railway.json");
-        RailLook? track = null;
+        var first = new RailLook?[Enum.GetValues<RailLookKind>().Length];
         foreach (var path in AssetJson.Catalog(list))
         {
             var file = AssetJson.Read(path, RailLookJson.Default.RailLookFile);
             if (file.Sprite is null) throw new InvalidDataException($"{path}: {file.Id} is listed in the railway's art and has no picture.");
 
-            var look = new RailLook(file.Id, file.Kind, AssetJson.Beside(path, file.Sprite), file.FootprintM);
-            if (file.Kind == RailLookKind.Track) track ??= look;
+            first[(int)file.Kind] ??= new RailLook(file.Id, file.Kind, AssetJson.Beside(path, file.Sprite), LitOf(path, file), file.FootprintM);
         }
 
-        return new RailLooks(track ?? throw new InvalidDataException($"{list} lists no track."));
+        var light = Listed(RailLookKind.Light);
+        if (light.LitSpritePath is null) throw new InvalidDataException($"{light.Id} is a crossing's light and has no lit twin.");
+
+        return new RailLooks(Listed(RailLookKind.Track), Listed(RailLookKind.Barrier), Listed(RailLookKind.Drive), light);
+
+        RailLook Listed(RailLookKind kind) => first[(int)kind] ?? throw new InvalidDataException($"{list} lists no {kind}.");
+    }
+
+    /// <summary>A piece's lit picture, held to its own footprint: the one is drawn in the other's place.</summary>
+    static string? LitOf(string path, RailLookFile file)
+    {
+        if (file.Lit is null) return null;
+
+        var litPath = AssetJson.Beside(path, file.Lit);
+        var lit = AssetJson.Read(litPath, RailLookJson.Default.RailLookFile);
+        if (lit.Sprite is null || lit.FootprintM != file.FootprintM)
+        {
+            throw new InvalidDataException($"{litPath}: {file.Id}'s lit twin {lit.Id} has no picture, or covers other than {file.FootprintM} m.");
+        }
+
+        return AssetJson.Beside(litPath, lit.Sprite);
     }
 }

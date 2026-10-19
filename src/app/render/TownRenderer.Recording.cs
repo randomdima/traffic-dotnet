@@ -253,6 +253,17 @@ internal sealed unsafe partial class TownRenderer
         // What moves, emitted on the device ahead of the pass that draws it, where the device emits it.
         _emit?.Record(commands, image);
 
+        // The engine's own tables drawn as quads, and what the pointer is over read out to the host.
+        if (_engine is { } engine)
+        {
+            engine.Record(commands, image);
+            _vk.Barrier(
+                commands, PipelineStageFlags2.ComputeShaderBit | PipelineStageFlags2.AllTransferBit,
+                AccessFlags2.ShaderStorageWriteBit | AccessFlags2.TransferWriteBit,
+                PipelineStageFlags2.DrawIndirectBit | PipelineStageFlags2.VertexAttributeInputBit | PipelineStageFlags2.HostBit,
+                AccessFlags2.IndirectCommandReadBit | AccessFlags2.VertexAttributeReadBit | AccessFlags2.HostReadBit);
+        }
+
         Barrier(commands, _target.Images[image], ImageLayout.Undefined, ImageLayout.ColorAttachmentOptimal);
 
         var clear = new ClearValue(new ClearColorValue(0f, 0f, 0f, 1f));
@@ -314,6 +325,7 @@ internal sealed unsafe partial class TownRenderer
         api.CmdBindVertexBuffers(commands, 0, 1, &underlayBuffer, &offset);
         Vk.Count();
         api.CmdDrawIndirect(commands, _underlayIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
+        DrawTheEngine(commands, EngineRun.Ground);
 
         // What lies under everything that stands, in painter's order: the marks, out of their ring and as many as its
         // words say (the device's own ring, or this image's copy of the host's), then the scenery, out of its pieces by
@@ -365,6 +377,7 @@ internal sealed unsafe partial class TownRenderer
         Vk.Count();
         api.CmdDrawIndirect(
             commands, _underlayIndirect[image].Handle, (ulong)sizeof(DrawIndirectCommand), 1, (uint)sizeof(DrawIndirectCommand));
+        DrawTheEngine(commands, EngineRun.Above);
 
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);
@@ -379,6 +392,7 @@ internal sealed unsafe partial class TownRenderer
         // is inside the five crossings.
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _overlayPipeline);
+        DrawTheEngine(commands, EngineRun.Over);
         var overlayBuffer = _overlay[image].Handle;
         Vk.Count();
         api.CmdBindVertexBuffers(commands, 0, 1, &overlayBuffer, &offset);
@@ -392,6 +406,22 @@ internal sealed unsafe partial class TownRenderer
 
         Vk.Count();
         Vk.Check(api.EndCommandBuffer(commands), "vkEndCommandBuffer");
+    }
+
+    /// <summary>
+    /// One of the engine's runs drawn by the overlay pipeline, bound already: its quads from where the run starts, as many
+    /// as its draw says (<see cref="IEngineDraw"/>). Nothing where there is no engine drawing.
+    /// </summary>
+    void DrawTheEngine(CommandBuffer commands, EngineRun run)
+    {
+        if (_engine is not { } engine) return;
+
+        var quads = engine.Quads.Handle;
+        var at = (ulong)((int)run * engine.RunRoom * sizeof(OverlayQuad));
+        Vk.Count();
+        _vk.Api.CmdBindVertexBuffers(commands, 0, 1, &quads, &at);
+        Vk.Count();
+        _vk.Api.CmdDrawIndirect(commands, engine.Draws.Handle, (ulong)((int)run * sizeof(DrawIndirectCommand)), 1, (uint)sizeof(DrawIndirectCommand));
     }
 
     /// <summary>One part of the ground recorded: a draw a class, each as many triangles from where this image's frame wrote.</summary>

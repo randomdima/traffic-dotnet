@@ -1048,23 +1048,29 @@ internal sealed class EvacuatorFigures
     public float TowedLineAllowance { get; init; } = 2.5f;
 }
 
-/// <summary>The trains (TRN-1…8): how fast each kind runs, what it is made up of, and how often a line sends one.</summary>
+/// <summary>The trains (TRN-3…12): how fast each kind runs, what it is made up of, and how often a line sends one.</summary>
 internal sealed class TrainFigures
 {
-    /// <summary>An intercity train's pace through the town (TRN-2): a main line's in-town limit, quickened as a walker's is (goals).</summary>
-    public float IntercitySpeedMps { get; init; } = 22f;
+    /// <summary>An intercity train's pace through the town, as its own driver holds it (TRN-12): a main line's in-town limit, quickened as a walker's is (goals).</summary>
+    public float IntercitySpeedMps { get; init; } = 28.6f;
 
     /// <summary>And a freight train's, whichever it carries.</summary>
-    public float FreightSpeedMps { get; init; } = 15f;
+    public float FreightSpeedMps { get; init; } = 19.5f;
 
-    /// <summary>How many coaches an intercity locomotive hauls.</summary>
-    public int IntercityCoaches { get; init; } = 6;
+    /// <summary>
+    /// The most a train's own driver lets a curve pull it sideways (TRN-12): what slows it below its pace round a bend, a
+    /// main line's comfort limit on a curve laid without cant.
+    /// </summary>
+    public float CurveSideAccelerationMps2 { get; init; } = 1f;
 
-    /// <summary>How many tank wagons an oil train's locomotive hauls.</summary>
-    public int OilWagons { get; init; } = 9;
+    /// <summary>How many coaches an intercity locomotive hauls: enough for the train to pass over itself on a loop (RAIL-11).</summary>
+    public int IntercityCoaches { get; init; } = 20;
 
-    /// <summary>How many open wagons a coal train's locomotive hauls.</summary>
-    public int CoalWagons { get; init; } = 9;
+    /// <summary>How many tank wagons an oil train's locomotive hauls: enough to pass over itself on a loop (RAIL-11).</summary>
+    public int OilWagons { get; init; } = 41;
+
+    /// <summary>How many open wagons a coal train's locomotive hauls: enough to pass over itself on a loop (RAIL-11).</summary>
+    public int CoalWagons { get; init; } = 36;
 
     /// <summary>Of the trains a line sends, the share that is intercity, and the share that carries oil; the rest carry coal.</summary>
     public float IntercityShare { get; init; } = 0.4f;
@@ -1083,9 +1089,6 @@ internal sealed class TrainFigures
     public float FirstLeastS { get; init; } = 5f;
 
     public float FirstMostS { get; init; } = 40f;
-
-    /// <summary>Between one vehicle's buffers and the next's, coupled: the solver's bar between their coupler heads (SOL-38).</summary>
-    public float CouplingGapM { get; init; } = 0.3f;
 
     /// <summary>
     /// <b>Steel on steel</b> (TRN-8): what a braked wheel slides on, and the most a driven one pulls before it spins —

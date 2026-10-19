@@ -41,7 +41,8 @@ the car, and the driving they ask for is the car's own leg, reached from the com
 on a hook is a fact about a car. **What a car or a walker does is `actions/` in its slice**, a folder per
 action (CAR-15b, PER-25b) over the slice's `body/` and `control/`: an action reads the world through its slice's
 ground (`DrivingGround`, `WalkingGround`) and never the composition, and what only the town has — a car's line, the
-standing rules, the tyres — it asks for through `ICarTown`, which the seam implements. Inside `app/`, it is screen ← render ← hud, screen ← render ← debug, and
+standing rules, the tyres — it asks for through `ICarTown`, which the seam implements. Inside `app/`, it is screen ← render ← hud, screen ← render ← debug, devicetick ← debug (the engine layers bind the
+device world's own buffers, `EngineLayers`), and
 hud → debug because the settings panel draws the switches the layers own and the selection's own path is
 drawn in the layers' path vocabulary (`PathMarks`), so one route lands on the same stones at the same
 weight whichever of them drew it. `app/shot/` sits under

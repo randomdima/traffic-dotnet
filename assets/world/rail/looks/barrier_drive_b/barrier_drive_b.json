@@ -1,0 +1,9 @@
+{
+  "id": "barrier_drive_b",
+  "kind": "Drive",
+  "describe": "a sliding level-crossing barrier's drive housing seen from straight above, top-down only: a low rectangular box of grey galvanised steel with a red and white striped edge band, a ribbed lid, a dark square opening in the middle of its right end where the boom slides out",
+  "footprintM": [
+    1.2,
+    0.6
+  ]
+}

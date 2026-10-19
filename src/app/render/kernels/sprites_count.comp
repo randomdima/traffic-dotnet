@@ -2,7 +2,8 @@
 #extension GL_GOOGLE_include_directive : require
 
 // The emit's first pass: how many instances each part of each unit draws this frame, one thread a unit — a walker, a
-// car (its four parts, in whichever run its level is drawn in), a train's wagon or a signal head — into the slot the scan turns into
+// car (its four parts, in whichever run its level is drawn in), a train's wagon, a signal head, a crossing's gear or its X
+// light — into the slot the scan turns into
 // where they start. A cull and no more: nothing is built here. A car's lit lenses are kept for the second pass, which
 // would otherwise read its line again.
 
@@ -51,7 +52,10 @@ void main()
     unit -= figures.carCapacity;
     if (unit < figures.wagonCount)
     {
-        starts[spritesWagonsFrom() + unit] = spritesWagonShown(unit) ? 1u : 0u;
+        bool shown = spritesWagonShown(unit);
+        bool above = figures.bridged != 0u && spritesWagonOnABridge(unit);
+        starts[spritesWagonsFrom() + unit] = shown && !above ? 1u : 0u;
+        if (figures.bridged != 0u) starts[spritesWagonsAboveFrom() + unit] = shown && above ? 1u : 0u;
         return;
     }
 
@@ -63,11 +67,17 @@ void main()
     }
 
     unit -= figures.headCount;
-    if (unit >= figures.gearCount) return;
+    if (unit < figures.gearCount)
+    {
+        uvec2 shown = spritesGearShown(unit);
+        uint from = spritesGearFrom() + GearParts * unit;
+        starts[from] = shown.x;
+        starts[from + 1u] = shown.y;
+        return;
+    }
 
-    uvec3 shown = spritesGearShown(unit);
-    uint from = spritesGearFrom() + GearParts * unit;
-    starts[from] = shown.x;
-    starts[from + 1u] = shown.y;
-    starts[from + 2u] = shown.z;
+    unit -= figures.gearCount;
+    if (unit >= figures.lightCount) return;
+
+    starts[spritesLightsFrom() + unit] = spritesLightShown(unit) ? 1u : 0u;
 }

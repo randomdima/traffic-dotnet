@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
@@ -44,6 +45,36 @@ public class RecoveryInATownTests
                 Assert.False(world.Recovery.Wreck[car] == wreck, $"evacuator {car} took wreck {wreck}, which lies beside no road");
             }
         }
+    }
+
+    /// <summary>
+    /// EVA-5: <b>an arm catches a truck that is already towing</b>, by its nose — the one end of it no fork has — and the
+    /// load stays on the bar of the truck it is now behind, so the three are one chain laid under the one in front.
+    /// </summary>
+    [Fact]
+    public void AnArmCatchesATruckThatIsAlreadyTowing()
+    {
+        using var world = new TownWorld(Towns.Built, Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(1);
+        var cars = world.Cars;
+        var trucks = Enumerable.Range(0, cars.Count).Where(each => cars.BuildOf(each).TowReachM > 0f).Take(2).ToArray();
+        Assert.True(trucks.Length == 2, "the city stood fewer than two vehicles with an arm");
+        var (front, middle) = (trucks[0], trucks[1]);
+        var load = Enumerable.Range(0, cars.Count).First(each => cars.BuildOf(each).TowReachM == 0f);
+
+        // In a line facing +x, each set down where the arm of the one ahead of it holds it straight (TowBar.SetDownBehindM).
+        var middleM = OffEveryRoadM - new Vector2(TowBar.SetDownBehindM(cars.BuildOf(front), cars.BuildOf(middle)), 0f);
+        world.StandTheCarAt(front, OffEveryRoadM, 0f);
+        world.StandTheCarAt(middle, middleM, 0f);
+        world.StandTheCarAt(load, middleM - new Vector2(TowBar.SetDownBehindM(cars.BuildOf(middle), cars.BuildOf(load)), 0f), 0f);
+        Assert.True(world.WorkTheArm(middle));
+
+        Assert.True(world.WorkTheArm(front));
+
+        var hitches = world.Hitches;
+        Assert.Equal((middle, false), (hitches.Load(front), hitches.LoadByTheTail(front)));
+        Assert.Equal((load, front), (hitches.Load(middle), hitches.FrontOfTheChain(load)));
     }
 
     /// <summary>Long enough for every car the city stands to be in its bay and at rest.</summary>

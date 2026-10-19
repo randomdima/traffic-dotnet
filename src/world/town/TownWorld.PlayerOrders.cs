@@ -46,7 +46,7 @@ internal sealed partial class TownWorld
     /// <returns>Whether the order was taken. A refusal leaves the car exactly as it was.</returns>
     public bool OrderCar(int car, Vector2 toM)
     {
-        if (car < 0 || car >= Cars.Count || Cars.Broken[car] || _recovery.OnTheHookOf[car] >= 0) return false;
+        if (car < 0 || car >= Cars.Count || Cars.Broken[car] || _hitches.IsHeld(car)) return false;
 
         // An order gives up the wheel: both say where the car goes, and a hand still on the keys would
         // overwrite the order on the very next tick.
@@ -243,7 +243,7 @@ internal sealed partial class TownWorld
 
         // The car it was following has stopped being one — wrecked, or on somebody's arm. A follower with
         // nothing to follow stands where it is and idles awaiting the next order (CTL-4).
-        if (lead < 0 || lead >= Cars.Count || Cars.Broken[lead] || _recovery.OnTheHookOf[lead] >= 0)
+        if (lead < 0 || lead >= Cars.Count || Cars.Broken[lead] || _hitches.IsHeld(lead))
         {
             if (Cars.Driven[car]) StandTheCarDown(car);
             _carOrders.Done(car);

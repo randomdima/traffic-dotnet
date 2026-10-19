@@ -34,13 +34,19 @@ public class RailWheelsTests
         Ballast = CityPlan.RingArrays.None,
     };
 
-    /// <summary>A circle of a radius, as a track is laid: chords a tolerance off it, a quarter of it from the west going north-east.</summary>
+    /// <summary>
+    /// How far round its curve either way of its middle the curve rig runs: as near a whole turn as leaves its ends apart,
+    /// further than a coach is watched going.
+    /// </summary>
+    const float HalfArcRad = 0.95f * MathF.PI;
+
+    /// <summary>A circle of a radius, as a track is laid: chords a tolerance off it, <see cref="HalfArcRad"/> of it either side of its top.</summary>
     static CityPlan.RailArrays Curve(float radiusM)
     {
         var stepRad = MathF.Sqrt(8f * Config.Rail.ChordToleranceM / radiusM);
         var points = new List<Vector2>();
         var centreM = new Vector2(2000f, 2000f + radiusM);
-        for (var angle = -MathF.PI / 2f - 0.6f; angle <= -MathF.PI / 2f + 0.6f; angle += stepRad)
+        for (var angle = -MathF.PI / 2f - HalfArcRad; angle <= -MathF.PI / 2f + HalfArcRad; angle += stepRad)
         {
             points.Add(centreM + (new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radiusM));
         }
@@ -189,7 +195,7 @@ public class RailWheelsTests
     }
 
     /// <summary>
-    /// <b>A rail vehicle runs through a car standing on its track</b> (TRN-2, TRN-3): the car shoved aside by its weight,
+    /// <b>A rail vehicle runs through a car standing on its track</b> (TRN-3): the car shoved aside by its weight,
     /// the vehicle slowed by no more than the momentum it gave the car, and still on its line.
     /// </summary>
     [Fact]

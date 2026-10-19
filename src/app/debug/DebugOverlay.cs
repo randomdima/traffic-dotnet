@@ -12,10 +12,14 @@ namespace TrafficSimulation.App.Debug;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The overlay reads the producers, never a copy of the shape: a lane it draws is the lane the
-/// follower is on, a node is the node the router plans over, a collision circle is the radius the
-/// solver was given. A second copy eventually disagrees with the first, and the picture then argues
-/// with the simulation instead of showing it.
+/// <b>What the engine holds is drawn by the engine layers and not here</b> (<see cref="EngineLayers"/>): every body's
+/// shape, every link, every way, every claim and where every agent means to go, off the engine's own tables on the device,
+/// whatever kind each thing is. What is left here is what only one driver has — a car's pass, its grant, a walker's step
+/// aside — and the town's construction, which the engine does not step: its outline, its grid, its mesh, its zones.
+/// </para>
+/// <para>
+/// The overlay reads the producers, never a copy of the shape. A second copy eventually disagrees with the first, and the
+/// picture then argues with the simulation instead of showing it.
 /// </para>
 /// <para>
 /// Two performance rules it is written around: nothing is drawn about a body that is not on screen,
@@ -40,26 +44,18 @@ internal sealed partial class DebugOverlay
     const int TownQuadCapacity = TownRenderer.OverlayCapacity * 3 / 4;
 
     /// <summary>
-    /// <b>A hairline, and the thinnest thing this overlay draws.</b> The collision layer is the one layer
+    /// <b>A hairline, and the thinnest thing the overlay draws.</b> The collision layer is the one layer
     /// whose whole reading is <em>where the edge falls against the picture underneath it</em> — how far a
     /// shape sits inside the bodywork, or past it — and a stroke wide enough to see from across the town
     /// is a stroke wide enough to hide a hand's width of that answer at the framing it is read at.
     /// </summary>
-    const float CollisionLineM = 0.04f;
+    internal const float HairlineM = 0.04f;
 
     /// <summary>
     /// It is held to this on screen, though, however far out the camera is: below about a pixel a thin
     /// line stops being thin and starts being dotted, and a shape drawn in dashes is not a shape.
     /// </summary>
-    const float CollisionLineFloorPx = 1.5f;
-
-    /// <summary>
-    /// How many pieces of its own route an agent is drawn: the one it is on, and the one it has planned to
-    /// take off the end of it. <b>Two, whatever the pieces are</b> — a lane and the junction off it, a
-    /// junction and the lane it lands on, a pavement and the crossing at the kerb — because one piece
-    /// leaves out the decision the agent is about to act on and three are the route again.
-    /// </summary>
-    const int StretchesDrawn = 2;
+    internal const float HairlineFloorPx = 1.5f;
 
     /// <summary>The same share of the room on the level above (<see cref="TownRenderer.UnderlayAboveCapacity"/>).</summary>
     const int TownAboveQuadCapacity = TownRenderer.UnderlayAboveCapacity * 3 / 4;
@@ -71,9 +67,6 @@ internal sealed partial class DebugOverlay
     /// the ground's would be drawn under its own deck.
     /// </summary>
     readonly OverlayQuad[] _townAbove = new OverlayQuad[TownAboveQuadCapacity];
-
-    /// <summary>Which stones the town layer's marks took, kept beside its quads and re-laid with them.</summary>
-    readonly MarkClaims _marks = new();
 
     int _townQuads;
     int _townAboveQuads;
@@ -111,6 +104,10 @@ internal sealed partial class DebugOverlay
     /// rather than what it is doing (OBS-2o). Null where nothing has been laid yet.
     /// </param>
     /// <param name="pick">What the pointer is over and what a click has pinned (OBS-2t), both answered here.</param>
+    /// <param name="picked">
+    /// The bodies the engine's own table found under the pointer and pinned, on the last frame that asked
+    /// (<see cref="EngineLayers"/>): what a body is found by, whatever kind it is.
+    /// </param>
     /// <param name="pointerM">
     /// Where the pointer stands on the town, and <paramref name="pointerPx"/> where it stands on the glass —
     /// the first is what the readings are asked about and the second is where they are written.
@@ -118,7 +115,7 @@ internal sealed partial class DebugOverlay
     public void Draw(
         ref ScreenDraw draw, ref ScreenDraw ground, ref ScreenDraw groundAbove, TownWorld world, GroundMesh? mesh,
         SimConfig config, DebugSwitches switches, DebugPick pick, Vector2 pointerM, Vector2 pointerPx, Vector2 uiPx,
-        Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+        Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, in EngineLayers.Picks picked = default)
     {
         Relaid = false;
 
@@ -145,19 +142,13 @@ internal sealed partial class DebugOverlay
         // with the static half they are drawn against.
         if (switches.SolverGrid) SolverMovers(ref ground, world, viewCentreM, viewSpanM, pixelsPerMetre);
 
-        if (switches.Claims)
-        {
-            // The bays first, because a bay is ground several stretches of way lie across and the stretches
-            // are the finer reading of the two.
-            TakenBays(ref ground, world, config, viewCentreM, viewSpanM);
-            ClaimIndex(ref ground, ref groundAbove, world, viewCentreM, viewSpanM, pixelsPerMetre);
-        }
+        // The stretches of way every claim holds are the engine layers' (EngineLayers), drawn off the claims table itself;
+        // what is left here is the one hold that is not a piece of way, a bay.
+        if (switches.Claims) TakenBays(ref ground, world, config, viewCentreM, viewSpanM);
 
         if (switches.WalkerLines) WalkerLines(ref draw, world, config, viewCentreM, viewSpanM, pixelsPerMetre);
 
         if (switches.CarLines) CarLines(ref draw, world, config, viewCentreM, viewSpanM, pixelsPerMetre);
-
-        if (switches.Collision) CollisionShapes(ref draw, world, viewCentreM, viewSpanM, pixelsPerMetre);
 
         // Last, so the construction stands over the lines and the shapes: what it is read against is the
         // track written on the ground under all of them, and a chevron through the arc reads as the arc.
@@ -165,19 +156,8 @@ internal sealed partial class DebugOverlay
 
         // <b>After everything, because it is an answer about what is already drawn</b> (OBS-2t): a highlight
         // under the layer it picks out of is a line somebody has to look for.
-        Pointer(ref draw, world, config, switches, pick, pointerM, pointerPx, uiPx, pixelsPerMetre);
+        Pointer(ref draw, world, config, switches, pick, picked, pointerM, pointerPx, uiPx, pixelsPerMetre);
     }
-
-    /// <summary>
-    /// <b>Whether a way is drawn on the level above</b> (TER-7b, PHY-1a): a lane of a bridge over other roads, or a join
-    /// between two of them — where the ground's own tarmac for it is drawn (<see cref="CityGen.Paving.DrivenLevel"/>).
-    /// </summary>
-    static bool IsAbove(TownWorld world, int way) => world.Ways.KindOf(way) switch
-    {
-        WayKind.Lane => world.Roads.LaneLevel[world.Ways.RoadLaneOf(way)] != CityGen.CityPlan.RoadArrays.Ground,
-        WayKind.Connector => world.Roads.ConnectorLevel(world.Ways.RoadConnectorOf(way)) != CityGen.CityPlan.RoadArrays.Ground,
-        _ => false,
-    };
 
     /// <summary>OBS-2b's cull, coarsely: whether a place is inside the view once the body standing there has been allowed its own reach.</summary>
     static bool OnScreen(Vector2 pointM, Vector2 viewCentreM, Vector2 viewSpanM, float reachM)

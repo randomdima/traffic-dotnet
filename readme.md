@@ -157,6 +157,7 @@ cars 320 190            # what is standing near a place, nearest first
 people 320 190          # and who is on foot near one, on the same terms
 select nearest 320 190  # the car there, picked out as a click on it
 select walker 320 190   # or the walker there, which a script cannot click on by hand
+select train 0          # or a train's locomotive, while it is on the map: brake=1 brakes it, then backs it
 shot standing           # a captioned frame, riding the car
 drive 2 throttle=1      # the keys, held for two seconds of the town
 drive 1.5 throttle=0.4 steer=-0.6
@@ -246,10 +247,11 @@ zones and tells the one under the pointer. **`Odesa`, `River`, `Test`, `O10` and
 map — a few kilobytes, whose streets the wheel lays when it is opened exactly as the brief always laid them. Authoring
 again replaces the map. `Test` is the fixture every detailed check is staged on.
 
-**`Odesa` and `River` run trains** ([agents/train](src/agents/train/docs/requirements.md),
-[world/rail](src/world/rail/docs/requirements.md)): a double track across Odesa and a single one across River, and
-`OdesaOsm`'s main line laid off OSM by `qq osm --rails`. An intercity, an oil or a coal train comes now and then, runs
-the town edge to edge and never stops; every level crossing closes ahead of it — lights, barriers, and the road and the
+**Every map runs trains** ([agents/train](src/agents/train/docs/requirements.md),
+[world/rail](src/world/rail/docs/requirements.md)): a double track across Odesa, O10 and O30, a single one across River
+and Test — each turned once round a loop that passes over itself on a bridge, short enough that a train is over its own
+tail — and `OdesaOsm`'s main line laid off OSM by `qq osm --rails`. An intercity, an oil or a coal train comes now and
+then, runs the town edge to edge, slows for a curve and never stops; every level crossing closes ahead of it — lights, barriers, and the road and the
 walk held — and `--bench trains [--map NAME] [--seconds N]` says what came, what was held and what was hit.
 
 **Two of them are Odesa's brief at scale**, for what a large town costs: `O10` and `O30` at ten and thirty

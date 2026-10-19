@@ -79,7 +79,7 @@ void main()
     uint unit = gl_GlobalInvocationID.x;
     uint total = totals[TotalAt];
     uint aboveFrom = spritesAboveFrom();
-    overTotal = figures.levelled != 0u && aboveFrom < spritesSlotCount() ? starts[aboveFrom] : total;
+    overTotal = spritesAnythingAbove() && aboveFrom < spritesSlotCount() ? starts[aboveFrom] : total;
     if (unit == 0u)
     {
         draws[0] = SpriteDraw(SpriteQuadCorners, min(overTotal, figures.roomOver), 0u, 0u);
@@ -104,6 +104,9 @@ void main()
     {
         uint wagonSlot = spritesWagonsFrom() + unit;
         if (countAt(wagonSlot) != 0u) put(RunOver, starts[wagonSlot], spritesWagon(unit));
+
+        uint aboveSlot = spritesWagonsAboveFrom() + unit;
+        if (figures.bridged != 0u && countAt(aboveSlot) != 0u) put(RunAbove, starts[aboveSlot], spritesWagon(unit));
         return;
     }
 
@@ -116,10 +119,17 @@ void main()
     }
 
     unit -= figures.headCount;
-    if (unit >= figures.gearCount) return;
+    if (unit < figures.gearCount)
+    {
+        uint from = spritesGearFrom() + GearParts * unit;
+        if (countAt(from) != 0u) put(RunOver, starts[from], spritesBarrier(unit));
+        if (countAt(from + 1u) != 0u) put(RunOver, starts[from + 1u], spritesBarrierDrive(unit));
+        return;
+    }
 
-    uint from = spritesGearFrom() + GearParts * unit;
-    if (countAt(from) != 0u) put(RunOver, starts[from], spritesBarrier(unit));
-    if (countAt(from + 1u) != 0u) put(RunOver, starts[from + 1u], spritesCrossingHead(unit));
-    if (countAt(from + 2u) != 0u) put(RunOver, starts[from + 2u], spritesCrossingLamp(unit));
+    unit -= figures.gearCount;
+    if (unit >= figures.lightCount) return;
+
+    uint lightSlot = spritesLightsFrom() + unit;
+    if (countAt(lightSlot) != 0u) put(RunOver, starts[lightSlot], spritesCrossingLight(unit));
 }

@@ -35,7 +35,7 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>Recorded once a swapchain image, in that image's own frame</b>: what a frame changes — the view, the clock, and
 /// whether the rows are laid again — is that image's frame words (<see cref="WriteTheFrame"/>), so the emit costs a frame no
 /// crossing and no submit of its own. <b>The rows are laid only when the world has moved</b> (a batch of signals taken,
-/// <see cref="WorldLayer.SignalsTaken"/>): the lay's three dispatches read their workgroups out of the frame words, nought
+/// <see cref="WorldLayer.SignalsTaken"/>): the lay's two dispatches read their workgroups out of the frame words, nought
 /// on a frame no step or signal came between, and the rows laid for an earlier frame stand.
 /// </para>
 /// <para>
@@ -53,15 +53,14 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 {
     /// <summary>
     /// A frame's words (<see cref="WriteTheFrame"/>): its <see cref="FrameRow"/>, copied to where the passes read it, and
-    /// the lay's three dispatches' workgroups — cars, walkers, and the cars again for the tows — each nought where the
-    /// world has not moved since the rows were last laid.
+    /// the lay's two dispatches' workgroups — cars and walkers — each nought where the world has not moved since the rows
+    /// were last laid.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct FrameWords(FrameRow Frame, DispatchIndirectCommand LayCars, DispatchIndirectCommand LayPeople, DispatchIndirectCommand LayTows);
+    readonly record struct FrameWords(FrameRow Frame, DispatchIndirectCommand LayCars, DispatchIndirectCommand LayPeople);
 
     static readonly ulong LayCarsAt = (ulong)Marshal.SizeOf<FrameRow>();
     static readonly ulong LayPeopleAt = LayCarsAt + (ulong)Marshal.SizeOf<DispatchIndirectCommand>();
-    static readonly ulong LayTowsAt = LayPeopleAt + (ulong)Marshal.SizeOf<DispatchIndirectCommand>();
 
     /// <summary>One walker as the emit reads it (<c>PersonRow</c>).</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -71,7 +70,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CarRow(
         Vector2 PositionM, Vector2 Forward, float HeadingRad, float SteerRad, float FuseJitter, uint Lamps, uint Variant, uint Flags,
-        int Towing, float Pad);
+        int Towing, float ForkAlongM);
 
     /// <summary>What a car looks like that is fixed when the town is laid (<c>CarLookRow</c>).</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -89,7 +88,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CarLook(
         Vector2 BodyHalfM, Vector2 WreckHalfM, float BodyReachM, float WreckReachM, Vector2 TyreHalfM, Vector2 FirstSteeredM,
-        Vector2 SecondSteeredM, float TyreReachM, float WheelWidthM, float LampReachM, uint LensCount, float TowGripM,
+        Vector2 SecondSteeredM, float TyreReachM, float WheelWidthM, float LampReachM, uint LensCount, float Unused,
         uint HasBeam, Vector2 PivotM, Vector2 CollapsedHalfM, Vector2 ExtendedHalfM, float CollapsedHingeAtM,
         float ExtendedHingeAtM, float CollapsedReachM, float ExtendedReachM, uint CollapsedSheet, uint ExtendedSheet);
 
@@ -162,23 +161,30 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         public uint FirstTrainSheet;
         public uint GearCount;
         public uint BarrierSheet;
-        public uint CrossingHeadSheet;
-        public uint GlowTint;
+        public uint BarrierDriveSheet;
+        public uint CrossingLightSheet;
+        public uint CrossingLitSheet;
+        public uint LightCount;
         public float BarrierWidthM;
-        public float HeadHalfM;
-        public float LampGlowHalfM;
-        public float GearPastKerbM;
+        public float DriveHalfLengthM;
+        public float DriveHalfWidthM;
+        public float LightHalfLengthM;
+        public float LightHalfWidthM;
+        public uint Bridged;
+        public uint BridgeChannel;
     }
 
     /// <summary>One approach's crossing gear (<c>GearRow</c>, <see cref="CrossingGear"/>), laid once.</summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct GearRow(
-        Vector2 PivotM, Vector2 DownAlong, Vector2 HeadM, Vector2 LampAcrossM, float ArmM, float ArmHeadingRad, float HeadHeadingRad,
-        float Pad = 0f);
+    internal readonly record struct GearRow(Vector2 PivotM, Vector2 DownAlong, float ArmHeadingRad, float ReachM);
 
-    /// <summary>What one approach's gear shows a frame (<c>GearShownRow</c>, <see cref="CrossingSprites.Shown"/>).</summary>
+    /// <summary>What one approach's gear shows a frame (<c>GearShownRow</c>, <see cref="CrossingSprites.ArmDrawn"/>, <see cref="CrossingGear.Lit"/>).</summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct GearShownRow(float ShownM, int Lit);
+    internal readonly record struct GearShownRow(Vector2 ArmFromM, Vector2 ArmToM, uint Lit, uint Pad = 0);
+
+    /// <summary>One X light (<c>LightRow</c>, <see cref="CrossingLight"/>), its approach as its gear's row, laid once.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct LightRow(Vector2 CentreM, float HeadingRad, uint Gear);
 
     /// <summary>Where the scan keeps its grand total (<c>TotalAt</c>).</summary>
     const uint TotalAt = 0;
@@ -224,9 +230,10 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     readonly List<GpuBuffer> _gearFrames = [];
 
     /// <param name="levelled">Whether the town has a level above its ground (<see cref="TownWorld.Levelled"/>).</param>
+    /// <param name="bridged">Whether any of its railway stands on a bridge, so a wagon may be drawn in the run above (RAIL-8).</param>
     public DeviceSprites(
         Vk vk, SimConfig config, TownSprites looks, SpriteRoom room, CarFleet cars, PersonFleet people, SignalHeads heads,
-        SignalTable signals, bool levelled, CrossingGear gear, DeviceWorld world)
+        SignalTable signals, bool levelled, bool bridged, CrossingGear gear, DeviceWorld world)
     {
         _vk = vk;
         _held = new DeviceHoldings(vk);
@@ -236,25 +243,30 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _people = people.Count;
         _gear = gear;
         var wagons = world.View.Wagons.Length;
-        _units = people.Capacity + cars.Capacity + wagons + heads.Count + gear.Count;
-        _slots = people.Capacity + (CarParts(levelled) * cars.Capacity) + wagons + heads.Count + (CrossingSprites.EachGear * gear.Count);
+        var lights = gear.Lights;
+        _units = people.Capacity + cars.Capacity + wagons + heads.Count + gear.Count + lights.Length;
+        _slots = people.Capacity + (CarParts(levelled) * cars.Capacity) + (bridged ? 2 * wagons : wagons) + heads.Count
+                 + (CrossingSprites.EachGear * gear.Count) + lights.Length;
         if (_slots > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(cars), _slots, "more sprite slots than one scan covers");
 
-        var rail = config.Rail;
+        var (driveHalfM, lightHalfM) = (RailLooks.Shared.Drive.FootprintM * 0.5f, RailLooks.Shared.Light.FootprintM * 0.5f);
         var figures = FiguresOf(config, looks, room, cars.Capacity, people.Capacity, heads.Count, signals, levelled) with
         {
             WagonCount = (uint)wagons, FirstTrainSheet = (uint)looks.FirstTrainSheet, GearCount = (uint)gear.Count,
-            BarrierSheet = (uint)looks.BarrierSheet, CrossingHeadSheet = (uint)looks.CrossingHeadSheet, GlowTint = CrossingSprites.GlowTint,
-            BarrierWidthM = rail.BarrierWidthM, HeadHalfM = rail.HeadSizeM * 0.5f, LampGlowHalfM = rail.LampGlowM * 0.5f,
-            GearPastKerbM = rail.GearPastKerbM,
+            BarrierSheet = (uint)looks.BarrierSheet, BarrierDriveSheet = (uint)looks.BarrierDriveSheet,
+            CrossingLightSheet = (uint)looks.CrossingLightSheet, CrossingLitSheet = (uint)looks.CrossingLitSheet, LightCount = (uint)lights.Length,
+            BarrierWidthM = config.Rail.BarrierWidthM, DriveHalfLengthM = driveHalfM.X, DriveHalfWidthM = driveHalfM.Y,
+            LightHalfLengthM = lightHalfM.X, LightHalfWidthM = lightHalfM.Y,
+            Bridged = bridged ? 1u : 0u, BridgeChannel = CityPlan.RailArrays.BridgeChannel,
         };
         var gearRows = new GearRow[Math.Max(1, gear.Count)];
         for (var each = 0; each < gear.Count; each++)
         {
-            gearRows[each] = new GearRow(
-                gear.PivotM[each], gear.DownAlong[each], gear.HeadM[each], gear.LampAcrossM[each], gear.ArmM[each], gear.ArmHeadingRad[each],
-                gear.HeadHeadingRad[each]);
+            gearRows[each] = new GearRow(gear.PivotM[each], gear.DownAlong[each], gear.ArmHeadingRad[each], CrossingSprites.ReachM(gear, each, config));
         }
+
+        var lightRows = new LightRow[Math.Max(1, lights.Length)];
+        for (var each = 0; each < lights.Length; each++) lightRows[each] = new LightRow(lights[each].CentreM, lights[each].HeadingRad, (uint)lights[each].Approach);
 
         _gearShown = _held.Device<GearShownRow>(gearRows.Length);
         _gearShownIn = _held.Own(_vk.CreateBuffer(Bytes<GearShownRow>(gearRows.Length), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
@@ -289,6 +301,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             world.Drawn.WagonViews[1],
             Laid<GearRow>(gearRows),
             _gearShown,
+            Laid<LightRow>(lightRows),
         ];
 
         _frameIn = _held.Own(_vk.CreateBuffer(
@@ -320,7 +333,8 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
     /// <summary>The emit for a running town whose world is on the device.</summary>
     public static DeviceSprites For(Vk vk, SimConfig config, TownWorld town, TownSprites looks, SpriteRoom room, DeviceWorld world) =>
-        new(vk, config, looks, room, town.Cars, town.People, town.Heads, town.Signals.Table, town.Levelled, town.CrossingGear, world);
+        new(vk, config, looks, room, town.Cars, town.People, town.Heads, town.Signals.Table, town.Levelled,
+            Array.Exists(town.Plan.Rails.Level, static level => level != CityGen.Map.TownMap.RailArrays.AtGrade), town.CrossingGear, world);
 
     /// <summary>
     /// The two runs as the last emit wrote them, on the device — the over run from the first instance and the run above
@@ -407,14 +421,17 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         WriteTheGear(_gearFrames[image], elapsedS);
     }
 
-    /// <summary>What every approach's crossing gear shows at the frame's moment (<see cref="CrossingSprites.Shown"/>), written where the frame copies it from.</summary>
+    /// <summary>
+    /// What every approach's crossing gear shows at the frame's moment (<see cref="CrossingSprites.ArmDrawn"/>,
+    /// <see cref="CrossingGear.Lit"/>), written where the frame copies it from.
+    /// </summary>
     void WriteTheGear(GpuBuffer into, float elapsedS)
     {
         var rows = into.Span<GearShownRow>();
         for (var each = 0; each < _gear.Count; each++)
         {
-            var (shownM, lit) = CrossingSprites.Shown(_gear, each, elapsedS);
-            rows[each] = new GearShownRow(shownM, lit);
+            var (fromM, toM) = CrossingSprites.ArmDrawn(_gear, each, elapsedS, _config);
+            rows[each] = new GearShownRow(fromM, toM, _gear.Lit(each, elapsedS) ? 1u : 0u);
         }
     }
 
@@ -422,8 +439,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         new FrameRow(
             viewCentreM, viewSpanM, _config.View.CarPartLeastPx / pixelsPerMetre, elapsedS, (uint)_people, (uint)_cars,
             (uint)_world.View.Slot),
-        new DispatchIndirectCommand(lay ? Groups(_cars) : 0u, 1, 1), new DispatchIndirectCommand(lay ? Groups(_people) : 0u, 1, 1),
-        new DispatchIndirectCommand(lay ? Groups(_cars) : 0u, 1, 1));
+        new DispatchIndirectCommand(lay ? Groups(_cars) : 0u, 1, 1), new DispatchIndirectCommand(lay ? Groups(_people) : 0u, 1, 1));
 
     /// <summary>
     /// The emit recorded off frame words <paramref name="words"/>: the frame's row sent, every row laid off the world as
@@ -439,8 +455,6 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
         _lay.DispatchIndirect(commands, _laySet, words, LayCarsAt, new LayPush((uint)_cars, 0u));
         _lay.DispatchIndirect(commands, _laySet, words, LayPeopleAt, new LayPush((uint)_people, 1u));
-        vk.BetweenKernels(commands);
-        _lay.DispatchIndirect(commands, _laySet, words, LayTowsAt, new LayPush((uint)_cars, 2u));
         vk.BetweenKernels(commands);
 
         var groups = Groups(_units);
@@ -544,7 +558,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
                 bodyHalfM, wreckHalfM, bodyHalfM.Length(), wreckHalfM.Length(),
                 new Vector2(build.WheelLengthM, build.WheelWidthM) * 0.5f, TyreModel.WheelAtM(build, 0), TyreModel.WheelAtM(build, 1),
                 halfDiagonalM + build.WheelLengthM, build.WheelWidthM, halfDiagonalM, (uint)catalogue.LensesOf(variant).Length,
-                build.TowGripFromTheMiddleM, beam is null ? 0u : 1u, beam?.PivotM ?? Vector2.Zero, collapsed.SizeM * 0.5f,
+                0f, beam is null ? 0u : 1u, beam?.PivotM ?? Vector2.Zero, collapsed.SizeM * 0.5f,
                 extended.SizeM * 0.5f, collapsed.HingeAtM, extended.HingeAtM, ArmReachM(collapsed), ArmReachM(extended),
                 BeamSheet(looks, variant, towing: false), BeamSheet(looks, variant, towing: true));
         }

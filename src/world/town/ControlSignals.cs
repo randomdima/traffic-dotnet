@@ -31,7 +31,10 @@ internal enum ControlAction : ushort
     /// <summary>A body put on the collision channels its flags name (PHY-1a).</summary>
     Channels,
 
-    /// <summary>A car put on the bar of the tractor whose agent is the first parameter's bits, or taken off it where that is −1; flag <see cref="ControlSignal.ByTheTail"/> (EVA-5).</summary>
+    /// <summary>
+    /// A tractor's arm put on the body whose agent is the first parameter's bits — a car or a rail vehicle, by the end flag
+    /// <see cref="ControlSignal.ByTheTail"/> names — or emptied where that is −1 (EVA-5).
+    /// </summary>
     Tow,
 
     /// <summary>A car's tyres forgotten: rims stopped, throttle recovered, no mark under way.</summary>
@@ -101,10 +104,10 @@ internal readonly record struct ControlSignal(int Agent, ControlAction Action, u
 
     public static ControlSignal Channels(int agent, byte channels) => new(agent, ControlAction.Channels, channels, default);
 
-    /// <param name="tractor">The tractor's agent, or −1 to take the car off the bar.</param>
-    public static ControlSignal Tow(int towed, int tractor, bool byTheTail) => new(
-        towed, ControlAction.Tow, byTheTail ? ByTheTail : (ushort)0,
-        new Vector4(BitConverter.Int32BitsToSingle(tractor), 0f, 0f, 0f));
+    /// <param name="load">The agent of the body put on the arm, or −1 to empty it.</param>
+    public static ControlSignal Tow(int tractor, int load, bool byTheTail) => new(
+        tractor, ControlAction.Tow, byTheTail ? ByTheTail : (ushort)0,
+        new Vector4(BitConverter.Int32BitsToSingle(load), 0f, 0f, 0f));
 
     public static ControlSignal ClearWheels(int agent) => new(agent, ControlAction.ClearWheels, 0, default);
 
@@ -122,8 +125,8 @@ internal readonly record struct ControlSignal(int Agent, ControlAction Action, u
     public DriveCommand Command => new(
         Params.X, Params.Y, Params.Z, (Flags & Handbrake) != 0, (Flags & Reverse) != 0);
 
-    /// <summary>The tractor's agent a <see cref="ControlAction.Tow"/> names, the vehicle ahead a <see cref="ControlAction.Couple"/> does, or −1; and the switch a <see cref="ControlAction.Switch"/> sets.</summary>
-    public int Tractor => BitConverter.SingleToInt32Bits(Params.X);
+    /// <summary>The load's agent a <see cref="ControlAction.Tow"/> names, the vehicle ahead a <see cref="ControlAction.Couple"/> does, or −1; and the switch a <see cref="ControlAction.Switch"/> sets.</summary>
+    public int Other => BitConverter.SingleToInt32Bits(Params.X);
 }
 
 /// <summary>

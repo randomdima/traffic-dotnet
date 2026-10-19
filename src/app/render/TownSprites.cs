@@ -37,8 +37,8 @@ internal sealed class TownSprites
     /// <summary>The car head's strip and the pedestrian head's.</summary>
     const int HeadSheets = 2;
 
-    /// <summary>The two brushes a mark is stamped through, the two pictures every lamp is drawn through, a steered tyre's rubber, and a crossing's barrier and head.</summary>
-    const int GroundworkSheets = 7;
+    /// <summary>The two brushes a mark is stamped through, the two pictures every lamp is drawn through, a steered tyre's rubber, and a crossing's barrier, its housing and its X light dark and lit.</summary>
+    const int GroundworkSheets = 9;
 
     TownSprites(
         PersonCatalog people, CarCatalog cars, BuildingCatalog buildings, PropCatalog props, SheetSource[] sheets,
@@ -125,13 +125,17 @@ internal sealed class TownSprites
     /// <summary>What a steered tyre is drawn with (<see cref="CarSheets.RubberSheet"/>).</summary>
     public int RubberSheet => LampGlowSheet + 1;
 
-    /// <summary>A level crossing's barrier arm and its head (RAIL-7), laid in code (<see cref="CrossingSprites"/>).</summary>
+    /// <summary>A level crossing's barrier arm, the housing it pivots at, and its X light dark and lit (RAIL-7), the railway's art (<see cref="RailLooks"/>).</summary>
     public int BarrierSheet => RubberSheet + 1;
 
-    public int CrossingHeadSheet => BarrierSheet + 1;
+    public int BarrierDriveSheet => BarrierSheet + 1;
+
+    public int CrossingLightSheet => BarrierDriveSheet + 1;
+
+    public int CrossingLitSheet => CrossingLightSheet + 1;
 
     /// <summary>Where the rolling stock starts (TRN-4): a sheet a vehicle of the catalogue, last of all so nothing before moves.</summary>
-    public int FirstTrainSheet => CrossingHeadSheet + 1;
+    public int FirstTrainSheet => CrossingLitSheet + 1;
 
     /// <summary>The rolling stock the trains are drawn in.</summary>
     public TrainCatalog Rolling { get; } = TrainCatalog.Shared;
@@ -218,8 +222,11 @@ internal sealed class TownSprites
         sheets[firstHead + HeadSheets + 2] = LampSheet();
         sheets[firstHead + HeadSheets + 3] = LampSprites.Glow();
         sheets[firstHead + HeadSheets + 4] = CarSheets.RubberSheet();
-        sheets[firstHead + HeadSheets + 5] = CrossingSprites.Barrier(config.Rail);
-        sheets[firstHead + HeadSheets + 6] = CrossingSprites.Head(config.Rail);
+        var rail = RailLooks.Shared;
+        sheets[firstHead + HeadSheets + 5] = SheetSource.File(rail.Barrier.SpritePath);
+        sheets[firstHead + HeadSheets + 6] = SheetSource.File(rail.Drive.SpritePath);
+        sheets[firstHead + HeadSheets + 7] = SheetSource.File(rail.Light.SpritePath);
+        sheets[firstHead + HeadSheets + 8] = SheetSource.File(rail.Light.LitSpritePath!);
         for (var vehicle = 0; vehicle < trains.Length; vehicle++) sheets[firstHead + HeadSheets + GroundworkSheets + vehicle] = TrainSprites.Of(trains[vehicle]);
 
         return new TownSprites(people, cars, buildings, props, sheets, carScales)
@@ -272,17 +279,19 @@ internal sealed class TownSprites
     /// Standing: every building and prop. Over: a body a spawn, a body, two steered tyres, a tow arm and every lens with
     /// its glow a car its people own or its plan stands (<see cref="TownWorld.CarsOfThePlan"/>), and the heads a lit
     /// junction can stand (<see cref="SignalHeads.MostFor"/>). <b>Above</b> (PHY-1a): every car's again, since any of
-    /// them may be on a bridge — and none in a town with nothing above its ground.
+    /// them may be on a bridge, and every wagon's again where a track is on one — and none in a town with nothing above
+    /// its ground.
     /// </summary>
     public SpriteRoom RoomFor(CityPlan plan, SimConfig config)
     {
         var carSprites = TownWorld.CarsOfThePlan(plan) * CarSpritesEach;
+        var wagons = Trains.WagonsFor(RailGraph.Of(plan.Rails, plan.WorldSizeM), config.Train);
         return new SpriteRoom(
             config.Marks.Capacity + ScenerySprites.CapacityFor(plan, config.View.SceneryMostDrawn),
             StandingSprites.CapacityFor(plan),
-            plan.Spawns.Count + carSprites + SignalHeads.MostFor(plan) + Trains.WagonsFor(RailGraph.Of(plan.Rails, plan.WorldSizeM), config.Train)
-            + (2 * LevelCrossings.Of(plan, config).Crossings * CrossingSprites.EachGear),
-            Array.Exists(plan.Roads.Level, static level => level != CityPlan.RoadArrays.Ground) ? carSprites : 0,
+            plan.Spawns.Count + carSprites + SignalHeads.MostFor(plan) + wagons + CrossingSprites.MostFor(plan, config),
+            (Array.Exists(plan.Roads.Level, static level => level != CityPlan.RoadArrays.Ground) ? carSprites : 0)
+            + (Array.Exists(plan.Rails.Level, static level => level != CityGen.Map.TownMap.RailArrays.AtGrade) ? wagons : 0),
             Math.Max(1, config.Marks.Capacity),
             Math.Max(1, plan.Scenery.Count),
             Math.Max(1, ScenerySprites.RowsFor(plan.WorldSizeM, config.Grid.Main)));
@@ -365,26 +374,31 @@ internal sealed class TownSprites
         var onTheGround = world.Levelled ? _carsOnTheGround.AsSpan(0, ground) : cars;
         var onTheLevelAbove = _carsAbove.AsSpan(0, aboveCars);
         overCount += FillCars(
-            world.Cars, world.Recovery, onTheGround, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM,
+            world.Cars, world.Hitches, world.World.View.Wagons, onTheGround, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM,
             over[overCount..], CarSprites.EveryLevel);
 
         // The trains over the cars: a car on the crossing a train is on is under it.
-        overCount += TrainSprites.Fill(world.World.View.Wagons, Rolling, FirstTrainSheet, viewCentreM, viewSpanM, over[overCount..]);
+        overCount += TrainSprites.Fill(
+            world.World.View.Wagons, Rolling, FirstTrainSheet, viewCentreM, viewSpanM, onABridge: false, over[overCount..]);
 
         // The heads last of all: a signal hangs over the carriageway, so nothing driving under it passes
         // in front of it.
         overCount += SignalSprites.Fill(world, config, FirstHeadSheet, viewCentreM, viewSpanM, over[overCount..]);
 
-        // And the crossings' gear with them, stood at the kerb as a head is.
+        // And the crossings' gear with them: an arm stands up off the road, and an X light hangs over it as a head does.
         overCount += CrossingSprites.Fill(
-            world.CrossingGear, world.ElapsedS, config.Rail, BarrierSheet, CrossingHeadSheet, LampGlowSheet, viewCentreM, viewSpanM,
-            over[overCount..]);
+            world.CrossingGear, world.ElapsedS, config, new CrossingSheets(BarrierSheet, BarrierDriveSheet, CrossingLightSheet, CrossingLitSheet),
+            viewCentreM, viewSpanM, over[overCount..]);
 
         var aboveCount = world.Levelled
             ? FillCars(
-                world.Cars, world.Recovery, onTheLevelAbove, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM, above,
+                world.Cars, world.Hitches, world.World.View.Wagons, onTheLevelAbove, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM, above,
                 CarSprites.EveryLevel)
             : 0;
+
+        // And the wagons on a bridge over the bridge, as the cars on one are (RAIL-8).
+        aboveCount += TrainSprites.Fill(
+            world.World.View.Wagons, Rolling, FirstTrainSheet, viewCentreM, viewSpanM, onABridge: true, above[aboveCount..]);
         return (overCount, aboveCount);
     }
 
@@ -416,9 +430,10 @@ internal sealed class TownSprites
 
     /// <summary>The cars of one level, every part of each in the order it is seen from above.</summary>
     /// <param name="drawn">The cars the frame may show (<see cref="TownWorld.CarsIn"/>).</param>
+    /// <param name="wagons">The rail vehicles as the view shows them, which an arm may be holding.</param>
     /// <param name="leastPartM">The narrowest tyre or glow this frame draws; a pass whose widest is narrower is not walked at all.</param>
     public int FillCars(
-        CarFleet cars, RecoveryDuty recovery, ReadOnlySpan<int> drawn, SimConfig config, float elapsedS,
+        CarFleet cars, TowHitches hitches, ReadOnlySpan<WagonView> wagons, ReadOnlySpan<int> drawn, SimConfig config, float elapsedS,
         Vector2 viewCentreM, Vector2 viewSpanM, float leastPartM, Span<SpriteInstance> into, int level)
     {
         // The steered tyres before the bodies, so a car's own bodywork is drawn over them and what shows is
@@ -433,7 +448,7 @@ internal sealed class TownSprites
         // The arm over both bodies: it stands on the truck's deck and its fork is above the nose of what it
         // is holding, so a tow drawn under either of them is an arm running through a car (EVA-5).
         written += CarSprites.FillBeams(
-            cars, drawn, Cars, recovery, FirstBeamSheet, viewCentreM, viewSpanM, into[written..], level);
+            cars, drawn, Cars, hitches, wagons, FirstBeamSheet, viewCentreM, viewSpanM, into[written..], level);
 
         // The lamps over the bodies, because a lamp is a light on the bodywork: drawn under it, a brake
         // lamp is a red smudge on the road behind a car rather than anything the car is showing.
@@ -537,13 +552,14 @@ internal static class CarSprites
     /// the one part that moves against the body it is bolted to.
     /// </summary>
     /// <remarks>
-    /// <b>It asks the coupling where the fork is rather than knowing</b> (<see cref="TowBar.ForkM"/>), so the
+    /// <b>It asks the coupling where the fork is rather than knowing</b> (<see cref="TowHitches.ForkAlongM"/>), so the
     /// arm on screen cannot drift from the arm the tow is spent along; the picture's reach and the length
-    /// the coupling is held at are one number in one file (<see cref="CarTowBeam.ReachM"/>).
+    /// the coupling is held at are one number in one file (<see cref="CarTowBeam.ReachM"/>). What it holds may be a
+    /// car or a rail vehicle, read where the view shows it.
     /// </remarks>
     public static int FillBeams(
-        CarFleet cars, ReadOnlySpan<int> drawn, CarCatalog catalogue, RecoveryDuty recovery, int firstBeamSheet,
-        Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into, int level = EveryLevel)
+        CarFleet cars, ReadOnlySpan<int> drawn, CarCatalog catalogue, TowHitches hitches, ReadOnlySpan<WagonView> wagons,
+        int firstBeamSheet, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into, int level = EveryLevel)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
@@ -556,7 +572,7 @@ internal static class CarSprites
             // over it (CAR-14a's argument said of the whole vehicle rather than of a lens).
             if (!IsOn(cars, car, level) || cars.Broken[car] || catalogue.BeamOf(cars.Variant[car]) is not { } beam) continue;
 
-            var towed = recovery.Towing[car];
+            var towed = hitches.Load(car);
             var arm = beam.Drawn(towed >= 0);
             var halfSizeM = arm.SizeM * 0.5f;
             var reachM = halfSizeM.Length() + MathF.Abs(arm.HingeAtM);
@@ -569,11 +585,15 @@ internal static class CarSprites
             // The arm points at what it is holding, and along the deck when it is holding nothing. A pair
             // the solver has driven exactly on top of each other has no direction, and stows rather than
             // picking one.
-            var alongTheArm = towed >= 0
-                ? TowBar.ForkM(
-                    cars.BuildOf(towed), cars.PositionM[towed], Heading.Unit(cars.HeadingRad[towed]),
-                    recovery.HeldByTheTail[towed]) - hingeM
-                : Vector2.Zero;
+            var alongTheArm = Vector2.Zero;
+            if (towed >= 0)
+            {
+                var (loadM, loadHeadingRad) = hitches.IsACar(towed)
+                    ? (cars.PositionM[towed], cars.HeadingRad[towed])
+                    : (wagons[towed - hitches.Cars].PositionM, wagons[towed - hitches.Cars].HeadingRad);
+                alongTheArm = loadM + (Heading.Unit(loadHeadingRad) * hitches.ForkAlongM(car)) - hingeM;
+            }
+
             var pointing = alongTheArm.LengthSquared() > 1e-6f ? Vector2.Normalize(alongTheArm) : -forward;
 
             into[written++] = new SpriteInstance(

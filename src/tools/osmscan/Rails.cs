@@ -5,7 +5,7 @@ using Vector2 = System.Numerics.Vector2;
 namespace TrafficSimulation.Tools.OsmScan;
 
 /// <summary>
-/// <b>A traced map's railway laid off OSM's main lines</b> (RAIL-2, TRN-1), every other edit made to it kept: the tracks the
+/// <b>A traced map's railway laid off OSM's main lines</b> (RAIL-2, TRN-7), every other edit made to it kept: the tracks the
 /// enrichment holds (<c>towns/traced/&lt;Map&gt;/tracks.json</c>) — a main line's own, no yard, siding, spur or crossover —
 /// joined where OSM joins them, and every route through the map from one place it leaves the map to another, run on past
 /// both far enough for a whole train to stand off it. Run by <c>qq osm --rails</c>.

@@ -10,9 +10,11 @@ namespace TrafficSimulation.App.Camera;
 /// </summary>
 /// <remarks>
 /// <para><b>Free pan wins by arithmetic rather than by a flag</b>: what the follow left the camera at is
-/// kept, and a frame that finds the camera anywhere else knows the reader moved it themselves. That is
-/// one comparison for the pan, the zoom and the turn alike, and there is no way for a gesture to move the
-/// camera without this noticing — including gestures that have not been written yet.</para>
+/// kept, and a frame that finds it moved or turned knows the reader moved it themselves — one comparison for
+/// the pan and the turn alike, and no way for a gesture to move the camera without this noticing, including
+/// gestures that have not been written yet. <b>A frame that finds it zoomed is not one</b>: the zoom moved its
+/// centre towards the pointer as well, and the step stands it back on the unit, so a zoom under a follow is about
+/// the unit.</para>
 /// <para><b>What eases is the lead and never the camera's own place.</b> The camera carries the unit's
 /// step exactly, so the unit itself does not move on the glass however coarsely the town is stepped; a
 /// camera closing on the unit instead would leave the residue of every tick boundary on the one body the
@@ -62,7 +64,7 @@ internal sealed class Follow(SimConfig config)
     {
         if (!On) return;
 
-        if (_leftAt is { } left && left != (camera.CentreM, camera.PixelsPerMetre, camera.TurnRad))
+        if (_leftAt is { } left && TakenFrom(left, camera))
         {
             Stop();
             return;
@@ -78,6 +80,10 @@ internal sealed class Follow(SimConfig config)
         camera.LookAt(atM + _leadM);
         _leftAt = (camera.CentreM, camera.PixelsPerMetre, camera.TurnRad);
     }
+
+    /// <summary>Whether the reader has taken the camera since the follow left it: turned it, or moved it without zooming.</summary>
+    static bool TakenFrom((Vector2 CentreM, float PixelsPerMetre, float TurnRad) left, Camera2D camera) =>
+        left.TurnRad != camera.TurnRad || (left.PixelsPerMetre == camera.PixelsPerMetre && left.CentreM != camera.CentreM);
 
     /// <summary>
     /// How far in front of the unit the camera stands: the ground it covers in the lead time, cut back to

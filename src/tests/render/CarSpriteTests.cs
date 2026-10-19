@@ -303,7 +303,7 @@ public class CarSpriteTests
         var catalogue = CarCatalog.Load();
         var fleet = OneEvacuator(catalogue, headingRad: 0.4f, out var beam);
 
-        var drawn = Beams(fleet, catalogue, new RecoveryDuty(fleet.Count));
+        var drawn = Beams(fleet, catalogue, new TowHitches(fleet.Count, wagons: 0));
 
         var back = -Heading.Unit(0.4f);
         Assert.Single(drawn);
@@ -332,10 +332,9 @@ public class CarSpriteTests
         var fleet = OneEvacuator(catalogue, headingRad: 0f, out var beam);
         fleet.Add(new Vector2(-6f, 3f), 0.9f, 0, false, new Rng(1, 2));
 
-        var recovery = new RecoveryDuty(fleet.Count);
-        recovery.Towing[0] = 1;
-        recovery.HeldByTheTail[1] = true;
-        var drawn = Beams(fleet, catalogue, recovery);
+        var hitches = new TowHitches(fleet.Count, wagons: 0);
+        hitches.Hitch(0, 1, byTheTail: true, TowBar.ForkAlongM(fleet.BuildOf(1).TowGripFromTheMiddleM, byTheTail: true));
+        var drawn = Beams(fleet, catalogue, hitches);
 
         // By the tail, so the fork the arm points at is under that car's back end and not its front: the
         // picture follows which end the tow actually has hold of.
@@ -358,7 +357,7 @@ public class CarSpriteTests
         var fleet = OneEvacuator(catalogue, headingRad: 0f, out _);
         fleet.Broken[0] = true;
 
-        Assert.Empty(Beams(fleet, catalogue, new RecoveryDuty(fleet.Count)));
+        Assert.Empty(Beams(fleet, catalogue, new TowHitches(fleet.Count, wagons: 0)));
     }
 
     static CarFleet OneEvacuator(CarCatalog catalogue, float headingRad, out CarTowBeam beam)
@@ -375,11 +374,11 @@ public class CarSpriteTests
         return fleet.PositionM[0] + (forward * beam.PivotM.X) + (Heading.RightOf(forward) * beam.PivotM.Y);
     }
 
-    static SpriteInstance[] Beams(CarFleet fleet, CarCatalog catalogue, RecoveryDuty recovery)
+    static SpriteInstance[] Beams(CarFleet fleet, CarCatalog catalogue, TowHitches hitches)
     {
         var into = new SpriteInstance[fleet.Count];
         var written = CarSprites.FillBeams(
-            fleet, Every(fleet), catalogue, recovery, firstBeamSheet: 7, new Vector2(0f, 0f), new Vector2(1_000f, 1_000f), into);
+            fleet, Every(fleet), catalogue, hitches, [], firstBeamSheet: 7, new Vector2(0f, 0f), new Vector2(1_000f, 1_000f), into);
 
         return into[..written];
     }

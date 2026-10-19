@@ -59,6 +59,15 @@ internal static class GroundParts
     public const uint All = (1u << Count) - 1;
 
     /// <summary>
+    /// <b>The parts laid as a stack of layers, each over the one before</b> (TER-7b), which only the mesh's own order
+    /// draws right (<see cref="GroundBands"/>): the water's shore, its two edges and the water itself; every deck's rim
+    /// before any deck; the track on a bridge before its rails; and the level above.
+    /// </summary>
+    public const uint Stacked =
+        (1u << (int)GroundPart.Water) | (1u << (int)GroundPart.Decks) | (1u << (int)GroundPart.Rails)
+        | (1u << (int)GroundPart.Above);
+
+    /// <summary>
     /// <b>Printable ASCII only</b>, like every other string the interface draws, and <b>the words the
     /// mesh and the requirements use</b> — a page naming the walk a sidewalk would be a second vocabulary
     /// for the one shape.

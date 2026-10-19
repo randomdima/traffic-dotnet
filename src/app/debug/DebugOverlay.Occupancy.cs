@@ -8,67 +8,30 @@ using TrafficSimulation.World.Town;
 namespace TrafficSimulation.App.Debug;
 
 /// <summary>
-/// <b>The lane index drawn on the lanes</b> — every stretch of road somebody has claimed, as
-/// a block of the lane it is a stretch of, coloured by whose it is and what it is.
+/// <b>The claims' wash, and the one hold that is not a piece of way</b>: the stretches every claim holds are drawn by the
+/// engine layers straight off the claims table (<see cref="EngineLayers"/>, <c>kernels/engine_ways.comp</c>) — whose
+/// colour, how strong, and an outline where a stretch is only crossed — and what is left here is the ladder they are washed
+/// by and the bays somebody has taken.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>It is the one thing about a driver that has no shape of its own.</b> A line, a lookahead and a claimed
-/// box are all somewhere; whether the car in front counts as a queue or as something to get past, and how
-/// much road each driver was granted, are readings — and until they are drawn the only way to see either
-/// is to stop the run and look at an array.
+/// <b>A claim is drawn ahead of the car that holds it and that is not a fault.</b> It is the ground the driver will come to
+/// rest on rather than the ground it is on, so at speed it stands a stopping distance up the road — and the gap between one
+/// car's block and the next one's is the whole of what keeps them apart.
 /// </para>
 /// <para>
-/// <b>A claim is drawn ahead of the car that holds it and that is not a fault.</b> It is the ground
-/// the driver will come to rest on rather than the ground it is on, so at speed it stands a stopping
-/// distance up the road — and the gap between one car's block and the next one's is the whole of what
-/// keeps them apart.
+/// <b>The wash is how strong the hold is</b> (<see cref="Wash"/>), <b>the pieces of one hold are told apart by a bar across
+/// the end of each</b>, and <b>a secondary claim is an outline with no wash</b>: one body's ground is several stretches at
+/// one strength that butt exactly, so the joints are marked rather than shaded, and the shade is left to say which of the
+/// asks lying over a busy junction anybody would actually give up.
 /// </para>
 /// <para>
-/// <b>The wash is how strong the hold is</b> (<see cref="Wash"/>), <b>the pieces of one hold are told
-/// apart by a bar across the end of each</b>, and <b>a secondary claim is an outline with no wash</b>. A block is drawn per stretch and a body's ground is regularly
-/// several of them at one strength — a lane, the join after it, the ground beyond its own road it has
-/// committed to — which butt exactly and are one continuous band. So those joints are marked rather than
-/// shaded, and the shade is left to say the one thing a reader cannot get anywhere else: which of the asks
-/// lying over a busy junction anybody would actually give up.
-/// </para>
-/// <para>
-/// <b>Drawn straightened back out.</b> The index holds a stretch as two numbers along a way's arclength,
-/// so the layer walks the way's own arcs between them rather than joining the two ends — a block across a
-/// junction join drawn as a chord is a claim over ground nobody drives.
-/// </para>
-/// <para>
-/// <b>At the lane's own width</b>, which is the road's declared width halved and is the same number the
-/// lane's line was offset by half of (<see cref="RoadGraph.LaneWidthM"/>). It is the model's figure and
-/// not a drawing one: the follower is held to a quarter of it, the pavement band starts at the edge of it
-/// and the tarmac is laid to it. A block a metre wider than the ground it stands for would be a picture
-/// arguing with the town.
-/// </para>
-/// <para>
-/// <b>It is a layer of its own</b> (OBS-2c), and belongs to neither kind of body, because <b>a claim
-/// is a fact about the ground</b>: what cuts a driver's grant is as often a walker standing in the lane as
-/// it is another car, and the footways are drawn on the same layer as the carriageway because they are ways
-/// of the same table (<see cref="ClaimIndex"/>). Drawn with the cars it could not show either without the
-/// car switch on, which is the reading the block exists for. The colour still says whose the ground is —
-/// the two rosters share <see cref="Theme.AgentLine"/>, and which body a stretch belongs to is what its own
-/// layer says.
-/// </para>
-/// <para>
-/// <b>And not the node layer's either, though both are the town's.</b> The graphs are the ground the town
-/// was laid with and are cached because they never move; the claims are what this tick did to that ground.
-/// Switched together, the reading either one is opened for came with the other underneath it — a lane full
-/// of blocks over every movement through the box, or a fan of chevrons through every block.
+/// <b>It is a layer of its own</b> (OBS-2c), and belongs to no kind of body, because <b>a claim is a fact about the
+/// ground</b>: what cuts a driver's grant is as often a walker standing in the lane as another car.
 /// </para>
 /// </remarks>
 internal sealed partial class DebugOverlay
 {
-    /// <summary>
-    /// How many stretches of one way are drawn. A bound on a stack span and on the work, not a figure
-    /// behaviour reads: past it a stretch goes undrawn, which is a lane whose picture is short rather than
-    /// a town that behaves differently.
-    /// </summary>
-    const int MostDrawnSlotsOnAWay = 32;
-
     /// <summary>What the strongest claim there is (<see cref="ClaimPriority.Hard"/>) is let down to.</summary>
     const float StrongestWash = 0.5f;
 
@@ -79,7 +42,7 @@ internal sealed partial class DebugOverlay
     /// How much stronger a block's own edges are than its wash — the same colour, up rather than down, so a
     /// joint reads as a line on the ground instead of as a change of shade.
     /// </summary>
-    const float EdgeOverWash = 2f;
+    internal const float EdgeOverWash = 2f;
 
     /// <summary>
     /// How thick that edge is: under the standard debug line, because it is a boundary between two pieces
@@ -94,21 +57,15 @@ internal sealed partial class DebugOverlay
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It is the reading the layer is opened for on a busy street.</b> Every stretch drawn at one wash,
-    /// a junction is a single band of overlapping asks with nothing to say which of them anybody would
-    /// actually give up — where whose ground it is is the colour, what it is worth is the shade.
-    /// </para>
-    /// <para>
     /// <b>Transparent throughout, whatever the strength</b>, because the tarmac, the paint and the body
-    /// standing on the stretch all have to read through it: the block says which ground is spoken for, and
-    /// hiding the ground to say it would defeat the point.
+    /// standing on the stretch all have to read through it.
     /// </para>
     /// <para>
     /// <b>Off the ladder's own numbers and not off a table of its own.</b> A rung added between two that
     /// exist takes the wash its number earns, and a level nothing claims yet costs the layer nothing.
     /// </para>
     /// </remarks>
-    static Vector4 Wash(ClaimPriority priority)
+    internal static Vector4 Wash(ClaimPriority priority)
     {
         var rung = (float)priority / (float)ClaimPriority.Backing;
         return new Vector4(1f, 1f, 1f, StrongestWash + ((WeakestWash - StrongestWash) * rung));
@@ -125,67 +82,6 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// <b>Every claim in the town, on the ground it is a claim on</b> — one walk over one table
-    /// (<see cref="TownWays"/>), whether the way under it is carriageway, a junction's join, a bay, a
-    /// footway or the mitre at a corner.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>One layer, because there is one set of claims.</b> A walker's stretch of pavement and its band of
-    /// the lane it is crossing are one body's ground; drawn by which surface each of them is on, one body
-    /// was two layers and no block could be followed from the pavement onto the road.
-    /// </para>
-    /// <para>
-    /// <b>A block is drawn ahead of the body that holds it and that is not a fault</b>: it is the ground
-    /// that body may come to rest on. A walker's is short where a driver's is long, because a walker loses
-    /// its pace inside a tick and the whole of what it asks for is the gap it keeps.
-    /// </para>
-    /// <para>
-    /// <b>A car that has mounted a kerb is drawn on the footway, and a car on a zebra on the crossing way</b>
-    /// (TER-4c.2): a body holds the ground it stands on whatever kind of ground that is, and the paint is a
-    /// way like any other. Such a car is two blocks because it is on two ways — the lane it is driving and
-    /// the walk laid over it — and not one body drawn twice.
-    /// </para>
-    /// <para>
-    /// <b>Each way is drawn at the width its own ground was measured at</b>
-    /// (<see cref="TownWorld.LineOfWay"/>): a join takes the lane it arrives on, a bay the space it serves,
-    /// and a footway the offset its line was actually laid at rather than the figure the config asked for.
-    /// </para>
-    /// </remarks>
-    static void ClaimIndex(
-        ref ScreenDraw ground, ref ScreenDraw above, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM,
-        float pixelsPerMetre)
-    {
-        var index = world.Occupancy;
-        var sagM = PathMarks.SagPx / pixelsPerMetre;
-        foreach (var way in index.OccupiedWays)
-        {
-            var arcs = world.LineOfWay(way, out var widthM);
-            if (arcs.Length == 0) continue;
-
-            ref var draw = ref IsAbove(world, way) ? ref above : ref ground;
-            DrawTheRun(ref draw, index, index.Bodies(way), way, arcs, sagM, widthM, viewCentreM, viewSpanM);
-            DrawTheRun(ref draw, index, index.Mains(way), way, arcs, sagM, widthM, viewCentreM, viewSpanM);
-            DrawTheRun(ref draw, index, index.Secondaries(way), way, arcs, sagM, widthM, viewCentreM, viewSpanM);
-        }
-    }
-
-    static void DrawTheRun(
-        ref ScreenDraw draw, LaneOccupancy index, ReadOnlySpan<Claim> claims, int way, ReadOnlySpan<ArcSeg> arcs,
-        float sagM, float widthM, Vector2 viewCentreM, Vector2 viewSpanM)
-    {
-        foreach (ref readonly var claim in claims[..Math.Min(claims.Length, MostDrawnSlotsOnAWay)])
-        {
-            var toM = MathF.Min(index.WayLengthM(way), claim.ToM);
-            if (toM <= claim.FromM) continue;
-
-            Block(
-                ref draw, arcs, claim.FromM, toM, sagM, widthM, Colour(index, claim), claim.Rung,
-                claim.Kind == ClaimKind.Secondary, viewCentreM, viewSpanM);
-        }
-    }
-
-    /// <summary>
     /// <b>The bays that are spoken for, drawn as the bays they are</b> — washed where a body is standing in
     /// one, outlined where a leg has only claimed it.
     /// </summary>
@@ -194,14 +90,12 @@ internal sealed partial class DebugOverlay
     /// <b>It is the one hold in the town that is not a piece of road</b> (GEN-4g), which is why it is the one
     /// thing on this layer that is not a stretch of a way. A claim on a bay holds no ground — a body standing
     /// in one is laid on the bay's own lane like on any other — so the picture of a taken bay has to come off
-    /// the register that takes it. What the block beside it then says is the narrower thing it has always
-    /// said: which metres of the way the traffic is held off.
+    /// the register that takes it.
     /// </para>
     /// <para>
     /// <b>Washed is a body and outlined is a bay claimed</b>, and that is a difference in what is being
     /// claimed rather than a shade on one claim: somebody is standing here, against somebody is on their way
-    /// and nobody else may take it. Such a claim is minutes of walking long and holds no ground at all, so drawn
-    /// filled it would be a picture of a car that is not there.
+    /// and nobody else may take it.
     /// </para>
     /// </remarks>
     static void TakenBays(
@@ -237,136 +131,4 @@ internal sealed partial class DebugOverlay
             draw.BoxM(centreM, sizeM, headingRad, BlockEdgeM, colour * Edge(ClaimPriority.Hard));
         }
     }
-
-    /// <summary>
-    /// One stretch, as the piece of lane it is: a run of quads down the way at the lane's full width,
-    /// butted end to end so the block bends with the ground under it — and <b>a thin bar across either
-    /// end of it</b>. <b>A secondary claim is the same block's outline and no wash</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The bars are how a claim laid over several ways can still be read as several.</b> One body's
-    /// ground is one colour (<see cref="Colour"/>), so the joints would otherwise be invisible: a lane, the
-    /// join after it and the ground the body has committed to beyond its own road all butt exactly, and a
-    /// continuous wash says nothing about which of them is which or where one ends. Said with shade instead,
-    /// the pieces read as different <em>kinds</em> of ground, which is a stronger claim than the picture has
-    /// any business making.
-    /// </para>
-    /// <para>
-    /// <b>The outline is a different kind of ground, and meant as one</b> (TER-5c.1): the section of a way
-    /// its holder only crosses, which weighs against the main claims there and never against another
-    /// secondary claim. Washed, two secondary claims over one stretch — which the flow lets stand together —
-    /// read as that stretch held twice, and one butted against a main claim read as the next piece of the same
-    /// car's road. The edges keep the wash's strength (<see cref="Edge"/>), so how strong it is still reads.
-    /// </para>
-    /// </remarks>
-    static void Block(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, float widthM,
-        Vector4 colour, ClaimPriority priority, bool secondary, Vector2 viewCentreM, Vector2 viewSpanM)
-    {
-        var headM = Spline.SampleAt(arcs, fromM).PositionM;
-        var tailM = Spline.SampleAt(arcs, toM).PositionM;
-
-        // The coarse cull before the fine sampling, on the two ends: a stretch is short, but there is one
-        // per car in the town and only the handful on screen are worth walking.
-        var reachM = ((tailM - headM).Length() * 0.5f) + widthM;
-        if (!OnScreen((headM + tailM) * 0.5f, viewCentreM, viewSpanM, reachM)) return;
-
-        var edge = colour * Edge(priority);
-        if (secondary) Sides(ref draw, arcs, fromM, toM, sagM, widthM, edge);
-        else PathMarks.Banded(ref draw, arcs, fromM, toM, sagM, widthM, colour * Wash(priority));
-
-        Cap(ref draw, arcs, fromM, widthM, edge);
-        Cap(ref draw, arcs, toM, widthM, edge);
-    }
-
-    /// <summary>
-    /// The two long edges of one stretch, each half the way's width to its own side of the line — stepped
-    /// piece by piece at the chord each piece's curvature affords, as <see cref="PathMarks.Banded"/> steps
-    /// the wash they stand in for.
-    /// </summary>
-    static void Sides(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, float widthM,
-        Vector4 colour)
-    {
-        var halfM = widthM * 0.5f;
-        var pieceStartM = 0f;
-        foreach (var arc in arcs)
-        {
-            var lastM = MathF.Min(toM, pieceStartM + arc.LengthM);
-            var stepM = MathF.Max(PathMarks.PathLineM, Spline.ChordForSagM(arc.Curvature, sagM));
-            var atM = MathF.Max(fromM, pieceStartM);
-            if (atM < lastM)
-            {
-                var (left, right) = Edges(arc, atM - pieceStartM, halfM);
-                while (atM < lastM)
-                {
-                    var onwardM = MathF.Min(lastM, atM + stepM);
-                    var (onLeft, onRight) = Edges(arc, onwardM - pieceStartM, halfM);
-                    draw.LineM(left, onLeft, BlockEdgeM, colour);
-                    draw.LineM(right, onRight, BlockEdgeM, colour);
-                    (left, right, atM) = (onLeft, onRight, onwardM);
-                }
-            }
-
-            pieceStartM += arc.LengthM;
-            if (pieceStartM >= toM) return;
-        }
-    }
-
-    /// <summary>The two edges of a way at one metre of one of its pieces.</summary>
-    static (Vector2 Left, Vector2 Right) Edges(in ArcSeg arc, float alongM, float halfM)
-    {
-        var centreM = arc.PointAtM(alongM);
-        var acrossM = Heading.RightOf(Heading.Unit(arc.HeadingAtRad(alongM))) * halfM;
-        return (centreM - acrossM, centreM + acrossM);
-    }
-
-    /// <summary>One end of a block, as a bar square across the way at that metre.</summary>
-    static void Cap(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float alongM, float widthM, Vector4 colour)
-    {
-        var on = Spline.SampleAt(arcs, alongM);
-        var acrossM = new Vector2(-on.Direction.Y, on.Direction.X) * (widthM * 0.5f);
-        draw.LineM(on.PositionM - acrossM, on.PositionM + acrossM, BlockEdgeM, colour);
-    }
-
-    /// <summary>
-    /// Whose the ground is and what it is, at the wash it is drawn at. <b>Every stretch a body holds is
-    /// drawn in that body's own colour</b> (<see cref="Theme.AgentLine"/>) — the colour its line and its
-    /// marks are drawn in, so a block and the line running out of the front of it read as one body's.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Which is what a block is looked at for.</b> What holds one car off the next is the gap between
-    /// its block and the block in front, and in one colour for the whole fleet a queue is a single band
-    /// with hairlines in it — the picture cannot say whose road runs out where. A body and the road it was
-    /// granted share the colour on purpose: they are one car's, the grant runs on from the tail of the
-    /// body, and the sprite is drawn over the body's own end of it.
-    /// </para>
-    /// <para>
-    /// <b>And the same colour on either network, because it is the same body.</b> A walker's band of a lane and
-    /// its stretch of the pavement are one person's ground; drawn by which network the ground belongs to
-    /// instead, one body was two colours and the block could not be followed from the pavement onto the road
-    /// it is crossing.
-    /// </para>
-    /// <para>
-    /// <b>The colour is only ever whose, and never how strong.</b> How much of a hold a stretch is is the
-    /// wash it is drawn at (<see cref="Wash"/>) and where it stops is the bar across it
-    /// (<see cref="Block"/>); said in the colour instead, one body's ground was several colours and no
-    /// block could be followed off the front of the body holding it.
-    /// </para>
-    /// <para>
-    /// <b>A secondary claim is drawn in its holder's colour on the way it lies over</b> (TER-5c.1), as an
-    /// outline (<see cref="Block"/>): the section of a crossed way that a main claim placed through a mark, and
-    /// nothing more of that way — so a washed block on a join is the car going down it, an outline is the exact
-    /// ground a crossing movement shares with it, and neither is a fan of claims over every way through a box.
-    /// </para>
-    /// <para>
-    /// <b>A claim several laid takes its first holder's</b>, the holders being the instruments' to read and nobody's to
-    /// act on.
-    /// </para>
-    /// </remarks>
-    static Vector4 Colour(LaneOccupancy index, in Claim claim) =>
-        claim.Holders == 0 ? Theme.LaneObstruction : Theme.AgentLine(LaneOccupancy.OccupantOf(index.HoldersOf(claim)[0]));
 }

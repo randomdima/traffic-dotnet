@@ -1,0 +1,9 @@
+{
+  "id": "crossing_countdown_b",
+  "kind": "Sign",
+  "describe": "a level-crossing countdown marker standing upright, seen from the front and a little above, drawn north up as the town's signs are: a tall narrow white board with two red diagonal bars across it, filling the outline from top to bottom, a short grey post foot at the bottom",
+  "footprintM": [
+    0.4,
+    1.4
+  ]
+}

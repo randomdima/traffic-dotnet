@@ -1,0 +1,14 @@
+{
+  "id": "crossing_light_b",
+  "sprite": "crossing_light_b.webp",
+  "kind": "Light",
+  "describe": "a level-crossing traffic light for drivers, seen from the front and drawn flat as the town's traffic lights are: a square dark grey housing with a yellow and black striped rim, filled by one square lens showing a large X made of small round red LEDs, switched off: dark unlit red, no glow",
+  "footprintM": [
+    0.9,
+    0.9
+  ],
+  "lit": "../crossing_light_b_lit/crossing_light_b_lit.json",
+  "lamps": [
+    { "fitting": "rear", "atM": [ 0, 0 ], "sizeM": [ 0.62, 0.62 ] }
+  ]
+}

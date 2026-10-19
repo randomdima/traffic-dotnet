@@ -94,9 +94,16 @@ internal sealed class ManagedWorld : WorldLayer
         public override int GetHashCode() => HashCode.Combine(PositionM, Forward, Channels, BuildsLaid);
     }
 
-    /// <summary>The tractor each towed car hangs off, or −1; and which end it is held by (EVA-5).</summary>
-    readonly int[] _onTheHookOf;
-    readonly bool[] _byTheTail;
+    /// <summary>
+    /// What each tractor's arm holds (EVA-5): the load's agent or −1, by which end, and the link slot the tow is in; and
+    /// which ends of each car a fork holds (<see cref="HeldAtTheNose"/>, <see cref="HeldAtTheTail"/>).
+    /// </summary>
+    readonly int[] _towLoad;
+    readonly bool[] _towByTheTail;
+    readonly int[] _towSlot;
+    readonly byte[] _heldAt;
+
+    const byte HeldAtTheNose = 1, HeldAtTheTail = 2;
 
     readonly BodyId[] _walkerBody;
     readonly Vector2[] _aimM;
@@ -147,13 +154,15 @@ internal sealed class ManagedWorld : WorldLayer
     /// </summary>
     readonly BodyId[] _wagonBody;
 
+    /// <summary>Each level crossing's arm's body (RAIL-10), by its approach's gear.</summary>
+    readonly BodyId[] _barrierBody;
+
     readonly Vector2[] _wagonIntoMps;
     readonly ushort[] _wagonLook;
     readonly RailBuild[] _railBuild;
     readonly DriveCommand[] _railCommand;
     readonly RailCursor[] _railCursors;
     readonly WheelImpulse[] _railSpent = new WheelImpulse[TrainVehicle.MostBogies];
-    readonly float[] _wagonHalfLengthM;
 
     /// <summary>The railway the rail vehicles' wheels stand on, and how each of its switches is set.</summary>
     readonly RailGraph _rails;
@@ -185,8 +194,10 @@ internal sealed class ManagedWorld : WorldLayer
         _wheels = new WheelScratch(count);
         _wheelsOnAWay = new byte[count];
         _accelerationMps2 = new Vector2[count];
-        _onTheHookOf = new int[count];
-        _byTheTail = new bool[count];
+        _towLoad = new int[count];
+        _towByTheTail = new bool[count];
+        _towSlot = new int[count];
+        _heldAt = new byte[count];
         _carIntoMps = new Vector2[count];
         _carStoodAt = new CarStands[count];
         _carCoverCount = new int[count];
@@ -198,7 +209,8 @@ internal sealed class ManagedWorld : WorldLayer
         Array.Fill(_followed, LineFollowed.None);
         _lineReadOff = new LineReadOff[count];
         _lineReadAs = new LineReadAs[count];
-        Array.Fill(_onTheHookOf, -1);
+        Array.Fill(_towLoad, -1);
+        Array.Fill(_towSlot, -1);
 
         for (var car = 0; car < count; car++)
         {
@@ -240,14 +252,15 @@ internal sealed class ManagedWorld : WorldLayer
         _railBuild = new RailBuild[wagons];
         _railCommand = new DriveCommand[wagons];
         _railCursors = new RailCursor[wagons * TrainVehicle.MostBogies];
-        _wagonHalfLengthM = new float[wagons];
         Array.Fill(_railCursors, RailCursor.Nowhere);
         for (var wagon = 0; wagon < wagons; wagon++)
         {
             _wagonBody[wagon] = BodyOf(laying, laying.AgentOfWagon(wagon));
             _railBuild[wagon] = laying.Wagons[wagon].Build;
-            _wagonHalfLengthM[wagon] = laying.Wagons[wagon].HalfSizeM.X;
         }
+
+        _barrierBody = new BodyId[laying.Barriers.Length];
+        for (var gear = 0; gear < _barrierBody.Length; gear++) _barrierBody[gear] = BodyOf(laying, laying.AgentOfBarrier(gear));
 
         _rails = laying.Rails;
         _switches = new byte[Math.Max(1, _rails.SwitchCount)];
@@ -370,6 +383,12 @@ internal sealed class ManagedWorld : WorldLayer
 
     void Take(in ControlSignal signal)
     {
+        if (signal.Agent >= _roster.Count + _wagonBody.Length)
+        {
+            TakeForABarrier(signal);
+            return;
+        }
+
         if (signal.Agent >= _roster.Count)
         {
             TakeForAWagon(signal);
@@ -423,8 +442,7 @@ internal sealed class ManagedWorld : WorldLayer
                 break;
 
             case ControlAction.Tow:
-                Couple(
-                    car, signal.Tractor < 0 ? -1 : _roster.CarIndex(signal.Tractor), (signal.Flags & ControlSignal.ByTheTail) != 0);
+                Tow(car, signal.Other, (signal.Flags & ControlSignal.ByTheTail) != 0);
                 break;
 
             case ControlAction.ClearWheels:
@@ -438,8 +456,16 @@ internal sealed class ManagedWorld : WorldLayer
         }
     }
 
+    /// <summary>What a level crossing's arm is asked (RAIL-10): to be put down across its lanes, or taken out of the world — and nothing else.</summary>
+    void TakeForABarrier(in ControlSignal signal)
+    {
+        var body = _barrierBody[signal.Agent - _roster.Count - _wagonBody.Length];
+        if (signal.Action == ControlAction.Place) _physics.Release(body, new Vector2(signal.Params.X, signal.Params.Y), signal.Params.Z);
+        else if (signal.Action == ControlAction.Contain) _physics.Contain(body);
+    }
+
     /// <summary>
-    /// What a rail vehicle is asked (TRN-7, TRN-9): its pedals; to be put on its run-in moving at its line's speed, or taken
+    /// What a rail vehicle is asked (TRN-7, TRN-9): its pedals; to be put on its run-in moving at its pace, or taken
     /// out of the world; coupled behind the vehicle ahead or not; put on a bridge's channel; a switch set.
     /// </summary>
     void TakeForAWagon(in ControlSignal signal)
@@ -468,18 +494,18 @@ internal sealed class ManagedWorld : WorldLayer
                 break;
 
             case ControlAction.Couple:
-                CoupleBehind(wagon, signal.Tractor);
+                CoupleBehind(wagon, signal.Other);
                 break;
 
             case ControlAction.Switch:
-                _switches[signal.Tractor] = (byte)signal.Flags;
+                _switches[signal.Other] = (byte)signal.Flags;
                 break;
         }
     }
 
     /// <summary>
     /// <b>A rail vehicle coupled behind the one ahead of it</b>, or uncoupled (SOL-38): the solver's bar from its front
-    /// coupler head to the rear one of the vehicle ahead, the coupling's gap long — in its own slot.
+    /// body's end to the rear one of the vehicle ahead, buffers meeting (<see cref="WagonLaid.CoupledBehind"/>) — in its own slot.
     /// </summary>
     void CoupleBehind(int wagon, int aheadAgent)
     {
@@ -491,9 +517,8 @@ internal sealed class ManagedWorld : WorldLayer
         }
 
         var ahead = aheadAgent - _roster.Count;
-        _physics.Link(
-            slot, _wagonBody[ahead], new Vector2(-_wagonHalfLengthM[ahead], 0f), _wagonBody[wagon],
-            new Vector2(_wagonHalfLengthM[wagon], 0f), Config.Train.CouplingGapM);
+        var (aheadM, behindM, restM) = _laying.Wagons[wagon].CoupledBehind(_laying.Wagons[ahead]);
+        _physics.Link(slot, _wagonBody[ahead], aheadM, _wagonBody[wagon], behindM, restM);
     }
 
     /// <summary>
@@ -514,22 +539,32 @@ internal sealed class ManagedWorld : WorldLayer
     }
 
     /// <summary>
-    /// <b>A car put on a tractor's arm, or taken off it</b> (EVA-5): its lifted pair and the pin the solver holds between
-    /// the tractor's hinge and the car's eye (<see cref="PhysicsWorld.Link"/>), in the car's own slot.
+    /// <b>A tractor's arm put on a body by one end, or emptied</b> (EVA-5): the pin the solver holds between the tractor's
+    /// hinge and the load's eye (<see cref="PhysicsWorld.Link"/>), in the slot of the end it holds, and — on a car — that
+    /// end's pair lifted. Whatever the arm held before is let go of first.
     /// </summary>
-    void Couple(int towed, int tractor, bool byTheTail)
+    void Tow(int tractor, int loadAgent, bool byTheTail)
     {
-        _onTheHookOf[towed] = tractor;
-        _byTheTail[towed] = byTheTail;
-        if (tractor < 0)
+        if (_towLoad[tractor] is var was and >= 0)
         {
-            _physics.Unlink(towed);
-            return;
+            _physics.Unlink(_towSlot[tractor]);
+            if (!_laying.IsAWagon(was)) _heldAt[_roster.CarIndex(was)] &= (byte)~HeldEnd(_towByTheTail[tractor]);
         }
 
-        _physics.Link(
-            towed, _carBody[tractor], TowBar.HookOnTheBodyM(_build[tractor]), _carBody[towed],
-            TowBar.EyeOnTheBodyM(_build[towed], _build[tractor].TowReachM, byTheTail), 0f);
+        _towLoad[tractor] = loadAgent;
+        _towByTheTail[tractor] = byTheTail;
+        _towSlot[tractor] = -1;
+        if (loadAgent < 0) return;
+
+        var slot = _towSlot[tractor] = _laying.LinkSlotOfTow(loadAgent, byTheTail);
+        var isAWagon = _laying.IsAWagon(loadAgent);
+        if (!isAWagon) _heldAt[_roster.CarIndex(loadAgent)] |= HeldEnd(byTheTail);
+
+        var (eyeM, _) = _laying.TowedAt(loadAgent, _build[tractor].TowReachM, byTheTail);
+        var load = isAWagon ? _wagonBody[_laying.WagonOfAgent(loadAgent)] : _carBody[_roster.CarIndex(loadAgent)];
+        _physics.Link(slot, _carBody[tractor], TowBar.HookOnTheBodyM(_build[tractor]), load, eyeM, 0f);
+
+        static byte HeldEnd(bool byTheTail) => byTheTail ? HeldAtTheTail : HeldAtTheNose;
     }
 
     /// <summary>
@@ -567,7 +602,7 @@ internal sealed class ManagedWorld : WorldLayer
     void StepTheTyres(int car)
     {
         var body = _carBody[car];
-        if (_onTheHookOf[car] >= 0)
+        if (_heldAt[car] != 0)
         {
             TrailerWheels(car);
         }
@@ -600,15 +635,22 @@ internal sealed class ManagedWorld : WorldLayer
 
     /// <summary>
     /// <b>The two wheels a towed car is left standing on</b> (EVA-5): the pair at the far end from the fork, the lifted
-    /// pair cleared, and the two down rolling with the road under them.
+    /// pair cleared, and the two down rolling with the road under them — or none, on a car held at both ends.
     /// </summary>
     void TrailerWheels(int car)
     {
-        var down = TowBar.PairOnTheGround(_byTheTail[car]);
-        var up = TowBar.PairInTheAir(_byTheTail[car]);
         var impulses = _wheels.ImpulsesOf(car);
-        impulses.Slice(up, TowBar.Wheels).Clear();
         _wheels.ScrubOf(car).Clear();
+        if (_heldAt[car] == (HeldAtTheNose | HeldAtTheTail))
+        {
+            impulses.Clear();
+            return;
+        }
+
+        var byTheTail = _heldAt[car] == HeldAtTheTail;
+        var down = TowBar.PairOnTheGround(byTheTail);
+        var up = TowBar.PairInTheAir(byTheTail);
+        impulses.Slice(up, TowBar.Wheels).Clear();
 
         var pose = PoseOf(car);
         var ground = _wheels.GroundUnder(car);
@@ -721,11 +763,55 @@ internal sealed class ManagedWorld : WorldLayer
             ref var row = ref wagons[wagon];
             row.PositionM = _physics.PositionOf(body);
             row.HeadingRad = _physics.HeadingOf(body);
-            row.Flags = _wagonLook[wagon] | (_physics.IsEnabled(body) ? WagonView.InWorld : 0u);
+            row.Flags = WagonView.FlagsOf((int)_wagonLook[wagon], _physics.IsEnabled(body), _physics.ChannelsOf(body));
             row.VelocityMps = _physics.VelocityOf(body);
             row.YawRateRadPerS = _physics.YawRateOf(body);
         }
+
+        if (Volatile.Read(ref _keptAtView) is { } kept) KeepTheBodies(kept, view.Slot);
     }
+
+    /// <summary>
+    /// <b>The body table as each view was written</b>, by slot (<see cref="WorldView.Slot"/>), once an instrument asks for it
+    /// (<see cref="KeepTheBodiesAtTheView"/>): the solver itself runs a step ahead of the view the host shows, and may be
+    /// stepping beside it.
+    /// </summary>
+    KeptBodies[]? _keptAtView;
+
+    /// <summary>How many views to come keep the whole table rather than its moving rows: one a slot, as it is first kept.</summary>
+    int _keptOwedWhole;
+
+    void KeepTheBodies(KeptBodies[] kept, int slot)
+    {
+        kept[slot].Keep(_physics.Table, _keptOwedWhole > 0 ? 0 : kept[slot].FurnitureCount);
+        if (_keptOwedWhole > 0) Volatile.Write(ref _keptOwedWhole, _keptOwedWhole - 1);
+    }
+
+    /// <summary>
+    /// The body table kept as each view is written (<see cref="BodiesAtTheView"/>): from the next view on, or at once where
+    /// no step has begun, since the table then stands where the view does.
+    /// </summary>
+    public override void KeepTheBodiesAtTheView()
+    {
+        if (_keptAtView is not null) return;
+
+        Settle();
+        KeptBodies[] kept = [new KeptBodies(_physics, _laying.FurnitureCount), new KeptBodies(_physics, _laying.FurnitureCount)];
+        _keptOwedWhole = kept.Length;
+        if (Steps == 0)
+        {
+            foreach (var slot in kept) slot.Keep(_physics.Table, 0);
+            _keptOwedWhole = 0;
+        }
+
+        Volatile.Write(ref _keptAtView, kept);
+    }
+
+    /// <summary>
+    /// <b>The body table as the view the host shows was written</b> — every body of every kind — or nothing, until it has
+    /// been kept whole for both views (<see cref="KeepTheBodiesAtTheView"/>).
+    /// </summary>
+    public KeptBodies? BodiesAtTheView => _keptAtView is { } kept && Volatile.Read(ref _keptOwedWhole) == 0 ? kept[View.Slot] : null;
 
     /// <summary>Every pair the step began touching, each with the speed it closed at off the motion carried into the step.</summary>
     void WriteTheTouches(WorldView view)

@@ -56,16 +56,19 @@ internal static class TrainSprites
     /// <summary>The sheet a vehicle is drawn from: its picture, or a plain one where it has none yet.</summary>
     public static SheetSource Of(in TrainVehicle vehicle) => vehicle.SpritePath is { } path ? SheetSource.File(path) : Plain(vehicle);
 
-    /// <summary>Every wagon in the world the view can see, in roster order.</summary>
+    /// <summary>
+    /// Every wagon in the world the view can see on one level, in roster order: on a bridge or off one
+    /// (<paramref name="onABridge"/>), as a car is drawn in the run its level is (RAIL-8, TER-7b).
+    /// </summary>
     public static int Fill(
         ReadOnlySpan<WagonView> wagons, TrainCatalog catalog, int firstSheet, Vector2 viewCentreM, Vector2 viewSpanM,
-        Span<SpriteInstance> into)
+        bool onABridge, Span<SpriteInstance> into)
     {
         var written = 0;
         var halfSpanM = viewSpanM * 0.5f;
         foreach (ref readonly var wagon in wagons)
         {
-            if (!wagon.IsInWorld || written == into.Length) continue;
+            if (!wagon.IsInWorld || wagon.OnABridge != onABridge || written == into.Length) continue;
 
             ref readonly var vehicle = ref catalog.Vehicles[wagon.Look];
             var reachM = vehicle.FootprintM.X * 0.5f;

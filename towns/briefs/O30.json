@@ -10,6 +10,12 @@
   "waterShare": 0.2,
   "waterMeander": 0.6,
 
+  "railTracks": 2,
+  "railBearingDeg": 22,
+  "railOffsetShare": -0.22,
+  "railMeander": 0.1,
+  "railLoopDeg": 270,
+
   "districts": 240,
   "gridDistrictShare": 0.66,
   "bearingSpreadDeg": 35,

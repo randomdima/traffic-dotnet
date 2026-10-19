@@ -4,8 +4,10 @@ A hand that can take over the units it has picked out. This is a debugging instr
 not a game: it changes what those agents *want*, and in one place what they *do*, and nothing else in the
 town. Why it reads this way is [decision-log.md](decision-log.md).
 
-**CTL-1** `P7` **Selection.** Left-click selects a single unit, person or car; left-click elsewhere reselects or
-deselects. The selection is **marked on the town by a shape and never by a change to the unit's own
+**CTL-1** `P7` **Selection.** Left-click selects a single unit — a person, a car, a locomotive or a wagon; left-click
+elsewhere reselects or deselects. **Every rail vehicle is a unit of its own**: a locomotive is the one its train is
+driven by (`CTL-5`), and a wagon is followed and read but driven by nobody. A train that leaves the map is out of the
+world, and its vehicles drop out of the selection (`TRN-7`). The selection is **marked on the town by a shape and never by a change to the unit's own
 picture** — corner brackets standing outside its box, laid in the frame that box is drawn in.
 
 **What is drawn on the town is the mark and nothing else**, and **what the unit is doing — and what the
@@ -144,10 +146,11 @@ lamps like any other car being driven (`CAR-14.5`).
 goal it was given: the hand was the whole of what was choosing for it, and `CAR-1` is back the moment the
 hand lets go.
 
-**CTL-4** `P7` **Manual mode and reset.** An ordered unit is in manual mode: after finishing an order it idles
-awaiting the next, and **a failed order runs the normal recovery but ends in idle-awaiting-orders instead
-of a new random goal**. A reset returns the unit to autonomous behaviour. Terminal-state units take no
-orders.
+**CTL-4** `P7` **Manual mode and reset.** An ordered unit is in manual mode, and so is one the player has taken
+the wheel of (CTL-5b): after finishing an order, or once the hand lets go, it idles awaiting the next, and **a
+failed order runs the normal recovery but ends in idle-awaiting-orders instead of a new random goal**. A reset
+returns the unit to autonomous behaviour — `R`, or the release button on the selection's panel (`OBS-2m`),
+shown while any unit picked out is in manual mode. Terminal-state units take no orders.
 
 **Manual mode and the order in hand are two facts and not one.** The order is carried out and then gone;
 manual mode outlives it, which is what makes a unit that has arrived wait to be told what to do next
@@ -160,7 +163,9 @@ still under orders; picking it out again and pressing the key is how it is hande
 a car leaves manual mode is **being wrecked**: a terminal unit takes no orders, so it holds none either.
 
 **CTL-5** `P7` **Direct control.** The keys drive the selected units by hand — throttle/brake and steering for a
-car, walk/turn for a person, with the handbrake on its own key. **One hand reaches all of them**: the same
+car, walk/turn for a person, with the handbrake on its own key. A locomotive takes them as its train's controls (`TRN-10`):
+the drive key the way it is going pulls, the other brakes and from a stop pulls back, the handbrake brakes, and the
+steer keys throw the switch ahead (`TRN-11`). A train takes no order: its track is where it goes. **One hand reaches all of them**: the same
 command is pushed through each unit's own seam, and each answers it with its own body, so a group under
 one hand is still a group of bodies. A unit in a terminal state takes no hand while the rest of the
 selection keeps driving.
@@ -185,6 +190,10 @@ hand the unit back. The wheel is given up by a right-click order, the reset, a c
 terminal state. The arrow keys pan the camera whenever no unit is being driven — and they pan it in the
 **window's** directions and not the town's (`OBS-1c`), so the up arrow moves the picture down the screen
 however far the town is turned.
+
+**Taking the wheel is taking the unit** (CTL-4). The player's hand puts it in manual mode, so a car let go of
+stands where the hand left it rather than driving on along the leg it held before, a walker stops at the
+end of the hand's last step, and a train is held braked on its track rather than given back to its own driver. A second driver's hand does not (CTL-5d): the reset is the reader's.
 
 **And the wheel suspends an order rather than ending it** (`S-7`, CTL-8). A hand substitutes the whole
 behaviour concern and the order is part of what it substitutes, so the order stands and is picked up

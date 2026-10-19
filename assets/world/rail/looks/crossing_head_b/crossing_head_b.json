@@ -1,0 +1,13 @@
+{
+  "id": "crossing_head_b",
+  "kind": "Head",
+  "describe": "a level-crossing warning signal standing upright, seen from the front and a little above, drawn north up as the town's signs are: a red and white striped St Andrew's cross at the top; under it a white backboard with a red border carrying two round lamps side by side, each with its glass facing the viewer and a black hood over its top like a cap; a galvanised grey post running down to the bottom edge",
+  "footprintM": [
+    0.9,
+    1.5
+  ],
+  "lamps": [
+    { "fitting": "rear", "atM": [ -0.21, -0.05 ], "sizeM": [ 0.26, 0.26 ] },
+    { "fitting": "rear", "atM": [ 0.21, -0.05 ], "sizeM": [ 0.26, 0.26 ] }
+  ]
+}

@@ -24,11 +24,12 @@ namespace TrafficSimulation.App.Render;
 /// The bands are the town's own grid's rows (SIM-8, <see cref="GroundMesh.BandM"/>), as what stands on the ground is filed.
 /// </para>
 /// <para>
-/// <b>Filing reorders a part, so a part that is a stack of layers is not filed</b>: the level above
-/// (<see cref="GroundPart.Above"/>) is a deck, a carriageway, a kerb and paint laid in that order in one part, and filed
-/// by band its decks are drawn over its own tarmac and lines. It goes whole into the widest class at the lowest band,
-/// which every view's run reaches, in the mesh's own order — the bridges are a few thousand triangles, which culling
-/// would save nothing worth that.
+/// <b>Filing reorders a part, so a part that is a stack of layers is not filed</b> (<see cref="GroundParts.Stacked"/>):
+/// the level above is a deck, a carriageway, a kerb and paint laid in that order in one part, and filed by band its
+/// decks are drawn over its own tarmac and lines; the water is its shore, two edges and the water, each ring a fan of
+/// slivers off the same map corner, and filed by class the shore's slivers are drawn over the sea. Such a part goes
+/// whole into the widest class at the lowest band, which every view's run reaches, in the mesh's own order — each is
+/// a few thousand triangles, which culling would save nothing worth that.
 /// </para>
 /// </remarks>
 internal sealed class GroundBands
@@ -87,7 +88,7 @@ internal sealed class GroundBands
             if (keys.Length < triangles) keys = new int[triangles];
 
             Array.Clear(counts);
-            var stacked = part == (int)GroundPart.Above;
+            var stacked = (GroundParts.Stacked & (1u << part)) != 0;
             for (var triangle = 0; triangle < triangles; triangle++)
             {
                 if (stacked)

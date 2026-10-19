@@ -45,8 +45,17 @@ internal sealed partial class DeviceWorld : WorldLayer
     internal readonly record struct SignalRow(int Body, uint ActionAndFlags, Vector2 P01, Vector2 P23, Vector2 P45);
 
     /// <summary>One car as the device keeps it beside its tyres (<c>WorldCar</c>).</summary>
+    /// <param name="Towing">What its arm holds (<see cref="TowingCode"/>).</param>
+    /// <param name="ForkAlongM">And where along that body's axis the fork is, from its middle (<see cref="TowBar.ForkAlongM"/>).</param>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct CarRow(int Body, int Tractor, uint Flags, float MassKg);
+    internal readonly record struct CarRow(int Body, int Towing, uint Flags, float MassKg, float ForkAlongM);
+
+    /// <summary>
+    /// <b>What an arm holds, as a car's row names it</b> (<c>WorldCar.towing</c>): a car by its index, a rail vehicle as
+    /// −2 less its index, nothing as −1 — so what draws the arm finds either without a second field.
+    /// </summary>
+    int TowingCode(int loadAgent) =>
+        loadAgent < 0 ? -1 : _laying.IsAWagon(loadAgent) ? -2 - _laying.WagonOfAgent(loadAgent) : _laying.Roster.CarIndex(loadAgent);
 
     /// <summary>One walker as the device keeps it (<c>WorldWalker</c>).</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -167,11 +176,26 @@ internal sealed partial class DeviceWorld : WorldLayer
     readonly BoundSet[] _wagonsViewSets = new BoundSet[2];
     readonly GpuBuffer[] _wagonViews = new GpuBuffer[2];
 
-    /// <summary>The links the solve holds (SOL-38), each in its car's or rail vehicle's slot, as the signals leave them (<see cref="Couple"/>).</summary>
+    /// <summary>The links the solve holds (SOL-38), each in its slot (<see cref="WorldLaying.LinkSlots"/>), as the signals leave them (<see cref="Tow"/>).</summary>
     readonly LinkSlots _links;
+
+    /// <summary>The link slot each tractor's tow is held in, or −1 (EVA-5).</summary>
+    readonly int[] _towSlot;
 
     /// <summary>The railway and the rail vehicles' wheels (<see cref="DeviceRail"/>).</summary>
     readonly DeviceRail _rail;
+
+    /// <summary>What each body is (<see cref="BodyTag.Packed"/>), laid once off the laying's numbering.</summary>
+    readonly GpuBuffer _tags;
+
+    /// <summary>
+    /// <b>Every body's pose as each view was taken</b>, by slot (<see cref="WorldView.Slot"/>), once an instrument asks for
+    /// them (<see cref="KeepTheBodiesAtTheView"/>): the solver's own runs a step ahead of the view the host shows.
+    /// </summary>
+    GpuBuffer[]? _posesAtView;
+
+    /// <summary>How many views to come copy the whole table rather than its moving rows: one a slot, as the poses are first kept.</summary>
+    int _posesOwedWhole;
 
     WorldPush _push;
 
@@ -192,6 +216,8 @@ internal sealed partial class DeviceWorld : WorldLayer
         _wagons = laying.Wagons.Length;
         _last = new LastInBatch[laying.Agents];
         _links = new LinkSlots(laying.LinkSlots);
+        _towSlot = new int[_cars];
+        Array.Fill(_towSlot, -1);
         var config = laying.Config;
         _heldAroundAWheelM = config.Road.HeldAroundAWheelM;
 
@@ -219,6 +245,9 @@ internal sealed partial class DeviceWorld : WorldLayer
         for (var car = 0; car < _cars; car++) agentOf[BodyOfCar(car)].Car = car;
         for (var person = 0; person < _walkers; person++) agentOf[laying.BodyOf(person)].Walker = person;
         var agentOfBuffer = _held.Laid<AgentOf>(agentOf);
+        var tags = new int[table.Count];
+        for (var body = 0; body < tags.Length; body++) tags[body] = laying.TagOf(body).Packed;
+        _tags = _held.Laid<int>(tags);
 
         _carRanges = _held.Mapped<CoverRange>(_cars);
         _walkerRanges = _held.Mapped<CoverRange>(_walkers);
@@ -466,7 +495,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         var rows = new CarRow[Math.Max(1, _cars)];
         for (var car = 0; car < _cars; car++)
         {
-            rows[car] = new CarRow(BodyOfCar(car), -1, 0u, _laying.Builds.Of(_laying.Cars[car].Variant).MassKg);
+            rows[car] = new CarRow(BodyOfCar(car), -1, 0u, _laying.Builds.Of(_laying.Cars[car].Variant).MassKg, 0f);
         }
 
         return rows;
@@ -698,23 +727,20 @@ internal sealed partial class DeviceWorld : WorldLayer
                 break;
 
             case ControlAction.Switch:
-                _rail.Set(signal.Tractor, signal.Flags);
+                _rail.Set(signal.Other, signal.Flags);
                 break;
 
             default:
                 var slot = _laying.LinkSlotOfWagon(wagon);
-                if (signal.Tractor < 0)
+                if (signal.Other < 0)
                 {
                     _links.Unlink(slot);
                     break;
                 }
 
-                var ahead = signal.Tractor - _laying.Roster.Count;
-                _links.Link(
-                    slot,
-                    new LinkRow(
-                        _laying.BodyOf(signal.Tractor), _laying.BodyOf(signal.Agent), new Vector2(-_laying.Wagons[ahead].HalfSizeM.X, 0f),
-                        new Vector2(_laying.Wagons[wagon].HalfSizeM.X, 0f), Config.Train.CouplingGapM));
+                var ahead = signal.Other - _laying.Roster.Count;
+                var (aheadM, behindM, restM) = _laying.Wagons[wagon].CoupledBehind(_laying.Wagons[ahead]);
+                _links.Link(slot, new LinkRow(_laying.BodyOf(signal.Other), _laying.BodyOf(signal.Agent), aheadM, behindM, restM));
                 break;
         }
     }
@@ -739,7 +765,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         {
             case ControlAction.Place:
                 _solver.CountAfresh(body);
-                if (signal.Agent >= _laying.Roster.Count)
+                if (signal.Agent >= _laying.Roster.Count && signal.Agent < _laying.Roster.Count + _wagons)
                 {
                     _wagonLooks.Span<uint>()[signal.Agent - _laying.Roster.Count] = signal.Flags;
                     _rail.PutDown(signal.Agent - _laying.Roster.Count);
@@ -757,40 +783,40 @@ internal sealed partial class DeviceWorld : WorldLayer
                 return new SignalRow(
                     body, actionAndFlags,
                     new Vector2(
-                        BitConverter.UInt32BitsToSingle(DeviceSolver.LayerByte((ulong)layer)),
-                        BitConverter.UInt32BitsToSingle(DeviceSolver.LayerByte(PhysicsWorld.MaskOf(layer)))),
+                        BitConverter.UInt32BitsToSingle(BodyRows.LayerByte((ulong)layer)),
+                        BitConverter.UInt32BitsToSingle(BodyRows.LayerByte(PhysicsWorld.MaskOf(layer)))),
                     default, default);
 
             case ControlAction.Tow:
-                // world_signals.comp takes the tractor as its car index.
-                var tractor = signal.Tractor < 0 ? -1 : _laying.Roster.CarIndex(signal.Tractor);
-                Couple(_laying.Roster.CarIndex(signal.Agent), tractor, (signal.Flags & ControlSignal.ByTheTail) != 0);
-                return new SignalRow(body, actionAndFlags, new Vector2(BitConverter.Int32BitsToSingle(tractor), 0f), default, default);
+                // world_signals.comp takes what the arm holds as a code (TowingCode), where along it the fork is, and the
+                // load's body to thaw.
+                var load = signal.Other;
+                var forkAlongM = Tow(_laying.Roster.CarIndex(signal.Agent), load, (signal.Flags & ControlSignal.ByTheTail) != 0);
+                return new SignalRow(
+                    body, actionAndFlags, new Vector2(BitConverter.Int32BitsToSingle(TowingCode(load)), forkAlongM),
+                    new Vector2(BitConverter.Int32BitsToSingle(load < 0 ? -1 : _laying.BodyOf(load)), 0f), default);
         }
 
         return new SignalRow(body, actionAndFlags, p01, p23, default);
     }
 
     /// <summary>
-    /// <b>A car's arm as the signal leaves it</b> (EVA-5): the pin the solver holds between the tractor's hinge and the
-    /// car's eye, in the car's own slot, as <see cref="ManagedWorld"/> links it — laid for the solve before the step
-    /// (<see cref="RestTheLinkedAfresh"/>).
+    /// <b>A tractor's arm as the signal leaves it</b> (EVA-5): whatever it held let go of, and the pin the solver holds
+    /// between its hinge and the load's eye, in the slot of the end it holds, as <see cref="ManagedWorld"/> links it —
+    /// laid for the solve before the step (<see cref="RestTheLinkedAfresh"/>). Where along the load the fork is.
     /// </summary>
-    void Couple(int towed, int tractor, bool byTheTail)
+    float Tow(int tractor, int loadAgent, bool byTheTail)
     {
-        if (tractor < 0)
-        {
-            _links.Unlink(towed);
-            return;
-        }
+        if (_towSlot[tractor] >= 0) _links.Unlink(_towSlot[tractor]);
+
+        _towSlot[tractor] = -1;
+        if (loadAgent < 0) return 0f;
 
         var tractorBuild = _laying.Builds.Of(_laying.Cars[tractor].Variant);
-        var towedBuild = _laying.Builds.Of(_laying.Cars[towed].Variant);
-        _links.Link(
-            towed,
-            new LinkRow(
-                BodyOfCar(tractor), BodyOfCar(towed), TowBar.HookOnTheBodyM(tractorBuild),
-                TowBar.EyeOnTheBodyM(towedBuild, tractorBuild.TowReachM, byTheTail), 0f));
+        var (eyeM, forkAlongM) = _laying.TowedAt(loadAgent, tractorBuild.TowReachM, byTheTail);
+        var slot = _towSlot[tractor] = _laying.LinkSlotOfTow(loadAgent, byTheTail);
+        _links.Link(slot, new LinkRow(BodyOfCar(tractor), _laying.BodyOf(loadAgent), TowBar.HookOnTheBodyM(tractorBuild), eyeM, 0f));
+        return forkAlongM;
     }
 
     /// <summary>
@@ -873,7 +899,47 @@ internal sealed partial class DeviceWorld : WorldLayer
         _walkersViewKernel.Dispatch(
             commands, _walkersViewSets[into.Slot], Groups(_walkers), _push with { Count = (uint)_walkers, Mode = mode });
         if (_wagons > 0) _wagonsViewKernel.Dispatch(commands, _wagonsViewSets[into.Slot], Groups(_wagons), _push with { Count = (uint)_wagons });
+        if (_posesAtView is { } poses) KeepThePoses(commands, poses[into.Slot]);
     }
+
+    /// <summary>The poses the view was just taken at, copied where an instrument reads them by the view's slot: the moving rows, or the whole table while it is owed.</summary>
+    void KeepThePoses(Recording commands, GpuBuffer into)
+    {
+        var pose = _solver.Bodies.Pose;
+        var row = (ulong)Marshal.SizeOf<Vector4>();
+        var from = _posesOwedWhole > 0 ? 0 : _solver.FirstMoving;
+        if (_posesOwedWhole > 0) _posesOwedWhole--;
+
+        var rows = (ulong)(_solver.BodyCount - from);
+        if (rows == 0) return;
+
+        _vk.BeforeTransfer(commands);
+        _vk.Copy(commands, pose, into, [new CopyRun((ulong)from * row, (ulong)from * row, rows * row)]);
+    }
+
+    /// <summary>
+    /// <b>Every body's pose kept as each view is taken</b>, from the next view on (<see cref="Bodies"/>): an instrument drawing
+    /// over the bodies reads them where the view the host shows put them, and not a step ahead with the solver.
+    /// </summary>
+    public override void KeepTheBodiesAtTheView()
+    {
+        if (_posesAtView is not null) return;
+
+        _posesAtView = [_held.Device<Vector4>(_solver.BodyCount), _held.Device<Vector4>(_solver.BodyCount)];
+        _posesOwedWhole = _posesAtView.Length;
+    }
+
+    /// <summary>Whether every slot's poses have been laid whole since they were first kept, so an instrument may read either.</summary>
+    public bool PosesKept => _posesAtView is not null && _posesOwedWhole == 0;
+
+    /// <summary>
+    /// <b>The body table as an instrument reads it</b>, every body of every kind in the one numbering: the poses at each
+    /// view by slot (<see cref="KeepTheBodiesAtTheView"/>, empty until asked for), the shapes, the filters, the motion, what
+    /// each body is, and the links with how many are live.
+    /// </summary>
+    public DeviceBodies Bodies => new(
+        _posesAtView ?? [], _solver.Rows.Shape, _solver.Bodies.Filter, _solver.Bodies.Motion, _tags, _solver.Links.Rows,
+        _solver.Links.Count, _solver.BodyCount, _solver.FirstMoving);
 
     /// <summary><c>world_covers_out.comp</c>'s push constants: each list's room.</summary>
     [StructLayout(LayoutKind.Sequential)]

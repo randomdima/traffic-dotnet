@@ -1,5 +1,20 @@
 # The evacuator — decision log
 
+## 2026-10-19 — an arm tows anything with a body, one fork to an end
+
+**The owner asked for no limits on what an arm can take**, trains included, with one: an end another arm holds is not
+caught, and the other end of that body still can be. The arm passed over a car already on a bar, one already pulling
+something and one standing in a yard, and caught nothing but cars. **Decided**: a tow is keyed by the body and the end
+it holds (`TowHitches`), so a body takes two arms from its two sides, a truck on one arm may be towing, and a rail
+vehicle out on the map is caught as a car is. What follows:
+
+- **A chain is laid under the truck at its front** (`TER-4c.2`); a body held at both ends under the one at its nose.
+- **A car on two arms stands on none of its wheels**: both pairs are up.
+- **A rail vehicle stays on its rails** (`TRN-8`): the arm pulls it along them, and its train pulls the arm; every arm
+  on it lets go as its train leaves the map or is put back on it (`TRN-7`).
+- **A mended car standing in a yard stops being mended** when an arm takes it, and is a car again where it is let go.
+- **Nothing refuses a loop** of arms; what reads a chain stops after as many steps as there are cars.
+
 ## 2026-10-19 — the coupling is the solver's link, the one a train is coupled by
 
 **The owner asked for one real, physics-based solid link, free to turn, for the tow and the train alike**, with "no

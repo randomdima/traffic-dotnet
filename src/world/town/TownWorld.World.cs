@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
@@ -40,7 +41,7 @@ internal sealed partial class TownWorld
 
             return new WorldLaying(_config, _plan.WorldSizeM, Statics, _atlas, WheelGrounds, _builds, cars, walkers, _roads)
             {
-                Wagons = WagonsLaid, Rails = _rails,
+                Wagons = WagonsLaid, Rails = _rails, Barriers = BarriersLaid,
             };
         }
     }
@@ -272,9 +273,15 @@ internal sealed partial class TownWorld
         Signal(ControlSignal.Channels(AgentOfCar(car), channels));
     }
 
-    /// <summary><b>A car put on a tractor's bar</b>, or taken off it where <paramref name="tractor"/> is −1 (EVA-5).</summary>
-    void Couple(int towed, int tractor, bool byTheTail) =>
-        Signal(ControlSignal.Tow(AgentOfCar(towed), tractor < 0 ? -1 : AgentOfCar(tractor), byTheTail));
+    /// <summary>
+    /// <b>A tractor's arm put on a body by one end</b>, or emptied where <paramref name="load"/> is −1 (EVA-5) — the body
+    /// numbered as <see cref="TowHitches"/> numbers it.
+    /// </summary>
+    void SignalTheTow(int tractor, int load, bool byTheTail) =>
+        Signal(ControlSignal.Tow(AgentOfCar(tractor), load < 0 ? -1 : AgentOfTowable(load), byTheTail));
+
+    /// <summary>The agent a body <see cref="TowHitches"/> numbers is signalled as: a car's, or a rail vehicle's past the roster.</summary>
+    int AgentOfTowable(int load) => _hitches.IsACar(load) ? AgentOfCar(load) : Roster.Count + (load - _hitches.Cars);
 
     void ClearTheWheels(int car) => Signal(ControlSignal.ClearWheels(AgentOfCar(car)));
 

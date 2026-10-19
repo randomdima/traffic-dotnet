@@ -196,7 +196,7 @@ internal static class RecoveryProbe
     {
         // The ground the wreck covered while it was on a bar, and never the ground it covered being shunted
         // about the street by whatever hit it next: what this column has to mean is that the tow moved it.
-        var hauler = world.Recovery.OnTheHookOf[wreck];
+        var hauler = world.Hitches.Hauler(wreck);
         var atM = world.Cars.PositionM[wreck];
         if (hauler >= 0)
         {
@@ -238,7 +238,7 @@ internal static class RecoveryProbe
         (TowBar.HookM(world.Cars.BuildOf(hauler), world.Cars.PositionM[hauler], ForwardOf(world, hauler))
             - TowBar.EyeM(
                 world.Cars.BuildOf(wreck), world.Cars.PositionM[wreck], ForwardOf(world, wreck),
-                world.Cars.BuildOf(hauler).TowReachM, world.Recovery.HeldByTheTail[wreck]))
+                world.Cars.BuildOf(hauler).TowReachM, world.Hitches.LoadByTheTail(hauler)))
         .Length();
 
     /// <summary>Which way a body points, off the heading the fleet publishes.</summary>

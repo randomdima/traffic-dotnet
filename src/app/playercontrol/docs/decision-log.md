@@ -27,6 +27,16 @@ One fact sufficed for the walker, whose order has no second phase. A car's has o
 must leave the car *waiting* rather than free, or the driver steps onto the pavement and the vehicle draws
 itself a trip.
 
+## 2026-10-19 — the wheel puts a car in manual mode, and the panel carries the reset
+
+The owner asked for it. A car whose wheel was given up by a change of selection went straight back to the leg it
+held before the hand, so whatever the player had driven it into was undone the moment they looked elsewhere. A
+walker already entered manual mode under the hand; a car now does too, and a car let go of with no order in hand
+is stood down. A train takes no order, so its manual mode is the town's own flag and the hold is a hand that only
+brakes, through the seam the keys already use. Only the player's hand does it, because only the player has the reset. `R` reached the
+selection and nothing showed it was there, so the selection's panel carries a release button while it has
+something to give back.
+
 ## A driverless car takes orders, and CAR-1 is not bent to allow it
 
 The reason is CTL-8d's own. It cost one line elsewhere: a car with a leg in hand is no longer one a

@@ -36,6 +36,9 @@ internal sealed partial class TownWorld
     /// <summary>What every evacuator is doing about its wreck (EVA-3).</summary>
     public RecoveryDuty Recovery => _recovery;
 
+    /// <summary>Every tow in the town (EVA-5), for whatever draws or reports one.</summary>
+    public TowHitches Hitches => _hitches;
+
     /// <summary>How many cars have been wrecked in the town — every one of them a recovery raised.</summary>
     public long WrecksRaised { get; private set; }
 
@@ -98,19 +101,22 @@ internal sealed partial class TownWorld
     /// </remarks>
     public float OffTheLineAllowanceM(int car) =>
         _config.CarOffPathM * OffLineTolerance
-        * (_recovery.Towing[car] >= 0 ? _config.Evacuator.TowedLineAllowance : 1f);
+        * (_hitches.IsTowing(car) ? _config.Evacuator.TowedLineAllowance : 1f);
 
     /// <summary>
     /// <b>EVA-1: a car in its terminal state is a recovery waiting to be run.</b> Raised where the wreck
-    /// happens, so nothing has to search the fleet for one.
+    /// happens, so nothing has to search the fleet for one — and a call from then on unless an arm already has it.
     /// </summary>
     void RaiseTheRecovery(int car)
     {
         if (Cars.Broken[car]) return;
 
-        _wreckCount++;
+        if (!_hitches.IsHeld(car)) _wreckCount++;
         WrecksRaised++;
     }
+
+    /// <summary>Whether a car is a call (EVA-1): broken, on no arm and standing in no yard — what <see cref="_wreckCount"/> counts.</summary>
+    bool IsACall(int car) => Cars.Broken[car] && !_hitches.IsHeld(car) && !_recovery.InTheYard[car];
 
     /// <summary>
     /// One decision of one evacuator's errand, taken before the leg's own (EVA-3). <b>It decides the errand
@@ -210,8 +216,7 @@ internal sealed partial class TownWorld
     /// already somebody else's recovery. <b>One wreck to a recovery and one recovery to a wreck.</b>
     /// </summary>
     bool IsAWreckWorthFetching(int wreck) =>
-        Cars.Broken[wreck] && _recovery.OnTheHookOf[wreck] == RecoveryDuty.Nothing
-        && !_recovery.InTheYard[wreck] && !IsAlreadyTaken(wreck);
+        IsACall(wreck) && !IsAlreadyTaken(wreck);
 
     /// <summary>
     /// Whether some other evacuator has already taken this wreck. Only a car stood as one is ever given a recovery
@@ -294,8 +299,9 @@ internal sealed partial class TownWorld
         // <b>The errand works the same arm a hand works</b> (EVA-5, CTL-7) — and winches the wreck onto the
         // fork first when the truck could not be driven right onto it. See the decision log: a truck cannot
         // get its own tail onto a body lying in the lane ahead of it without reversing onto it, which no
-        // driver does but in a manoeuvre at a bay (CAR-6.5), so the last few metres are a placement (PHY-7a).
-        if (WhatTheArmIsTouching(car, out _) != wreck && !WinchItOntoTheFork(car, wreck)) return;
+        // driver does but in a manoeuvre at a bay (CAR-6.5), so the last few metres are a placement (PHY-7a). And the arm
+        // is worked only once its wreck is what it touches: it catches anything (EVA-5), and the errand is for one body.
+        if (WhatTheArmIsTouching(car, out _) != wreck && (!WinchItOntoTheFork(car, wreck) || WhatTheArmIsTouching(car, out _) != wreck)) return;
 
         WorkTheArm(car);
         _recovery.HaulsLeft[car] = _config.Evacuator.HaulsBeforeSettingItDown;
@@ -307,10 +313,13 @@ internal sealed partial class TownWorld
     /// <b>The wreck pulled onto the fork by the winch</b>, over the last few metres and no more: it is put
     /// where the arm holds it, in line behind the truck, which is the same placement a container makes when
     /// it sets a body down (PHY-7a) — <b>and only where nobody but the pair holds that ground</b> (TER-4c.8). False
-    /// where somebody does, and the winch waits.
+    /// where somebody does, and the winch waits. <b>Nor while another arm has it by an end</b>: a placement under a
+    /// tow would carry the other tractor's pin across the ground with it (EVA-5).
     /// </summary>
     bool WinchItOntoTheFork(int car, int wreck)
     {
+        if (_hitches.IsHeld(wreck)) return false;
+
         var behindM = TowBar.SetDownBehindM(Cars.BuildOf(car), Cars.BuildOf(wreck));
         var atM = Cars.PositionM[car] - (ForwardOf(car) * behindM);
         if (!IsFreeToSetDown(wreck, car, atM)) return false;
@@ -371,7 +380,7 @@ internal sealed partial class TownWorld
     /// </summary>
     void HaulToTheYard(int car)
     {
-        if (_recovery.Towing[car] < 0)
+        if (_hitches.CarOnTheBar(car) < 0)
         {
             GoBackToTheDepot(car);
             return;
@@ -423,10 +432,20 @@ internal sealed partial class TownWorld
     /// </summary>
     void UnhitchIntoTheYard(int car, float sinceLastDecisionS)
     {
-        var wreck = _recovery.Towing[car];
+        var wreck = _hitches.CarOnTheBar(car);
         if (wreck < 0)
         {
             GoBackToTheDepot(car);
+            return;
+        }
+
+        // EVA-5: a wreck another arm still has by its other end is not the yard's to take. The set-down waits on it, and
+        // the leg's clock ends the wait as it ends a haul.
+        if (_hitches.IsHeldAt(wreck, !_hitches.LoadByTheTail(car)))
+        {
+            _recovery.HitchedForS[car] = 0f;
+            if (_recovery.SinceS[car] >= _config.EvacuatorGiveUpS) SetItDownWhereItStands(car);
+
             return;
         }
 
@@ -458,9 +477,10 @@ internal sealed partial class TownWorld
         SetTheWreckDown(wreck, car, _parking.CentreM(slot), headingRad);
         _parking.Occupy(slot, wreck);
 
-        LetGoOfIt(car, wreck);
+        // In the yard before off the bar, so letting go of it raises no call.
         _recovery.InTheYard[wreck] = true;
         _recovery.RepairedForS[wreck] = 0f;
+        LetGoOfTheLoad(car);
         _mendingCount++;
         WrecksYarded++;
 
@@ -551,7 +571,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     void LoseTheEvacuator(int car)
     {
-        DropWhatIsOnTheBar(car);
+        LetGoOfTheLoad(car);
         if (_recovery.IsOnARecovery(car)) RecoveriesGivenUp++;
 
         // Stood down rather than sent home: a wreck is handed no destinations and drives no legs.
@@ -572,22 +592,37 @@ internal sealed partial class TownWorld
     /// </summary>
     void SetItDownWhereItStands(int car)
     {
-        DropWhatIsOnTheBar(car);
+        LetGoOfTheLoad(car);
         GiveUpTheRecovery(car, counted: true);
     }
 
     /// <summary>
-    /// The bar let go where the pair stands: a wreck becomes a call again from that moment, so nothing has
+    /// <b>The bar let go where the pair stands</b>: a wreck becomes a call again from that moment, so nothing has
     /// to remember that somebody once started fetching it, and a car that was only ever a car goes back to
-    /// driving itself from where it was put down.
+    /// driving itself from where it was put down — <b>unless another arm still has it by its other end</b>, which
+    /// keeps it a trailer (EVA-5).
     /// </summary>
-    void DropWhatIsOnTheBar(int car)
+    void LetGoOfTheLoad(int car)
     {
-        var towed = _recovery.Towing[car];
-        if (towed < 0) return;
+        var load = _hitches.Unhitch(car);
+        if (load == TowHitches.Nothing) return;
 
-        LetGoOfIt(car, towed);
-        if (Cars.Broken[towed]) _wreckCount++;
+        SignalTheTow(car, TowHitches.Nothing, byTheTail: false);
+        if (!_hitches.IsACar(load) || _hitches.IsHeld(load)) return;
+
+        Enter(load, CarAction.Stand);
+        if (IsACall(load)) _wreckCount++;
+    }
+
+    /// <summary>
+    /// <b>A rail vehicle's train taking it off the map, or putting it back on</b> (TRN-7): every arm on it lets go first,
+    /// since a pin to a body taken out of the world and put down elsewhere would drag its tractor there.
+    /// </summary>
+    void LetGoOfTheWagon(int wagon)
+    {
+        var body = _hitches.OfWagon(wagon);
+        if (_hitches.HeldBy(body, byTheTail: false) is var nose and not TowHitches.Nothing) LetGoOfTheLoad(nose);
+        if (_hitches.HeldBy(body, byTheTail: true) is var tail and not TowHitches.Nothing) LetGoOfTheLoad(tail);
     }
 
     /// <summary>
@@ -606,9 +641,9 @@ internal sealed partial class TownWorld
     {
         if (car < 0 || car >= Cars.Count || Cars.Broken[car] || !CarriesAnArm(car)) return false;
 
-        if (_recovery.Towing[car] >= 0)
+        if (_hitches.IsTowing(car))
         {
-            DropWhatIsOnTheBar(car);
+            LetGoOfTheLoad(car);
             return true;
         }
 
@@ -623,114 +658,93 @@ internal sealed partial class TownWorld
     bool CarriesAnArm(int car) => Cars.BuildOf(car).TowReachM > 0f;
 
     /// <summary>
-    /// <b>What the arm would catch, and by which end</b>: the nearest car with an end the fork can be swung
-    /// under — within the arm's own reach of the hinge and behind the truck — or −1 for an arm reaching into
-    /// empty road.
+    /// <b>What the arm would catch, and by which end</b> (<see cref="ArmReach"/>): every car but the truck itself and every
+    /// rail vehicle out on the map, each by whichever of its ends no fork holds — or −1 for an arm reaching into empty
+    /// road. Numbered as <see cref="TowHitches"/> numbers bodies.
     /// </summary>
-    /// <remarks>
-    /// <b>The arm swings, so what it catches is what it can reach and not only what is straight behind it</b>
-    /// (EVA-5): a car whose own bodywork comes within the arm's reach of the hinge, and by whichever of its
-    /// two ends the fork is nearer. Behind the truck because the hinge is on the deck and the cab is in the
-    /// way of everything in front of it. A car already on a bar, one already pulling something and one
-    /// standing in a yard being mended are all passed over — the first two are somebody's tow and the third
-    /// is halfway through being a car again.
-    /// </remarks>
     int WhatTheArmIsTouching(int car, out bool byTheTail)
     {
         ref readonly var build = ref Cars.BuildOf(car);
-        var forward = ForwardOf(car);
-        var hingeM = TowBar.HookM(build, Cars.PositionM[car], forward);
-
-        byTheTail = false;
-        var caught = -1;
-        var nearestM = build.TowReachM;
+        var reach = new ArmReach(TowBar.HookM(build, Cars.PositionM[car], ForwardOf(car)), ForwardOf(car), build.TowReachM);
         for (var other = 0; other < Cars.Count; other++)
         {
-            if (other == car || _recovery.OnTheHookOf[other] >= 0 || _recovery.Towing[other] >= 0) continue;
-            if (_recovery.InTheYard[other]) continue;
+            if (other == car) continue;
 
-            var itsForward = ForwardOf(other);
-            var nearestOnItM = TheNearestPointOnTheBodyM(other, hingeM);
-            var farM = (nearestOnItM - hingeM).Length();
-            if (farM > nearestM || Vector2.Dot(nearestOnItM - hingeM, forward) >= 0f) continue;
-
-            caught = other;
-            nearestM = farM;
-
-            // And by whichever of its two ends the fork is nearer, which is the end it can be got under.
-            var toTheNose = TowBar.ForkM(Cars.BuildOf(other), Cars.PositionM[other], itsForward, byTheTail: false);
-            var toTheTail = TowBar.ForkM(Cars.BuildOf(other), Cars.PositionM[other], itsForward, byTheTail: true);
-            byTheTail = (toTheTail - hingeM).LengthSquared() < (toTheNose - hingeM).LengthSquared();
+            ref readonly var its = ref Cars.BuildOf(other);
+            reach.Consider(
+                other, Cars.PositionM[other], ForwardOf(other), new Vector2(its.HalfLengthM, its.FlankM),
+                _hitches.IsHeldAt(other, byTheTail: false), _hitches.IsHeldAt(other, byTheTail: true));
         }
 
-        return caught;
-    }
+        var wagons = _world.View.Wagons;
+        for (var wagon = 0; wagon < wagons.Length; wagon++)
+        {
+            ref readonly var view = ref wagons[wagon];
+            if (!view.IsInWorld) continue;
 
-    /// <summary>The point on a car's own footprint nearest a place, which is what "the arm reaches it" means.</summary>
-    Vector2 TheNearestPointOnTheBodyM(int car, Vector2 fromM)
-    {
-        ref readonly var build = ref Cars.BuildOf(car);
-        var forward = ForwardOf(car);
-        var right = Heading.RightOf(forward);
-        var offset = fromM - Cars.PositionM[car];
-        var alongM = Math.Clamp(Vector2.Dot(offset, forward), -build.HalfLengthM, build.HalfLengthM);
-        var acrossM = Math.Clamp(Vector2.Dot(offset, right), -build.FlankM, build.FlankM);
-        return Cars.PositionM[car] + (forward * alongM) + (right * acrossM);
-    }
+            var body = _hitches.OfWagon(wagon);
+            reach.Consider(
+                body, view.PositionM, Heading.Unit(view.HeadingRad), _trains.VehicleOf(wagon).BodyM * 0.5f,
+                _hitches.IsHeldAt(body, byTheTail: false), _hitches.IsHeldAt(body, byTheTail: true));
+        }
 
-    /// <summary>
-    /// <b>A car onto the bar where it stands</b> (EVA-5). Nothing is moved: the fork is already under it, so
-    /// the coupling begins at whatever stretch the driver left it at and pulls the pair into line itself.
-    /// </summary>
-    /// <remarks>
-    /// <b>What goes on the bar stops being a car for as long as it is on it</b> — no line, no bay, no
-    /// junction, no decisions — which is the state a wreck is already in and the state a car has to be put
-    /// into. Its wheels are straightened in the same breath: the pair still on the ground may be its steered
-    /// one, and a car dragged along on a wheel wound over is a car being scrubbed sideways down the road.
-    /// </remarks>
-    void PutItOnTheBar(int car, int caught, bool byTheTail)
-    {
-        _recovery.HeldByTheTail[caught] = byTheTail;
-        _parking.Vacate(caught);
-        GiveUpTheBay(caught);
-        Cars.Hold[caught] = DrivingHold.None;
-        Cars.SetLine(caught, default);
-        Cars.Reroutes[caught] = 0;
-        _driveProgress.Restart(caught);
-        Cars.Command[caught] = Cars.Broken[caught] ? DriveCommand.Locked : DriveCommand.Idle;
-        SignalTheWheel(caught);
-
-        CoupleUp(car, caught);
-        if (!Cars.Broken[caught]) return;
-
-        _wreckCount--;
-        WrecksHitched++;
+        byTheTail = reach.ByTheTail;
+        return reach.Caught;
     }
 
     /// <summary>
-    /// <b>The pair joined at both ends</b>: the duty each holds of the other, and nothing else.
+    /// <b>A body onto the bar where it stands</b>, by one end (EVA-5). Nothing is moved: the fork is already under it,
+    /// so the coupling begins at whatever stretch the driver left it at and pulls the pair into line itself.
     /// </summary>
     /// <remarks>
-    /// <b>The solver is not told about the coupling</b> (EVA-5): a truck that backs into the car on its own
+    /// <b>The solver is not told about the coupling</b> beyond the link itself: a truck that backs into the car on its own
     /// arm hits it, exactly as it hits anything else, and the daylight the arm holds is what keeps the two
     /// boxes apart in a straight line. What closes it is a corner taken tighter than the trailer can follow,
-    /// and that contact is a real one.
+    /// and that contact is a real one. <b>A rail vehicle stays on its rails</b> (TRN-8): what an arm does to one is
+    /// pull it along them, and what its train does is pull the arm.
     /// </remarks>
-    void CoupleUp(int car, int wreck)
+    void PutItOnTheBar(int car, int load, bool byTheTail)
     {
-        _recovery.Towing[car] = wreck;
-        _recovery.OnTheHookOf[wreck] = car;
-        Enter(wreck, CarAction.Towed);
-        Couple(wreck, car, _recovery.HeldByTheTail[wreck]);
+        var gripM = _hitches.IsACar(load)
+            ? Cars.BuildOf(load).TowGripFromTheMiddleM
+            : TowBar.GripFromTheMiddleM(_trains.VehicleOf(load - _hitches.Cars).BodyM.X, _config.Evacuator.TowGripInsideTheEndM);
+        if (_hitches.IsACar(load) && !_hitches.IsHeld(load)) TakeItOffItsWheels(load);
+
+        _hitches.Hitch(car, load, byTheTail, TowBar.ForkAlongM(gripM, byTheTail));
+        SignalTheTow(car, load, byTheTail);
     }
 
-    /// <summary>And parted, at whichever end the errand ended.</summary>
-    void LetGoOfIt(int car, int wreck)
+    /// <summary>
+    /// <b>A car stops being one for as long as an arm has it</b> — no line, no bay, no junction, no decisions — which is
+    /// the state a wreck is already in and the state a car has to be put into; a wreck stops being a call, and one
+    /// standing in a yard stops being mended. Its wheels are straightened in the same breath: the pair still on the
+    /// ground may be its steered one, and a car dragged along on a wheel wound over is a car being scrubbed sideways
+    /// down the road.
+    /// </summary>
+    void TakeItOffItsWheels(int car)
     {
-        _recovery.Towing[car] = RecoveryDuty.Nothing;
-        _recovery.OnTheHookOf[wreck] = RecoveryDuty.Nothing;
-        Enter(wreck, CarAction.Stand);
-        Couple(wreck, -1, byTheTail: false);
+        if (IsACall(car))
+        {
+            _wreckCount--;
+            WrecksHitched++;
+        }
+
+        if (_recovery.InTheYard[car])
+        {
+            _recovery.InTheYard[car] = false;
+            _recovery.RepairedForS[car] = 0f;
+            _mendingCount--;
+        }
+
+        _parking.Vacate(car);
+        GiveUpTheBay(car);
+        Cars.Hold[car] = DrivingHold.None;
+        Cars.SetLine(car, default);
+        Cars.Reroutes[car] = 0;
+        _driveProgress.Restart(car);
+        Cars.Command[car] = Cars.Broken[car] ? DriveCommand.Locked : DriveCommand.Idle;
+        SignalTheWheel(car);
+        Enter(car, CarAction.Towed);
     }
 
     /// <summary>The recovery given up: the wreck released for whoever can reach it, and the evacuator sent home.</summary>

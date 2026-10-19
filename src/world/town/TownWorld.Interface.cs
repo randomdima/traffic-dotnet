@@ -56,7 +56,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Every unit inside a box on the ground</b> — what a drag over the town asks (CTL-1b). Cars
-    /// first and then walkers, up to the bound, and a box that catches nothing deselects exactly as a
+    /// first, then trains, then walkers, up to the bound, and a box that catches nothing deselects exactly as a
     /// click on nothing does.
     /// </summary>
     /// <remarks>
@@ -80,6 +80,17 @@ internal sealed partial class TownWorld
             if (OverlapsTheBox(car, centreM, halfM, alongBox, acrossBox))
             {
                 changed |= _selected.Add(new Selection(SelectionKind.Car, car));
+            }
+        }
+
+        for (var train = 0; train < _trains.Count && !_selected.Full; train++)
+        {
+            foreach (var wagon in _trains.VehiclesOf(train))
+            {
+                if (!_selected.Full && VehicleOverlapsTheBox(wagon, centreM, halfM, alongBox, acrossBox))
+                {
+                    changed |= _selected.Add(VehicleUnit(wagon));
+                }
             }
         }
 
@@ -122,6 +133,12 @@ internal sealed partial class TownWorld
                 velocityMps = Cars.VelocityMps[unit.Index];
                 return true;
 
+            case SelectionKind.Locomotive or SelectionKind.Wagon:
+                ref readonly var vehicle = ref _world.View.Wagons[WagonOf(unit)];
+                atM = vehicle.PositionM;
+                velocityMps = vehicle.VelocityMps;
+                return true;
+
             case SelectionKind.Person:
                 var inside = People.Inside[unit.Index];
                 if (inside.Kind == ContainerKind.Car)
@@ -142,13 +159,28 @@ internal sealed partial class TownWorld
         }
     }
 
-    /// <summary>A unit as the town knows it, or nothing at all: an index off the end of a fleet is not a unit.</summary>
+    /// <summary>
+    /// A unit as the town knows it, or nothing at all: an index off the end of a fleet is not a unit, and nor is a train off
+    /// the map, which is out of the world (TRN-7).
+    /// </summary>
     Selection Standing(Selection unit) => unit.Kind switch
     {
         SelectionKind.Person => unit.Index >= 0 && unit.Index < People.Count ? unit : default,
         SelectionKind.Car => unit.Index >= 0 && unit.Index < Cars.Count ? unit : default,
+        SelectionKind.Locomotive => unit.Index >= 0 && unit.Index < _trains.Count && _trains.Running(unit.Index) ? unit : default,
+        SelectionKind.Wagon => unit.Index >= 0 && unit.Index < _trains.WagonCount && Hauled(unit.Index) ? unit : default,
         _ => default,
     };
+
+    /// <summary>Whether a slot is a vehicle its running train hauls behind its locomotive.</summary>
+    bool Hauled(int wagon)
+    {
+        var vehicles = _trains.VehiclesOf(_trains.TrainOfWagon(wagon));
+        return vehicles.Length > 1 && vehicles[1..].Contains(wagon);
+    }
+
+    /// <summary>The rail vehicle slot a locomotive or a wagon unit stands for.</summary>
+    public int WagonOf(Selection unit) => unit.Kind == SelectionKind.Locomotive ? _trains.VehiclesOf(unit.Index)[0] : unit.Index;
 
     /// <summary>
     /// A change of selection gives up the wheel, which is why every way into the set runs through here:
@@ -169,11 +201,35 @@ internal sealed partial class TownWorld
     bool OverlapsTheBox(int car, Vector2 centreM, Vector2 boxHalfM, Vector2 alongBox, Vector2 acrossBox)
     {
         ref readonly var build = ref Cars.BuildOf(car);
-        var heading = Heading.Unit(Cars.HeadingRad[car]);
+        return Overlaps(
+            Cars.PositionM[car], Cars.HeadingRad[car], new Vector2(build.HalfLengthM, build.FlankM), centreM, boxHalfM, alongBox, acrossBox);
+    }
+
+    /// <summary>Whether a rail vehicle in the world overlaps the box, by the footprint a click tests (<see cref="VehicleAt"/>).</summary>
+    bool VehicleOverlapsTheBox(int wagon, Vector2 centreM, Vector2 boxHalfM, Vector2 alongBox, Vector2 acrossBox)
+    {
+        ref readonly var view = ref _world.View.Wagons[wagon];
+        return view.IsInWorld
+            && Overlaps(view.PositionM, view.HeadingRad, _trains.VehicleOf(wagon).FootprintM * 0.5f, centreM, boxHalfM, alongBox, acrossBox);
+    }
+
+    /// <summary>
+    /// The unit a running rail vehicle is: its train's locomotive by the train's number, since that is what a hand drives
+    /// the train by (TRN-10), and any other vehicle by its own slot.
+    /// </summary>
+    Selection VehicleUnit(int wagon)
+    {
+        var train = _trains.TrainOfWagon(wagon);
+        return _trains.VehiclesOf(train)[0] == wagon ? new Selection(SelectionKind.Locomotive, train) : new Selection(SelectionKind.Wagon, wagon);
+    }
+
+    static bool Overlaps(
+        Vector2 positionM, float headingRad, Vector2 halfM, Vector2 centreM, Vector2 boxHalfM, Vector2 alongBox, Vector2 acrossBox)
+    {
+        var heading = Heading.Unit(headingRad);
         var forward = new Vector2(Vector2.Dot(heading, alongBox), Vector2.Dot(heading, acrossBox));
         var right = Heading.RightOf(forward);
-        var halfM = new Vector2(build.HalfLengthM, build.FlankM);
-        var fromCentreM = Cars.PositionM[car] - centreM;
+        var fromCentreM = positionM - centreM;
         var offset = new Vector2(Vector2.Dot(fromCentreM, alongBox), Vector2.Dot(fromCentreM, acrossBox));
 
         var alongX = (halfM.X * MathF.Abs(forward.X)) + (halfM.Y * MathF.Abs(right.X));
@@ -266,8 +322,18 @@ internal sealed partial class TownWorld
         _hands = default;
         foreach (var unit in _selected.Units)
         {
-            if (unit.Kind == SelectionKind.Car) ReleaseOrderOfCar(unit.Index);
-            else ReleaseOrder(unit.Index);
+            switch (unit.Kind)
+            {
+                case SelectionKind.Car:
+                    ReleaseOrderOfCar(unit.Index);
+                    break;
+                case SelectionKind.Person:
+                    ReleaseOrder(unit.Index);
+                    break;
+                case SelectionKind.Locomotive:
+                    ReleaseTrain(unit.Index);
+                    break;
+            }
         }
     }
 
@@ -323,7 +389,13 @@ internal sealed partial class TownWorld
     /// Whether somebody has this one unit's wheel — <see cref="HandsOn"/> is about the selection, and a wreck in it
     /// is refused the hand (<see cref="Handed"/>).
     /// </summary>
-    public bool IsHanded(Selection unit) => Handed(unit.Kind == SelectionKind.Car ? Roster.AgentOfCar(unit.Index) : unit.Index);
+    public bool IsHanded(Selection unit) => unit.Kind switch
+    {
+        SelectionKind.Locomotive => PlayersHandOnTrain(unit.Index),
+        SelectionKind.Wagon => false,
+        SelectionKind.Car => Handed(Roster.AgentOfCar(unit.Index)),
+        _ => Handed(unit.Index),
+    };
 
     /// <summary>
     /// The units the player has the wheel of, or nothing — the one thing outside a car that a hand at its
@@ -347,20 +419,80 @@ internal sealed partial class TownWorld
     /// The hand on this car's wheel, or nothing held. <b>The player's before the second driver's</b>
     /// (CTL-5d), for a car they are both holding.
     /// </summary>
-    HandInput WheelOn(int car) => _hands.Held && _selected.Holds(SelectionKind.Car, car)
+    HandInput WheelOn(int car) => PlayersHandOn(car)
         ? _hands
         : _otherCar == car ? _otherHand : default;
 
-    /// <summary>The unit under a point — a car first, then a walker — or nothing.</summary>
+    /// <summary>Whether the player's own hand, and not a second driver's (CTL-5d), is on this car's wheel.</summary>
+    bool PlayersHandOn(int car) => _hands.Held && _selected.Holds(SelectionKind.Car, car);
+
+    /// <summary>
+    /// Whether any unit picked out answers to the player rather than to itself — under a hand, under an order, or
+    /// waiting for the next one (CTL-4) — which is whether the reset has anything to give back.
+    /// </summary>
+    public bool SelectionIsManual
+    {
+        get
+        {
+            if (HandsOn) return true;
+
+            foreach (var unit in _selected.Units)
+            {
+                var manual = unit.Kind switch
+                {
+                    SelectionKind.Car => IsUnderOrders(unit.Index),
+                    SelectionKind.Person => People.Manual[unit.Index],
+                    SelectionKind.Locomotive => _trainManual[unit.Index],
+                    _ => false,
+                };
+                if (manual) return true;
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>The unit under a point — a car first, then a rail vehicle, then a walker — or nothing.</summary>
     /// <remarks>
     /// A car before a walker because a walker standing beside a car is the easy click and a walker
     /// <em>under</em> one is not visible to be clicked; picking the walker there would select
-    /// something the player cannot see.
+    /// something the player cannot see. A car before a rail vehicle because a car on a crossing is the small thing standing
+    /// on the big one. <b>A rail vehicle is a unit of its own</b>: a locomotive is its train's, which the keys drive, and a
+    /// wagon is only itself.
     /// </remarks>
     public Selection Pick(Vector2 pointM)
     {
         var car = CarAt(pointM);
-        return car >= 0 ? new Selection(SelectionKind.Car, car) : Selection.Of(SelectionKind.Person, PersonAt(pointM));
+        if (car >= 0) return new Selection(SelectionKind.Car, car);
+
+        var wagon = VehicleAt(pointM);
+        return wagon >= 0 ? VehicleUnit(wagon) : Selection.Of(SelectionKind.Person, PersonAt(pointM));
+    }
+
+    /// <summary>
+    /// The slot of the running rail vehicle whose footprint covers a point, or −1 — the footprint each is laid at
+    /// (<see cref="WagonLaid"/>), in the frame the world last left it in.
+    /// </summary>
+    public int VehicleAt(Vector2 pointM)
+    {
+        for (var train = 0; train < _trains.Count; train++)
+        {
+            foreach (var wagon in _trains.VehiclesOf(train))
+            {
+                ref readonly var view = ref _world.View.Wagons[wagon];
+                if (!view.IsInWorld) continue;
+
+                var halfM = _trains.VehicleOf(wagon).FootprintM * 0.5f;
+                var forward = Heading.Unit(view.HeadingRad);
+                var offset = pointM - view.PositionM;
+                if (MathF.Abs(Vector2.Dot(offset, forward)) <= halfM.X && MathF.Abs(Vector2.Dot(offset, Heading.RightOf(forward))) <= halfM.Y)
+                {
+                    return wagon;
+                }
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>The car whose footprint covers a point, or −1. Tested in the body's own frame, which is the frame it is drawn in.</summary>

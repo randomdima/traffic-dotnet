@@ -85,6 +85,25 @@ public class FollowTests
         }
     }
 
+    /// <summary>
+    /// <b>A zoom keeps the camera on the unit</b> (OBS-1a): zoomed about a pointer off to one side, the next frame stands
+    /// on the unit again at the new zoom.
+    /// </summary>
+    [Fact]
+    public void AZoomKeepsTheCameraOnTheUnit()
+    {
+        var (camera, follow) = Watching();
+        follow.Step(camera, UiPx, UnitM, Vector2.Zero, FrameS);
+
+        camera.Zoom(2f, UiPx * 0.25f, UiPx);
+        var zoomed = camera.PixelsPerMetre;
+        follow.Step(camera, UiPx, UnitM, Vector2.Zero, FrameS);
+
+        Assert.True(follow.On);
+        Assert.Equal(UnitM, camera.CentreM);
+        Assert.Equal(zoomed, camera.PixelsPerMetre);
+    }
+
     /// <summary>Which is what asking again is for: a click on the unit puts the camera back on it.</summary>
     [Fact]
     public void AskingAgainPutsItBackOnTheUnit()
@@ -214,11 +233,10 @@ public class FollowTests
         return camera.CentreM - UnitM;
     }
 
-    /// <summary>The three ways a reader moves the camera themselves, each of which ends a follow.</summary>
+    /// <summary>The two ways a reader moves the camera themselves, each of which ends a follow.</summary>
     static readonly Action<Camera2D>[] Gestures =
     [
         camera => camera.PanByPixels(new Vector2(200f, 120f)),
-        camera => camera.Zoom(2f, UiPx * 0.25f, UiPx),
         camera => camera.Turn(0.4f, UiPx * 0.25f, UiPx),
     ];
 

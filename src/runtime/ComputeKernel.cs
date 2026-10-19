@@ -28,6 +28,13 @@ internal sealed unsafe class ComputeKernel : IDisposable
     readonly Pipeline _pipeline;
     readonly DescriptorPool _pool;
     readonly uint _pushBytes;
+    readonly string _shader;
+
+    /// <summary>
+    /// <b>The sets its pool was laid for and not yet allocated, counted here rather than left to the driver</b>: lavapipe
+    /// allocates past <c>maxSets</c> where radv refuses, so a kernel short of sets would pass the suite and fail a window.
+    /// </summary>
+    int _setsLeft;
 
     /// <param name="shader">The embedded SPIR-V's name, as <see cref="Vk.LoadShader"/> takes it: <c>integrate.comp</c>.</param>
     /// <param name="buffers">How many storage buffers the kernel binds.</param>
@@ -37,6 +44,8 @@ internal sealed unsafe class ComputeKernel : IDisposable
     {
         _vk = vk;
         _pushBytes = pushBytes;
+        _shader = shader;
+        _setsLeft = sets;
         Buffers = buffers;
         var api = vk.Api;
         var module = vk.LoadShader(shader, out var declared);
@@ -149,6 +158,9 @@ internal sealed unsafe class ComputeKernel : IDisposable
         var set = into;
         if (set.Handle == 0)
         {
+            if (_setsLeft == 0) throw new InvalidOperationException($"{_shader} binds more sets than it was laid for.");
+
+            _setsLeft--;
             var setLayout = _setLayout;
             var allocate = new DescriptorSetAllocateInfo
             {

@@ -114,9 +114,20 @@ internal sealed partial class TownWorld
             var held = HandAtTheWheel(car);
             if (held == (Cars.Action[car] == CarAction.Hand)) continue;
 
-            if (held) Enter(car, CarAction.Hand);
+            if (held) HandTakesTheWheel(car);
             else LetGoOfTheWheel(car);
         }
+    }
+
+    /// <summary>
+    /// <b>A car a hand has taken.</b> The player's hand puts it in manual mode as an order does (CTL-5b), so letting go
+    /// leaves it waiting rather than back on whatever it was doing. A second driver's does not: the reset is the
+    /// reader's, and a mode nobody but the reader can end is not one a script may enter (CTL-5d).
+    /// </summary>
+    void HandTakesTheWheel(int car)
+    {
+        Enter(car, CarAction.Hand);
+        if (PlayersHandOn(car)) _carOrders.TakeTheWheel(car);
     }
 
     /// <summary>Whether the last pass of <see cref="TakeUpTheHands"/> ran with no hand held, so left no agent under one.</summary>
@@ -124,11 +135,13 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>A car the hand has let go of</b>: back on its line where the hand left it on one, and otherwise off it —
-    /// at rest, then onto the lane under it (CAR-9). A car nothing drives stands.
+    /// at rest, then onto the lane under it (CAR-9). A car nothing drives stands, and so does one in manual mode with
+    /// no order in hand: the leg it was on before the hand took it is not the player's to have asked for (CTL-4).
     /// </summary>
     void LetGoOfTheWheel(int car)
     {
         if (!Cars.Driven[car] || Cars.Broken[car]) Enter(car, CarAction.Stand);
+        else if (IsUnderOrders(car) && OrderOf(car) == PlayerOrder.None) StandTheCarDown(car);
         else Enter(car, Cars.Line[car].LaneCount > 0 ? CarAction.Follow : CarAction.Rejoin);
     }
 }

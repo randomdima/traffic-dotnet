@@ -99,8 +99,8 @@ internal static class SpriteProbe
                 world.Cars, inView.AsSpan(0, listed), looks.Cars, looks.FirstCarSheet, looks.CarSheetScales, centreM, spanM,
                 into, level), out var cars);
             var arms = Us(() => CarSprites.FillBeams(
-                world.Cars, inView.AsSpan(0, listed), looks.Cars, world.Recovery, looks.FirstBeamSheet, centreM, spanM, into,
-                level), out _);
+                world.Cars, inView.AsSpan(0, listed), looks.Cars, world.Hitches, world.World.View.Wagons, looks.FirstBeamSheet,
+                centreM, spanM, into, level), out _);
             var lamps = Us(() => looks.WidestGlowM < leastPartM ? 0 : LampSprites.Fill(
                 world.Cars, inView.AsSpan(0, listed), looks.Cars, config, looks.LensSheet, looks.LampGlowSheet,
                 world.ElapsedS, centreM, spanM, into, level, leastPartM), out _);

@@ -11,9 +11,9 @@ using TrafficSimulation.World.Town;
 namespace TrafficSimulation.Bench;
 
 /// <summary>
-/// <b>The railway, watched</b> (TRN-1…8, RAIL-1): one town run for a while, and what its trains and crossings did — how
+/// <b>The railway, watched</b> (TRN-3…12, RAIL-1): one town run for a while, and what its trains and crossings did — how
 /// many trains came, how long a train was on the map, how many of the crossings' stretches stood held at once, and what
-/// the trains met.
+/// the trains and the crossings' arms met.
 /// </summary>
 /// <remarks>
 /// It gates nothing: whether a town's crossings are crossed by anybody while closed is a reading of that town's traffic,
@@ -39,6 +39,7 @@ internal static class TrainProbe
         var (onTheMapTicks, mostWagons, mostHeld, carsMet, peopleMet, firstOnS) = (0, 0, 0, 0, 0, double.NaN);
         var (mostCarsHeld, mostWalkersHeld) = (0, 0);
         var met = new List<string>();
+        var (armsMet, armsSaid) = (0, new List<string>());
         var firstAtM = Vector2.Zero;
         var watch = new RailWatch(world, config);
         for (var tick = 0; tick < ticks; tick++)
@@ -65,6 +66,21 @@ internal static class TrainProbe
             watch.Saw(world);
             foreach (ref readonly var touch in world.World.View.TouchesBegun)
             {
+                if (touch.First.Kind == BodyKind.Barrier || touch.Second.Kind == BodyKind.Barrier)
+                {
+                    var (arm, car) = touch.First.Kind == BodyKind.Barrier ? (touch.First, touch.Second) : (touch.Second, touch.First);
+                    armsMet++;
+                    if (armsSaid.Count < MostMetShown)
+                    {
+                        var atM = world.Cars.PositionM[car.Index];
+                        armsSaid.Add(
+                            $"car {car.Index} at {atM.X:F0},{atM.Y:F0}, {world.Cars.VelocityMps[car.Index].Length():F1} m/s, {(tick + 1) * config.TickSeconds:F1} s; " +
+                            $"gear {arm.Index}, {world.CrossingGear.Lowered(arm.Index, world.ElapsedS):P0} down");
+                    }
+
+                    continue;
+                }
+
                 if (touch.First.Kind != BodyKind.Train && touch.Second.Kind != BodyKind.Train) continue;
 
                 var (wagon, other) = touch.First.Kind == BodyKind.Train ? (touch.First, touch.Second) : (touch.Second, touch.First);
@@ -86,6 +102,8 @@ internal static class TrainProbe
         Console.WriteLine($"  held at a crossing at most {mostCarsHeld} cars and {mostWalkersHeld} walkers at once, read each second");
         Console.WriteLine($"  met by a train     {carsMet} cars, {peopleMet} walkers");
         foreach (var where in met) Console.WriteLine($"    {where}");
+        Console.WriteLine($"  met by an arm      {armsMet} cars (RAIL-10)");
+        foreach (var where in armsSaid) Console.WriteLine($"    {where}");
         var said = new TextBuffer(new char[256]);
         for (var claim = 0; claim < watch.Claims; claim++)
         {

@@ -59,7 +59,7 @@ internal sealed partial class TownWorld
     /// </summary>
     public bool StandsParked(int car) =>
         _standsParked[car] && !Cars.Driven[car] && Cars.Action[car] != CarAction.Hand
-        && _recovery.OnTheHookOf[car] < 0 && Cars.Hold[car] == DrivingHold.None
+        && !_hitches.IsHeld(car) && Cars.Hold[car] == DrivingHold.None
         && Cars.Command[car] == DriveCommand.Parked
         && (_world.View.Cars[car].Flags & CarView.FrozenThroughLastStep) != 0
         && Cars.VelocityMps[car] == Vector2.Zero && Cars.YawRateRadPerS[car] == 0f;
@@ -149,7 +149,7 @@ internal sealed partial class TownWorld
         // EVA-5: <b>a car on somebody's arm is not driving</b>. One end of it is off the ground and the other
         // is rolling where the truck takes it, which is exactly a wreck's state said of a car nobody broke —
         // so what it gets is the trailer's two wheels, which are the world's (ControlAction.Tow), and no driving at all.
-        if (_recovery.OnTheHookOf[car] >= 0) return;
+        if (_hitches.IsHeld(car)) return;
 
         var pose = PoseOf(car);
         if (Cars.Action[car] == CarAction.Hand)

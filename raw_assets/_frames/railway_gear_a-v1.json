@@ -1,0 +1,31 @@
+{
+ "id": "railway_gear_a-v1",
+ "ts": "2026-10-19T17:10:16",
+ "op": "edit",
+ "name": "railway_gear_a",
+ "file": ".tmp/gen/frames/railway_gear_a-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.028772,
+ "prompt": "Two images are attached. The first is a layout: 9 outlines on a flat magenta background, in a 3 by 3 grid, all at one shared scale. They are pieces of level-crossing equipment for a railway. The second image shows a finished track strip from the same game, in the art style to match. Copy its style only, not its content.\n\nMake one image with exactly the same layout as the first image: the same 9 outlines in the same places at the same sizes. Inside each outline, draw what is described for that cell below, as strictly top-down art for a 2D city game.\n\nShape comes first:\n- Each drawing fills its own outline exactly, edge to edge, horizontal, and is exactly the outline's size: not bigger, not thicker, not longer. Nothing reaches past an outline's edge, and nothing is drawn outside the outlines.\n- Inside an outline there is no magenta at all.\n- The thick dark edge on each outline's right side marks its front: a boom's tip, the opening a boom slides out of, the side a signal's lamps face. Do not draw that thick edge itself.\n- The three booms (cells 1 to 3) are long and very thin: draw each as one straight thin bar exactly as thick as its thin outline, the same thickness end to end, nothing standing off it, no hub, no clamp, no lamp, no post.\n- Each thin coloured square inside the two signals' outlines (cells 8 and 9) is where one lamp's glass is drawn, switched off: dark unlit red glass inside a black hood, no glow and no light cast. The square's frame itself is not drawn.\n\nRules for everything:\n- Strictly top-down: the camera looks straight down from high above (orthographic plan view, like a map). No side faces, no perspective, no three-quarter view, no tilt, no cast shadow. Flat light from directly above.\n- Style: match the style image. Chunky pixel art with crisp hard-edged pixels and no blur. Flat colour with one highlight and one shadow tone. A dark near-black outline about 2 pixels thick round each piece.\n- No text, logos, numbers, people or watermark anywhere.\n- Outside the outlines, keep the background flat pure magenta #FF00FF. No grid lines or frames.\n\nCells, row by row, left to right, length x width:\n1. 4 x 0.3 m - a sliding level-crossing barrier boom lying flat: a straight thin boom of square steel tube painted in bold alternating red and white bands of equal length, its left end cut square, a small black rubber cap at its right tip\n2. 4 x 0.3 m - a sliding level-crossing barrier boom lying flat: a straight thin aluminium boom with red reflective bands on white, its left end cut square, a rubber-capped tip at the right\n3. 4 x 0.3 m - a sliding level-crossing barrier boom lying flat: a straight thin weathered steel boom in faded red and white diagonal stripes, a little scuffed, its left end cut square, its tip at the right\n4. 1.2 x 0.6 m - a sliding barrier's drive housing from straight above: a low rectangular steel box painted yellow with grey edges, a flat lid with a few vent slots and a small bolted inspection plate, a dark square opening in the middle of its right end where the boom slides out\n5. 1.2 x 0.6 m - a sliding barrier's drive housing from straight above: a low rectangular box of grey galvanised steel with a red and white striped edge band, a ribbed lid, a dark square opening in the middle of its right end where the boom slides out\n6. 1.2 x 0.7 m - a lineside railway relay cabinet from straight above: a grey-green steel box roof with a slight ridge along its length, a rain lip round its edge, a small vent on top, a pale concrete plinth showing as a thin rim round it\n7. 1.2 x 0.7 m - a lineside railway relay cabinet from straight above: a pale grey steel box roof with a sloped lid and a dark rubber seal round its edge, a yellow warning label in one corner, a pale concrete plinth showing as a thin rim round it\n8. 0.9 x 0.9 m - a level-crossing warning signal from straight above: the round top of its grey post in the middle; across it, running top to bottom, the top edge of a black backboard carrying two round lamp hoods in the two coloured squares, each a black half-ring open toward the right with dark unlit red glass inside; a thin white and red St Andrew's cross plate edge on top\n9. 0.9 x 0.9 m - a level-crossing warning signal from straight above: a square concrete footing filling the outline with a grey steel post top in the middle; across it, running top to bottom, a white backboard with a red border carrying two round lamp hoods in the two coloured squares, each a black half-ring open toward the right with dark unlit red glass inside",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "4837583baf6c0773",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/railway_gear_a.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "18db27caf6104552",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/railway_gear_a_style.png"
+  }
+ ]
+}

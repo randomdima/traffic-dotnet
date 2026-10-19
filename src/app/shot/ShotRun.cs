@@ -71,6 +71,10 @@ internal static class ShotRun
         // is a picture of the plan rather than of the simulation. Seconds says how far in.
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Timed = ui.Status.Open;
+
+        // The engine layers draw the bodies where the view shows them, which the world keeps from the moment it is asked:
+        // asked before the first tick, the frame has them however far the run goes.
+        if (ui.Switches.NeedsTheEngine) world.World.KeepTheBodiesAtTheView();
         world.Timed = ui.Status.Open;
 
         // What the map claims about itself is answered a tick at a time, so the run is advanced one at a

@@ -3,7 +3,8 @@
 
 // Every car's wheels (EVA-5, TowBar; ManagedWorld.TrailerWheels, StepTheBodies), one thread a car, after the tyre pass: a
 // car on an arm rolls on the pair at the far end from the fork — the lifted pair spends nothing, the pair down holds what
-// it can of its sideways slip and drags at the ground's drag, and turns with the road — and then every car's wheels are
+// it can of its sideways slip and drags at the ground's drag, and turns with the road; one on two arms rolls on none —
+// and then every car's wheels are
 // spent on its body in wheel order, each impulse as the tyre pass or the arm left it in its table
 // (DeviceTyres.ImpulseTable), at its point. The arm itself is the solver's link (SOL-38, solve.comp).
 
@@ -53,7 +54,14 @@ vec2 wheelAtM(CarBuildRow car, int wheel)
 
 void trailerWheels(uint car, WorldCar row)
 {
-    bool byTheTail = (row.flags & CarByTheTail) != 0u;
+    // Held at both ends, it is carried whole between two arms and no wheel of it is down.
+    if ((row.flags & CarHeldAtTheNose) != 0u && (row.flags & CarHeldAtTheTail) != 0u)
+    {
+        for (uint wheel = 0u; wheel < WheelsACar; wheel++) impulseRows[car * WheelsACar + wheel] = vec4(0.0);
+        return;
+    }
+
+    bool byTheTail = (row.flags & CarHeldAtTheTail) != 0u;
     int down = byTheTail ? FrontPair : RearPair;
     int up = byTheTail ? RearPair : FrontPair;
     CarBuildRow build = builds[buildOf[car]];
@@ -110,6 +118,6 @@ void main()
     if (car >= world.count) return;
 
     WorldCar row = cars[car];
-    if (row.tractor >= 0) trailerWheels(car, row);
+    if ((row.flags & (CarHeldAtTheNose | CarHeldAtTheTail)) != 0u) trailerWheels(car, row);
     spendTheWheels(car, row.body);
 }

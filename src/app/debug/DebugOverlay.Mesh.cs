@@ -15,7 +15,7 @@ internal sealed partial class DebugOverlay
     /// against the picture underneath them rather than lines to be followed, and a stroke heavy enough
     /// to see from across the town buries the cut it is drawn to show.
     /// </summary>
-    const float WireLineM = CollisionLineM;
+    const float WireLineM = HairlineM;
 
     /// <summary>
     /// <b>Held thinner on screen than the collision layer is</b>, though. That one is read as one edge

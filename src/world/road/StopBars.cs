@@ -75,6 +75,28 @@ internal sealed class StopBars
     /// </summary>
     public ReadOnlySpan<float> AlongM => _alongM;
 
+    /// <summary>
+    /// <b>Bars stood where something other than a junction holds a lane</b> — a level crossing (RAIL-3) — each square across
+    /// its lane with its near edge where the hold begins, as a light's begins at its bar's (TER-6).
+    /// </summary>
+    public static StopBars Across(LaneLines lanes, IReadOnlyList<(int Lane, float HeldFromM)> holds, SimConfig config)
+    {
+        var thicknessM = config.Road.StopBarThicknessM;
+        var count = thicknessM <= 0f ? 0 : holds.Count;
+        var (centreM, approach, spanM, laidM, lane, standsM) =
+            (new Vector2[count], new Vector2[count], new float[count], new float[count], new int[count], new float[count]);
+        for (var each = 0; each < count; each++)
+        {
+            var (at, heldFromM) = holds[each];
+            var alongM = heldFromM + (thicknessM * 0.5f);
+            var stop = Spline.SampleAt(lanes.ArcsOf(at), alongM);
+            (centreM[each], approach[each], spanM[each], laidM[each], lane[each], standsM[each]) =
+                (stop.PositionM, stop.Direction, lanes.LaneWidthM[at], thicknessM, at, alongM);
+        }
+
+        return new StopBars(centreM, approach, spanM, laidM, lane, standsM);
+    }
+
     /// <param name="paint">
     /// The bands the town paints, where they are not what <paramref name="crossings"/> holds behind: a bar standing on
     /// one, or within a setback of it, is stood back behind it instead — another road's zebra spanning this one's end,

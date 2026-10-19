@@ -15,11 +15,12 @@ over a span of real time rather than of ticks. The unit stays on the same pixel 
 town's own stepping shows is the town stepping**, which is the rate it is simulated at and not a fault of
 the camera.
 
-**Free pan always wins.** A manual pan, zoom or turn takes the camera off the unit it was following and
+**Free pan always wins.** A manual pan or turn takes the camera off the unit it was following and
 **keeps it off until a selection is asked for again** — which is a click or a box on the town, so clicking
-the unit already picked out is how a reader asks to be put back on it.
+the unit already picked out is how a reader asks to be put back on it. **A zoom does not**: it is how a reader
+looks closer at what they are following, so the camera stays on the unit and the zoom is about it.
 
-The zoom is about the **pointer**.
+The zoom is about the **pointer**, where nothing is followed.
 
 **OBS-1b** `P7` A run **opens looking at the middle of the town, or at the nearest street lane's line** where no
 road is in the frame there at all. The middle of a city is a street and the middle of a ring is

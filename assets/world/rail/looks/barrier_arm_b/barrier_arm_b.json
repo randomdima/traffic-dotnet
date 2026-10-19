@@ -1,7 +1,7 @@
 {
   "id": "barrier_arm_b",
   "kind": "Barrier",
-  "describe": "a level-crossing barrier arm lying flat, seen from straight above: a long thin aluminium boom with red reflective bands on white, a rubber-capped tip at the right, its pivot end at the left with a dark steel clamp",
+  "describe": "a sliding level-crossing barrier boom lying flat, seen from straight above: a long straight thin aluminium boom with red reflective bands on white, its left end cut square, a rubber-capped tip at the right; even width end to end, nothing standing off it",
   "footprintM": [
     4.0,
     0.3

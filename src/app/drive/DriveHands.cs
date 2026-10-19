@@ -102,6 +102,19 @@ internal sealed class DriveHands(
                 Pick(new Selection(SelectionKind.Car, step.Car));
                 break;
 
+            case DriveVerb.SelectTrain:
+                // A train off the map is out of the world and no unit to pick (TRN-7), so a step naming one not
+                // running is refused as one off the end of the fleet is.
+                if (step.Car >= world.Trains.Count || !world.Trains.Running(step.Car))
+                {
+                    throw new ArgumentException(
+                        $"drive step at line {step.Line}: train {step.Car} is not on {map} now, " +
+                        $"which has {world.Trains.Count} trains.");
+                }
+
+                Pick(new Selection(SelectionKind.Locomotive, step.Car));
+                break;
+
             case DriveVerb.SelectAt:
                 Pick(Under(step.PointM, step.Line));
                 break;
@@ -358,7 +371,7 @@ internal sealed class DriveHands(
             var lead = world.Lead;
             unit = world.SelectedCount > 1
                 ? $"{world.SelectedCount} units"
-                : $"{(lead.Kind == SelectionKind.Car ? "car" : "walker")} {lead.Index}";
+                : $"{lead.Kind switch { SelectionKind.Car => "car", SelectionKind.Locomotive => "train", SelectionKind.Wagon => "wagon", _ => "walker" }} {lead.Index}";
 
             Span<char> text = stackalloc char[UnitReadout.MostRows * UnitReadout.RoomPerRow];
             Span<int> ends = stackalloc int[UnitReadout.MostRows];
@@ -384,9 +397,13 @@ internal sealed class DriveHands(
         if (!world.Whereabouts(unit, out var atM, out var velocityMps)) return "not on the ground";
 
         var pose = $"at {atM.X:F1},{atM.Y:F1}, {velocityMps.Length() * 3.6f:F1} km/h";
-        return unit.Kind == SelectionKind.Car
-            ? $"{pose}, facing {float.RadiansToDegrees(world.Cars.HeadingRad[unit.Index]):F0}°"
-            : pose;
+        return unit.Kind switch
+        {
+            SelectionKind.Car => $"{pose}, facing {float.RadiansToDegrees(world.Cars.HeadingRad[unit.Index]):F0}°",
+            SelectionKind.Locomotive or SelectionKind.Wagon =>
+                $"{pose}, facing {float.RadiansToDegrees(world.World.View.Wagons[world.WagonOf(unit)].HeadingRad):F0}°",
+            _ => pose,
+        };
     }
 
     /// <summary>What the drive has its hands on, in the words the script itself uses.</summary>

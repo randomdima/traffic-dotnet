@@ -41,7 +41,7 @@ public class MarksKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             },
             Config);
         var host = world.Atlas.Marks;
-        var lines = new WayLines(world.Roads, world.Walking, world.Ways, world.CrossingEdges, Config);
+        var lines = world.Lines;
         var lengthM = RibbonAtlas.Filing(lines, Config.RibbonLevel, anyoneWalks: world.People.Capacity > 0).LengthM;
 
         using var marking = new DeviceMarks(device.Vk).Mark(

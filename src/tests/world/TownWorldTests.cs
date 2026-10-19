@@ -88,6 +88,57 @@ public class TownWorldTests
     }
 
     /// <summary>
+    /// CTL-5b and CTL-4: <b>the player's hand puts a car in manual mode</b>, so letting go leaves it standing
+    /// rather than back on the leg it was driving, and only the reset hands it back.
+    /// </summary>
+    [Fact]
+    public void LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset()
+    {
+        using var world = Open(Towns.Fixture);
+        var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
+        var car = ADrivenCar(world);
+        var unit = new Selection(SelectionKind.Car, car);
+
+        world.Select(unit);
+        world.Hands(new HandInput(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
+        loop.Advance(30);
+        world.Select(default);
+        loop.Advance(2);
+
+        Assert.True(world.IsUnderOrders(car), "letting go of the wheel handed the car back");
+        Assert.False(world.Cars.Driven[car], "a car let go of drove on along the leg it had before the hand");
+
+        world.Select(unit);
+        world.ReleaseHands();
+        Assert.False(world.IsUnderOrders(car), "the reset left the car under the player");
+    }
+
+    /// <summary>CTL-5d: <b>a second driver's hand is not the player's</b>, so it leaves no manual mode behind it.</summary>
+    [Fact]
+    public void ASecondDriversHandLeavesTheCarItsOwn()
+    {
+        using var world = Open(Towns.Fixture);
+        var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
+        var car = ADrivenCar(world);
+
+        world.HandOnCar(car, new HandInput(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
+        loop.Advance(30);
+
+        Assert.False(world.IsUnderOrders(car));
+    }
+
+    static int ADrivenCar(TownWorld world)
+    {
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (world.Cars.Driven[car] && !world.Cars.Broken[car]) return car;
+        }
+
+        Assert.Fail("the fixture stands no driven car");
+        return -1;
+    }
+
+    /// <summary>
     /// CTL-1b: <b>one hand and many units</b>. The same command reaches every selected car through the
     /// same seam, and each answers it with its own body — which is what makes a group of cars driven at
     /// once still a group of cars and not one car with four pictures.

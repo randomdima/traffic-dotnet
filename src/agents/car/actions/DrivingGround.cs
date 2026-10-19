@@ -364,6 +364,48 @@ internal sealed class DrivingGround(
     }
 
     /// <summary>
+    /// <b>Where every car means to go next</b> (OBS-2h): the piece of its line under its body and the piece after it — the
+    /// rest of a lane and the join off its end, or the join being crossed and the lane it lands on — as the ways under them.
+    /// A manoeuvre's own geometry is on no way, and states nothing here.
+    /// </summary>
+    public void StateIntents(WayIntents into)
+    {
+        Span<LineWay> ways = stackalloc LineWay[WayIntents.MostEach];
+        for (var car = 0; car < Cars.Count; car++)
+        {
+            if (Cars.Line[car].LaneCount == 0) continue;
+
+            var totalM = Cars.Line[car].LengthM;
+            var underTheCarM = MathF.Min(Math.Clamp(Cars.ProgressM[car], 0f, totalM) + Cars.BuildOf(car).CentreAheadOfAxleM, totalM);
+            var untilM = PieceEndM(car, PieceEndM(car, underTheCarM));
+            var written = WaysAlong(car, underTheCarM, untilM, ways);
+            for (var at = 0; at < written; at++) into.Add(car, LaneRoster.Driving, ways[at].Way, ways[at].FromM, ways[at].ToM);
+        }
+    }
+
+    /// <summary>
+    /// <b>How far along its line the piece a place on it is on runs out</b>: the end of the lane it is in, the end of the
+    /// join across the box, or the end of the line where a manoeuvre laid geometry of its own and no lane is under it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The boundaries are the assembler's own</b> (<see cref="CarFleet.LaneStartsOf"/>): ascending along the line, the first
+    /// boundary past the place is the end of what it is on. Between one lane's end and the next one's start is the join.
+    /// </remarks>
+    public float PieceEndM(int car, float atM)
+    {
+        var lanes = Cars.Line[car].LaneCount;
+        var starts = Cars.LaneStartsOf(car);
+        var ends = Cars.LaneEndsOf(car);
+        for (var slot = 0; slot < lanes; slot++)
+        {
+            if (starts[slot] > atM) return starts[slot];
+            if (ends[slot] > atM) return ends[slot];
+        }
+
+        return Cars.Line[car].LengthM;
+    }
+
+    /// <summary>
     /// <b>How far ahead of the rear axle the body's leading edge stands along the line it is driving</b> —
     /// its nose forwards, its tail backwards.
     /// </summary>

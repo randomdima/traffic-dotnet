@@ -220,7 +220,7 @@ internal sealed partial class TownWorld
     /// <summary>Whether a scene is still there to be closed round — the one question the errand and the dispatch both ask of it.</summary>
     bool TheSceneStands(int casualty, int wreck) => casualty >= 0
         ? People.Wounded[casualty] && !People.Inside[casualty].Any
-        : wreck >= 0 && Cars.Broken[wreck] && !_recovery.InTheYard[wreck] && _recovery.OnTheHookOf[wreck] < 0;
+        : wreck >= 0 && Cars.Broken[wreck] && !_recovery.InTheYard[wreck] && !_hitches.IsHeld(wreck);
 
     /// <summary>Where the scene this call is for actually is — the one place the two rosters are read as one thing.</summary>
     Vector2 TheSceneM(int casualty, int wreck) =>

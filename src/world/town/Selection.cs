@@ -9,6 +9,15 @@ internal enum SelectionKind : byte
     None,
     Person,
     Car,
+
+    /// <summary>
+    /// A train's locomotive, by the train's number among the town's (a slot's locomotive differs with its kind): the unit a
+    /// hand drives its train by (TRN-10).
+    /// </summary>
+    Locomotive,
+
+    /// <summary>One vehicle a locomotive hauls, by its slot: a unit of its own, followed and read, and driven by nobody.</summary>
+    Wagon,
 }
 
 /// <summary>

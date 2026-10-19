@@ -180,6 +180,9 @@ internal sealed class ShotStage : IDisposable
         // request asked for one</b> (OBS-2t) — a reading taken under the pointer is a thing to be looked
         // at, and a picture of it has to be askable for without a window.
         var pointerPx = ask.PointerM is { } pointerM ? camera.ScreenAt(pointerM, uiPx) : -Vector2.One;
+        var (centreM, clipPerM, facing) = camera.ForShader(uiPx);
+        var cameraView = new CameraView(centreM, clipPerM, uiPx, facing);
+        var picked = WriteTheEngine(ui.Switches, world, camera, uiPx, ask.PointerM ?? ask.PickedM, cameraView, ui.Pick.Pinned);
         var under = 0;
         var underAbove = 0;
         var quads = bare ? 0 : ui.Draw(_renderer.Overlay, _renderer.Underlay, _renderer.UnderlayAbove, new InterfaceFrame
@@ -190,6 +193,7 @@ internal sealed class ShotStage : IDisposable
             Camera = camera,
             UiPx = uiPx,
             PointerPx = pointerPx,
+            Picked = picked,
             MapName = Plan.Name,
             Tick = tick,
             Frame = frame,
@@ -199,9 +203,8 @@ internal sealed class ShotStage : IDisposable
         _renderer.SetOverlayCount(quads);
         _renderer.SetUnderlayCount(under, underAbove);
 
-        var (centreM, clipPerM, facing) = camera.ForShader(uiPx);
         var crossingsBefore = Vk.Crossings;
-        _renderer.Frame(new CameraView(centreM, clipPerM, uiPx, facing));
+        _renderer.Frame(cameraView);
         var crossings = Vk.Crossings - crossingsBefore;
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(ask.Path))!);
@@ -213,9 +216,57 @@ internal sealed class ShotStage : IDisposable
             crossings, Plan.Seed);
     }
 
+    /// <summary>
+    /// <b>The engine's own tables drawn into this frame</b> (<see cref="EngineLayers"/>), laid for the town being drawn the
+    /// first time a layer of them is on: the frame's words written — and where the request points at something, a frame
+    /// drawn first and waited for, so what the pointer is over is the table's own answer when the interface is drawn.
+    /// </summary>
+    EngineLayers.Picks WriteTheEngine(
+        DebugSwitches switches, TownWorld world, Camera2D camera, Vector2 uiPx, Vector2? pointerM, in CameraView cameraView,
+        in DebugTarget pinned)
+    {
+        if (!ReferenceEquals(_engineOf, world))
+        {
+            _renderer.DrawTheEngineFrom(null);
+            _engine?.Dispose();
+            (_engine, _engineOf) = (null, null);
+        }
+
+        if (_engine is null)
+        {
+            if (!switches.NeedsTheEngine) return default;
+
+            (_engine, _engineOf) = (new EngineLayers(_vk, world, _renderer.ImageCount), world);
+            _renderer.DrawTheEngineFrom(_engine);
+        }
+
+        var slot = _renderer.ImageIndex;
+        var view = new EngineView(
+            camera.CentreM, camera.CullSpanM(uiPx), camera.PixelsPerMetre, pointerM ?? new Vector2(float.NaN),
+            pointerM is not null && DebugOverlay.BodiesFindable(switches), pinned.Thing == DebugThing.Body ? pinned.Index : -1);
+        _engine.Write(slot, view, switches);
+        if (_engine.Grown)
+        {
+            _renderer.DrawTheEngineFrom(_engine);
+            _engine.Recorded();
+        }
+
+        if (!view.Picks && view.PinnedBody < 0) return default;
+
+        _renderer.Frame(cameraView);
+        _vk.WaitIdle();
+        slot = _renderer.ImageIndex;
+        _engine.Write(slot, view, switches);
+        return _engine.PickedIn(slot);
+    }
+
+    EngineLayers? _engine;
+    TownWorld? _engineOf;
+
     public void Dispose()
     {
         _renderer.Dispose();
+        _engine?.Dispose();
         if (_ownsDevice) _vk.Dispose();
     }
 }

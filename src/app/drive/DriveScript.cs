@@ -10,6 +10,9 @@ internal enum DriveVerb
     /// <summary>A car by its number in the fleet.</summary>
     SelectCar,
 
+    /// <summary>A train by its number among the town's, while it is on the map (<see cref="DriveStep.Car"/> holds it).</summary>
+    SelectTrain,
+
     /// <summary>The unit whose own footprint covers a place — the click itself (CTL-1).</summary>
     SelectAt,
 
@@ -106,7 +109,7 @@ internal static class DriveScript
 {
     /// <summary>What a script may say, quoted at whoever wrote a line this cannot read.</summary>
     public const string Verbs =
-        "select car N | select at X Y | select nearest X Y | select walker X Y | cars X Y | people X Y | " +
+        "select car N | select train N | select at X Y | select nearest X Y | select walker X Y | cars X Y | people X Y | " +
         "look car | look X Y | view METRES | " +
         "ui WORDS | drive SECONDS [throttle=N] [brake=N] [steer=N] [handbrake=on] | coast SECONDS | " +
         "wait SECONDS | release | order X Y | action | shot NAME | agents on|off | pace N";
@@ -177,13 +180,14 @@ internal static class DriveScript
         : words[1] switch
         {
             "car" => new DriveStep(DriveVerb.SelectCar, said, line, Car: Number(said, line, words, 2)),
+            "train" => new DriveStep(DriveVerb.SelectTrain, said, line, Car: Number(said, line, words, 2)),
             "at" => new DriveStep(DriveVerb.SelectAt, said, line, PointM: Place(said, line, words, 2)),
             "nearest" => new DriveStep(DriveVerb.SelectNearest, said, line, PointM: Place(said, line, words, 2)),
             "walker" => new DriveStep(DriveVerb.SelectWalker, said, line, PointM: Place(said, line, words, 2)),
             _ => throw Bad(said, line, TheWaysToSelect),
         };
 
-    const string TheWaysToSelect = "select takes car N, at X Y, nearest X Y or walker X Y";
+    const string TheWaysToSelect = "select takes car N, train N, at X Y, nearest X Y or walker X Y";
 
     /// <summary>
     /// <c>drive SECONDS</c> and the pedals held for them. <b>The pedals are named rather than positional</b>,

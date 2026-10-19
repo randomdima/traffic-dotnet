@@ -625,6 +625,7 @@ internal sealed partial class Game : IDisposable
         // done — the same call F11 makes, from the frame the press arrived in so the browser still counts
         // it as something the reader did.
         if (_ui.TakeScreenAsked()) _window.ToggleFullscreen();
+        if (_ui.Unit.TakeReleaseAsked()) _world!.ReleaseHands();
 
         // Unticking the box drops the tapes with it, which is one of the two ways OBS-2f says they go
         // — the other is a right-click, and the ruler handles that itself.
@@ -755,6 +756,7 @@ internal sealed partial class Game : IDisposable
         _looks ??= TownSprites.Load(_config);
 
         _renderer.Dispose();
+        LetGoOfTheEngine();
         if (!laid.WorldHandedOver) HandTheWorldOver(laid.World);
         _sheets = _looks.Sheets;
         var room = _looks.RoomFor(laid.Plan, _config);
@@ -986,6 +988,7 @@ internal sealed partial class Game : IDisposable
         _renderer.SetSpriteCount(sprites);
         parts.Mark(ref parts.SpritesMs);
 
+        WriteTheEngine();
         _renderer.SetOverlayCount(
             _ui.Draw(_renderer.Overlay, _renderer.Underlay, _renderer.UnderlayAbove, Describe(), out var under, out var underAbove));
         _renderer.SetUnderlayCount(under, underAbove);
@@ -1022,6 +1025,67 @@ internal sealed partial class Game : IDisposable
         _renderer.Shot(path, _driving?.FrameWidthPx ?? 0);
     }
 
+    /// <summary>
+    /// <b>The engine's own tables drawn on the device</b> (<see cref="EngineLayers"/>): laid the first time a layer of them
+    /// is on and drawn inside every frame after, each frame's words written for the image it is drawn into — and what the
+    /// last frame drawn into that image found under the pointer read back first.
+    /// </summary>
+    void WriteTheEngine()
+    {
+        if (_world is not { } world) return;
+
+        var switches = _ui.Switches;
+        if (_engine is null)
+        {
+            if (!switches.NeedsTheEngine || EngineDevice() is not { } device) return;
+
+            _engine = new EngineLayers(device, world, EngineSlots());
+            _renderer.DrawTheEngineFrom(_engine);
+        }
+
+        var slot = EngineSlot();
+        _picked = _engine.PickedIn(slot);
+        var pinned = _ui.Pick.Pinned;
+        _engine.Write(
+            slot,
+            new EngineView(
+                _camera.CentreM, _camera.CullSpanM(_uiPx), _camera.PixelsPerMetre, _camera.WorldAt(_window.PointerPx, _uiPx),
+                DebugOverlay.BodiesFindable(switches), pinned.Thing == DebugThing.Body ? pinned.Index : -1),
+            switches);
+        if (_engine.Grown)
+        {
+            _renderer.DrawTheEngineFrom(_engine);
+            _engine.Recorded();
+        }
+
+        RunTheEngine(_engine);
+    }
+
+    /// <summary>The engine layers, once a layer of them has been turned on over this town; let go of with the town.</summary>
+    EngineLayers? _engine;
+
+    /// <summary>What the engine's table found under the pointer and pinned, as the frame being filled read it back.</summary>
+    EngineLayers.Picks _picked;
+
+    /// <summary>The device the engine layers' kernels run on, or none where this head has none to give them.</summary>
+    private partial Runtime.Vk? EngineDevice();
+
+    /// <summary>Which of the engine layers' slots the frame being filled is.</summary>
+    private partial int EngineSlot();
+
+    /// <summary>How many slots <see cref="EngineSlot"/> names, which the engine layers lay a set of each kernel for.</summary>
+    private partial int EngineSlots();
+
+    /// <summary>The engine layers' kernels run for the frame being filled, where they are not recorded into it.</summary>
+    partial void RunTheEngine(EngineLayers engine);
+
+    void LetGoOfTheEngine()
+    {
+        _engine?.Dispose();
+        _engine = null;
+        _picked = default;
+    }
+
     /// <summary>The run's state, gathered once, so the interface reaches for nothing while it draws.</summary>
     InterfaceFrame Describe() => new()
     {
@@ -1031,6 +1095,7 @@ internal sealed partial class Game : IDisposable
         Camera = _camera,
         UiPx = _uiPx,
         PointerPx = _window.PointerPx,
+        Picked = _picked,
         MarqueePx = _hands.MarqueePx(_window.PointerPx, _config.View.PointerDragPx),
         MapName = _map,
         Tick = _loop?.Tick ?? 0,
@@ -1047,6 +1112,7 @@ internal sealed partial class Game : IDisposable
         TickOnTheDevice(null);
         _world?.Dispose();
         _renderer.Dispose();
+        LetGoOfTheEngine();
         Shutdown();
         _window.Dispose();
     }

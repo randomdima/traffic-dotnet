@@ -24,7 +24,7 @@ public class WalkOffTheRoadTests
         var shared = new List<string>();
         for (var way = ways.FirstFootwayWay; way < ways.Count; way++)
         {
-            if (world.IsTheCrossing(way)) continue;
+            if (!ways.IsWalked(way) || world.IsTheCrossing(way)) continue;
 
             foreach (var mark in world.Atlas.Marks.Of(way))
             {

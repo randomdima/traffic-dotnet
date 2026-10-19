@@ -6,12 +6,30 @@ the layers, and the sections they are shown in** — the panel that draws a swit
 into the panel. The frame read-out is not one of these:
 it is furniture in the corner and is [app/hud](../../hud/docs/requirements.md)'s. What everything is drawn
 with is [app/screen](../../screen/docs/requirements.md). How each layer draws what it draws, and why, is on
-its own type (`DebugOverlay` and its parts, `PathMarks`, `MarkClaims`, `ShellProbe`).
+its own type (`DebugOverlay` and its parts, `EngineLayers`, `PathMarks`, `MarkClaims`, `ShellProbe`).
 
-**The overlay reads the *producers*, never a copy of the shape.** When it draws a junction movement or a
-run of pavement it calls the same code the agents use; a second copy of a shape eventually disagrees with
-the first, and then the layer is the thing that lies about the town. **And it draws geometry, in the town,
-and not text**: a figure that can be drawn where it happens is never written into a label instead.
+**The overlay reads the *producers*, never a copy of the shape.** A second copy of a shape eventually
+disagrees with the first, and then the layer is the thing that lies about the town. **And it draws geometry,
+in the town, and not text**: a figure that can be drawn where it happens is never written into a label instead.
+
+**OBS-3** `P8` **What the engine holds is drawn off the engine's own tables, on the device, whatever kind each
+thing is** ([`EngineLayers`](../EngineLayers.cs)): every body of the body table at the shape the solver holds and
+every link between two, every way of the town's one numbering down its own line, every claim the claims table
+holds, and where every holder means to go next as its own driver states it. **No layer of these names a kind**:
+a body is coloured by its collision layer, a way by its kind and a claim by its holder, each off the engine's own
+number, so **a kind of body, of way or of holder added to the engine is drawn the day it lands** with no line of
+this slice written for it — and a roster that moves with no driver stating where it goes is refused where the
+intents are gathered.
+
+- **Where the world steps on the device, the kernels bind its own buffers**, and read the bodies where the view
+  the host shows has them rather than a step ahead with the solver. **Where it steps here**, its table as each view
+  was written goes up in the same rows; the claims and the intents, which only the host holds, go up as their
+  tables hold them. Nothing is re-derived per kind on either side.
+- **A body is found under the pointer off the same table** (OBS-2t), and its card is what its row says of every
+  body, with its own driver's card where its roster has one.
+- **What only one driver has stays that driver's layer**: a car's pass, its grant, the manoeuvre it laid for
+  itself at a bay; a walker's step aside; a car's turn circle (OBS-2j). **And the town's construction is not
+  engine state**: its outline, its ribbons, its grids, its mesh and its zones are drawn off the plan and the mesh.
 
 **OBS-2b** `P8` **The debug overlay is instrumentation and is priced as such**: it is **off by default**, what
 it costs to draw is measured on the same footing as what it measures, and **nothing is drawn about a body
@@ -20,11 +38,11 @@ what it costs to gather is not paid while its body is shut
 ([app/hud](../../hud/docs/requirements.md#the-status-panel)).
 
 **OBS-2c** `P8` **Each thing a debug session can be opened for has a switch of its own, and no switch turns on
-anything a second one owns.** Fourteen of them, and **the ground's own layers are not among them** (OBS-2v):
-those take the town apart rather than drawing anything over it, and they start on. **A layer covers one kind
-of body entirely** — its geometry and its
-manoeuvre alike — because the question is about the body, not about the kind of mark; and **what belongs
-to the *town* rather than to a body is not switched with a body at all**.
+anything a second one owns.** Fifteen of them, and **the ground's own layers are not among them** (OBS-2v):
+those take the town apart rather than drawing anything over it, and they start on. **A layer of the engine's
+covers every kind at once** (OBS-3) — the shapes, the ways, the claims, the agents' lines — and **a driver's own
+layer covers what that driver alone does**; **what belongs to the *town* rather than to a body is not switched
+with a body at all**.
 
 **OBS-2y** `P8` **The switches are shown a section a thing a session is opened to look at, and one section at
 a time** ([`DebugLayers`](../DebugLayers.cs)). A section carries every switch and every figure that question
@@ -46,18 +64,19 @@ is drawn by one of them: the ways it may travel, the movements a junction allows
 over, the manoeuvre it is executing **with every place that manoeuvre owns**, the stretch of road the
 town's own claims say it is on or has taken, and the collision shape the solver gives it.
 
-**And a block always stands on a line.** A claim names a way, so **every way either network can hold one
-of is a line the nodes layer draws, whole** — a lane over the whole of its own line and not only the
+**And a block always stands on a line.** A claim names a way, so **every way of the town's one numbering is a
+line the nodes layer draws, whole** (OBS-3), whatever kind it is — a lane over the whole of its own line and not only the
 stretch a route travels it, since a body inside the setback at either end is written onto it there. A way
 with no line under it cannot be read at all: the block is the only thing on screen, and what it says about
 where its holder is standing cannot be checked against anything.
 
-**OBS-2h** `P8` **An agent layer draws the action the agent is taking, and not the plan behind it.** What is
-drawn for a body is **two pieces of its own line**: the one it is on and the one it has planned to take off
-the end of it — the rest of this lane and the junction off it, the junction being crossed and the lane it
-lands on, the pavement and the crossing at the kerb, the lane and the bay template that takes the car off
-it. One piece leaves out the decision the agent is about to act on and three are the route again, and
-the route past the second piece belongs to the nodes layer or to no layer at all.
+**OBS-2h** `P8` **An agent's line is the action it is taking, and not the plan behind it.** What is drawn for
+every agent, whatever it is (OBS-3), is **two pieces of way as its own driver states them**: the one it is on
+and the one it means to take off the end of it — the rest of this lane and the junction off it, the junction
+being crossed and the lane it lands on, the pavement and the crossing at the kerb, the rest of a track and the
+track after it. One piece leaves out the decision the agent is about to act on and three are the route again,
+and the route past the second piece belongs to the nodes layer or to no layer at all. A manoeuvre's own geometry
+— a bay template — is on no way, and is its driver's layer's.
 
 **A pass is drawn with the line it leaves** ([CAR-46](../../../agents/car/docs/requirements.md),
 [PER-28](../../../agents/person/docs/requirements.md)): the line the pass aims its holder along, from where it
@@ -136,8 +155,9 @@ pins it.** The one thing is found in the layers that are on, and **drawn over is
 then a stretch of boundary, then a way, then a ribbon, then a cell, then a zone — so a thin thing is never hidden behind a
 broad one that covers it. It is drawn picked out, and what it is, is written on a card beside the pointer:
 
-- **a body** — its outline and its own two pieces of route at the picked weight (OBS-2h), and what it is
-  doing, how fast, what it sees ahead and where it must stop;
+- **a body**, whatever it is, found off the body table (OBS-3) — its shape at the picked weight, and what its row
+  says: what it is, how fast, how big, which layer and level; with its own driver's card where its roster has one —
+  what it is doing, what it sees ahead and where it must stop;
 - **a way**, under the claims or the nodes — the whole of it, and what it is, how long and wide, and with the
   claims on **every stretch of it somebody holds**, whose and how strong, marked where it covers the pointer;
 - **a driven line's ribbon** (OBS-2s) — the ribbon it lays, and its length, width and sections;

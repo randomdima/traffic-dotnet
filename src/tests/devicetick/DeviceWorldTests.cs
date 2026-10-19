@@ -113,6 +113,153 @@ public class DeviceWorldTests(Lavapipe device) : IClassFixture<Lavapipe>
     }
 
     /// <summary>
+    /// <b>Tows pull on the device as in the managed world</b> (EVA-5, SOL-38): a car held by two arms from its two ends,
+    /// carried on none of its wheels — or a truck on one arm that is itself towing, a chain — each set down a little off
+    /// the line so the pins have something to pull, and every body where the managed world has it, to the bit.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TowsPullOnTheDeviceAsInTheManagedWorld(bool chain)
+    {
+        using var managed = new TownWorld(Towns.Built, Config);
+        using var onTheDevice = new TownWorld(Towns.Built, Config);
+        onTheDevice.HandTheWorldTo(laying => new DeviceWorld(device.Vk, laying));
+        var managedLoop = new SimLoop<TownWorld>(managed, Config);
+        var deviceLoop = new SimLoop<TownWorld>(onTheDevice, Config);
+        managedLoop.Advance();
+        deviceLoop.Advance();
+        StageTheTows(managed, chain);
+        StageTheTows(onTheDevice, chain);
+
+        var unlike = new List<string>();
+        for (var tick = 2; tick <= TowTicks && unlike.Count == 0; tick++)
+        {
+            managedLoop.Advance();
+            deviceLoop.Advance();
+            TownsInStep.Compare(managed, onTheDevice, tick, unlike);
+        }
+
+        Assert.True(unlike.Count == 0, string.Join('\n', unlike.Take(8)));
+    }
+
+    /// <summary>
+    /// <b>A rail vehicle pulls an arm on the device as in the managed world</b> (EVA-5, TRN-8): a truck stood behind a
+    /// running train facing away from it, its arm put on the last vehicle's tail, and dragged along the track — every body
+    /// where the managed world has it, to the bit.
+    /// </summary>
+    [Fact]
+    public void ARailVehicleOnAnArmPullsOnTheDeviceAsInTheManagedWorld()
+    {
+        var plan = Towns.LayFresh(Towns.Brief(seed: 3, cars: 0, buildings: Towns.BuildingsBuilt, railTracks: 2));
+        var config = new SimConfig { Train = new TrainFigures { FirstLeastS = 0.1f, FirstMostS = 0.5f } };
+        using var managed = new TownWorld(plan, config);
+        using var onTheDevice = new TownWorld(plan, config);
+        onTheDevice.HandTheWorldTo(laying => new DeviceWorld(device.Vk, laying));
+        var managedLoop = new SimLoop<TownWorld>(managed, config);
+        var deviceLoop = new SimLoop<TownWorld>(onTheDevice, config);
+
+        var tick = 0;
+        var unlike = new List<string>();
+        for (; tick < 2_000 && LastWagonOut(managed) < 0; tick++)
+        {
+            managedLoop.Advance();
+            deviceLoop.Advance();
+        }
+
+        var wagon = LastWagonOut(managed);
+        Assert.True(wagon >= 0, "no train came out in the time");
+        var truck = Enumerable.Range(0, managed.Cars.Count).FirstOrDefault(each => managed.Cars.BuildOf(each).TowReachM > 0f, -1);
+        Assert.True(truck >= 0, "the town stood no vehicle with an arm");
+        Assert.Equal(managed.Hitches.OfWagon(wagon), BehindTheWagon(managed, truck, wagon));
+        Assert.Equal(managed.Hitches.OfWagon(wagon), BehindTheWagon(onTheDevice, truck, wagon));
+
+        for (var end = tick + TowTicks; tick < end && unlike.Count == 0; tick++)
+        {
+            managedLoop.Advance();
+            deviceLoop.Advance();
+            TownsInStep.Compare(managed, onTheDevice, tick, unlike);
+        }
+
+        Assert.True(unlike.Count == 0, string.Join('\n', unlike.Take(8)));
+
+        // And the arm still has it: the hinge stands at the wagon's eye nearer than the fork is inside its end, so the
+        // fork is under the wagon however fast the train has dragged the truck.
+        ref readonly var view = ref onTheDevice.World.View.Wagons[wagon];
+        ref readonly var build = ref onTheDevice.Cars.BuildOf(truck);
+        var hingeM = TowBar.HookM(build, onTheDevice.Cars.PositionM[truck], Heading.Unit(onTheDevice.Cars.HeadingRad[truck]));
+        var gripM = TowBar.GripFromTheMiddleM(onTheDevice.Trains.VehicleOf(wagon).BodyM.X, config.Evacuator.TowGripInsideTheEndM);
+        var eyeM = view.PositionM - (Heading.Unit(view.HeadingRad) * (gripM + build.TowReachM));
+        Assert.True(view.VelocityMps != Vector2.Zero, "the train had stopped, so the tow says nothing");
+        Assert.InRange((hingeM - eyeM).Length(), 0f, config.Evacuator.TowGripInsideTheEndM);
+
+        static int LastWagonOut(TownWorld town)
+        {
+            for (var train = 0; train < town.Trains.Count; train++)
+            {
+                var vehicles = town.Trains.VehiclesOf(train);
+                if (vehicles.Length > 0 && town.World.View.Wagons[vehicles[^1]].IsInWorld) return vehicles[^1];
+            }
+
+            return -1;
+        }
+
+        static int BehindTheWagon(TownWorld town, int truck, int wagon)
+        {
+            ref readonly var view = ref town.World.View.Wagons[wagon];
+            var forward = Heading.Unit(view.HeadingRad);
+            ref readonly var build = ref town.Cars.BuildOf(truck);
+            var gripM = TowBar.GripFromTheMiddleM(town.Trains.VehicleOf(wagon).BodyM.X, town.Config.Evacuator.TowGripInsideTheEndM);
+            var apartM = -build.TowHingeAheadOfCentreM + build.TowReachM + gripM;
+            town.StandTheCarAt(truck, view.PositionM - (forward * apartM), view.HeadingRad + MathF.PI);
+            Assert.True(town.WorkTheArm(truck));
+            return town.Hitches.Load(truck);
+        }
+    }
+
+    /// <summary>Long enough for a pin set down off its line to pull its pair into it and a train to drag a truck a street.</summary>
+    const int TowTicks = 300;
+
+    /// <summary>
+    /// Two trucks and a car laid along the town's longest lane, the car a little to one side of the line: the first truck
+    /// facing along the lane, and either the second facing back with its arm on the car's tail, or the second behind the
+    /// first holding the car with its own arm, nose first under the first's.
+    /// </summary>
+    static void StageTheTows(TownWorld town, bool chain)
+    {
+        var cars = town.Cars;
+        var trucks = Enumerable.Range(0, cars.Count).Where(each => cars.BuildOf(each).TowReachM > 0f).Take(2).ToArray();
+        Assert.True(trucks.Length == 2, "the city stood fewer than two vehicles with an arm");
+        var (first, second) = (trucks[0], trucks[1]);
+        var load = Enumerable.Range(0, cars.Count).First(each => cars.BuildOf(each).TowReachM == 0f && !cars.Driven[each]);
+
+        var roads = town.Roads;
+        var lane = Enumerable.Range(0, roads.LaneCount).MaxBy(each => roads.LaneLengthM[each]);
+        var on = Spline.SampleAt(roads.ArcsOf(lane), roads.LaneLengthM[lane] * 0.5f);
+        var headingRad = MathF.Atan2(on.Direction.Y, on.Direction.X);
+        var aside = new Vector2(-on.Direction.Y, on.Direction.X) * 0.3f;
+        town.StandTheCarAt(first, on.PositionM, headingRad);
+        if (chain)
+        {
+            var secondM = on.PositionM - (on.Direction * TowBar.SetDownBehindM(cars.BuildOf(first), cars.BuildOf(second)));
+            town.StandTheCarAt(second, secondM, headingRad);
+            var loadM = secondM - (on.Direction * TowBar.SetDownBehindM(cars.BuildOf(second), cars.BuildOf(load))) + aside;
+            town.StandTheCarAt(load, loadM, headingRad);
+            Assert.True(town.WorkTheArm(second));
+            Assert.True(town.WorkTheArm(first));
+            Assert.Equal((second, load), (town.Hitches.Load(first), town.Hitches.Load(second)));
+            return;
+        }
+
+        var carM = on.PositionM - (on.Direction * TowBar.SetDownBehindM(cars.BuildOf(first), cars.BuildOf(load))) + aside;
+        town.StandTheCarAt(load, carM, headingRad);
+        town.StandTheCarAt(second, carM - (on.Direction * TowBar.SetDownBehindM(cars.BuildOf(second), cars.BuildOf(load))), headingRad + MathF.PI);
+        Assert.True(town.WorkTheArm(first));
+        Assert.True(town.WorkTheArm(second));
+        Assert.Equal((first, second), (town.Hitches.HeldBy(load, byTheTail: false), town.Hitches.HeldBy(load, byTheTail: true)));
+    }
+
+    /// <summary>
     /// <b>A car is read along its line on the device where the managed world reads it</b> (<c>line_reading.glsl</c>,
     /// <see cref="LineReading"/>): every car of a town put down on a lane, on and off it, told to follow it — on into the
     /// join and the next lane, and cut short — and the same progress, distance off and point the wheel is aimed at read

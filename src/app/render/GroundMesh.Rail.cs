@@ -4,6 +4,7 @@ using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Rail;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.App.Render;
 
@@ -26,9 +27,6 @@ namespace TrafficSimulation.App.Render;
 /// </remarks>
 internal sealed partial class GroundMesh
 {
-    /// <summary>The width of a level crossing's stop line, across its road.</summary>
-    const float StopLineWidthM = 0.4f;
-
     /// <summary>
     /// The pictures the ground is painted with: the five surfaces anchored to the world, then the track's strip — in the
     /// order <see cref="Surface"/> files them.
@@ -45,8 +43,36 @@ internal sealed partial class GroundMesh
         foreach (var track in tracks) TrackStrip(track, 0f, look.FootprintM.Y * 0.5f, 0f, 1f, look.FootprintM.X, sizeM, bridged);
     }
 
-    /// <summary>Both rails of every track, each its own band of the strip's picture, laid along the whole of it over the ground.</summary>
-    void Rails(TrackLine[] tracks, SimConfig config, Vector2 sizeM)
+    /// <summary>
+    /// <b>The deck every track on a bridge is borne on</b> (RAIL-8), its ballast and parapets wide, rimmed as a road's deck
+    /// is: every run's rim first and every run's deck over them, so two tracks side by side are one deck.
+    /// </summary>
+    void RailDecks(TrackLine[] tracks, SimConfig config)
+    {
+        var widthM = config.Rail.BallastWidthM + (2f * config.Rail.BridgeDeckOverhangM);
+        var rimM = config.Road.EdgeLineWidthM * 2f;
+        foreach (var (shade, inM) in (ReadOnlySpan<(Vector3, float)>)[(Edge, 0f), (Plain, rimM)])
+        {
+            foreach (var track in tracks)
+            {
+                var pointM = track.PointM;
+                var atM = track.AtM;
+                for (var from = 0; from + 1 < pointM.Length;)
+                {
+                    var to = from;
+                    while (to + 1 < pointM.Length && track.LevelAt((atM[to] + atM[to + 1]) * 0.5f) != TownMap.RailArrays.AtGrade) to++;
+                    if (to > from) Stroke(pointM[from..(to + 1)], widthM - inM, closed: false, Surface.Deck, shade);
+                    from = to + 1;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Both rails of every track, each its own band of the strip's picture, laid over the ground where it stands at grade
+    /// or on a bridge (<paramref name="bridged"/>) — so a bridge's deck is laid between the two.
+    /// </summary>
+    void Rails(TrackLine[] tracks, SimConfig config, Vector2 sizeM, bool bridged)
     {
         var rail = config.Rail;
         var look = TrackLook(config);
@@ -58,7 +84,7 @@ internal sealed partial class GroundMesh
             foreach (var offM in (ReadOnlySpan<float>)[-railOffM, railOffM])
             {
                 var middle = 0.5f + (offM / widthM);
-                TrackStrip(track, offM, bandHalfM, middle - (bandHalfM / widthM), middle + (bandHalfM / widthM), look.FootprintM.X, sizeM);
+                TrackStrip(track, offM, bandHalfM, middle - (bandHalfM / widthM), middle + (bandHalfM / widthM), look.FootprintM.X, sizeM, bridged);
             }
         }
     }
@@ -78,20 +104,51 @@ internal sealed partial class GroundMesh
         return look;
     }
 
-    /// <summary>A stop line across the road a setback short of the ballast at either end of each level crossing (RAIL-3).</summary>
-    void StopLines(CityPlan plan, LevelCrossings crossings, SimConfig config, Vector3 paint)
+    /// <summary>
+    /// <b>A level crossing's stop bars</b> (RAIL-7): a junction's bar across every lane coming in at grade, where the
+    /// crossing's hold of that lane begins (<see cref="CrossingStretches"/>).
+    /// </summary>
+    public static StopBars CrossingBars(CityPlan plan, LaneLines lanes, SimConfig config)
     {
-        var rail = config.Rail;
-        for (var crossing = 0; crossing < crossings.Crossings; crossing++)
+        var holds = new List<(int Lane, float HeldFromM)>();
+        if (plan.Rails.Count == 0) return StopBars.Across(lanes, holds, config);
+
+        var stretches = new CrossingStretchFinder(plan, config);
+        for (var lane = 0; lane < lanes.FirstRoadside; lane++)
         {
-            var road = crossings.OfRoad[crossing];
-            var arcs = plan.Roads.SegmentsOf(road);
-            var halfWidthM = plan.Roads.WidthM[road] * 0.5f;
-            foreach (var stopM in (ReadOnlySpan<float>)[crossings.FromRoadM[crossing] - rail.StopLineSetbackM, crossings.ToRoadM[crossing] + rail.StopLineSetbackM])
+            if (lanes.LaneLevel[lane] != CityPlan.RoadArrays.Ground) continue;
+
+            foreach (var stretch in stretches.Along(lanes.ArcsOf(lane), lanes.LaneLengthM[lane], CrossingLineKind.Driven))
             {
-                var at = Spline.SampleAt(arcs, stopM);
-                OrientedRect(at.PositionM, at.Direction, new Vector2(StopLineWidthM * 0.5f, halfWidthM), Surface.Paint, paint);
+                if (stretch.FromM > 0f) holds.Add((lane, stretch.FromM));
             }
+        }
+
+        return StopBars.Across(lanes, holds, config);
+    }
+
+    /// <summary>
+    /// <b>A level crossing's stretch of a road painted as a junction's is</b> (RAIL-7): the stretches of a line down it,
+    /// from stop bar to stop bar, which its lines are laid unbroken across.
+    /// </summary>
+    sealed class CrossingStretchFinder(CityPlan plan, SimConfig config)
+    {
+        readonly TrackChords _chords = new(plan.Rails, config.Grid.Main.CellM);
+        readonly LevelCrossings _crossings = LevelCrossings.Of(plan, config);
+        readonly List<(float AlongPieceM, int Track, float AlongTrackM, float Sin)> _found = [];
+        readonly List<CrossingMeeting> _meetings = [];
+        readonly List<CrossingStretch> _stretches = [];
+
+        public List<CrossingStretch> Along(ReadOnlySpan<ArcSeg> line, float lengthM, CrossingLineKind kind)
+        {
+            if (plan.Rails.Count == 0)
+            {
+                _stretches.Clear();
+                return _stretches;
+            }
+
+            CrossingStretches.Along(line, lengthM, kind, _chords, _crossings, plan.Rails, config.Rail, _found, _meetings, _stretches);
+            return _stretches;
         }
     }
 

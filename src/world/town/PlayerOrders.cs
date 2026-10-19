@@ -83,6 +83,12 @@ internal sealed class PlayerOrders
         AimedAtM[car] = pointM;
     }
 
+    /// <summary>
+    /// The player's hand on the wheel (CTL-5b): the car becomes the player's exactly as an order makes it, and an
+    /// order already in hand is suspended rather than ended.
+    /// </summary>
+    public void TakeTheWheel(int car) => Manual[car] = true;
+
     /// <summary>The order carried out, or given up on. <b>Manual mode is not one of the things it ends.</b></summary>
     public void Done(int car)
     {

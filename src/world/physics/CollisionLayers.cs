@@ -26,6 +26,9 @@ internal enum CollisionLayer : ulong
 
     /// <summary>A rail vehicle (TRN-3): the trains' own layer, so what a train meets is read off a touch.</summary>
     Train = 1UL << 4,
+
+    /// <summary>A level crossing's arm (RAIL-10): it stops a car, and nothing else — a walker ducks under it, and no train reaches it.</summary>
+    Barrier = 1UL << 5,
 }
 
 /// <summary>
@@ -49,7 +52,7 @@ internal enum CollisionLayer : ulong
 internal static class CollisionLayers
 {
     /// <summary>How many layers there are, which is how wide the matrix is.</summary>
-    public const int Count = 5;
+    public const int Count = 6;
 
     /// <summary>
     /// What each layer goes looking for, in layer order. This is the declaration and the masks are
@@ -69,6 +72,7 @@ internal static class CollisionLayers
         // A rail vehicle is a body like a car (TRN-3): it meets everything a car does, and every other rail vehicle — of
         // its own train too, which its couplings keep clear of it.
         CollisionLayer.Static | CollisionLayer.Person | CollisionLayer.Car | CollisionLayer.Train,
+        CollisionLayer.Car,
     ];
 
     static readonly CollisionLayer[] Masks = Symmetrise(Scans);

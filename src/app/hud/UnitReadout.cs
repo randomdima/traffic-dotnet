@@ -59,6 +59,8 @@ internal static class UnitReadout
         var group = world.SelectedCount > 1;
         if (group) Group(ref rows, world);
         else if (unit.Kind == SelectionKind.Car) Car(ref rows, world, unit.Index);
+        else if (unit.Kind == SelectionKind.Locomotive) Train(ref rows, world, unit.Index);
+        else if (unit.Kind == SelectionKind.Wagon) Wagon(ref rows, world, unit.Index);
         else Walker(ref rows, world, unit.Index);
 
         // CTL-5: whose hands the units are in is the one row a group and a single unit both write. A group's is
@@ -90,7 +92,115 @@ internal static class UnitReadout
         var walkers = rows.Next("walkers");
         walkers.Add(world.SelectedCountOf(SelectionKind.Person));
         rows.Keep(in walkers);
+
+        foreach (var (kind, word) in (ReadOnlySpan<(SelectionKind, string)>)[(SelectionKind.Locomotive, "trains"), (SelectionKind.Wagon, "wagons")])
+        {
+            if (world.SelectedCountOf(kind) == 0) continue;
+
+            var line = rows.Next(word);
+            line.Add(world.SelectedCountOf(kind));
+            rows.Keep(in line);
+        }
     }
+
+    /// <summary>What a wagon is: its look and its weight, how fast it moves, and which vehicle of which train it is.</summary>
+    static void Wagon(ref RowWriter rows, TownWorld world, int wagon)
+    {
+        var trains = world.Trains;
+        var train = trains.TrainOfWagon(wagon);
+
+        var line = rows.Next("make");
+        line.Add(trains.LookIdOf(wagon));
+        line.Add(", ");
+        line.Add(trains.VehicleOf(wagon).MassKg / KgPerTonne, "F0");
+        line.Add(" t");
+        rows.Keep(in line);
+
+        ref readonly var view = ref world.World.View.Wagons[wagon];
+        line = rows.Next("speed");
+        line.Add(view.VelocityMps.Length(), "F1");
+        line.Add(" m/s");
+        rows.Keep(in line);
+
+        line = rows.Next("hauled");
+        line.Add("vehicle ");
+        line.Add(trains.VehiclesOf(train).IndexOf(wagon) + 1);
+        line.Add(" of ");
+        line.Add(trains.VehiclesOf(train).Length);
+        line.Add(", train ");
+        line.Add(train);
+        rows.Keep(in line);
+    }
+
+    /// <summary>
+    /// What a train is and what it is doing (TRN-10…12): its locomotive and its length and weight, how fast it moves along
+    /// its leg, what it is driven by, the switch it can be thrown at ahead, and how much of its leg is left.
+    /// </summary>
+    static void Train(ref RowWriter rows, TownWorld world, int train)
+    {
+        var trains = world.Trains;
+        var vehicles = trains.VehiclesOf(train);
+
+        var line = rows.Next("make");
+        line.Add(trains.LookIdOf(vehicles[0]));
+        line.Add(", ");
+        line.Add(vehicles.Length);
+        line.Add(" vehicles, ");
+        line.Add(trains.LengthM(train), "F0");
+        line.Add(" m, ");
+        line.Add(trains.MassKg(train) / KgPerTonne, "F0");
+        line.Add(" t");
+        rows.Keep(in line);
+
+        line = rows.Next("speed");
+        line.Add(trains.AlongMps(train), "F1");
+        line.Add(" m/s");
+        if (!trains.Handed(train))
+        {
+            line.Add(", pace ");
+            line.Add(trains.PaceMps(train), "F1");
+        }
+
+        rows.Keep(in line);
+
+        var given = trains.Given(train);
+        line = rows.Next("doing");
+        line.Add(given.Brake ? "braking" : given.Pull <= 0f ? "coasting" : given.Reverse ? "pulling back" : "pulling");
+        if (!given.Brake && given.Pull > 0f)
+        {
+            line.Add(", ");
+            line.Add(given.Pull * 100f, "F0");
+            line.Add(" %");
+        }
+
+        rows.Keep(in line);
+
+        line = rows.Next("switch");
+        var next = trains.NextSwitchAhead(train, out var aheadM);
+        if (next < 0)
+        {
+            line.Add("none to throw ahead");
+        }
+        else
+        {
+            var (_, position, positions) = trains.SwitchOnTheLeg(train, next);
+            line.Add(aheadM, "F0");
+            line.Add(" m ahead, branch ");
+            line.Add(position + 1);
+            line.Add(" of ");
+            line.Add(positions);
+            line.Add(" from the left");
+        }
+
+        rows.Keep(in line);
+
+        line = rows.Next("to go");
+        line.Add(MathF.Max(0f, trains.LegLengthM(train) - trains.FrontM(train)), "F0");
+        line.Add(" m of its leg");
+        rows.Keep(in line);
+    }
+
+    const float KgPerTonne = 1000f;
 
     /// <summary>
     /// <b>Everything the run's watches have against this one body</b> (OBS-2i), each on its own row. A

@@ -72,34 +72,45 @@ layout(std430, binding = 1) readonly buffer Figures
     uint firstTrainSheet;
     uint gearCount;
     uint barrierSheet;
-    uint crossingHeadSheet;
-    uint glowTint;
+    uint barrierDriveSheet;
+    uint crossingLightSheet;
+    uint crossingLitSheet;
+    uint lightCount;
     float barrierWidthM;
-    float headHalfM;
-    float lampGlowHalfM;
-    float gearPastKerbM;
+    float driveHalfLengthM;
+    float driveHalfWidthM;
+    float lightHalfLengthM;
+    float lightHalfWidthM;
+    uint bridged;
+    uint bridgeChannel;
 } figures;
 
-// One approach's crossing gear (DeviceSprites.GearRow, CrossingGear): where its barrier pivots, the way it lies lowered and
-// on what heading, how long it is, where its head stands and faces, and where its second lamp stands off it.
+// One approach's crossing gear (DeviceSprites.GearRow, CrossingGear): where its arm pivots, the way it lies lowered and on
+// what heading, and how far any of it reaches past its pivot.
 struct GearRow
 {
     vec2 pivotM;
     vec2 downAlong;
-    vec2 headM;
-    vec2 lampAcrossM;
-    float armM;
     float armHeadingRad;
-    float headHeadingRad;
-    float pad;
+    float reachM;
 };
 
-// And what it shows this frame, as the host worked it out (CrossingSprites.Shown): its barrier's length seen from above,
-// and which lamp is lit, or −1.
+// And what it shows this frame, as the host worked it out (CrossingSprites.ArmDrawn, CrossingGear.Lit): where its arm is
+// drawn, pivot end to tip, and whether its lights are lit.
 struct GearShownRow
 {
-    float shownM;
-    int lit;
+    vec2 armFromM;
+    vec2 armToM;
+    uint lit;
+    uint pad;
+};
+
+// One X light over a lane coming in (DeviceSprites.LightRow, CrossingLight): where, its quad's heading, and its gear.
+struct LightRow
+{
+    vec2 centreM;
+    float headingRad;
+    uint gear;
 };
 
 // One walker's look (DeviceSprites.PersonLook): its quad standing and lying down, and how far the latter reaches.
@@ -125,7 +136,7 @@ struct CarLook
     float wheelWidthM;
     float lampReachM;
     uint lensCount;
-    float towGripM;
+    float unused;
     uint hasBeam;
     vec2 pivotM;
     vec2 collapsedHalfM;
@@ -207,9 +218,10 @@ layout(std430, binding = 19) readonly buffer TrainLooks { vec2 trainLooks[]; };
 layout(std430, binding = 20) readonly buffer WagonViews0 { WagonViewRow wagonViews0[]; };
 layout(std430, binding = 21) readonly buffer WagonViews1 { WagonViewRow wagonViews1[]; };
 
-// The crossings' gear, laid once, and what each shows this frame (RAIL-7).
+// The crossings' gear, laid once, what each shows this frame, and their X lights, laid once (RAIL-7).
 layout(std430, binding = 22) readonly buffer GearRows { GearRow gearRows[]; };
 layout(std430, binding = 23) readonly buffer GearShown { GearShownRow gearShown[]; };
+layout(std430, binding = 24) readonly buffer LightRows { LightRow lightRows[]; };
 
 #define LAMP_FIGURES figures
 #define SIGNAL_FIGURES figures

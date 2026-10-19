@@ -1,5 +1,57 @@
 # The train — decision log
 
+## 2026-10-19 — a train long enough to pass over itself, slowed by a curve
+
+**The owner: "make trains longer for this"** — the loop over itself (`RAIL-11`), 450 m between its passes on a double
+line; offered that trains would slow for curves at a radius this tight, the owner took it.
+
+- **18 coaches, 34 coal wagons, 39 tanks**: 478 m, 491 m and 486 m, each longer than the loop between its passes
+  (`RailLoopTests`). The run-off is 900 m, so the longest still stands off the map a warning short of it (`RAIL-1`).
+- **A curve sets the pace its driver wants** (`TRN-12`): at 65 m and its 28.6 m/s an intercity pulled 12.6 m/s²
+  sideways, and a coach on the old 22 m/s wheel test at 45 m stood 15.7 m off its line. The one figure authored is the
+  sideways pull a driver allows (1 m/s², a main line's comfort limit without cant); each chord's speed is derived off
+  its radius once, when the trains are laid, and its brake's reach off steel-on-steel friction.
+- **It brakes only past a tick's braking over the pace it wants**: at its pace on a straight, a pull laid to land on it
+  overshoots by rounding, and braking for that would flicker every brake of the train.
+- **The watch's claim is the pace it wants, and a train closing on it keeps it** (`RailWatch`): pulling back up past
+  the loop, a train is off its pace by more than the allowance for as long as its traction takes, and is not held up.
+
+## 2026-10-19 — coupled buffer to buffer
+
+**The owner: the collider "should exclude that connector part, so wagons touch with it".** A vehicle is collided as its
+body (`BodyM`), its footprint short of the buffers it authors at each end (`bufferM`, read off its art: 0.35 m a coach
+or locomotive, 0.5 m a coal wagon, 0.55 m a tank); it is still drawn and picked by its footprint. The solver's bar runs
+from body end to body end, as long as the two buffers, so the buffers meet. The fixed 0.3 m gap between buffer faces
+that the bar held before is retired.
+
+## 2026-10-19 — a train is selected, followed and driven as a car is
+
+**The owner asked for a train to be picked out, followed and taken by hand as a car and a walker are**, with "train
+actions — not hardcoded for manual mode, just actions AI driver can also do — accel, deccel, brake, switch track along
+the way (first up to 100 m)".
+
+- **`TRN-1` and `TRN-2` are retired**, the owner's words: "drop that P0, that was a tmp note. If we can make AI drivers
+  act — that's ok". What was left of them that is still so is the own driver's (`TRN-12`, ours); the run-in past the map
+  that cited `TRN-1` is `TRN-7`'s.
+- **A rail vehicle is a unit of its own** (`CTL-1`), the owner's: "let's not select its wagons — they are different
+  units, only loco; well, you can select a wagon as a separate unit". A click on the locomotive picks out the unit the
+  train is driven by; a click on a wagon picks out that wagon, followed and read, and driven by nobody.
+- **One set of controls for both drivers** (`TRN-10`): a share of traction, forward or back, the brake on every
+  vehicle and a branch step. The keys are a car's: "same as car — you first brake then go backwards", so the key against
+  the way the train is going brakes it and, from a stop, pulls it back.
+- **No top speed under a hand**: "actors can drive as fast as they physically can, if they decide to … suggestions for
+  trains are not needed, since it will always keep its track". The pace a train's own driver holds is its kind's, and is
+  what it decides, not what the track says.
+- **A/D throw the next facing switch within the set-ahead distance** (`TRN-11`), left or right as it is faced — the
+  branches are ordered by their turn from the common end, so a step is a position up or down. The leg is routed again
+  from the branch, and a throw onto ground another train's leg holds is refused, so `TRN-5` still holds by construction.
+- **A train backing retraces its leg**, because the driver now sets every switch on its leg — the ones it trails through
+  as well as the ones it faces (`TRN-9`); a switch is set the way the train came, and nothing about a reversed train needs
+  a route of its own. Backed off the map by the way it came, it is taken out as at the other end (`TRN-7`).
+- **A crossing is closed against how far a hand-driven train could be pulled in the warning time**, either way, and not
+  against what it asks this tick: a hand may floor it at any moment, and `RAIL-1` is a warning before it gets there. A
+  train standing under a hand near a crossing holds it shut. The own driver closes them at its pace, as before.
+
 ## 2026-10-19 — how the vehicles, the claim and the crossings were built
 
 - **A rail vehicle is an agent past the roster, not a car of the fleet.** It is a body like a car's — mass, its own
@@ -24,9 +76,7 @@ different wheel physics that limits their positions to the rails but allows free
 each wheel, then its body, then the forces in the solver — and nothing about a train is posed, pathed or timed by a
 script. The owner's words settled each part:
 
-- **`TRN-2` and `TRN-3` restated by the owner**: a train is a real, heavy mass and takes no damage; it never brakes or
-  yields, and its traction holds its line's speed — a collision may cost a negligible dip, and starting and stopping
-  may compress it.
+- **`TRN-3` restated by the owner**: a train is a real, heavy mass and takes no damage.
 - **One solid link for the tow and the train** (`SOL-38`), free to spin, with "no special physics treatment for link".
   What a train gains on top is its wheel base: each axle or bogie is one large wheel, free to rotate, several along a
   vehicle (`TRN-8`). Unbraked a rail wheel rolls on very little; locked, it holds very hard.
@@ -46,7 +96,7 @@ script. The owner's words settled each part:
 ## 2026-10-18 — trains, at the owner's ask
 
 **The owner asked for full trains, not trams**: three kinds — intercity passenger, oil and coal — that stop
-nowhere on a map and come in and go out now and then. **What a train is, is the owner's at `P0`** (`TRN-1` to
+nowhere on a map and come in and go out now and then. **What a train is, is the owner's at `P0`** (`TRN-3`,
 `TRN-4`).
 
 - **On a bridge a wagon is on a channel of its own** (`RAIL-8`): `OdesaOsm`'s first run met 2 cars and 11 walkers in

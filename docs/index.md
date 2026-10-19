@@ -86,7 +86,7 @@ retired number, which the owning slice's log records.
 | `EVA-1…8` | The wreck as a call, a depot's yard, the recovery, the tow's priority, the arm and the set-down | [agents/evacuator](../src/agents/evacuator/docs/requirements.md) |
 | `TLT-1…4` | The signal agent and its cycle | [agents/trafficlight](../src/agents/trafficlight/docs/requirements.md) |
 | `RAIL-1…8` | The track, the railway's ground, its bridges, and the level crossing that closes ahead of a train | [world/rail](../src/world/rail/docs/requirements.md) |
-| `TRN-1…8` | The train: what it is, its unbounded mass, one a line, its timetable and its bodies | [agents/train](../src/agents/train/docs/requirements.md) |
+| `TRN-3…12` | The train: what it is, its unbounded mass, one a line, its timetable, its bodies, and how it is driven | [agents/train](../src/agents/train/docs/requirements.md) |
 | `OBS-1…1c` | The camera | [app/camera](../src/app/camera/docs/requirements.md) |
 | `OBS-2`, `OBS-2a`, `OBS-2e…2g`, `OBS-2i`, `OBS-2k…2n` | The status panel and its claims, the menu, the legend, Escape, the ruler, the unit read-out, the density a panel gives way at, the card a map is opened behind | [app/hud](../src/app/hud/docs/requirements.md) |
 | `OBS-2b…2d`, `OBS-2h`, `OBS-2j`, `OBS-2o`, `OBS-2p`, `OBS-2r…2x` | The debug layers: the read-out, the turn circle, the ground's triangulation and layers, the driven ground and its outside, the pointer, the shell probe and the solver's grid | [app/debug](../src/app/debug/docs/requirements.md) |

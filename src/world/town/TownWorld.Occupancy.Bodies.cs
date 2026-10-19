@@ -92,10 +92,10 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// Which of the town's cars this body's ground is held under — <b>itself, or the vehicle pulling it</b>
-    /// (EVA-5).
+    /// Which of the town's cars this body's ground is held under — <b>itself, or the vehicle at the front of the chain
+    /// pulling it</b> (EVA-5): a tractor on another's arm is that one's trailer, and so is everything behind it.
     /// </summary>
-    int LaidAs(int car) => _recovery.OnTheHookOf[car] is var hauler and >= 0 ? hauler : car;
+    int LaidAs(int car) => _hitches.FrontOfTheChain(car);
 
     /// <summary>
     /// <b>A person where its centre stands</b> (TER-4c.2): the ground its body covers (<see cref="WalkingGround.BodyCover"/>),

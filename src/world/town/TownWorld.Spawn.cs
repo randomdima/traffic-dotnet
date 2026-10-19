@@ -366,7 +366,7 @@ internal sealed partial class TownWorld
     /// rather than asking whose hand it is.
     /// </remarks>
     public bool WheelIsHeldOver(int car) =>
-        (_hands.Held && _selected.Holds(SelectionKind.Car, car)) || (_otherHand.Held && _otherCar == car);
+        PlayersHandOn(car) || (_otherHand.Held && _otherCar == car);
 
     /// <summary>
     /// A car starts stopped where the plan put it — in the bay under it, where that bay can be reached — with

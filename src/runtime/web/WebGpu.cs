@@ -88,6 +88,16 @@ internal static partial class WebGpu
     }
 
     /// <summary>
+    /// The engine layers' quads and draws — kernel buffers both, named as the page names them — drawn from the next recording
+    /// on, each run <paramref name="runBytes"/> past the last; or none, for nought.
+    /// </summary>
+    public static void Engine(int quads, int draws, int runBytes)
+    {
+        Count();
+        EngineJs(quads, draws, runBytes);
+    }
+
+    /// <summary>
     /// The whole frame: the memory the simulation just wrote, and the counts that say how much of it to read — the
     /// sprites under the buildings, the stretch of the buildings laid once, and the sprites over them.
     /// </summary>
@@ -425,6 +435,9 @@ internal static partial class WebGpu
 
     [JSImport("town.release", "town.js")]
     static partial void ReleaseJs();
+
+    [JSImport("town.engine", "town.js")]
+    static partial void EngineJs(int quads, int draws, int runBytes);
 
     [JSImport("town.frame", "town.js")]
     static partial void FrameJs(

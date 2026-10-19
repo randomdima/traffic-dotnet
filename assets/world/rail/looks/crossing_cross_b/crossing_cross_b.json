@@ -1,0 +1,9 @@
+{
+  "id": "crossing_cross_b",
+  "kind": "Sign",
+  "describe": "a level-crossing sign for more than one track standing upright, seen from the front and a little above, drawn north up as the town's signs are: a white St Andrew's cross with red borders at the top, filling the width, and a smaller second cross under it; a grey post running down from their middle to the bottom edge",
+  "footprintM": [
+    0.9,
+    1.5
+  ]
+}

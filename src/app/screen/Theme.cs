@@ -181,6 +181,38 @@ internal static class Theme
     public static readonly Vector4 Collision = new(0.95f, 0.35f, 0.85f, 0.85f);
 
     /// <summary>
+    /// <b>A colour for each member of something the engine numbers its things by</b> — a collision layer, a kind of way —
+    /// stepped round the wheel by the golden angle from <see cref="Collision"/>'s hue, so the first few are far apart and a
+    /// member added later takes a colour of its own without anybody choosing one.
+    /// </summary>
+    public static Vector4 KindColour(int index)
+    {
+        var hue = (KindHueFrom + (index * GoldenTurn)) % 1f;
+        var sector = hue * 6f;
+        var rise = sector - MathF.Floor(sector);
+        var (low, falling, rising) = (KindValue * (1f - KindSaturation), KindValue * (1f - (KindSaturation * rise)), KindValue * (1f - (KindSaturation * (1f - rise))));
+        var (r, g, b) = (int)sector switch
+        {
+            0 => (KindValue, rising, low),
+            1 => (falling, KindValue, low),
+            2 => (low, KindValue, rising),
+            3 => (low, falling, KindValue),
+            4 => (rising, low, KindValue),
+            _ => (KindValue, low, falling),
+        };
+        return new Vector4(r, g, b, Collision.W);
+    }
+
+    /// <summary>The share of a turn of the wheel between one kind's hue and the next: the golden angle.</summary>
+    const float GoldenTurn = 0.381966f;
+
+    /// <summary>Where the kinds start on the wheel: <see cref="Collision"/>'s own magenta.</summary>
+    const float KindHueFrom = 0.86f;
+
+    const float KindSaturation = 0.65f;
+    const float KindValue = 0.95f;
+
+    /// <summary>
     /// The circle a car's steering says it is turning (OBS-2j). <b>Cold, and its own colour</b>: it is the
     /// one thing this overlay draws that the simulation did not produce, and it is read against a black
     /// tyre track on grey tarmac — so it has to be told from both at a glance.

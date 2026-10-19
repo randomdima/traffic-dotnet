@@ -1303,18 +1303,29 @@ public class TracedPlanTests
     /// <summary>Where the bridge of <see cref="OverAStreet"/> crosses the street under it.</summary>
     internal static readonly Vector2 OverAStreetCrossingM = new(500f, 500f);
 
+    /// <summary>
+    /// <b>A street along a sloping coast</b>: west to east along y = 100, and the sea south of a coast running from
+    /// (0, 300) up to (900, 250), a block of it standing inside the map.
+    /// </summary>
+    internal static CityPlan OnTheCoast() => TownPlan.Lay(
+        TracedStreets.Mended(Surveyed([[0, 300, 900, 250, 1000, 250, 1000, 400, 0, 400]], [100, 100, 900, 100], Way(0, 1)), Config),
+        Config, BuildingSizes.None);
+
     /// <summary>The survey those are.</summary>
-    static Survey Surveyed(float[] pointsM, params SurveyWay[] ways)
+    static Survey Surveyed(float[] pointsM, params SurveyWay[] ways) => Surveyed([], pointsM, ways);
+
+    /// <summary>The survey those are, with a sea of these rings, each flat x, y pairs.</summary>
+    static Survey Surveyed(float[][] sea, float[] pointsM, params SurveyWay[] ways)
     {
         var furthestM = Vector2.Zero;
-        for (var point = 0; point < pointsM.Length; point += 2)
+        foreach (var flat in (ReadOnlySpan<float[]>)[pointsM, .. sea])
         {
-            furthestM = Vector2.Max(furthestM, new Vector2(pointsM[point], pointsM[point + 1]));
+            for (var point = 0; point < flat.Length; point += 2) furthestM = Vector2.Max(furthestM, new Vector2(flat[point], flat[point + 1]));
         }
 
         return new Survey
         {
-            Name = "Traced", Seed = 1, WidthM = furthestM.X + 100f, HeightM = furthestM.Y + 100f, PointsM = pointsM, Ways = ways, Sea = [],
+            Name = "Traced", Seed = 1, WidthM = furthestM.X + 100f, HeightM = furthestM.Y + 100f, PointsM = pointsM, Ways = ways, Sea = sea,
         };
     }
 

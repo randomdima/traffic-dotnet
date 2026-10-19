@@ -392,6 +392,63 @@ public class ArcOutsetTests
     }
 
     /// <summary>
+    /// <b>A corner the move closes by a degree or two is cut where its two moved pieces cross, and the ring runs on
+    /// from there</b> — it never doubles back. The two pieces run a hair past each other, and joined across their ends as
+    /// well, they and the join are a fold shallower than a place on the offset is told from one inside it: kept, the walk
+    /// takes the outermost way off the crossing, which is the half-turn back into the fold. A surveyed coast's shore came
+    /// back with a spike a fifth of a metre long at every such corner.
+    /// </summary>
+    /// <remarks>
+    /// The dent turns the side through 1.6°, and moved eight metres the two pieces overrun the crossing by just over
+    /// <see cref="ArcRings.LeastPieceM"/> apiece while the join across them stands under a millimetre inside the distance —
+    /// which is inside the slack a place is weighed with <see cref="DentAtM"/>, where a float is twice as coarse as at the
+    /// origin (<see cref="LineTolerance.At"/>).
+    /// </remarks>
+    [Fact]
+    public void AShallowCornerTheMoveClosesIsNotFoldedBackOn()
+    {
+        var (rings, loose) = Outset([DentedSquare(SideM, DentM, DentAtM)], DentMovedM, roundedM: 0f);
+
+        Assert.Empty(loose);
+        var ring = Assert.Single(rings);
+        for (var piece = 0; piece < ring.Length; piece++)
+        {
+            var turnRad = TurnRad(ring[piece], ring[(piece + 1) % ring.Length]);
+            Assert.True(
+                MathF.Abs(turnRad) < MathF.PI * 0.5f,
+                $"the ring turns {turnRad * 180f / MathF.PI:F0} deg at {ring[piece].EndM.X:F2}, {ring[piece].EndM.Y:F2}");
+        }
+    }
+
+    /// <summary>
+    /// How far into the square the middle of <see cref="DentedSquare"/>'s first side is pushed: 0.279 m over 20, which
+    /// turns the side through 1.6° there.
+    /// </summary>
+    const float DentM = 0.279f;
+
+    const float DentMovedM = 8f;
+
+    /// <summary>Where <see cref="DentedSquare"/> is laid: a surveyed coast's own corner, past 2 048 m on both axes.</summary>
+    static readonly Vector2 DentAtM = new(3400f, 8270f);
+
+    /// <summary>
+    /// The test square at a place, with the middle of its first side pushed <paramref name="dentM"/> into its ground — a
+    /// corner the shape turns in at, which a move outward closes.
+    /// </summary>
+    static ArcSeg[] DentedSquare(float sideM, float dentM, Vector2 atM)
+    {
+        var dentAtM = atM + new Vector2(sideM * 0.5f, dentM);
+        return
+        [
+            Straight(atM, dentAtM),
+            Straight(dentAtM, atM + new Vector2(sideM, 0f)),
+            new ArcSeg(atM + new Vector2(sideM, 0f), MathF.PI * 0.5f, sideM, 0f),
+            new ArcSeg(atM + new Vector2(sideM, sideM), MathF.PI, sideM, 0f),
+            new ArcSeg(atM + new Vector2(0f, sideM), MathF.PI * -0.5f, sideM, 0f),
+        ];
+    }
+
+    /// <summary>
     /// <b>An open line moved to the hand its corner opens on is that line with the arc of the distance put
     /// into the corner</b> (<see cref="ArcOutset.Beside"/>): an L moved to the walker's left keeps both of
     /// its arms whole and gains a quarter circle of the distance between them — <c>2·L + π·d/2</c>. Moved

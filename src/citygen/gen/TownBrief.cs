@@ -77,6 +77,15 @@ internal sealed class TownBrief
     /// </summary>
     public float RailMeander { get; init; }
 
+    /// <summary>
+    /// How far the railway's one loop turns it (RAIL-11), signed toward the right of its bearing: none, or from
+    /// <see cref="RailLines.LoopLeastDeg"/> to <see cref="RailLines.LoopMostDeg"/>, so its way out crosses its way in.
+    /// </summary>
+    public float RailLoopDeg { get; init; }
+
+    /// <summary>How far along its bearing from the town's middle the loop is laid, as a signed share of the long side.</summary>
+    public float RailLoopAlongShare { get; init; }
+
     /// <summary>How many districts the streets are laid in, each on its own bearing at its own spacing.</summary>
     public required int Districts { get; init; }
 
@@ -142,6 +151,13 @@ internal sealed class TownBrief
         if (RailTracks is < 0 or > 2) throw new InvalidDataException($"{what}: a railway of {RailTracks} tracks; a brief lays none, one or two.");
         if (RailOffsetShare is < -0.5f or > 0.5f) throw new InvalidDataException($"{what}: a railway {RailOffsetShare} of the town off its middle passes outside it.");
         if (RailMeander < 0f) throw new InvalidDataException($"{what}: a railway wandering {RailMeander}.");
+        if (RailLoopDeg != 0f && MathF.Abs(RailLoopDeg) is < RailLines.LoopLeastDeg or > RailLines.LoopMostDeg)
+        {
+            throw new InvalidDataException(
+                $"{what}: a loop of {RailLoopDeg}° does not cross its own way in; a brief turns one {RailLines.LoopLeastDeg}° to {RailLines.LoopMostDeg}°.");
+        }
+
+        if (RailLoopAlongShare is < -0.5f or > 0.5f) throw new InvalidDataException($"{what}: a loop {RailLoopAlongShare} of the town along its line is laid outside it.");
     }
 
     static void Positive(float value, string field, string what)

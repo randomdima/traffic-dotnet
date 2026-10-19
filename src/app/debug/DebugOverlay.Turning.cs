@@ -71,7 +71,7 @@ internal sealed partial class DebugOverlay
     const int MostSegments = 48;
 
     /// <summary>
-    /// <b>A hairline, on the collision layer's terms</b> (<see cref="CollisionLineM"/>): the whole reading
+    /// <b>A hairline, on the collision layer's terms</b> (<see cref="HairlineM"/>): the whole reading
     /// is where this circle falls against the track written under it, and a stroke wide enough to see from
     /// across the town is a stroke wide enough to hide the answer.
     /// </summary>

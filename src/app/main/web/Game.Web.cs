@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.App.Drive;
 using TrafficSimulation.App.Render;
@@ -53,6 +54,32 @@ internal sealed partial class Game
     }
 
     partial void TookTheDeviceWorld(TownWorld town, DeviceWorld world) => SayWhereTheOpenWent(town);
+
+    /// <summary>The page's device as the engine layers' kernels see it, where it can hold them.</summary>
+    private partial Vk? EngineDevice() => WebGpu.KernelsFit() ? _kernels ??= new Vk() : null;
+
+    /// <summary>A page has one frame in hand at a time, so one slot.</summary>
+    private partial int EngineSlot() => 0;
+
+    private partial int EngineSlots() => 1;
+
+    /// <summary>The engine layers' batch, run ahead of each frame that finds the last one landed.</summary>
+    ComputeBatch? _engineBatch;
+
+    /// <summary>
+    /// <b>The engine layers' kernels run in a batch of their own ahead of the frame</b>, where a desktop records them into
+    /// it: a page's frame is one call the kernels cannot ride. A frame that finds the last batch still out draws what it
+    /// left.
+    /// </summary>
+    partial void RunTheEngine(EngineLayers engine)
+    {
+        var batch = _engineBatch ??= new ComputeBatch(_kernels!);
+        if (!batch.Landed) return;
+
+        var commands = batch.Begin();
+        engine.Record(commands, 0);
+        batch.Submit();
+    }
 
     /// <summary>Where a page's open went, on its console: it is the desktop's work on one thread, and nothing else measures it.</summary>
     static void SayWhereTheOpenWent(TownWorld world)

@@ -402,6 +402,30 @@ internal sealed class WalkingGround(
     /// the pavement leading up to it.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// <b>Where every walker means to go next</b> (OBS-2h): the way it is walking from where it stands, and the way after
+    /// it — each as the walk covers it — in the name its ground is held as (<see cref="HeldAs"/>).
+    /// </summary>
+    public void StateIntents(WayIntents into)
+    {
+        for (var person = 0; person < People.Count; person++)
+        {
+            if (!People.Walking[person]) continue;
+
+            var route = People.RouteOf(person);
+            var at = People.RouteAt(person);
+            var occupant = HeldAs(person, out var roster);
+            for (var slot = Math.Max(0, at); slot < People.RouteCount[person] && slot < at + PiecesStated; slot++)
+            {
+                WalkedOfSlot(person, slot, out var fromM, out var endM);
+                if (endM > fromM) into.Add(occupant, roster, WayOf(route[slot]), fromM, endM);
+            }
+        }
+    }
+
+    /// <summary>The pieces a walker states: the way it is on and the one after it (OBS-2h).</summary>
+    const int PiecesStated = 2;
+
     public int WaysAlongTheWalk(int person, float aheadM, Span<LineWay> into)
     {
         var route = People.RouteOf(person);

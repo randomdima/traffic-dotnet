@@ -4,6 +4,35 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-19 — what the engine holds is drawn off its own tables, on the device
+
+**The owner asked for it after the trains came in undrawn**: rail vehicles are bodies and tracks are ways, and no
+layer showed either, because every layer walked a store of one kind — the cars' fleet, the walkers', the road
+graph — and rebuilt what it drew. "It must show real engine stuff, not copy … we don't want this kind of thing to
+happen, ever." So the layers about bodies, ways, claims and where agents go are drawn by kernels off the engine's
+own tables (OBS-3, `EngineLayers`), and nothing in them names a kind. The owner chose, asked:
+
+- **A world stepped here is drawn by the same kernels**, its table as each view was written going up in the device's
+  rows (`KeptBodies`): one drawing for both worlds, which the device tier holds quad for quad.
+- **Where an agent goes is a table every driver states** (`WayIntents`), gathered only when the layer asks, so the step
+  pays nothing for it; a roster with no driver stating is refused where it is gathered.
+- **The device's table carries what each body is** (a tag column), so a body found under the pointer is named off its
+  own row.
+- **The page draws them too**, its kernels in a batch ahead of its frame; the desktop records them into each frame,
+  which keeps its crossings at five with every layer on.
+
+**The bodies are drawn where the view has them**: both worlds step one ahead of the view the host shows, so each keeps
+the poses (the device) or the rows (here) each view was taken at, once asked — a shape drawn off the solver in flight
+stood a step's travel off its own sprite.
+
+**Colours are numbered and not chosen**: a collision layer and a kind of way each take `Theme.KindColour` of its own
+number, and a holder its own line's colour, so a member added to any of them is drawn and keyed with no table to
+extend. The words on a card are the enums' own names for the same reason (`EnumWords`): a hand-kept list of rosters
+ran out at the lights, and a card about a level crossing's claim threw.
+
+**Claims are drawn as the table holds them, a holder's claim a block**, where the layer used to merge one rung's
+claims on a way into one: two holders over one stretch now wash it deeper, which is the reading the merge hid.
+
 ## 2026-09-29 — a pass is drawn with its holder's line, circles and all
 
 **The owner asked to see that cars follow the turn a pass is drawn at.** The pass's line and its circle are drawn
@@ -119,10 +148,9 @@ now says whose and the wash says how strong, taken off
 [`ClaimPriority`](../../../world/road/ClaimPriority.cs)'s own rung number so a level added between two
 costs nothing.
 
-## 2026-09-03 — the nodes layer draws every lane whole, and every mitre the town lays
+## 2026-09-03 — the nodes layer draws every way whole, and every mitre the town lays
 
-Drawing a lane only between the stations a route uses hid ground either network can still claim, and a
-block with no line under it cannot be checked against anything. The layer now draws both networks whole
-with no filter, which is affordable only because the producers were fixed to match — turning round lays no
-mitre, and a lane is cut to the ground it is walked over
-([world/road](../../../world/road/docs/decision-log.md)).
+Drawing a lane only between the stations a route uses hid ground any holder can still claim, and a block with no
+line under it cannot be checked against anything. The layer draws every way whole with no filter, which is
+affordable only because the producers were fixed to match — turning round lays no mitre, and a lane is cut to the
+ground it is walked over ([world/road](../../../world/road/docs/decision-log.md)).

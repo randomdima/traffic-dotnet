@@ -13,6 +13,9 @@ internal enum BodyKind : byte
 
     /// <summary>A rail vehicle (TRN-3): a body on its own wheels, on the trains' roster.</summary>
     Train,
+
+    /// <summary>A level crossing's arm (RAIL-10), by its approach's gear: moved by the town, never by what it meets.</summary>
+    Barrier,
 }
 
 /// <summary>A body's identity outside the solver: the roster it is on and its index on it.</summary>
@@ -204,6 +207,21 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>
+    /// <b>A level crossing's arm</b> (RAIL-10): a box that is never pushed — no weight, so nothing it meets moves it and it
+    /// stands where it is put down (<see cref="Release"/>).
+    /// </summary>
+    public BodyId AddBarrier(Vector2 positionM, float headingRad, Vector2 halfSizeM)
+    {
+        var body = Add(
+            positionM, headingRad, halfSizeM, 0f, CollisionLayer.Barrier,
+            BodyFlags.Enabled | BodyFlags.RotationLocked | BodyFlags.Undamped, massKg: 0f);
+
+        _dynamicCount++;
+        Join(body.Index);
+        return body;
+    }
+
+    /// <summary>
     /// The nominal car's box and the nominal car's weight, for a rig measuring the <em>solver</em> rather
     /// than a fleet — the crash bench, the solver probe and their fixtures. A town never stands one.
     /// </summary>
@@ -276,7 +294,7 @@ internal sealed partial class PhysicsWorld
 
     /// <summary>
     /// And back out, at the place its container put it down — at rest, or moving as it is put down: a train put back on
-    /// its run-in at its line's speed (TRN-7). The pose is written before the body is enabled, or it re-enters the broad
+    /// its run-in at its pace (TRN-7). The pose is written before the body is enabled, or it re-enters the broad
     /// phase where it went in and the solver sees a body teleport across the town.
     /// </summary>
     public void Release(BodyId body, Vector2 atM, float headingRad, Vector2 velocityMps = default)

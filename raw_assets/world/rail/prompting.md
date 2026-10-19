@@ -26,3 +26,47 @@ Kept from v1: `track_concrete-v1` (used), `track_concrete_b-v1`, `track_timber-v
   housing drawn over the first.
 - **Next:** the gear on a sheet of its own at its own scale, so a 4 m arm fills a cell — the rows layout lays it at the
   ground's grid, too small to draw.
+
+## railway_gear_a (2026-10-19) — nine pieces of crossing gear alone, three attempts, eight kept, $0.09
+
+Kept: `barrier_arm-v1` (used), `barrier_arm_b-v1`, `barrier_arm_c-v1` (4 each) from v1; `barrier_drive-v1` (used),
+`barrier_drive_b-v1`, `crossing_head-v1` (used), `crossing_head_b-v1` (4 each) and `relay_cabinet-v1` (3) from v3. Not
+kept: `relay_cabinet_b`, 16 % short of its outline's height at its best.
+
+- **Worked:** the gear alone, laid at its own 116 px/m, drew the booms right at once — even bands, a square-cut left end,
+  a capped tip at the thick right edge — and every piece's look from v1 on: a yellow housing with vents and its slot at
+  the front, a galvanised one with striped edges, the heads' hoods open to the front with dark glass in the framed lamp
+  areas. Asking for redraws of image 1 (v2, v3) kept that look and moved only the sizes.
+- **The boom's end cap stands a few pixels proud of it** every time; `cut` reads a long thin asset across by its long
+  edges' median (`THIN_ASPECT`), as it reads a car by its flanks, and clips the cap to the outline.
+- **Failed, every attempt: the small pieces' size.** v1 drew them 1.5 to 1.8 times their outlines, "two thirds of the
+  size in image 1" (v2) brought that to 1.1 to 1.3, and per-cell percentages (v3) to 1.04 to 1.16 — the model shrinks
+  toward an outline by about half the gap each time. The owner allowed `cut` to fit the gear by up to 16 %
+  (`FIT_GEAR_MAX`). The heads keep a little of the backboard's side face however "straight from above" is put.
+- **Next:** ask the small pieces at about 0.85 of their outline in the brief's words from the start, so the first frame
+  lands where the third did.
+
+## railway_signs_a (2026-10-19) — three heads and six signs, upright, one attempt, six kept, $0.03
+
+Kept from v1: `crossing_head-v2` (used), `crossing_head_b-v2`, `crossing_head_c-v1`, `crossing_cross_b-v1`,
+`crossing_countdown-v1`, `crossing_countdown_b-v1` (5 each). Not kept: `crossing_cross` (14 % wide),
+`crossing_warning`, `crossing_warning_b` (20 % wide, 15 % tall).
+
+- **A head is drawn upright, north up, from the front** (the owner: a head drawn straight down shows its hoods sideways
+  once turned with the road): "standing upright, seen from the front and a little above, its top at the top of its
+  outline and its post's foot at the bottom", "every piece faces the viewer", gave lamps with their hoods on top, the
+  glass in the framed areas, first time.
+- **Saying the earlier sheets drew 10 to 20 % big, and to keep inside the outline**, held the posts and boards to
+  their outlines; the crosses and triangles still came out wide, their arms and corners pushed to the cell's width.
+- `cut` flags every upright piece with holes — magenta stands around the post inside its box — which is the shape, not a fault.
+
+## railway_lights_a (2026-10-19) — five X lights, four with a lit twin, one attempt, all kept, $0.03
+
+Kept from v1: `crossing_light-v1` and `crossing_light_lit-v1` (used), `crossing_light_b`, `_b_lit`, `_e` (5 each);
+`crossing_light_c`, `_c_lit`, `_d`, `_d_lit` (4 each).
+
+- **A light's lit state as its own cell, beside the dark one**: "copy the cell just before exactly — the same housing,
+  rim, bolts and lens, pixel for pixel — and change only the X" drew each pair matching, the lit X with its halo inside
+  the housing, first time.
+- **Square, symmetric, flat from the front**, "no visor, hood, post or side face", gave housings that read the same at
+  any turn — what a light turned with its lane needs. Every cell landed within 1 % of its outline.

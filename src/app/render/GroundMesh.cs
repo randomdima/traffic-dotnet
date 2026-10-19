@@ -603,8 +603,6 @@ internal sealed partial class GroundMesh
         const byte ground = CityPlan.RoadArrays.Ground;
         var marks = mesh.Starting();
 
-        // A level crossing's stop lines (RAIL-3): on the road and no mark of a lane, so before the marks start.
-        mesh.StopLines(plan, LevelCrossings.Of(plan, config), config, Paint);
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh.LaneDashes(runs, plan, config, held, crossed, Paint, ground);
         mesh.RoadsideLines(plan, config, held, crossed, Paint, ground);
@@ -612,19 +610,24 @@ internal sealed partial class GroundMesh
         mesh.Zebras(crossed, plan, config, Paint, ground);
         mesh.Zebras(surveyed, plan, config, Paint, ground);
         mesh.Bars(bars, paving.Lanes, Paint, ground);
+        mesh.Bars(CrossingBars(plan, paving.Lanes, config), paving.Lanes, Paint, ground);
 
         mesh.FirstArrowVertex = mesh._vertices.Count;
         mesh.Arrows(paving.Lanes, arrows, config, Paint, ground);
         mesh.Laid(GroundPart.Paint, marks);
 
-        // <b>Then the rails over every road, walk and mark crossing them</b> (RAIL-3, TER-7b), with the track on a bridge
-        // under them: what a train is borne on is over the ground it crosses and the paint on it.
+        // <b>Then the rails over every road, walk and mark crossing them</b> (RAIL-3, TER-7b): what a train is borne on is
+        // over the ground it crosses and the paint on it.
         var rails = mesh.Starting();
-        mesh.Track(tracks, config, worldM, bridged: true);
-        mesh.Rails(tracks, config, worldM);
+        mesh.Rails(tracks, config, worldM, bridged: false);
         mesh.Laid(GroundPart.Rails, rails);
 
+        // <b>A rail bridge is of the level above</b> (RAIL-8, PHY-1a): its deck, track and rails over the bodies on the
+        // ground, as a road's bridge is, and under the bodies on it.
         var above = mesh.Starting();
+        mesh.RailDecks(tracks, config);
+        mesh.Track(tracks, config, worldM, bridged: true);
+        mesh.Rails(tracks, config, worldM, bridged: true);
         mesh.Above(plan, paving, config, held, crossed, bars, arrows, runs, surveyed);
         mesh.Laid(GroundPart.Above, above);
 

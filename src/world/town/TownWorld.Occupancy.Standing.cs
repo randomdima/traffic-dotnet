@@ -59,7 +59,7 @@ internal sealed partial class TownWorld
                                         && _carActions.EntriesOf(car) == _standing.Entries[car]
                                         && Cars.PositionM[car] == _standing.PositionM[car]
                                         && Cars.HeadingRad[car] == _standing.HeadingRad[car]
-                                        && Cars.VelocityMps[car] == Vector2.Zero && _recovery.OnTheHookOf[car] < 0;
+                                        && Cars.VelocityMps[car] == Vector2.Zero && !_hitches.IsHeld(car);
     }
 
     /// <summary>
@@ -96,7 +96,7 @@ internal sealed partial class TownWorld
     void KeepIfStanding(int car)
     {
         ref readonly var seen = ref _world.View.Cars[car];
-        var standing = Cars.Action[car] == CarAction.Stand && _recovery.OnTheHookOf[car] < 0
+        var standing = Cars.Action[car] == CarAction.Stand && !_hitches.IsHeld(car)
                                                           && (seen.Flags & CarView.Frozen) != 0;
         _standing.Kept[car] = standing;
         if (!standing) return;

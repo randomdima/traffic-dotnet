@@ -104,6 +104,12 @@ internal sealed class ViewFigures
     public float CameraDefaultViewM { get; init; } = 70f;
 
     /// <summary>
+    /// How far aside the picture draws a thing standing a metre up, in metres: the slant that lets a raised barrier's arm
+    /// read as standing off the ground (RAIL-7).
+    /// </summary>
+    public float HeightDrawnAside { get; init; } = 0.25f;
+
+    /// <summary>
     /// What a frame of a hand-driven run spans when the script names no span (DRV-4). Tighter than the
     /// default view, because what such a frame is about is the car and the few metres it is steering
     /// through rather than the town it is in.

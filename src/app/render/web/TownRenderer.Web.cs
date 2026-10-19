@@ -158,6 +158,13 @@ internal sealed class TownRenderer : IDisposable
     TownSprites? _looks;
     int _underCount;
 
+    /// <summary>
+    /// <b>The engine's own tables drawn where its kernels wrote them</b> (<see cref="IEngineDraw"/>), from the next frame on —
+    /// its kernels run in a batch of their own ahead of each frame (<c>Game.Web.cs</c>) — or none of it, for <c>null</c>.
+    /// </summary>
+    public void DrawTheEngineFrom(IEngineDraw? engine) =>
+        WebGpu.Engine(engine?.Quads.Id ?? 0, engine?.Draws.Id ?? 0, (engine?.RunRoom ?? 0) * Unsafe.SizeOf<OverlayQuad>());
+
     /// <summary>The recording again, over the buffers as they now are: a buffer given anew is a buffer the last recording does not read.</summary>
     void Rebuild() => WebGpu.Rebuild(_indexCount, Room.Under * Unsafe.SizeOf<SpriteInstance>());
 

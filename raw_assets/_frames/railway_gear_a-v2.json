@@ -1,0 +1,31 @@
+{
+ "id": "railway_gear_a-v2",
+ "ts": "2026-10-19T17:11:15",
+ "op": "edit",
+ "name": "railway_gear_a",
+ "file": ".tmp/gen/frames/railway_gear_a-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.032166,
+ "prompt": "Two images are attached. Image 1 is a finished sheet of 9 pieces of level-crossing equipment for a top-down 2D city game; image 2 is its layout: the outline each piece must fill exactly, on flat magenta, all at one scale. Redraw every piece of image 1 inside its outline in image 2, keeping each piece's look, colours and detail from image 1: chunky pixel art with crisp hard-edged pixels, flat colour with one highlight and one shadow tone, a dark outline about 2 pixels thick, strictly top-down (camera straight overhead, orthographic plan view, no side faces, no perspective, no tilt, no shadow).\n\nWhat was wrong in image 1, measured against the outlines:\n- The three booms (cells 1 to 3) are right and stay as they are, except their black end caps at the right tip: each cap stands out above and below the boom. Make the cap exactly as thick as the boom, flush with its top and bottom edges, so the boom is one even thickness end to end and exactly fills its thin outline.\n- The two drive housings (cells 4 and 5) were drawn about one and a half times too big, spilling past their outlines on every side. Draw each at two thirds of the size it has in image 1, so it exactly fills its small outline and nothing reaches past it; the dark opening stays in the middle of its right end.\n- The two relay cabinets (cells 6 and 7) were drawn about one and a half times too long and nearly twice too wide. Draw each at about two thirds of its length and half of its width in image 1, exactly filling its small outline, plinth rim included.\n- The two warning signals (cells 8 and 9) were drawn nearly twice too big, the backboard sticking out of the top and bottom of the outline, and seen from the side: the backboard and the lamp hoods show their side faces. Draw each strictly from straight above and at half the size, inside its small square outline: the concrete footing filling the outline, the round post top in the middle, and across it, running top to bottom, the backboard seen edge-on from above as a thin bar no wider than a fifth of the outline, the two lamp hoods on its right side as black half-rings in the two thin coloured squares, each with dark unlit red glass, no glow. Nothing reaches past the square outline.\n\nDraw nothing outside the outlines; the background stays flat pure magenta #FF00FF. No text, logos, symbols or numbers.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "f299315d3b2b4a8d",
+   "ext": "png",
+   "frame": "railway_gear_a-v1",
+   "was": ".tmp/gen/frames/railway_gear_a-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "4837583baf6c0773",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/railway_gear_a.png"
+  }
+ ]
+}

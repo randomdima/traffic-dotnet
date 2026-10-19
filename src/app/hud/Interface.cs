@@ -36,6 +36,12 @@ internal readonly ref struct InterfaceFrame
     public required Vector2 PointerPx { get; init; }
 
     /// <summary>
+    /// The body the engine's own table found under the pointer on the last frame that asked (<see cref="Debug.EngineLayers"/>),
+    /// or none — what the inspector finds a body by, whatever it is.
+    /// </summary>
+    public Debug.EngineLayers.Picks Picked { get; init; }
+
+    /// <summary>
     /// The box a drag is laying over the town this frame, or an empty one (CTL-1b). It is the input
     /// layer's gesture and the interface only draws it, which is what keeps picking in one slice (CTL-6).
     /// </summary>
@@ -481,7 +487,7 @@ internal sealed class Interface(TrimFigures trims)
             Overlay.Draw(
                 ref draw, ref ground, ref groundAbove, world, frame.Ground, frame.Config, Switches, Pick,
                 frame.Camera.WorldAt(pointerPx, frame.UiPx), pointerPx, frame.UiPx, frame.Camera.CentreM,
-                frame.Camera.CullSpanM(frame.UiPx), frame.Camera.PixelsPerMetre);
+                frame.Camera.CullSpanM(frame.UiPx), frame.Camera.PixelsPerMetre, frame.Picked);
 
             underWritten = ground.Written;
             aboveWritten = groundAbove.Written;

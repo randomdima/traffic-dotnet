@@ -86,7 +86,10 @@ internal struct WagonView
     public Vector2 PositionM;
     public float HeadingRad;
 
-    /// <summary>The look it was put down in, in the low half (<see cref="ControlAction.Place"/>), and <see cref="InWorld"/>.</summary>
+    /// <summary>
+    /// The look it was put down in, in the low half (<see cref="ControlAction.Place"/>), <see cref="InWorld"/>, and the
+    /// collision channels it is on in the top byte (<see cref="Channels"/>).
+    /// </summary>
     public uint Flags;
 
     public Vector2 VelocityMps;
@@ -99,6 +102,16 @@ internal struct WagonView
     public readonly bool IsInWorld => (Flags & InWorld) != 0;
 
     public readonly int Look => (int)(Flags & 0xFFFF);
+
+    public const int ChannelsShift = 24;
+
+    /// <summary>The collision channels it is on, which say its level: a bridge's where any of it is over one (RAIL-8).</summary>
+    public readonly byte Channels => (byte)(Flags >> ChannelsShift);
+
+    public readonly bool OnABridge => Channels == CityGen.CityPlan.RailArrays.BridgeChannel;
+
+    public static uint FlagsOf(int look, bool inWorld, byte channels) =>
+        (uint)look | (inWorld ? InWorld : 0u) | ((uint)channels << ChannelsShift);
 }
 
 /// <summary>Where one body's covers are in its kind's list (<see cref="WorldView.CarCovers"/>), and how many.</summary>

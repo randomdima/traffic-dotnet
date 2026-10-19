@@ -176,17 +176,23 @@ void takeAnEvent(WorldSignal s)
 
     if (action == SignalTow)
     {
-        // p01.x: the tractor's car index, or −1. Coupled, both bodies are thawed, as a link made wakes both
-        // (PhysicsWorld.Link); the link itself the host lays for the solve (DeviceWorld.Couple).
-        int tractor = floatBitsToInt(s.p01.x);
-        cars[car].tractor = tractor;
-        cars[car].flags = (cars[car].flags & ~CarByTheTail) | ((flags & TowByTheTail) != 0u ? CarByTheTail : 0u);
-        if (tractor >= 0)
-        {
-            thaw(body, car);
-            thaw(cars[tractor].body, tractor);
-        }
+        // The signal is the tractor's. p01.x: what its arm now holds (DeviceWorld.TowingCode), p01.y: where along it the
+        // fork is, p23.x: the load's body, or −1. Whatever the arm held is let go of first, a car's end it held set
+        // down. Coupled, both bodies are thawed, as a link made wakes both (PhysicsWorld.Link); the link itself the
+        // host lays for the solve (DeviceWorld.Tow).
+        int was = cars[car].towing;
+        if (was >= 0) cars[was].flags &= ~((cars[car].flags & CarTowsByTheTail) != 0u ? CarHeldAtTheTail : CarHeldAtTheNose);
 
+        int towing = floatBitsToInt(s.p01.x);
+        bool byTheTail = (flags & TowByTheTail) != 0u;
+        cars[car].towing = towing;
+        cars[car].forkAlongM = s.p01.y;
+        cars[car].flags = (cars[car].flags & ~CarTowsByTheTail) | (byTheTail ? CarTowsByTheTail : 0u);
+        if (towing == -1) return;
+
+        thaw(body, car);
+        thaw(floatBitsToInt(s.p23.x), towing >= 0 ? towing : -1);
+        if (towing >= 0) cars[towing].flags |= byTheTail ? CarHeldAtTheTail : CarHeldAtTheNose;
         return;
     }
 

@@ -68,6 +68,9 @@ internal sealed partial class PhysicsWorld
     /// <summary>Every link held, in the order a step solves them.</summary>
     public ReadOnlySpan<LinkRow> Links => _links.Live;
 
+    /// <summary>How many links the world has room for: every slot, held or not.</summary>
+    public int LinkSlotCount => _links.Slots;
+
     /// <summary>Every linked body's rest counted afresh (SOL-38): a linked pair never comes to rest, and so never freezes apart.</summary>
     void RestTheLinkedAfresh()
     {

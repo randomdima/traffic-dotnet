@@ -203,6 +203,9 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// </summary>
     IMovingEmit? _emit;
 
+    /// <summary>What draws the engine's own tables inside each frame (<see cref="DrawTheEngineFrom"/>), or none.</summary>
+    IEngineDraw? _engine;
+
     /// <summary>
     /// <b>The ground's ring of marks as this image's frame copied it</b>, and its words — the host's ring, of which a frame
     /// writes only the marks laid since this image last drew (<see cref="_marksCopied"/>) — or none of them read, where
@@ -471,8 +474,25 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         for (var image = 0; image < _commands.Length; image++) Record(image);
     }
 
+    /// <summary>
+    /// <b>The engine's own tables drawn on the device inside each frame</b> (<see cref="IEngineDraw"/>): its kernels recorded
+    /// into every image's command buffer ahead of the pass, its ground run over the town's own ground marks, its run above
+    /// over the level above's, and its run over the bodies under the interface — or none of it, for <c>null</c>. Every image's
+    /// frame is written down again once the device has let go of them.
+    /// </summary>
+    public void DrawTheEngineFrom(IEngineDraw? engine)
+    {
+        Vk.Count();
+        _vk.Api.DeviceWaitIdle(_vk.Device);
+        _engine = engine;
+        for (var image = 0; image < _commands.Length; image++) Record(image);
+    }
+
     /// <summary>The swapchain image the frame being filled is drawn into, for a writer of memory that image's recording reads.</summary>
     public int ImageIndex => (int)_image;
+
+    /// <summary>How many images the target holds, each with a recording of its own: every <see cref="ImageIndex"/> is below it.</summary>
+    public int ImageCount => _commands.Length;
 
     /// <summary>How much of each run is to be drawn. The only thing a frame changes about the sprite pass.</summary>
     /// <remarks><see cref="SpriteCounts.Under"/> is the page's: what lies under is drawn here from its own rows (<see cref="FillUnder"/>).</remarks>

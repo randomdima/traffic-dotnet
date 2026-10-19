@@ -18,7 +18,7 @@
 // reason: a town that gains five hundred walkers must change a number and not a recording.
 
 import * as opening from './loading.js'
-import { compute, kernelLimits, onLanded, useDevice } from './compute.js'
+import { compute, kernelBufferOf, kernelLimits, onLanded, useDevice } from './compute.js'
 
 const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6, standing: 7 };
 const TEXTURE = { pages: 0, glyphs: 1, surfaces: 2 };
@@ -314,6 +314,7 @@ function rebuild(indexCount, overOffset) {
     pass.setPipeline(state.pipelines.overlay);
     pass.setVertexBuffer(0, state.buffers[SLOT.underlay]);
     pass.drawIndirect(state.indirect, DRAW.underlay);
+    engineRuns(pass, [ENGINE.ground, ENGINE.above]);
 
     pass.setPipeline(state.pipelines.sprite);
     pass.setVertexBuffer(0, state.buffers[SLOT.sprites]);
@@ -325,16 +326,44 @@ function rebuild(indexCount, overOffset) {
 
     // The interface and everything that annotates a body, over all of it.
     pass.setPipeline(state.pipelines.overlay);
+    engineRuns(pass, [ENGINE.over]);
     pass.setVertexBuffer(0, state.buffers[SLOT.overlay]);
     pass.drawIndirect(state.indirect, DRAW.overlay);
 
     state.bundle = pass.finish();
 }
 
+// The engine layers' runs (src/app/debug/EngineLayers.cs), each drawn from where a kernel wrote it and as many as the draw
+// the kernel wrote says: the ground's, the level above's (which a page draws with the ground's, WEB-4), and the run over
+// the bodies. None where no layer of them has been turned on.
+const ENGINE = { ground: 0, above: 1, over: 2 };
+const ENGINE_DRAW_BYTES = 16;
+
+function engineRuns(pass, runs) {
+    const engine = state.engine;
+    if (!engine) return;
+
+    const quads = kernelBufferOf(engine.quads);
+    const draws = kernelBufferOf(engine.draws);
+    if (!quads || !draws) return;
+
+    for (const run of runs) {
+        pass.setVertexBuffer(0, quads, run * engine.runBytes);
+        pass.drawIndirect(draws, run * ENGINE_DRAW_BYTES);
+    }
+}
+
+/// The engine layers' quads and draws, kernel buffers both, drawn from the next recording on — or none, for nought.
+function engine(quads, draws, runBytes) {
+    state.engine = quads > 0 ? { quads, draws, runBytes } : null;
+    if (state.bundle) rebuild(state.indexCount, state.overOffset);
+}
+
 /// Everything the device is holding for a town that is being taken down. The recording goes with it,
 /// so a frame between this and the next rebuild draws nothing rather than reading a destroyed buffer.
 function release() {
     state.bundle = null;
+    state.engine = null;
     for (const slot in state.buffers) state.buffers[slot].destroy();
     for (const slot in state.textures) state.textures[slot].destroy();
     state.buffers = {};
@@ -794,7 +823,7 @@ export { useHeap } from './compute.js'
 
 export const town = {
     ...compute,
-    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say,
+    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say, engine,
     progress: opening.progress, standUp: opening.standUp, standing: opening.standing, painted: opening.painted, prefetch, unpack, grab, grabHeld, park, take, picture, decode, texels,
     ticker: (step, between) => {
         onLanded(between);

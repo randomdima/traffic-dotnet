@@ -189,6 +189,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     readonly RescueDuty _duty;
     readonly PatrolDuty _beat;
     readonly RecoveryDuty _recovery;
+
+    /// <summary>Every tow: what each arm holds, and which tractor holds each end of each body (EVA-5).</summary>
+    readonly TowHitches _hitches;
     readonly ServiceBeat _serviceBeat;
 
     readonly SelectionSet _selected;
@@ -285,10 +288,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _manoeuvres = new Manoeuvres(drivers);
 
         _crossingHolds = CrossingHolds.Of(plan, _lines, _ways, _roads, config);
-        _crossingGear = CrossingGear.Of(plan, LevelCrossings.Of(plan, config), config);
+        _crossingGear = CrossingGear.Of(plan, LevelCrossings.Of(plan, config), _crossingHolds.Lights, config);
+        _barrierBlocks = new bool[_crossingGear.Count];
         _rails = laid.Rails;
         _trains = TrainsOf(plan, _rails, config, _agentSeed);
         _railSeen = new RailVehicleSeen[_trains.WagonCount];
+        _trainOrders = new TrainOrders(_trains.MostOrdersATick);
+        _trainManual = new bool[_trains.Count];
         _trainHold = LaneOccupancy.NoHolds(_trains.Count);
         _occupancy = new LaneOccupancy(_ways, marks, drivers + walkers + _signalHolds.Count + _crossingHolds.Count + _trains.Count);
         _ground = new DrivingGround(Cars, _occupancy, _ways, _roads, _lines, config);
@@ -362,6 +368,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _closedLanes = new bool[_roads.LaneCount];
         _closedLinks = new bool[_driving.Graph.LinkCount];
         _recovery = new RecoveryDuty(drivers);
+        _hitches = new TowHitches(drivers, _trains.WagonCount);
         _serviceBeat = new ServiceBeat(drivers);
         LayTheDistrictStreets();
         OpenWatch.Passed("town: fleets and places");
@@ -661,6 +668,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     /// <summary>Every way in the town and what kind of ground each is, for whoever holds a way number.</summary>
     public TownWays Ways => _ways;
+
+    /// <summary>The line every way is travelled on, its rails' among them — what the atlas was laid from.</summary>
+    public WayLines Lines => _lines;
 
     /// <summary>
     /// The ground of every way and which ways share it, for whoever measures or draws it — <b>only while the world is
@@ -1001,7 +1011,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
             // EVA-5: what is on a bar takes no decisions, the way a casualty on a stretcher takes none.
             // Its errand is still its own and it picks it up again where the arm puts it down.
-            if (_recovery.OnTheHookOf[car] >= 0) return;
+            if (_hitches.IsHeld(car)) return;
 
             // CTL-2: the player's order pins the goal the behaviour would otherwise have picked, and for a
             // vehicle with an errand the errand is that behaviour — so an ordered one runs the order in

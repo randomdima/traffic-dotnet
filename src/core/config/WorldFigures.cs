@@ -481,17 +481,32 @@ internal sealed class RailFigures
     /// <summary>Between two tracks' lines where a line is laid double.</summary>
     public float TrackSpacingM { get; init; } = 4.1f;
 
-    /// <summary>The tightest a generated track is bent (RAIL-2).</summary>
-    public float LeastRadiusM { get; init; } = 600f;
+    /// <summary>
+    /// The tightest a generated track is bent (RAIL-2): as tight as two coupled coaches stand clear of each other round
+    /// (<c>RollingStockTests</c>), so a loop of it (RAIL-11) is short enough for a train to pass over itself.
+    /// </summary>
+    public float LeastRadiusM { get; init; } = 55f;
+
+    /// <summary>How high a rail bridge's rails stand over the rails it crosses (RAIL-11): a train's height and the deck's depth.</summary>
+    public float BridgeClearanceM { get; init; } = 6.5f;
+
+    /// <summary>
+    /// The steepest a train is laid to climb (RAIL-11), rise over run: three times a main line's ruling grade, so a bridge
+    /// reads as one at the town's scale rather than as a viaduct round its loop.
+    /// </summary>
+    public float GradeMostShare { get; init; } = 0.06f;
+
+    /// <summary>How far a rail bridge's deck stands out past its ballast either side (RAIL-8): its parapets.</summary>
+    public float BridgeDeckOverhangM { get; init; } = 0.6f;
 
     /// <summary>How far off its curve any chord of a generated track may stand: what says how finely it is laid.</summary>
     public float ChordToleranceM { get; init; } = 0.01f;
 
     /// <summary>
-    /// How far past the map's edge a generated track runs on (TRN-1): the run-in a train is put down on, a warning's run
+    /// How far past the map's edge a generated track runs on (TRN-7): the run-in a train is put down on, a warning's run
     /// short of the map with its whole length behind that (RAIL-1, <c>RollingStockTests</c>).
     /// </summary>
-    public float RunOffM { get; init; } = 600f;
+    public float RunOffM { get; init; } = 950f;
 
     /// <summary>How far a junction's own disc stands clear of the ballast's edge at the least (RAIL-5).</summary>
     public float JunctionClearanceM { get; init; } = 12f;
@@ -508,30 +523,40 @@ internal sealed class RailFigures
     /// <summary>How far short of a switch on its leg a train's driver sets it (TRN-9).</summary>
     public float SwitchSetAheadM { get; init; } = 100f;
 
-    /// <summary>How long a barrier takes to come down once its crossing has closed, and to go up once it opens (RAIL-7).</summary>
+    /// <summary>How long a barrier takes to come down across its lanes, and to go back up (RAIL-7).</summary>
     public float BarrierS { get; init; } = 5f;
+
+    /// <summary>
+    /// How long a crossing's lamps flash before its barriers start down (RAIL-7): a car too near to stop when it closed is
+    /// over the barrier's line by then, rather than met by its arm (RAIL-6).
+    /// </summary>
+    public float BarrierDelayS { get; init; } = 4f;
 
     /// <summary>How long after its last wagon has cleared a crossing it opens.</summary>
     public float ClearS { get; init; } = 1.5f;
 
-    /// <summary>How far short of the ballast's edge, along a road, a level crossing's stop line stands.</summary>
+    /// <summary>
+    /// <b>How near, along its road, any of a barrier's line comes to a rail</b> (RAIL-7), the walk's included — and how near
+    /// along a walk its walkers wait: this much square across, more at the road's middle where it crosses at a slant.
+    /// </summary>
+    public float BarrierRailClearanceM { get; init; } = 2f;
+
+    /// <summary>How far short of its barrier's line, along a lane, a level crossing's stop bar stands.</summary>
     public float StopLineSetbackM { get; init; } = 3f;
 
-    /// <summary>The flashing pair's period: one lamp lit for half of it, the other for the other half (RAIL-7).</summary>
+    /// <summary>The X light's flash: lit for half of it, dark for the other half (RAIL-7).</summary>
     public float FlashS { get; init; } = 1f;
 
-    /// <summary>How wide a barrier's arm is, and how far past the kerb onto the walk its pivot and its lamps stand.</summary>
+    /// <summary>
+    /// How wide a barrier's arm is — its body's, which its picture is held to (<c>RailLooks</c>) — and how far past the
+    /// kerb onto the walk the middle of its drive's housing stands.
+    /// </summary>
     public float BarrierWidthM { get; init; } = 0.3f;
 
     public float GearPastKerbM { get; init; } = 0.8f;
 
-    /// <summary>A crossing head's box, square, and how far apart its two lamps stand across it.</summary>
-    public float HeadSizeM { get; init; } = 0.9f;
-
-    public float LampsApartM { get; init; } = 0.55f;
-
-    /// <summary>How wide a lit lamp's glow is drawn.</summary>
-    public float LampGlowM { get; init; } = 1.1f;
+    /// <summary>How far up from lying across the road a raised arm stands.</summary>
+    public float BarrierRaisedDeg { get; init; } = 90f;
 }
 
 /// <summary>What each surface does to a tyre standing on it, and how readily it takes a mark.</summary>

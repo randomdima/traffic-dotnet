@@ -99,7 +99,9 @@ dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet ID,ID,... -
 - **`cut` fits the drawing to the shape**: the model lands a body a few pixels off its outline, so each
   cell's drawn extent (a car's width as the median of its flanks, which a mirror does not move) is shifted
   and scaled onto the authored shape before it is keyed, and the fit is printed and kept in the cut. A
-  drawing more than 8 % off in either axis is not fitted and fails its cell: ask for it again.
+  drawing more than 8 % off in either axis is not fitted and fails its cell: ask for it again. The owner's
+  allowances are `FIT_ROWS_MAX` (15 %, a train's rows) and `FIT_GEAR_MAX` (16 %, a level crossing's gear); an
+  asset ten times longer than wide is read across by its long edges' median, as a car by its flanks.
 - **Every switchable part is drawn, off** (rule 7 of raw_assets/index.md): lamps, beacons, whatever the game
   lights has the area it is drawn in framed on the template at its authored place, in its colour — the area,
   never the shape, which is the art's — and the cell lines `template` prints name each one (`off: 2x rear

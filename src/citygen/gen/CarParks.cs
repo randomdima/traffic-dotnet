@@ -268,7 +268,7 @@ internal static class CarParks
                 var leadM = config.CityGen.ConnectionStandoffM;
                 var nearM = fromM - (outward * leadM);
                 var farM = bayLine.EndM + (outward * leadM);
-                if (!layout.Dry(farM) || !layout.StandsClear(farM) || !layout.StandsClear(nearM)) return null;
+                if (!layout.Dry(nearM) || !layout.Dry(farM) || !layout.StandsClear(farM) || !layout.StandsClear(nearM)) return null;
 
                 var node = firstNode + (taken * 2);
                 var edge = new LayoutEdge(node, node + 1, RoadClass.CarPark, 0f, RoadFlow.BothWays, []);

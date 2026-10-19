@@ -673,6 +673,15 @@ internal sealed class DeviceSolver : IDisposable
     /// </summary>
     public (GpuBuffer Shape, GpuBuffer Bounds, GpuBuffer MotionIntoTick) Rows => (_shape, _bounds, _motionIntoTick);
 
+    /// <summary>The links the next step solves, in the order it solves them (<see cref="LinkGpuRow"/>), and how many are live.</summary>
+    public (GpuBuffer Rows, int Count) Links => (_links, _linkCount);
+
+    /// <summary>How many rows the table holds, the furniture's first.</summary>
+    public int BodyCount => _bodies;
+
+    /// <summary>The first row a step writes: every row before it is the furniture's, laid once.</summary>
+    public int FirstMoving => _firstMoving;
+
     /// <summary>
     /// <b>One step of the table the CPU is about to step</b>: its moving rows sent, the step run, and — where asked — the
     /// answer and the contacts read back. One submit and one wait.
@@ -1005,27 +1014,15 @@ internal sealed class DeviceSolver : IDisposable
         var filter = _filterIn.Span<uint>();
         for (var body = from; body < from + rows; body++)
         {
-            pose[body] = new Vector4(table.PositionM[body], table.Rotation[body].X, table.Rotation[body].Y);
+            pose[body] = BodyRows.Pose(table, body);
             heading[body] = table.HeadingRad[body];
-            motion[body] = new Vector4(table.VelocityMps[body], table.YawRateRadPerS[body], 0f);
+            motion[body] = BodyRows.Motion(table, body);
             mass[body] = new Vector2(table.InverseMass[body], table.InverseInertia[body]);
-            shape[body] = new Vector4(table.ExtentM[body], table.CornerRadiusM[body], table.ReachM[body]);
+            shape[body] = BodyRows.Shape(table, body);
             bounds[body] = new Vector4(table.LeastM[body], table.MostM[body].X, table.MostM[body].Y);
-            filter[body] = FilterOf(table, body);
+            filter[body] = BodyRows.Filter(table, body);
         }
     }
-
-    /// <summary>
-    /// A body's filter in the one word the kernels read it in (<c>kernels/filter.glsl</c>): its flags, then its category,
-    /// its mask and its channels, a byte each.
-    /// </summary>
-    static uint FilterOf(in BodyTable table, int body) =>
-        (uint)table.Flags[body] | (LayerByte(table.Category[body]) << 8) | (LayerByte(table.Mask[body]) << 16)
-        | ((uint)table.Channels[body] << 24);
-
-    /// <summary>A layer mask in the byte the kernels read it in: every layer this town has is in its low bits.</summary>
-    public static uint LayerByte(ulong mask) =>
-        mask >> 8 == 0 ? (uint)mask : throw new InvalidOperationException("A collision layer past the 8th is not laid on the device.");
 
     (GpuBuffer From, GpuBuffer To)[] Uploads() =>
     [

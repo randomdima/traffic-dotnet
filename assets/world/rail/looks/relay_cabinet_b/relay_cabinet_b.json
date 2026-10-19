@@ -1,0 +1,9 @@
+{
+  "id": "relay_cabinet_b",
+  "kind": "Cabinet",
+  "describe": "a lineside railway relay cabinet seen from straight above, top-down only: a pale grey steel box roof with a sloped lid and a dark rubber seal round its edge, a yellow warning label corner, standing on a narrow concrete plinth that shows as a pale rim",
+  "footprintM": [
+    1.2,
+    0.7
+  ]
+}

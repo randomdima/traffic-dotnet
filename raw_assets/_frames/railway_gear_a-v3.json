@@ -1,0 +1,31 @@
+{
+ "id": "railway_gear_a-v3",
+ "ts": "2026-10-19T17:12:32",
+ "op": "edit",
+ "name": "railway_gear_a",
+ "file": ".tmp/gen/frames/railway_gear_a-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031891,
+ "prompt": "Two images are attached. Image 1 is a finished sheet of 9 pieces of level-crossing equipment for a top-down 2D city game; image 2 is its layout: the outline each piece must fill exactly, on flat magenta, all at one scale. Redraw every piece of image 1 inside its outline in image 2, keeping each piece's look, colours and detail from image 1: chunky pixel art with crisp hard-edged pixels, flat colour with one highlight and one shadow tone, a dark outline about 2 pixels thick, strictly top-down (camera straight overhead, orthographic plan view, no side faces, no perspective, no tilt, no shadow).\n\nWhat is still wrong in image 1, measured against the outlines in image 2. Every piece of the lower two rows is still drawn too big; each must shrink until its edges lie exactly on its outline's edges:\n- The three booms (cells 1 to 3) stay exactly as they are.\n- The yellow drive housing (cell 4) is about 15% too long: keep its height, make it 15% shorter from left to right.\n- The grey drive housing (cell 5) is about 25% too long and 15% too tall: shrink it to fit its outline.\n- The grey-green relay cabinet (cell 6) is about 15% too long and 12% too tall; the pale cabinet (cell 7) about 12% too long and 25% too tall. Shrink each to fit its outline, plinth rim included.\n- The two warning signals (cells 8 and 9) are about 30% too big each way, and their striped backboard sticks out past the top and bottom of the square outline. Shrink each so the whole signal lies inside its square: the concrete footing exactly filling the square, the round post top on its left half, the backboard a narrow upright bar on its right half ending well inside the square's top and bottom edges, and the two lamp hoods on it at the two thin coloured squares, each with dark unlit red glass, no glow. Seen straight from above: no side face of the backboard or the hoods.\n\nDraw nothing outside the outlines; the background stays flat pure magenta #FF00FF. No text, logos, symbols or numbers.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "2f94bed779ea9d24",
+   "ext": "png",
+   "frame": "railway_gear_a-v2",
+   "was": ".tmp/gen/frames/railway_gear_a-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "4837583baf6c0773",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/railway_gear_a.png"
+  }
+ ]
+}

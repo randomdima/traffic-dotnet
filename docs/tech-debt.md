@@ -8,6 +8,13 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Failing tests
 
+- **`WayIntentsTests.EveryHolderUnderWayStatesWhereItGoes`** (town) fails: "Walking 29 is under way and states nothing"
+  (2026-10-19). Not the railway loop's: it fails as well with the suite's line laid straight, the old train and rail
+  figures and the ballast answered over the walk. Not traced; which of `WalkingGround.StateIntents`' two pieces comes
+  back empty for walker 29, and why, closes it.
+- **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
+  the leg it had before the hand" (2026-10-19, the hand's change in hand). Closed by that change.
+
 - **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) is skipped, failing: the worst bar's gap is 0.0426 m off the setback
   against `FramesM`, a 0.04 m bound measured on the fixture. It fails on 5a973d8, 2b8936c7 and 9f5c05af (2026-09-30)
   alike, so the fixture outgrew the measurement before the claims redesign. Finding which bar and whether its arm's
@@ -38,8 +45,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   - 67 (a left turn on green gives way to the oncoming right turn): driver 1 never gets where it was sent. It failed
     before the redesign too, and nothing has looked at why.
 - **`ShippedCityTests.NothingIsLaidOnItsWater(OdesaOsm)`** (maps) fails: spawn 23825 stands at (1258.7, 12635.0) on
-  ground permitted to nobody. It fails on 2746772d, the tree before the trains work (2026-10-19), so it came with the
-  uncommitted map work before it. Tracing which ground that is — water, ballast or a lot — and keeping the spawn off
+  ground permitted to nobody — spawn 9534 at (1276.9, 12596.7) since the offset stopped folding at shallow corners
+  (2026-10-19), the same ground re-laid. It fails on 2746772d, the tree before the trains work (2026-10-19), so it came
+  with the uncommitted map work before it. Tracing which ground that is — water, ballast or a lot — and keeping the spawn off
   it closes it.
 - **Sixteen town tests are skipped** for the decisions no claim can make any more: all fourteen of
   `OvertakeInATownTests` (CAR-46, CAR-50, PER-28) and two of `LaneSwitchInATownTests` (getting past a wreck and slower
@@ -56,6 +64,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   on lavapipe, which the suite runs. The device tier pointed at the RX 9070 XT by hand closes it.
 
 ## Regressions and figures not taken
+
+- **The `debug-collision` scenario frames bare grass** (`tests/e2e/scenarios/InterfaceScenarios.cs`, `Test` at 270, 60):
+  its subject is "a lit T junction at close range", and the frame holds scenery and no body at all, so the picture says
+  nothing about collision shapes — on the tree before the engine layers as after (2026-10-19). Framing it on the
+  junction the `Test` map now lays closes it.
 
 - **A parallel park's tail swings over the kerb and its ground does not cover the pavement** (`BayManoeuvre.ParallelIn`,
   2026-10-17): backed in with the nose turned out, the rear corner stands ~0.25 m past the roadside's kerb edge, and the
@@ -154,6 +167,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     page stood every town with no step (2026-10-15). Nothing after the deploy asks whether a kernel parsed:
     pinning the same shaderc in the workflow, and a `qq web --url` of the deployed page that fails on a WebGPU error,
     close it;
+  - **nor does the local build or `qq web`**: `rail_track.glsl` wrote infinity as `uintBitsToFloat(0x7f800000u)`, naga
+    folded it to a literal the browser refuses, and every page stood with `world_rail.comp` invalid and no world step
+    until 2026-10-19 — found by reading a shot's log, not by anything failing. Parsing every emitted `.wgsl` back
+    through naga in the web build, and `qq web` exiting non-zero on a WebGPU error, close it;
   - **nothing asks whether the device can hold the town's tables**: a buffer past the adapter's
     `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
     promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.
@@ -184,8 +201,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     headers GitHub Pages cannot send;
   - **the page lays another town than the desktop** (WEB-1; OdesaOsm, 2026-10-16): at the port pier OBS-1b opens on
     (5094,12760, `--view 300`) the zones' undrawn prefabs stand elsewhere and at other sizes — one 40 m square on the
-    desktop is three rounded blocks along the road on the page — the coast's edge is drawn otherwise, and a taxi stands
-    at tick 0 where the desktop has none; desktop Debug and Release agree. Not traced; the likeliest cause is the
+    desktop is three rounded blocks along the road on the page — and a taxi stands at tick 0 where the desktop has none; desktop Debug and Release agree. Not traced; the likeliest cause is the
     citygen's `MathF` (core log, 2026-10-15) — glibc on the desktop, emscripten's libm on the page, which may part by a
     float — and `ZoneBuildings` weighs its prefabs by `MathF.Exp`/`Log` and turns them by `Atan2`/`Cos`. A plan digest
     each head prints after each stage of the lay, finding the first that parts, closes the tracing; the fix is that
@@ -431,16 +447,29 @@ applied is in the log, and each of these was judged not worth its cost, or not p
 Measured by the review of 2026-10-16 with every layer on (`Test`, `Laid`): nothing allocates, and a still frame is
 kept, but a moving one lays its layers again.
 
-- **A quad is turned by an angle**: `ScreenDraw.Bar`/`BandM` take an `atan2` a quad, most of the nodes layer's 0.1–1.3 ms
-  relay, the perimeter's up to 1.5 ms, the shell's 0.5–0.8 ms and the wireframe's 0.2–0.6 ms. A quad carrying its
-  direction rather than its angle, through its layout and the overlay shader, closes it.
+- **A quad is turned by an angle**: `ScreenDraw.Bar`/`BandM` take an `atan2` a quad, the perimeter's relay up to
+  1.5 ms, the shell's 0.5–0.8 ms and the wireframe's 0.2–0.6 ms. A quad carrying its direction rather than its angle,
+  through its layout and the overlay shader, closes it. The figures predate the ways moving to the engine layers and
+  were not taken again.
 - **The zones wash asks the zone tree a point at a time**, ~5 000 `ZoneTree.At` a moving frame, 0.5–0.9 ms; a grid of
   zone kinds laid once a town closes it.
-- **The claims layer samples each claim's ends before culling it** (two `Spline.SampleAt`, ~50 µs at 12–60 cars and
-  growing with the town); culling per way off `ChainBoxes` first closes it.
 - **`SelectionPath.CarPath` draws the whole route left**, unculled by the view.
-- **The zones and collision layers keep a framing only while it is exact**, so a camera following a unit lays them
-  every frame; a kept framing a margin wider than the view closes it.
+- **The zones layer keeps a framing only while it is exact**, so a camera following a unit lays it every frame; a
+  kept framing a margin wider than the view closes it.
+
+### The engine layers (2026-10-19)
+
+- **Not run in a browser**: the page's half (`town.js` `engine`, `Game.Web.cs` `RunTheEngine`) builds and its kernels
+  translate to WGSL, but no page has drawn them. A page stepping the managed world sends every host-written slot buffer
+  whole ahead of each batch — the body rows of the whole table a frame; sending the moving rows alone closes it.
+- **Figures not taken**: what the ways table costs the device on a traced city (an arc a row, 32 B, laid the first
+  time a layer of them is on — OdesaOsm holds 1.1 million ways), and what a frame of the kernels costs at a district
+  framing. `qq prof --gpu` with every engine layer on takes both.
+- **The kernels append from many threads**, so translucent quads that overlap — two claims over one stretch — blend in
+  an order that can change from frame to frame and shimmer by a shade. Count, scan and write in table order, as
+  `DeviceSprites` does, closes it.
+- **The solver-grid layer still reads the managed solver's own grids**, so on a world stepped on the device it draws
+  nothing and the inspector finds no solver cell. Drawing it off the device's grid buffers closes it.
 
 ### Code kept twice, or kept for nothing
 
@@ -489,17 +518,58 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 
 ## Inconsistencies
 
-- **Two readings of where a way meets a track** (2026-10-18): `LevelCrossings` crosses each road's centreline with the
-  tracks for what is drawn — the stop lines and the gear — and `CrossingHolds` crosses every way's own line with
-  them for what is held. They agree on which roads cross; where a lane's hold begins is its own ballast edge less the
-  setback, measured along the lane, and where the drawn stop line stands is the road centreline's, so on a skewed or
-  curving crossing the two part by a fraction of a metre. Drawing the stop lines off the holds' lane stretches closes it.
-- **A level crossing's gear is still laid in code** _owner_ (2026-10-19): the barrier arm and the head are
-  `CrossingSprites.Barrier` and `.Head`, flat bands and a box. `railway_a` drew all five pieces of gear 1.5 to 3 times
-  their outlines over three attempts (`raw_assets/world/rail/prompting.md`), so their files under
-  `assets/world/rail/looks/` (`barrier_arm`, `barrier_arm_b`, `crossing_head`, `barrier_drive`, `relay_cabinet`) have no
-  picture and nothing reads them. Another sheet — the gear alone, at its own scale — is the owner's to spend on; the drive
-  and the cabinet would then want placing at each crossing.
+- **The ground answers the ballast over the decks, the water and the shore** (2026-10-19, `GroundShapes.At`, RAIL-3,
+  TER-7): the mesh lays the track at grade under all of them and a bridged track over everything, and the answer is
+  meant to be that order walked back. Only the walk is asked first now. One ring set (`RailArrays.Ballast`) holds both
+  levels — each run of one level its own ring since the loop (RAIL-11), but not told apart — so neither placing is right
+  for both; no agent is moved by it today, since water is permitted to nobody either, but a track along a shore is
+  ballast in the answer and pavement in the picture, and the ground under a rail bridge's climb round a loop is ballast
+  to a road crossing under it. The ballast filed by level, each asked at its place in the order, closes it — a change to
+  what the wheel reads while it lays streets (`WaterRules.Crosses`), so every generated map is laid again by it.
+- **A pavement running along a traced track is pavement over its ballast** (2026-10-19, `GroundShapes.At`, RAIL-4):
+  the walk is asked before the ballast so a walk crossing a track is laid over it (RAIL-3), which also makes walkable a
+  traced walk that runs beside the track inside its band. `--bench trains --map OdesaOsm` met 28 walkers in 300 s where
+  it met 2 (the train log, 2026-10-18), with its rails laid again for the 900 m run-off and its freight trains 35 to 40
+  long; which of the three moved it is not traced, and OdesaOsm is set aside for now (_owner_). The walk over the ballast
+  only where a crossing's stretch holds it, or the met walkers traced to another cause, closes it.
+- **The fixture's track meets no road** (2026-10-19, `towns/briefs/Test.json`): where its loop keeps the staging the unit
+  tests guard, its line crosses no street, so the fixture runs trains but no level crossing (0 crossing stretches). The
+  suite stages its crossings on briefs of its own (`Towns.Brief(railTracks: …)`), so nothing is unasked; a placement that
+  keeps the staging and crosses a street closes it.
+- **A bogie stands 83 mm off its line on the fixture** (2026-10-19, `--bench trains --map Test`), against 8 mm on Odesa
+  and 5 mm on the fixture before its loop — a reading, never a gate. Where and at what speed is not traced.
+- **The solver's contact arrays grow until the fixture's second minute** (2026-10-19, `Towns.SettleTicks`): 40 KB on
+  the world's thread at 68 s, with a 19-vehicle train out over the loop, so the allocation gate warms the fixture for
+  two minutes. The arrays start empty and double (`PhysicsWorld.RoomForContact`); laid for the town's bodies — its
+  wagons' couplings among them — they would not grow, and the warm-up could come back to a minute.
+- **O10 holds twenty times Odesa's people, not ten** (2026-10-19, `towns/briefs/O10.json`): 12 000 against Odesa's 600,
+  where its description and O30's 18 000 say its density. 6 000, authored again, closes it — after which O10's figures
+  in the root log are of the old town.
+- **A crossing's cabinet, signs and spare lights are drawn nowhere** (2026-10-19): `relay_cabinet`, `crossing_cross_b`,
+  `crossing_countdown` and `crossing_countdown_b` have kept variants and no sprite; `relay_cabinet_b`, `crossing_cross`,
+  `crossing_warning` and `crossing_warning_b` have none (`railway_gear_a`, `railway_signs_a` drew them past `cut`'s fit).
+  The upright heads `crossing_head`, `_b` and `_c`, and the X lights `crossing_light_b` to `_e` with their lit twins, are
+  installed and unlisted since the X light replaced the head. Placing a cabinet at each crossing and its signs on its
+  approaches, or deleting what no crossing will wear, closes it.
+- **A car meeting a crossing's arm allocates** (2026-10-19, `RAIL-10`): with arms that met cars inside its window,
+  `AWholeTickWithATrainCrossingTheTownAllocatesNothing` read some 40 KB over 600 ticks, and none with the arms on a layer
+  meeting nothing; it passes because no car meets an arm since lanes stay held until the arm is all the way up. Where
+  the contact path grows is not traced. A gate that stages a car against an arm, and the growth pooled, closes it.
+- **The arms on the device are not compared with the managed world's** (2026-10-19): `TrainsRunOnTheDeviceAsInTheManagedWorld`
+  lays no cars, so nothing checks an arm stops a car on the device; both take the same `Place` and `Contain` and the
+  same solver, and the device tier passes. A device case with a car driven at a closed arm closes it.
+- **An arm starting down shoves a car standing under it** (2026-10-19): its body is the whole arm lying down from the
+  moment it starts down, it has no weight to stop with, and no crossing holds it while something stands in its way. None
+  was met over five minutes of Odesa (`--bench trains`); a queue backed over its line from beyond the crossing would be.
+- **A train backing throws no switch** (2026-10-19, `TRN-11`): `Trains.ThrowTheSwitchAhead` reads only the next switch
+  faced ahead of the front going on, so A/D while backing do nothing and a backing train retraces its leg. A throw at the
+  next switch faced behind the tail, re-routing the leg's start from it, closes it.
+- **A train backed to the end of a short run-in is taken out in sight** (2026-10-19, `TRN-7`): it is taken out once its
+  tail reaches the track's loose end, and where a run-in is shorter than the train its front is still on the map then.
+  None of the generated maps' run-ins are (`RailFigures`'s run-on is a whole train past a warning); a traced map's may be.
+- **The unit panel's train and wagon rows, the train's path and its brackets have no test** (2026-10-19, `CTL-1`,
+  `CTL-1a`): `UnitReadoutTests`, `SelectionPathTests` and `SelectionMarkTests` stage cars and walkers only. A case each on
+  a town with a railway closes it.
 - **`coal_gondola` has no picture and is out of the rolling stock** _owner_ (2026-10-19): `trains_b` drew it tilted twice
   and swapped it for a tank on the third (`raw_assets/agents/train/prompting.md`); a coal train wears two looks, not three.
   It returns to `Rolling.json` with a kept picture.
@@ -639,6 +709,24 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **Two tests of "on its line"**: `Reacquire` takes a lane within `CarOffPathM × OffLineTolerance`, `ReadTheLine` keeps
   a line within `OffTheLineAllowanceM`, which is wider for a tow — so a tow can be refused a lane its line check
   would keep it on. One threshold closes it; it moves tows.
+- **`--bench recovery` hitches no staged wreck on any map** (2026-10-19): raised on O10, O30, Odesa and River, and no
+  evacuator reaches it in 400 s — "nearest m" is blank, so none is even sent. It reads the same on 68d66060, before the
+  tow took any body, so it is older than that change. Tracing why `TakeAWreck` takes nothing the probe stages closes it.
+- **A chain's allowance off its line is a pair's** (`TownWorld.OffTheLineAllowanceM`, EVA-5, 2026-10-19): any vehicle
+  with something on its arm is given `TowedLineAllowance`, however long the chain behind it, so a truck pulling a towing
+  truck swings wider than the figure was measured for and is called off its line sooner. Measuring what a chain of
+  three swings and scaling the allowance by the chain closes it.
+- **A body held at both ends is laid under the arm at its nose alone** (`TowHitches.Hauler`, `TownWorld.LaidAs`,
+  2026-10-19): the truck at its tail claims its own ground, and can be refused ground its own load stands on. Laying the
+  body under both trucks closes it.
+- **A truck on a rail vehicle's arm is dragged where the train goes and nothing claims for it** (EVA-5, RAIL-9,
+  2026-10-19): the train's claim covers its rail lanes and its crossings close ahead of its front, but the truck behind
+  its tail is a car the claims never see — on the track and through a crossing whose arms have risen. The train's claim
+  reaching over what it drags closes it.
+- **A recovery hauls whatever is on the bar** (`TowHitches.CarOnTheBar`, `TownWorld.HaulToTheYard`, 2026-10-19): the
+  errand works the arm only on its wreck, but a hand working an evacuator's arm mid-recovery leaves it hauling what the
+  hand caught — a car not its wreck to the yard, or a rail vehicle home behind it. The haul checking that the load is
+  its wreck, and giving the recovery up where it is not, closes it.
 - **`IsUnderWay` checks `OffLineM` against the allowance again** after `ReadTheLine` has already sent any car past it
   into `Rejoin` (SIM-7). Confirm the order of decide, tick and `Switching.SteppedOut` before dropping it.
 - **On the device, a car's wheel, lamps and wreck are drawn as last signalled and its place as the view shows it**

@@ -82,7 +82,7 @@ internal sealed partial class DebugOverlay
 
     void Pointer(
         ref ScreenDraw draw, TownWorld world, SimConfig config, DebugSwitches switches, DebugPick pick,
-        Vector2 pointerM, Vector2 pointerPx, Vector2 uiPx, float pixelsPerMetre)
+        in EngineLayers.Picks picked, Vector2 pointerM, Vector2 pointerPx, Vector2 uiPx, float pixelsPerMetre)
     {
         var asked = pick.TakeAsked(out var askedM);
         if (!switches.AnyOn)
@@ -94,13 +94,14 @@ internal sealed partial class DebugOverlay
         var paving = world.Plan.Paving(config);
         Room(paving);
 
-        if (asked) pick.Pin(Under(world, paving, config, switches, askedM, pixelsPerMetre));
-        if (!Findable(world, switches, pick.Pinned)) pick.Pin(DebugTarget.None);
+        // A click is answered off the body the table last found under the pointer, which is where the click landed.
+        if (asked) pick.Pin(Under(world, paving, config, switches, picked.Pointed, askedM, pixelsPerMetre));
+        if (!Findable(switches, pick.Pinned)) pick.Pin(DebugTarget.None);
 
         // Off the glass is over a panel or no pointer at all (a shot takes none unless it is asked for one).
         var onGlass = pointerPx.X >= 0f && pointerPx.Y >= 0f && pointerPx.X <= uiPx.X && pointerPx.Y <= uiPx.Y;
         var hovered = onGlass
-            ? Under(world, paving, config, switches, pointerM, pixelsPerMetre)
+            ? Under(world, paving, config, switches, picked.Pointed, pointerM, pixelsPerMetre)
             : DebugTarget.None;
         pick.Hovered = hovered;
         var hoverShown = hovered.Thing != DebugThing.None && !hovered.Same(pick.Pinned);
@@ -108,7 +109,7 @@ internal sealed partial class DebugOverlay
         if (switches.Grid) Standing(ref draw, uiPx, pointerM, pointerPx);
 
         // Both marks before either card, so a card is never under a line it is about.
-        var focus = new Focus(world, paving, config, switches, pixelsPerMetre);
+        var focus = new Focus(world, paving, config, switches, pixelsPerMetre, picked);
         Highlight(ref draw, focus, pick.Pinned, pinned: true);
         if (hoverShown) Highlight(ref draw, focus, hovered, pinned: false);
 
@@ -129,8 +130,14 @@ internal sealed partial class DebugOverlay
 
     /// <summary>What every reading of one frame is asked against, gathered once.</summary>
     readonly record struct Focus(
-        TownWorld World, Paving Paving, SimConfig Config, DebugSwitches Switches, float PixelsPerMetre)
+        TownWorld World, Paving Paving, SimConfig Config, DebugSwitches Switches, float PixelsPerMetre, EngineLayers.Picks Picked)
     {
+        /// <summary>The body's row as the table last read it out, where it is the one pointed at or the one pinned.</summary>
+        public EngineLayers.PickRow RowOf(int body) =>
+            Picked.Pinned.Any && Picked.Pinned.Body == body ? Picked.Pinned
+            : Picked.Pointed.Any && Picked.Pointed.Body == body ? Picked.Pointed
+            : default;
+
         public float LineM => MathF.Max(PickedLineM, PickedLineFloorPx / PixelsPerMetre);
 
         public float SagM => PathMarks.SagPx / PixelsPerMetre;
@@ -157,20 +164,10 @@ internal sealed partial class DebugOverlay
     /// before a ribbon only while the claims are on, since that is the layer whose whole reading is one way.
     /// </remarks>
     DebugTarget Under(
-        TownWorld world, Paving paving, SimConfig config, DebugSwitches switches, Vector2 pointM,
-        float pixelsPerMetre)
+        TownWorld world, Paving paving, SimConfig config, DebugSwitches switches, in EngineLayers.PickRow body,
+        Vector2 pointM, float pixelsPerMetre)
     {
-        if (CarsFindable(switches))
-        {
-            var car = world.CarAt(pointM);
-            if (car >= 0) return new DebugTarget(DebugThing.Car, car);
-        }
-
-        if (WalkersFindable(switches))
-        {
-            var person = world.PersonAt(pointM);
-            if (person >= 0) return new DebugTarget(DebugThing.Walker, person);
-        }
+        if (BodiesFindable(switches) && body.Any) return new DebugTarget(DebugThing.Body, body.Body);
 
         if (switches.Perimeter)
         {
@@ -211,18 +208,19 @@ internal sealed partial class DebugOverlay
         return DebugTarget.None;
     }
 
-    static bool CarsFindable(DebugSwitches switches) =>
-        switches.CarLines || switches.TurnCircles || switches.Collision || switches.Claims;
+    /// <summary>
+    /// <b>Whether a layer that draws something of a body is on</b>, and so whether a body is what the pointer finds first —
+    /// found off the body table on the device, whatever kind it is (<see cref="EngineLayers"/>).
+    /// </summary>
+    public static bool BodiesFindable(DebugSwitches switches) =>
+        switches.Collision || switches.AgentLines || switches.CarLines || switches.WalkerLines || switches.TurnCircles
+        || switches.Claims;
 
-    static bool WalkersFindable(DebugSwitches switches) =>
-        switches.WalkerLines || switches.Collision || switches.Claims;
-
-    /// <summary>Whether a pinned thing is still one the layers that are on could find, in a roster that still has it.</summary>
-    static bool Findable(TownWorld world, DebugSwitches switches, in DebugTarget target) => target.Thing switch
+    /// <summary>Whether a pinned thing is still one the layers that are on could find.</summary>
+    static bool Findable(DebugSwitches switches, in DebugTarget target) => target.Thing switch
     {
         DebugThing.None => true,
-        DebugThing.Car => CarsFindable(switches) && target.Index < world.Cars.Count,
-        DebugThing.Walker => WalkersFindable(switches) && target.Index < world.People.Count,
+        DebugThing.Body => BodiesFindable(switches),
         DebugThing.Boundary => switches.Perimeter,
         DebugThing.Way => switches.Claims || switches.Nodes,
         DebugThing.Line => switches.Ribbons,
@@ -235,8 +233,7 @@ internal sealed partial class DebugOverlay
     {
         switch (target.Thing)
         {
-            case DebugThing.Car: FocusCar(ref draw, focus, target.Index); break;
-            case DebugThing.Walker: FocusWalker(ref draw, focus, target.Index); break;
+            case DebugThing.Body: FocusBody(ref draw, focus, focus.RowOf(target.Index)); break;
             case DebugThing.Boundary: FocusBoundary(ref draw, focus, target.AtM); break;
             case DebugThing.Way: FocusWay(ref draw, focus, target.Way, target.AtM); break;
             case DebugThing.Line: FocusRibbon(ref draw, focus, target.Index, pinned); break;
@@ -250,8 +247,7 @@ internal sealed partial class DebugOverlay
     {
         switch (target.Thing)
         {
-            case DebugThing.Car: DescribeCar(ref card, focus.World, target.Index); break;
-            case DebugThing.Walker: DescribeWalker(ref card, focus.World, target.Index); break;
+            case DebugThing.Body: DescribeBody(ref card, focus.World, target.Index, focus.RowOf(target.Index)); break;
             case DebugThing.Boundary: DescribeBoundary(ref card, focus, target.AtM); break;
             case DebugThing.Way: DescribeWay(ref card, focus, target.Way, target.AtM); break;
             case DebugThing.Line: DescribeRibbon(ref card, focus, target.Index, pinned); break;
@@ -262,34 +258,69 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// <b>A body picked out</b>: its outline on a dark casing, and its own two pieces of route drawn at the
-    /// picked weight whichever of the layers found it — the route is what a reader pointing at a car is asking
-    /// about, and it stands out of the crowd of the others only when it is the one drawn heavier.
+    /// <b>A body picked out</b>, whatever it is: the shape the solver holds for it, a line's width outside it, on a dark
+    /// casing — off its own row of the table as the frame read it out (<see cref="EngineLayers.PickRow"/>).
     /// </summary>
-    static void FocusCar(ref ScreenDraw draw, in Focus focus, int car)
+    static void FocusBody(ref ScreenDraw draw, in Focus focus, in EngineLayers.PickRow row)
     {
-        var cars = focus.World.Cars;
-        ref readonly var build = ref cars.BuildOf(car);
-        var sizeM = new Vector2(build.LengthM, build.WidthM);
-        var lineM = focus.LineM;
-        draw.BoxM(cars.PositionM[car], sizeM, cars.HeadingRad[car], lineM * PathMarks.CasingWidthFactor, Theme.Casing);
-        draw.BoxM(cars.PositionM[car], sizeM, cars.HeadingRad[car], lineM, Theme.DebugPicked);
+        if (!row.Any) return;
 
-        CarRoute(
-            ref draw, focus.World, car, PathMarks.MarkPitchAt(focus.Config.Grid, focus.PixelsPerMetre), focus.SagM, lineM,
-            Theme.AgentLine(car));
+        var lineM = focus.LineM;
+        var cornerM = row.CornerRadiusM + lineM;
+        foreach (var (widthM, colour) in (ReadOnlySpan<(float, Vector4)>)[(lineM * PathMarks.CasingWidthFactor, Theme.Casing), (lineM, Theme.DebugPicked)])
+        {
+            if (row.ExtentM == Vector2.Zero) draw.RingM(row.PositionM, cornerM, widthM, colour);
+            else draw.RoundedBoxM(row.PositionM, (row.ExtentM + new Vector2(cornerM)) * 2f, row.HeadingRad, cornerM, widthM, colour);
+        }
     }
 
-    static void FocusWalker(ref ScreenDraw draw, in Focus focus, int person)
+    /// <summary>
+    /// <b>What a body is</b>: what its row says of every body — its kind and index, its row, its speed and size, its layer and
+    /// level — and then what its own driver says of it, where its roster has a card of its own.
+    /// </summary>
+    static void DescribeBody(ref InfoCard card, TownWorld world, int body, in EngineLayers.PickRow row)
     {
-        var people = focus.World.People;
-        var lineM = focus.LineM;
-        var radiusM = people.RadiusM[person] + lineM;
-        draw.RingM(people.PositionM[person], radiusM, lineM * PathMarks.CasingWidthFactor, Theme.Casing);
-        draw.RingM(people.PositionM[person], radiusM, lineM, Theme.DebugPicked);
+        var what = row.What;
+        var line = card.Next();
+        line.Add(EnumWords<BodyKind>.Of((int)what.Kind));
+        if (what.Index >= 0)
+        {
+            line.Add(" ");
+            line.Add(what.Index);
+        }
 
-        WalkerRoute(
-            ref draw, focus.World, person, PathMarks.MarkPitchAt(focus.Config.Grid, focus.PixelsPerMetre), lineM, Theme.AgentLine(person));
+        line.Add(", body ");
+        line.Add(body);
+        card.Keep(in line);
+
+        switch (what.Kind)
+        {
+            case BodyKind.Car when what.Index < world.Cars.Count:
+                DescribeCar(ref card, world, what.Index);
+                return;
+            case BodyKind.Person when what.Index < world.People.Count:
+                DescribeWalker(ref card, world, what.Index);
+                return;
+        }
+
+        if (!row.Any) return;
+
+        line = card.Next();
+        line.Add("speed ");
+        line.Add(row.VelocityMps.Length() * 3.6f, "F0");
+        line.Add(" km/h");
+        card.Keep(in line);
+
+        line = card.Next();
+        line.Add("shape ");
+        line.Add((row.ExtentM.X + row.CornerRadiusM) * 2f, "F1");
+        line.Add(" x ");
+        line.Add((row.ExtentM.Y + row.CornerRadiusM) * 2f, "F1");
+        line.Add(" m, layer ");
+        line.Add(EnumWords<CollisionLayer>.Of((int)((row.Filter >> 8) & 0xFFu)));
+        line.Add(", channels ");
+        line.Add((int)(row.Filter >> 24));
+        card.Keep(in line);
     }
 
     static void DescribeCar(ref InfoCard card, TownWorld world, int car)
@@ -490,7 +521,7 @@ internal sealed partial class DebugOverlay
 
         var line = card.Next();
         var kind = ways.KindOf(way);
-        line.Add(kind == WayKind.Lane && world.Roads.IsARoadside(ways.RoadLaneOf(way)) ? "roadside" : WayWords[(int)kind]);
+        line.Add(kind == WayKind.Lane && world.Roads.IsARoadside(ways.RoadLaneOf(way)) ? "roadside" : EnumWords<WayKind>.Of((int)kind));
         line.Add(' ');
         line.Add(way);
         card.Keep(in line);
@@ -530,7 +561,8 @@ internal sealed partial class DebugOverlay
             if (holders.Length == 0) line.Add("nobody");
             else
             {
-                line.Add(RosterWords[(int)LaneOccupancy.RosterOf(holders[0])]);
+                line.Add(EnumWords<LaneRoster>.Of((int)LaneOccupancy.RosterOf(holders[0])));
+                line.Add(' ');
                 line.Add(LaneOccupancy.OccupantOf(holders[0]));
                 if (holders.Length > 1)
                 {
@@ -540,7 +572,7 @@ internal sealed partial class DebugOverlay
             }
 
             line.PadTo(14);
-            line.Add(PriorityWords[(int)claim.Rung]);
+            line.Add(EnumWords<ClaimPriority>.Of((int)claim.Rung));
             line.PadTo(28);
             line.Add(claim.FromM, "F1");
             line.Add(" - ");
@@ -559,18 +591,6 @@ internal sealed partial class DebugOverlay
         card.Keep(in line);
     }
 
-    /// <summary>What each kind of way is called on a card, by <see cref="WayKind"/>.</summary>
-    static readonly string[] WayWords = ["lane", "join", "footway", "corner", "track"];
-
-    /// <summary>
-    /// What each rung of the ladder is called on a card, by <see cref="ClaimPriority"/>. <b>A table and not the
-    /// enum's own names</b>: those are written for code and cost a string each time one is asked for.
-    /// </summary>
-    static readonly string[] PriorityWords =
-        ["body", "committed", "special", "closed", "light", "crossing", "firm straight", "firm", "firm across"];
-
-    /// <summary>What an occupant of each roster is called on a card, by <see cref="LaneRoster"/>.</summary>
-    static readonly string[] RosterWords = ["car ", "walker ", "light "];
 
     /// <summary>
     /// Room for a town this size, and the widest band in it — both taken once, because a town is laid

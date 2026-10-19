@@ -150,6 +150,12 @@ internal abstract class WorldLayer : IDisposable
     public virtual PhysicsWorld? Solver => null;
 
     /// <summary>
+    /// <b>The body table kept as each view is written</b>, from now on, for an instrument that draws every body where the
+    /// view the host shows has it rather than where the step in flight does — wherever the world keeps its table.
+    /// </summary>
+    public abstract void KeepTheBodiesAtTheView();
+
+    /// <summary>
     /// What the world has allocated on a thread of its own, all told — what a gate counting the caller's thread does not
     /// see (rule 2). None for a world that steps on the caller's.
     /// </summary>

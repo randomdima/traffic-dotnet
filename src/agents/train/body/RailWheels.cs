@@ -43,7 +43,7 @@ internal readonly record struct RailBuild(Vector4 BogiesM, int Bogies, float Mas
 /// </para>
 /// <para>
 /// <b>A throttle is an acceleration of the vehicle's own mass</b>, as a car's is of its own: whatever drives the train
-/// works out what that is for the train it pulls (TRN-2). Nothing here knows of a train.
+/// works out what that is for the train it pulls (TRN-10). Nothing here knows of a train.
 /// </para>
 /// </remarks>
 internal static class RailWheels

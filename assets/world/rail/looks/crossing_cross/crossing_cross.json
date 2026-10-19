@@ -1,0 +1,9 @@
+{
+  "id": "crossing_cross",
+  "kind": "Sign",
+  "describe": "a level-crossing sign standing upright, seen from the front and a little above, drawn north up as the town's signs are: a large white St Andrew's cross with red borders at the top, filling the width; a grey post running down from its middle to the bottom edge",
+  "footprintM": [
+    0.9,
+    1.5
+  ]
+}

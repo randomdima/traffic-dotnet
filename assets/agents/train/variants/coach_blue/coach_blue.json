@@ -7,6 +7,7 @@
     25.5,
     3.4
   ],
+  "bufferM": 0.4,
   "cornerRadiusM": 0.2,
   "bogiesM": [8.5, -8.5],
   "massKg": 58000

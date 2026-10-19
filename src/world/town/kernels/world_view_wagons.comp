@@ -3,11 +3,12 @@
 
 // The rail vehicles' part of the shallow state handed back behind every step (WorldView.Wagons;
 // ManagedWorld.WriteTheView), one thread a vehicle: where its body is, how it points and moves, the look it was put down
-// in, and whether it is in the world at all (TRN-7).
+// in, whether it is in the world at all (TRN-7), and the channels it is on (RAIL-8).
 
 layout(local_size_x = 64) in;
 
 #include "world/town/kernels/world.glsl"
+#include "world/physics/kernels/filter.glsl"
 
 layout(std430, binding = 0) readonly buffer Pose { vec4 pose[]; };
 layout(std430, binding = 1) readonly buffer HeadingB { float headingRad[]; };
@@ -23,6 +24,8 @@ void main()
 
     int body = world.firstWagonBody + int(wagon);
     uint inWorld = (filter_[body] & world.enabledBit) != 0u ? WagonInWorld : 0u;
+    uint channels = filterChannels(filter_[body]) << WagonChannelsShift;
     vec4 moving = motion[body];
-    wagonViews[wagon] = WagonViewRow(pose[body].xy, headingRad[body], (wagonLooks[wagon] & 0xffffu) | inWorld, moving.xy, moving.z, 0.0);
+    wagonViews[wagon] = WagonViewRow(
+        pose[body].xy, headingRad[body], (wagonLooks[wagon] & 0xffffu) | inWorld | channels, moving.xy, moving.z, 0.0);
 }

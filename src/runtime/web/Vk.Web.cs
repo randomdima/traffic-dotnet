@@ -85,6 +85,11 @@ internal sealed class Vk : IDisposable
     {
     }
 
+    /// <summary>Nothing: a page's queue orders its submits and what each wrote by itself.</summary>
+    public void AfterTheSubmitsBefore(Recording commands)
+    {
+    }
+
     /// <summary>A whole buffer filled with one 32-bit word, recorded.</summary>
     public void Fill(Recording commands, GpuBuffer buffer, uint word) => commands.Batch.Fill(buffer, 0, buffer.SizeBytes, word);
 

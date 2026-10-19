@@ -1,0 +1,10 @@
+{
+  "id": "crossing_light_d_lit",
+  "sprite": "crossing_light_d_lit.webp",
+  "kind": "Light",
+  "describe": "the same old level-crossing traffic light as crossing_light_d, switched on: a square weathered dark green housing with rounded corners, filled by one square lens whose large X of small round red LEDs glows bright red, a soft red halo inside the housing only",
+  "footprintM": [
+    0.9,
+    0.9
+  ]
+}

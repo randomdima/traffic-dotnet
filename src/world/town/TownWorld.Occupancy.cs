@@ -219,6 +219,42 @@ internal sealed partial class TownWorld
     /// <summary>The line any one of the town's ways is travelled on, and how wide it is (<see cref="WayLines"/>).</summary>
     public ReadOnlySpan<ArcSeg> LineOfWay(int way, out float widthM) => _lines.LineOf(way, out widthM);
 
+    /// <summary>The collision channels one of the town's ways is on, which say its level (<see cref="WayLines.ChannelsOf"/>).</summary>
+    public byte ChannelsOfWay(int way) => _lines.ChannelsOf(way);
+
+    /// <summary>
+    /// <b>Where every holder of the town's ground means to go next</b>, each roster's own driver stating it
+    /// (<see cref="WayIntents"/>) — gathered for whoever asks, and never by the step.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every roster answers, or the gathering refuses</b>: a roster added with no driver stating where it goes would be
+    /// movers no instrument could follow, which is the gap this exists to close. One that holds ground and never moves says
+    /// so here.
+    /// </remarks>
+    public void StateIntents(WayIntents into)
+    {
+        into.Clear();
+        for (var roster = (LaneRoster)0; Enum.IsDefined(roster); roster++)
+        {
+            switch (roster)
+            {
+                case LaneRoster.Driving:
+                    _ground.StateIntents(into);
+                    break;
+                case LaneRoster.Walking:
+                    _walkingGround.StateIntents(into);
+                    break;
+                case LaneRoster.Rail:
+                    _trains.StateIntents(into, _ways);
+                    break;
+                case LaneRoster.Signal or LaneRoster.Crossing:
+                    break;
+                default:
+                    throw new InvalidOperationException($"No driver states where the {roster} roster goes.");
+            }
+        }
+    }
+
     /// <summary>The zebra one of the town's ways is the paint of, or <see cref="RibbonMarks.NoZebra"/>.</summary>
     int ZebraOf(int way) => _lines.ZebraOf(way);
 }

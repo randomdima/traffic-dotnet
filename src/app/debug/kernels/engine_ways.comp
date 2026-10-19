@@ -1,0 +1,227 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The town's ways and what is laid on them, drawn (app/debug/EngineLayers.cs) — every way of every kind in the one
+// numbering (TownWays), each down its own line (WayLines) at its own level:
+//   mode 0, a thread an arc of a way: the arc as a line, in its kind of way's colour, a chevron at its end the way it runs;
+//   mode 1, a thread a claim as the claims table holds it (LaneOccupancy.HeldClaims): the stretch it holds, washed in its
+//           holder's colour at its rung's strength, or its two edges alone where it is only crossed;
+//   mode 2, a thread a stretch a holder means to travel (WayIntents): a line down it in the holder's colour, over the
+//           bodies, a chevron at each end of a piece the way it is travelled.
+// What is on the level above goes into the run drawn over the bridges, the rest into the ground's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Push
+{
+    uint mode;
+} push;
+
+#define ENGINE_FRAME 0
+#define ENGINE_FIGURES 1
+#define ENGINE_QUADS 6
+#define ENGINE_COUNTS 7
+#include "app/debug/kernels/engine.glsl"
+
+// One way (EngineLayers.WayRow): where its arcs begin, how many, how wide its ground, its kind and its channels.
+struct Way
+{
+    uint firstArc;
+    uint arcCount;
+    float widthM;
+    uint kindAndChannels;
+};
+
+// One arc of a way (EngineLayers.ArcRow): ArcSeg's start, direction, length and curvature, how far along its way it
+// starts, and whose way it is.
+struct Arc
+{
+    vec2 startM;
+    vec2 startUnit;
+    float lengthM;
+    float curvature;
+    float fromM;
+    uint way;
+};
+
+// LaneOccupancy's HeldClaim, and WayIntents' WayIntent.
+struct Claim
+{
+    int way;
+    uint edgesDm;
+    uint rungAndKind;
+    int key;
+};
+
+struct Intent
+{
+    int key;
+    int way;
+    float fromM;
+    float toM;
+};
+
+layout(std430, binding = 2) readonly buffer Ways { Way ways[]; };
+layout(std430, binding = 3) readonly buffer Arcs { Arc arcs[]; };
+layout(std430, binding = 4) readonly buffer Claims { Claim claims[]; };
+layout(std430, binding = 5) readonly buffer Intents { Intent intents[]; };
+
+const uint MostPiecesAnArc = 8u;
+const float TurnAPieceRad = 0.2;
+const uint SecondaryKind = 2u;
+
+// Where along an arc a distance from its start stands (ArcSeg.PointAtM): the chord laid half way round the turn.
+vec2 arcPoint(Arc arc, float sM)
+{
+    float turn = arc.curvature * sM;
+    float chord = abs(turn) < 1e-4 ? sM : 2.0 * sin(turn * 0.5) / arc.curvature;
+    vec2 half_ = vec2(cos(turn * 0.5), sin(turn * 0.5));
+    return arc.startM + turned(arc.startUnit, half_) * chord;
+}
+
+vec2 arcWay(Arc arc, float sM) { return turned(arc.startUnit, vec2(cos(arc.curvature * sM), sin(arc.curvature * sM))); }
+
+uint pieces(Arc arc, float lengthM) { return clamp(uint(ceil(abs(arc.curvature * lengthM) / TurnAPieceRad)), 1u, MostPiecesAnArc); }
+
+// The run a way's marks go into: over the bodies for what an agent means, and otherwise the run of the level its ground is
+// drawn at — above only for a way on no ground channel at all, since a joint onto a bridge stands on both and its ground
+// is the ground's.
+uint runOf(Way way, uint over)
+{
+    uint channels = way.kindAndChannels >> 8;
+    return over == OverRun ? OverRun : (channels & frame.groundChannels) == 0u ? AboveRun : GroundRun;
+}
+
+// A chevron at a place on a line, pointing the way it runs (ScreenDraw.ChevronM): two strokes.
+void chevron(uint at, vec2 atM, vec2 direction, float sizeM, float widthM, vec4 colour)
+{
+    vec2 along = direction * sizeM;
+    vec2 across = vec2(-along.y, along.x) * 0.75;
+    bar(at, atM - along + across, atM, widthM, colour);
+    bar(at + 1u, atM - along - across, atM, widthM, colour);
+}
+
+void ArcLine(uint index)
+{
+    if (index >= frame.arcCount) return;
+
+    Arc arc = arcs[index];
+    if (!onScreen(arc.startM, arc.lengthM)) return;
+
+    Way way = ways[arc.way];
+    uint n = pieces(arc, arc.lengthM);
+    bool marked = arc.lengthM >= frame.pitchM;
+    uint at = reserve(runOf(way, GroundRun), n + (marked ? 2u : 0u));
+    if (at == ~0u) return;
+
+    vec4 colour = figures.wayColours[min(way.kindAndChannels & 0xFFu, MostWayKinds - 1u)];
+    for (uint piece = 0u; piece < n; piece++)
+    {
+        bar(at + piece, arcPoint(arc, arc.lengthM * float(piece) / float(n)), arcPoint(arc, arc.lengthM * float(piece + 1u) / float(n)),
+            frame.wayLineM, colour);
+    }
+
+    if (marked) chevron(at + n, arcPoint(arc, arc.lengthM), arcWay(arc, arc.lengthM), frame.pitchM * 0.25, frame.wayLineM, colour);
+}
+
+// A stretch of one way, [fromM, toM) of its own metres, drawn an arc at a time: a band at the way's width, its two edges, or
+// a line down its middle with a chevron at the end of each arc's piece the way it is travelled.
+const uint Fill = 0u;
+const uint Edges = 1u;
+const uint Travel = 2u;
+
+// A bar square across a way at a place on one of its arcs: the end of a claim's block, which is how the pieces of one
+// holder's ground, butted end to end in one colour, are still read as several.
+void cap(uint at, Arc arc, float sM, float widthM, vec4 colour)
+{
+    vec2 across = vec2(-arcWay(arc, sM).y, arcWay(arc, sM).x) * widthM * 0.5;
+    bar(at, arcPoint(arc, sM) - across, arcPoint(arc, sM) + across, frame.wayLineM, colour);
+}
+
+void Stretch(uint wayIndex, float fromM, float toM, bool down, uint style, uint over, vec4 colour)
+{
+    Way way = ways[wayIndex];
+    uint run = runOf(way, over);
+    vec4 edge = vec4(colour.rgb, min(1.0, colour.w * figures.edgeOverWash));
+    for (uint index = way.firstArc; index < way.firstArc + way.arcCount; index++)
+    {
+        Arc arc = arcs[index];
+        float startM = max(fromM, arc.fromM) - arc.fromM;
+        float endM = min(toM, arc.fromM + arc.lengthM) - arc.fromM;
+        if (endM <= startM || !onScreen(arcPoint(arc, (startM + endM) * 0.5), (endM - startM) * 0.5 + way.widthM)) continue;
+
+        bool head = style != Travel && arc.fromM + startM <= fromM;
+        bool tail = style != Travel && arc.fromM + endM >= toM;
+        uint n = pieces(arc, endM - startM);
+        uint each = style == Edges ? 2u : 1u;
+        uint ends = (style == Travel ? 2u : 0u) + (head ? 1u : 0u) + (tail ? 1u : 0u);
+        uint at = reserve(run, n * each + ends);
+        if (at == ~0u) return;
+
+        uint last = at + n * each;
+        if (head) cap(last++, arc, startM, way.widthM, edge);
+        if (tail) cap(last++, arc, endM, way.widthM, edge);
+        if (style == Edges) colour = edge;
+
+        for (uint piece = 0u; piece < n; piece++)
+        {
+            float aM = startM + (endM - startM) * float(piece) / float(n);
+            float bM = startM + (endM - startM) * float(piece + 1u) / float(n);
+            vec2 a = arcPoint(arc, aM);
+            vec2 b = arcPoint(arc, bM);
+            if (style == Fill)
+            {
+                band(at + piece, a, b, arc.curvature * (bM - aM), way.widthM, colour);
+            }
+            else if (style == Edges)
+            {
+                vec2 aLeft = vec2(-arcWay(arc, aM).y, arcWay(arc, aM).x) * way.widthM * 0.5;
+                vec2 bLeft = vec2(-arcWay(arc, bM).y, arcWay(arc, bM).x) * way.widthM * 0.5;
+                bar(at + piece * 2u, a + aLeft, b + bLeft, frame.wayLineM, colour);
+                bar(at + piece * 2u + 1u, a - aLeft, b - bLeft, frame.wayLineM, colour);
+            }
+            else
+            {
+                bar(at + piece, a, b, frame.agentLineM, colour);
+            }
+        }
+
+        if (style == Travel)
+        {
+            float tipM = down ? startM : endM;
+            vec2 direction = arcWay(arc, tipM) * (down ? -1.0 : 1.0);
+            chevron(last, arcPoint(arc, tipM), direction, frame.pitchM * 0.25, frame.agentLineM, colour);
+        }
+    }
+}
+
+void Held(uint index)
+{
+    if (index >= frame.claimCount) return;
+
+    Claim claim = claims[index];
+    float fromM = float(claim.edgesDm & 0xFFFFu) * 0.1;
+    float toM = float(claim.edgesDm >> 16) * 0.1;
+    uint rung = claim.rungAndKind & 0xFFu;
+    uint kind = (claim.rungAndKind >> 8) & 0xFFu;
+    vec4 colour = holderColour(claim.key);
+    colour.w *= figures.rungWash[min(rung, MostRungs - 1u)];
+    Stretch(uint(claim.way), fromM, toM, false, kind == SecondaryKind ? Edges : Fill, GroundRun, colour);
+}
+
+void Meant(uint index)
+{
+    if (index >= frame.intentCount) return;
+
+    Intent intent = intents[index];
+    bool down = intent.toM < intent.fromM;
+    Stretch(uint(intent.way), min(intent.fromM, intent.toM), max(intent.fromM, intent.toM), down, Travel, OverRun, holderColour(intent.key));
+}
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (push.mode == 0u) ArcLine(at);
+    else if (push.mode == 1u) Held(at);
+    else Meant(at);
+}

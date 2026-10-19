@@ -179,7 +179,7 @@ internal sealed partial class LaneOccupancy
     public static LaneRoster RosterOf(int key) => (LaneRoster)(key & ((1 << RosterBits) - 1));
 
     /// <summary>How many bits a key names its roster in: room for every <see cref="LaneRoster"/>.</summary>
-    const int RosterBits = 3;
+    public const int RosterBits = 3;
 
     readonly TownWays _ways;
 

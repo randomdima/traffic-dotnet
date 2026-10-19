@@ -67,8 +67,8 @@ public class AtlasKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         var random = new Random(seed);
         float Between(float least, float most) => least + (random.NextSingle() * (most - least));
 
-        var lines = new WayLines(world.Roads, world.Walking, world.Ways, world.CrossingEdges, Config);
-        var crossings = Enumerable.Range(0, lines.WayCount).Where(lines.IsTheCrossing).ToArray();
+        var lines = world.Lines;
+        var crossings =Enumerable.Range(0, lines.WayCount).Where(lines.IsTheCrossing).ToArray();
         var level = world.Atlas.Table.Level;
         var stepM = level.CellM;
         var sizeM = world.Plan.WorldSizeM;
@@ -228,7 +228,7 @@ public class AtlasKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     /// <summary>The town's atlas filed on the device off its own ways, its furniture checked against it, and waited for.</summary>
     DeviceAtlas Filed(TownWorld world, AtlasFurniture? furniture = null)
     {
-        var lines = new WayLines(world.Roads, world.Walking, world.Ways, world.CrossingEdges, Config);
+        var lines = world.Lines;
         var atlas = new DeviceAtlas(device.Vk);
         try
         {

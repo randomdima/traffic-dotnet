@@ -173,7 +173,7 @@ internal sealed partial class TownWorld
     bool IsFreeToDrive(int car) =>
         !Cars.Broken[car]
         && !Cars.Driven[car]
-        && _recovery.OnTheHookOf[car] < 0
+        && !_hitches.IsHeld(car)
         && !IsUnderOrders(car)
         && !WheelIsHeldOver(car)
         && !_containers.AnybodyAboard(car);

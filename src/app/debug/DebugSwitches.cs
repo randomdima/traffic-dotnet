@@ -12,28 +12,29 @@ namespace TrafficSimulation.App.Debug;
 /// and pays for none of it.
 /// </para>
 /// <para>
-/// <b>A layer covers one kind of body entirely</b> — its geometry and the manoeuvre it is in alike —
-/// because the question a debug session asks is about the body and not about the kind of mark. What
-/// belongs to the <em>town</em> rather than to a body is not switched with a body at all, which is
-/// what <see cref="Nodes"/> and <see cref="Claims"/> are for.
+/// <b>A layer of the engine's covers every kind at once</b> (OBS-3, <see cref="EngineLayers"/>), and a driver's own layer
+/// what that driver alone does. What belongs to the <em>town</em> rather than to a body is not switched with a body at
+/// all, which is what <see cref="Nodes"/> and <see cref="Claims"/> are for.
 /// </para>
 /// </remarks>
 internal sealed class DebugSwitches
 {
-    /// <summary>Everything about cars: their lines, what each was told, and where it must be stopped by.</summary>
+    /// <summary>
+    /// <b>Where every agent means to go next</b>, whatever kind it is (<see cref="EngineLayers"/>, <c>WayIntents</c>): the
+    /// piece of way it is on and the one after, as its own driver states it.
+    /// </summary>
+    public bool AgentLines;
+
+    /// <summary>What a car's driver does past its route: its pass, where its grant ends, where a light holds it.</summary>
     public bool CarLines;
 
-    /// <summary>The same for walkers.</summary>
+    /// <summary>The line a walker steps out along to pass something.</summary>
     public bool WalkerLines;
 
     /// <summary>
-    /// <b>The town's own ground</b>: both networks' global nodes, the links between them and the
-    /// movements a junction allows — where anything <em>could</em> go, which is what the router plans over.
+    /// <b>The town's own ground</b>: every way of its one numbering, whatever it is, down its own line the way it runs
+    /// (<see cref="EngineLayers"/>) — where anything <em>could</em> go — and where each kerb ends.
     /// </summary>
-    /// <remarks>
-    /// It is the one layer that does not move once the town is laid, which is why it is the one that is
-    /// cached rather than walked every frame.
-    /// </remarks>
     public bool Nodes;
 
     /// <summary>
@@ -42,8 +43,8 @@ internal sealed class DebugSwitches
     /// </summary>
     /// <remarks>
     /// A claim is a fact about the <em>ground</em> and not about the body holding it — one body's
-    /// stretch is what cuts another's, across both rosters and every kind of way — so it is switched with the
-    /// town rather than with either kind of body (OBS-2c). Held under the car layer it could not show a
+    /// stretch is what cuts another's, across every roster and every kind of way — so it is switched with the
+    /// town rather than with any kind of body (OBS-2c). Held under the car layer it could not show a
     /// walker standing in a lane without the car switch on, which is the reading it exists for. It is
     /// <em>not</em> switched with <see cref="Nodes"/> either: the graphs are the ground a town was laid
     /// with and the blocks are what the tick did to it this frame, and a junction's movements drawn under
@@ -51,7 +52,10 @@ internal sealed class DebugSwitches
     /// </remarks>
     public bool Claims;
 
-    /// <summary>Every body's collision shape — the one the solver holds, not the one it is drawn at.</summary>
+    /// <summary>
+    /// Every body's collision shape — the one the solver holds, not the one it is drawn at — whatever the body is, and every
+    /// link between two (<see cref="EngineLayers"/>).
+    /// </summary>
     public bool Collision;
 
     /// <summary>
@@ -157,6 +161,13 @@ internal sealed class DebugSwitches
     public GroundSwitches Ground { get; } = new();
 
     /// <summary>
+    /// <b>Whether any layer the engine's own tables are drawn or read for is on</b> (<see cref="EngineLayers"/>): one of
+    /// theirs, or one a body is found under the pointer for (<see cref="DebugOverlay.BodiesFindable"/>) — what decides
+    /// whether they are laid on the device at all.
+    /// </summary>
+    public bool NeedsTheEngine => Collision || Nodes || Claims || AgentLines || DebugOverlay.BodiesFindable(this);
+
+    /// <summary>
     /// Whether anything the town holds still is drawn at all, which is what decides whether the cache
     /// behind those layers is laid. Both of them are geometry that does not move once the town is laid.
     /// <b><see cref="SolverGrid"/> is among them for its static half alone</b>: the furniture is indexed
@@ -213,6 +224,7 @@ internal sealed class DebugSwitches
                 case DebugLayer.Shell: return ref Shell.Drawn;
                 case DebugLayer.Wireframe: return ref Wireframe;
                 case DebugLayer.Zones: return ref Zones;
+                case DebugLayer.AgentLines: return ref AgentLines;
                 default: return ref Ruler;
             }
         }

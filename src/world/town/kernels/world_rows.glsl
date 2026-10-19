@@ -44,17 +44,22 @@ uint signalAction(WorldSignal s) { return s.actionAndFlags & 0x7fffu; }
 bool signalInOrder(WorldSignal s) { return (s.actionAndFlags & SignalInOrder) != 0u; }
 uint signalFlags(WorldSignal s) { return s.actionAndFlags >> 16; }
 
-// One car as the world keeps it beside its tyres (DeviceWorld.CarRow): its body, the tractor whose bar it hangs off or
-// −1, and what it weighs as the tyres read it.
+// One car as the world keeps it beside its tyres (DeviceWorld.CarRow): its body, what its arm holds (DeviceWorld.TowingCode:
+// a car's index, −2 less a rail vehicle's, or −1), what it weighs as the tyres read it, and where along what it holds the
+// fork is.
 struct WorldCar
 {
     int body;
-    int tractor;
+    int towing;
     uint flags;
     float massKg;
+    float forkAlongM;
 };
 
-const uint CarByTheTail = 1u;
+// Which of its ends a fork holds (EVA-5), and which end of its load its own arm holds.
+const uint CarHeldAtTheTail = 1u;
+const uint CarHeldAtTheNose = 8u;
+const uint CarTowsByTheTail = 16u;
 
 // Whether its body came into the last step frozen, which "frozen through the step" is read against after it; and whether
 // it comes into the next one frozen — frozen as the last step left it and thawed by no signal since (world_view.comp).
@@ -111,7 +116,7 @@ const uint ViewFrozenThroughLastStep = 2u;
 const uint ViewStepped = 2u;
 
 // A rail vehicle's shallow state handed back (WagonView): where it is, how it points, the look it was put down in in the
-// low half of its flags and whether it is in the world above that, and how it moves.
+// low half of its flags, whether it is in the world above that and its channels in the top byte, and how it moves.
 struct WagonViewRow
 {
     vec2 positionM;
@@ -123,6 +128,7 @@ struct WagonViewRow
 };
 
 const uint WagonInWorld = 0x10000u;
+const uint WagonChannelsShift = 24u;
 
 // A walker's shallow state handed back (WalkerView).
 struct WalkerViewRow

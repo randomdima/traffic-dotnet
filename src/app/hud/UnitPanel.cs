@@ -48,7 +48,14 @@ internal sealed class UnitPanel
 
     const float TitleRowPx = Theme.TextPx + 10f;
 
+    const string ReleaseLabel = "Release";
+
     Rect _title;
+
+    /// <summary>The reset's button on the title row, or an empty box while nothing picked out is the player's.</summary>
+    Rect _release;
+
+    bool _releaseAsked;
 
     /// <summary>Whether the body is showing. <b>Open by default</b>: a panel that only appears when something is picked out has already been asked for.</summary>
     public bool Open { get; private set; } = true;
@@ -59,12 +66,30 @@ internal sealed class UnitPanel
     /// <summary>How many rows the last draw wrote, which is what a test reads the layout off.</summary>
     public int Rows { get; private set; }
 
-    /// <summary>A click on the panel: the title opens and shuts the body, and anywhere else on it is taken and dropped.</summary>
+    /// <summary>
+    /// A click on the panel: the release button asks for the reset, the rest of the title opens and shuts the body,
+    /// and anywhere else on it is taken and dropped.
+    /// </summary>
     public bool Click(Vector2 atPx)
     {
         if (!Box.Contains(atPx)) return false;
 
-        if (_title.Contains(atPx)) Open = !Open;
+        if (_release.Contains(atPx)) _releaseAsked = true;
+        else if (_title.Contains(atPx)) Open = !Open;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether the release button was pressed since this was last asked. <b>The reset is the world's</b> (CTL-4) and
+    /// the panel has no town to do it to, so the button says somebody asked and the frame does it — the same call
+    /// <c>R</c> makes.
+    /// </summary>
+    public bool TakeReleaseAsked()
+    {
+        if (!_releaseAsked) return false;
+
+        _releaseAsked = false;
         return true;
     }
 
@@ -82,6 +107,7 @@ internal sealed class UnitPanel
             // Nothing was laid, so nothing may be pressed and nothing may swallow a click on the town.
             Box = default;
             _title = default;
+            _release = default;
             Rows = 0;
             return;
         }
@@ -123,14 +149,24 @@ internal sealed class UnitPanel
 
     /// <summary>
     /// What this is talking about, on the one line that is there whether the body is open or shut: the
-    /// unit, or how many of them there are.
+    /// unit, or how many of them there are — and the release button at its end while any of them is the player's.
     /// </summary>
     void Title(ref ScreenDraw draw, Vector2 pointerPx, scoped Span<char> into, TownWorld world, Selection unit)
     {
         _title = new Rect(
             Box.AtPx + new Vector2(Theme.EdgePx, Theme.GapPx),
             new Vector2(Box.SizePx.X - Theme.EdgePx * 2f, TitleRowPx));
-        if (_title.Contains(pointerPx)) draw.RoundedRect(_title.AtPx, _title.SizePx, Theme.RowRadiusPx, Theme.RowHover);
+
+        var releaseWidthPx = GlyphSheet.WidthPx(ReleaseLabel.Length, Theme.SmallTextPx) + Theme.InsetPx * 2f;
+        _release = world.SelectionIsManual
+            ? new Rect(new Vector2(_title.Right - releaseWidthPx, _title.AtPx.Y), new Vector2(releaseWidthPx, TitleRowPx))
+            : default;
+        var headingWidthPx = _title.SizePx.X - _release.SizePx.X;
+
+        if (_title.Contains(pointerPx) && !_release.Contains(pointerPx))
+        {
+            draw.RoundedRect(_title.AtPx, new Vector2(headingWidthPx, TitleRowPx), Theme.RowRadiusPx, Theme.RowHover);
+        }
 
         var line = new TextBuffer(into);
         line.Add(Open ? "- " : "+ ");
@@ -141,12 +177,20 @@ internal sealed class UnitPanel
         }
         else
         {
-            line.Add(unit.Kind == SelectionKind.Car ? "car " : "walker ");
+            line.Add(unit.Kind switch
+            {
+                SelectionKind.Car => "car ",
+                SelectionKind.Locomotive => "train ",
+                SelectionKind.Wagon => "wagon ",
+                _ => "walker ",
+            });
             line.Add(unit.Index);
         }
 
         draw.TextFitted(
             _title.AtPx + new Vector2(Theme.PaddingPx * 0.6f, (TitleRowPx - Theme.TextPx) * 0.5f), line.Written,
-            Theme.TextPx, Theme.Heading, _title.SizePx.X - Theme.PaddingPx);
+            Theme.TextPx, Theme.Heading, headingWidthPx - Theme.PaddingPx);
+
+        if (_release.SizePx.X > 0f) Theme.Button(ref draw, _release, pointerPx, ReleaseLabel, textPx: Theme.SmallTextPx);
     }
 }

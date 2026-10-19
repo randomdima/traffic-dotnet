@@ -208,8 +208,9 @@ internal sealed class PlayerHands
     {
         foreach (var unit in world.Selected)
         {
+            // A train goes where its track and its switches take it: there is nowhere to order it but by hand (TRN-11).
             if (unit.Kind == SelectionKind.Person) world.Order(unit.Index, pointM);
-            else world.OrderCar(unit.Index, pointM);
+            else if (unit.Kind == SelectionKind.Car) world.OrderCar(unit.Index, pointM);
         }
     }
 

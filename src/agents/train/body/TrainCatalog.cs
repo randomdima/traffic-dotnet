@@ -42,8 +42,11 @@ internal sealed class TrainVehicleFile
     /// <summary>The picture it is drawn as, its front at +x, its length the footprint's; none until its art is kept.</summary>
     public string? Sprite { get; init; }
 
-    /// <summary>Its length over the buffers and its width, which is what it is drawn at and collided as.</summary>
+    /// <summary>Its length over the buffers and its width, which is what it is drawn at.</summary>
     public required Vector2 FootprintM { get; init; }
+
+    /// <summary>How far its buffers stand out past its body at each end: inside its footprint, and never collided.</summary>
+    public required float BufferM { get; init; }
 
     public float CornerRadiusM { get; init; }
 
@@ -68,11 +71,17 @@ internal sealed partial class TrainVehicleJson : JsonSerializerContext;
 /// <summary>One vehicle a train may be made of, as the catalogue reads it.</summary>
 /// <param name="SpritePath">Where its picture is, or null where it has none yet.</param>
 internal readonly record struct TrainVehicle(
-    string Id, VehicleKind Kind, string? SpritePath, Vector2 FootprintM, float CornerRadiusM, float[] BogiesM, float MassKg,
-    float TractiveEffortN)
+    string Id, VehicleKind Kind, string? SpritePath, Vector2 FootprintM, float BufferM, float CornerRadiusM, float[] BogiesM,
+    float MassKg, float TractiveEffortN)
 {
     /// <summary>The most bogies a vehicle stands on: a wheel row a bogie, and four rows a body on the device as a car's.</summary>
     public const int MostBogies = 4;
+
+    /// <summary>
+    /// <b>What it is collided as</b>: its footprint short of its buffers at both ends, so coupled vehicles meet buffer to
+    /// buffer (<see cref="BufferM"/>) and not body to body.
+    /// </summary>
+    public Vector2 BodyM => FootprintM - new Vector2(2f * BufferM, 0f);
 
     /// <summary>
     /// How far its body reaches out past its line on the tightest curve a track is laid round (RAIL-2): the outside at its
@@ -113,7 +122,8 @@ internal sealed class TrainCatalog
             {
                 ref readonly var one = ref vehicles[vehicle];
                 ref readonly var first = ref vehicles[of[0]];
-                if (one.FootprintM != first.FootprintM || one.CornerRadiusM != first.CornerRadiusM || !one.BogiesM.AsSpan().SequenceEqual(first.BogiesM)
+                if (one.FootprintM != first.FootprintM || one.BufferM != first.BufferM || one.CornerRadiusM != first.CornerRadiusM
+                    || !one.BogiesM.AsSpan().SequenceEqual(first.BogiesM)
                     || one.MassKg != first.MassKg || one.TractiveEffortN != first.TractiveEffortN)
                 {
                     throw new InvalidDataException($"{one.Id} is not the vehicle {first.Id} is, the {(VehicleKind)kind} it is a look of.");
@@ -122,6 +132,11 @@ internal sealed class TrainCatalog
                 if (one.BogiesM.Length is 0 or > TrainVehicle.MostBogies)
                 {
                     throw new InvalidDataException($"{one.Id} stands on {one.BogiesM.Length} bogies, not 1 to {TrainVehicle.MostBogies}.");
+                }
+
+                if (one.BufferM < 0f || one.BodyM.X <= 0f)
+                {
+                    throw new InvalidDataException($"{one.Id}'s buffers stand {one.BufferM} m out of a {one.FootprintM.X} m footprint.");
                 }
             }
 
@@ -161,7 +176,7 @@ internal sealed class TrainCatalog
             var file = AssetJson.Read(files[at], TrainVehicleJson.Default.TrainVehicleFile);
             vehicles[at] = new TrainVehicle(
                 file.Id, file.Kind, file.Sprite is { } sprite ? AssetJson.Beside(files[at], sprite) : null, file.FootprintM,
-                file.CornerRadiusM, file.BogiesM, file.MassKg, file.TractiveEffortN);
+                file.BufferM, file.CornerRadiusM, file.BogiesM, file.MassKg, file.TractiveEffortN);
         }
 
         return new TrainCatalog(vehicles);

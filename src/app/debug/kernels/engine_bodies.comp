@@ -1,0 +1,209 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The body table as the solver holds it, drawn (app/debug/EngineLayers.cs) — every body of every kind in the one numbering,
+// read where the engine keeps it and nowhere else:
+//   mode 0, a thread a body: its collision shape, a disc where its core has no size and a rounded box round it otherwise,
+//           in its collision layer's colour, over the bodies;
+//   mode 1, a thread a link (SOL-38): a bar from the anchor on one body to the anchor on the other;
+//   mode 2, a thread a body: whether the pointer is inside it, the last such body named;
+//   mode 3, one thread: the three runs' draws off what was reserved, held to their room, and the body named read out whole.
+//
+// **Where a body stands is the pose the view the host shows was taken at** (DeviceWorld.KeepThePosesAtTheView), so a shape
+// stands where its sprite does; its shape, filter and motion are the table's as they stand.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Push
+{
+    uint mode;
+} push;
+
+#define ENGINE_FRAME 0
+#define ENGINE_FIGURES 1
+#define ENGINE_QUADS 9
+#define ENGINE_COUNTS 10
+#include "app/debug/kernels/engine.glsl"
+
+layout(std430, binding = 2) readonly buffer Poses0 { vec4 poses0[]; };
+layout(std430, binding = 3) readonly buffer Poses1 { vec4 poses1[]; };
+layout(std430, binding = 4) readonly buffer Shapes { vec4 shapes[]; };
+layout(std430, binding = 5) readonly buffer Filters { uint filters[]; };
+layout(std430, binding = 6) readonly buffer Tags { int tags[]; };
+
+// DeviceSolver.LinkGpuRow.
+struct Link
+{
+    int first;
+    int second;
+    float restM;
+    uint unused;
+    vec2 anchorFirstM;
+    vec2 anchorSecondM;
+};
+
+layout(std430, binding = 7) readonly buffer Links { Link links[]; };
+layout(std430, binding = 8) readonly buffer Motion { vec4 motion[]; };
+
+// DrawIndirectCommand three times: the ground's run, the level above's, the run over the bodies.
+layout(std430, binding = 11) buffer Draws { uint draws[]; };
+
+// A body named (EngineLayers.PickRow): plus one, nought for none; then its row as it stands. The first is what the pointer
+// is over, the second the body the frame says is pinned.
+struct Picked
+{
+    uint bodyPlusOne;
+    int tag;
+    uint filterWord;
+    uint pad;
+    vec4 pose;
+    vec4 shape;
+    vec4 motion;
+};
+
+layout(std430, binding = 12) buffer Picks { Picked picks[]; };
+
+const uint RingSegments = 12u;
+const uint CornerSegments = 3u;
+
+vec4 poseOf(uint body) { return frame.viewSlot == 0u ? poses0[body] : poses1[body]; }
+
+bool inTheWorld(uint body) { return (filters[body] & figures.enabledBit) != 0u; }
+
+void Shape(uint body)
+{
+    if (body >= frame.bodyCount || !inTheWorld(body)) return;
+
+    vec4 pose = poseOf(body);
+    vec4 shape = shapes[body];
+    if (!onScreen(pose.xy, shape.w)) return;
+
+    uint layer = findLSB((filters[body] >> 8) & 0xFFu);
+    vec4 colour = figures.layerColours[min(layer, MostLayers - 1u)];
+    vec2 extent = shape.xy;
+    float corner = shape.z;
+    float widthM = frame.hairlineM;
+
+    if (extent.x <= 0.0 && extent.y <= 0.0)
+    {
+        uint at = reserve(OverRun, RingSegments);
+        if (at == ~0u) return;
+
+        float step = 6.2831853 / float(RingSegments);
+        vec2 previous = pose.xy + vec2(corner, 0.0);
+        for (uint segment = 1u; segment <= RingSegments; segment++)
+        {
+            vec2 next = pose.xy + vec2(cos(float(segment) * step), sin(float(segment) * step)) * corner;
+            bar(at + segment - 1u, previous, next, widthM, colour);
+            previous = next;
+        }
+
+        return;
+    }
+
+    vec2 rotation = pose.zw;
+    if (corner <= 0.0)
+    {
+        uint at = reserve(OverRun, 4u);
+        if (at == ~0u) return;
+
+        vec2 a = pose.xy + turned(vec2(-extent.x, -extent.y), rotation);
+        vec2 b = pose.xy + turned(vec2(extent.x, -extent.y), rotation);
+        vec2 c = pose.xy + turned(vec2(extent.x, extent.y), rotation);
+        vec2 d = pose.xy + turned(vec2(-extent.x, extent.y), rotation);
+        bar(at, a, b, widthM, colour);
+        bar(at + 1u, b, c, widthM, colour);
+        bar(at + 2u, c, d, widthM, colour);
+        bar(at + 3u, d, a, widthM, colour);
+        return;
+    }
+
+    // Four quarter turns about the core's corners, walked in order, every point joined to the last: the flats come free.
+    uint segments = 4u * (CornerSegments + 1u);
+    uint at = reserve(OverRun, segments);
+    if (at == ~0u) return;
+
+    float headingRad = atan(rotation.y, rotation.x);
+    float step = 1.5707963 / float(CornerSegments);
+    vec2 first = vec2(0.0);
+    vec2 previous = vec2(0.0);
+    uint written = 0u;
+    for (uint quarter = 0u; quarter < 4u; quarter++)
+    {
+        float alongSign = quarter == 0u || quarter == 3u ? 1.0 : -1.0;
+        float acrossSign = quarter == 0u || quarter == 1u ? 1.0 : -1.0;
+        vec2 pivot = pose.xy + turned(vec2(extent.x * alongSign, extent.y * acrossSign), rotation);
+        for (uint segment = 0u; segment <= CornerSegments; segment++)
+        {
+            float angle = headingRad + float(quarter) * 1.5707963 + float(segment) * step;
+            vec2 next = pivot + vec2(cos(angle), sin(angle)) * corner;
+            if (quarter == 0u && segment == 0u) first = next;
+            else bar(at + written++, previous, next, widthM, colour);
+            previous = next;
+        }
+    }
+
+    bar(at + written, previous, first, widthM, colour);
+}
+
+void Coupling(uint link)
+{
+    if (link >= frame.linkCount) return;
+
+    Link row = links[link];
+    vec4 first = poseOf(uint(row.first));
+    vec4 second = poseOf(uint(row.second));
+    vec2 fromM = first.xy + turned(row.anchorFirstM, first.zw);
+    vec2 toM = second.xy + turned(row.anchorSecondM, second.zw);
+    if (!onScreen(fromM, 0.0) && !onScreen(toM, 0.0)) return;
+
+    uint at = reserve(OverRun, 1u);
+    if (at != ~0u) bar(at, fromM, toM, frame.hairlineM * 3.0, figures.linkColour);
+}
+
+void Pointed(uint body)
+{
+    if (body >= frame.bodyCount || !inTheWorld(body) || (filters[body] & figures.staticBit) != 0u) return;
+
+    vec4 pose = poseOf(body);
+    vec4 shape = shapes[body];
+    vec2 local = turned(frame.pointerM - pose.xy, vec2(pose.z, -pose.w));
+    float outsideM = length(max(abs(local) - shape.xy, vec2(0.0))) - shape.z;
+    if (outsideM <= 0.0) atomicMax(picks[0].bodyPlusOne, body + 1u);
+}
+
+void ReadOut(uint at, uint bodyPlusOne)
+{
+    picks[at].bodyPlusOne = bodyPlusOne;
+    if (bodyPlusOne == 0u || bodyPlusOne > frame.bodyCount) return;
+
+    uint body = bodyPlusOne - 1u;
+    picks[at].tag = tags[body];
+    picks[at].filterWord = filters[body];
+    picks[at].pose = poseOf(body);
+    picks[at].shape = shapes[body];
+    picks[at].motion = motion[body];
+}
+
+void Finish()
+{
+    for (uint run = 0u; run < 3u; run++)
+    {
+        draws[run * 4u] = 4u;
+        draws[run * 4u + 1u] = min(counts[run], frame.runRoom);
+        draws[run * 4u + 2u] = 0u;
+        draws[run * 4u + 3u] = 0u;
+    }
+
+    ReadOut(0u, picks[0].bodyPlusOne);
+    ReadOut(1u, frame.pinnedPlusOne);
+}
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (push.mode == 0u) Shape(at);
+    else if (push.mode == 1u) Coupling(at);
+    else if (push.mode == 2u) Pointed(at);
+    else if (at == 0u) Finish();
+}

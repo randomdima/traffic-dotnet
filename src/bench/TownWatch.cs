@@ -233,6 +233,8 @@ internal sealed class TownWatch : ScenarioWatch
     /// </remarks>
     public override bool Notes(SelectionKind kind, int index, ref TextBuffer into)
     {
+        if (kind is SelectionKind.Locomotive or SelectionKind.Wagon) return false;
+
         var body = kind == SelectionKind.Person ? index : _walkers + index;
         if (body < 0 || body >= _runs.Bodies) return false;
 

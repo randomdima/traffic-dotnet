@@ -21,125 +21,28 @@ internal sealed partial class DebugOverlay
     static float AgentLineM(float pixelsPerMetre) => MathF.Max(PathMarks.PathLineM, AgentLineFloorPx / pixelsPerMetre);
 
     /// <summary>
-    /// The walkers: the line each is actually holding, drawn ahead of it as chevrons, and the place
-    /// it is holding it to.
+    /// The walkers' own manoeuvre: the line each steps out along to pass something, and back. Where a walker is going is
+    /// the agent lines' (<see cref="EngineLayers"/>), stated by its driver like every other agent's.
     /// </summary>
-    /// <remarks>
-    /// The line runs from the body and not from where the leg started, so the picture answers "where is
-    /// it going". What is drawn is the walk that is left and not the point in hand: a picture of the aim
-    /// point alone says a walker is heading into a building whenever the pavement bends round one, and
-    /// the swerves and cut corners this layer exists to show are all in the run <em>after</em> it.
-    /// </remarks>
     static void WalkerLines(
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
     {
-        var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
         var widthM = AgentLineM(pixelsPerMetre);
         var people = world.People;
         for (var person = 0; person < people.Count; person++)
         {
             if (!OnScreen(people.PositionM[person], viewCentreM, viewSpanM, config.PersonDiameterM)) continue;
 
-            WalkerRoute(ref draw, world, person, pitch, widthM, Theme.AgentLine(person));
             WalkerSidestep(ref draw, world, person, widthM, Theme.AgentLine(person));
         }
     }
 
     /// <summary>
-    /// <b>OBS-2h for a walker</b>, which is OBS-2h for a car in the walking network's own words: the way it is
-    /// walking and the one that way leads onto, and the dot between them is where it hands over — laid on a
-    /// dark casing first, so it reads over tarmac and grass alike.
+    /// The cars' own manoeuvres: what each found ahead of it and where it must be stopped by, its pass, and the pieces of
+    /// a manoeuvre it laid for itself at a bay. Where a car is going is the agent lines' (<see cref="EngineLayers"/>).
     /// </summary>
     /// <remarks>
-    /// A walker holds a route as ways and is held on each way's own arc, so what is drawn is sampled off that
-    /// arc rather than read out of the body.
-    /// </remarks>
-    static void WalkerRoute(
-        ref ScreenDraw draw, TownWorld world, int person, GridLevel? pitch, float widthM, Vector4 colour)
-    {
-        if (!world.People.Walking[person]) return;
-
-        WalkerPass(ref draw, world, person, null, widthM * PathMarks.CasingWidthFactor, Theme.Casing);
-        WalkerPass(ref draw, world, person, pitch, widthM, colour);
-    }
-
-    static void WalkerPass(
-        ref ScreenDraw draw, TownWorld world, int person, GridLevel? pitch, float widthM, Vector4 colour)
-    {
-        var people = world.People;
-        var route = people.RouteOf(person);
-        var at = people.RouteAt(person);
-        var count = people.RouteCount[person];
-        if (at < 0 || at >= count) return;
-
-        var walking = world.Walking;
-        var discs = widthM / PathMarks.PathLineM;
-        var fromM = people.PositionM[person];
-        draw.DiscM(fromM, PathMarks.EndDiscM * discs, colour);
-
-        for (var slot = at; slot < count && slot < at + StretchesDrawn; slot++)
-        {
-            var way = route[slot];
-            walking.SpanOfWay(
-                slot > 0 ? route[slot - 1] : WalkingNetwork.NoLane, way,
-                slot + 1 < count ? route[slot + 1] : WalkingNetwork.NoLane, out var startM, out var endM);
-
-            if (slot == count - 1) endM = MathF.Min(endM, people.RouteToM[person]);
-            if (slot == at) startM = MathF.Max(startM, people.OnWayM[person]);
-            if (slot > at) draw.DiscM(fromM, PathMarks.JoinDiscM * discs, colour);
-
-            fromM = Chevroned(ref draw, walking.WayArcs(way), startM, endM, fromM, pitch, widthM, colour);
-        }
-
-        draw.DiscM(fromM, PathMarks.EndDiscM * discs, colour);
-    }
-
-    /// <summary>
-    /// Chevrons along one way's own arc between two distances, and answers where it got to. <b>Sampled for
-    /// the picture</b>: a screen draws straights and the ground is arcs, which is the one place that
-    /// difference belongs.
-    /// </summary>
-    static Vector2 Chevroned(
-        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, Vector2 atM, GridLevel? pitch,
-        float widthM, Vector4 colour)
-    {
-        if (arcs.Length == 0) return atM;
-
-        for (var alongM = fromM; alongM < toM;)
-        {
-            alongM = MathF.Min(alongM + DrawnStepM, toM);
-            var pointM = Spline.SampleAt(arcs, alongM).PositionM;
-            PathMarks.Chevroned(ref draw, atM, pointM, pitch, colour, widthM);
-            atM = pointM;
-        }
-
-        return atM;
-    }
-
-    /// <summary>
-    /// How far apart a drawn way is sampled, which is a picture's tolerance and not the town's — <b>the
-    /// same step the interface stations a whole walk at</b> (<see cref="WalkedLine.StepM"/>), because it is
-    /// the same ground converted from arcs to straights for the same reason.
-    /// </summary>
-    const float DrawnStepM = WalkedLine.StepM;
-
-    /// <summary>
-    /// The cars: the two pieces of route each is driving, what it found ahead of it and where it
-    /// must be stopped by.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>OBS-2h — the stretch and not the route.</b> A car's line is laid over several lanes at a time,
-    /// and drawn whole it says a car is committed to ground the entry in charge has not reached. The
-    /// junction a car holds is not drawn a second time on top of that: the ground of the claim is the
-    /// ground of the join the route runs through, and a bold line over it says the two are different
-    /// things.
-    /// </para>
-    /// <para>
-    /// Every line is drawn for the rear axle, because that is the line the follower actually holds —
-    /// from the middle of the body it would show a car cutting every corner it is taking correctly.
-    /// </para>
     /// <para>
     /// Everything the driver was told is read off the car and not recomputed
     /// (<see cref="Agents.Car.Body.CarFleet.Context"/>): a layer asking the claims itself would be drawing
@@ -159,71 +62,34 @@ internal sealed partial class DebugOverlay
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
     {
-        var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
         var widthM = AgentLineM(pixelsPerMetre);
         var hairlineM = MathF.Max(TurnLineM, TurnLineFloorPx / pixelsPerMetre);
-        var sagM = PathMarks.SagPx / pixelsPerMetre;
         var cars = world.Cars;
         for (var car = 0; car < cars.Count; car++)
         {
             if (!OnScreen(cars.PositionM[car], viewCentreM, viewSpanM, cars.BuildOf(car).LengthM)) continue;
 
-            CarRoute(ref draw, world, car, pitch, sagM, widthM, Theme.AgentLine(car));
+            CarHeld(ref draw, world, car, widthM);
             CarPass(ref draw, world, car, widthM, hairlineM, Theme.AgentLine(car));
         }
+
+        BayApproaches(
+            ref draw, world, PathMarks.SagPx / pixelsPerMetre, PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre), viewCentreM,
+            viewSpanM);
     }
 
     /// <summary>
-    /// One car's two pieces of route on a dark casing, and what it was told about the road ahead of it.
+    /// <b>What one car was told about the road ahead of it</b>: where the road it was granted ends, and where a light holds
+    /// its road — both the town's own figures rather than this layer's arithmetic, at the car's own (CAR-11).
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Every figure is the car's own</b> (CAR-11), so a layer drawn over a truck is drawn at the truck's
-    /// dimensions and reports what the truck was told.
-    /// </para>
-    /// <para>
-    /// The line starts under the middle of the body and not at the end the route was planned from: the ground
-    /// already covered is where the car has been, and a layer drawing it is answering a question about the
-    /// past. The progress itself is the rear axle's, which is a car's length of line behind the body it
-    /// belongs to. Line and marks are the one colour, because they are the one line — what tells this car's
-    /// route from the next car's is the colour it is drawn in.
-    /// </para>
-    /// </remarks>
-    static void CarRoute(
-        ref ScreenDraw draw, TownWorld world, int car, GridLevel? pitch, float sagM, float widthM, Vector4 colour)
+    static void CarHeld(ref ScreenDraw draw, TownWorld world, int car, float widthM)
     {
         var cars = world.Cars;
         var line = cars.LineOf(car);
         if (line.Length == 0) return;
 
         ref readonly var build = ref cars.BuildOf(car);
-        var totalM = cars.Line[car].LengthM;
-        var progressM = Math.Clamp(cars.ProgressM[car], 0f, totalM);
-        var underTheCarM = MathF.Min(progressM + build.CentreAheadOfAxleM, totalM);
-
-        // The piece being driven and the piece it leads onto: the rest of this lane and the junction off the
-        // end of it, or the junction being crossed and the lane it lands on. Both are the one chain the
-        // assembler wove, so they are drawn as one run of line and the dot between them is where the car
-        // changes what it is doing.
-        var joinM = PieceEndM(cars, car, underTheCarM, totalM);
-        var untilM = PieceEndM(cars, car, joinM, totalM);
-        var discs = widthM / PathMarks.PathLineM;
-
-        PathMarks.Casing(ref draw, line, underTheCarM, untilM, sagM, widthM);
-        PathMarks.Chained(
-            ref draw, line, underTheCarM, joinM, pitch, bothWays: false, sagM, colour, MarkClaims.None, widthM);
-        PathMarks.Chained(
-            ref draw, line, joinM, untilM, pitch, bothWays: false, sagM, colour, MarkClaims.None, widthM);
-
-        draw.DiscM(Spline.SampleAt(line, underTheCarM).PositionM, PathMarks.EndDiscM * discs, colour);
-        draw.DiscM(Spline.SampleAt(line, untilM).PositionM, PathMarks.EndDiscM * discs, colour);
-        if (joinM > underTheCarM && joinM < untilM)
-        {
-            draw.DiscM(Spline.SampleAt(line, joinM).PositionM, PathMarks.JoinDiscM * discs, colour);
-        }
-
-        // Where the road it was granted ends, and where a light holds its road — both the town's own figures
-        // rather than this layer's arithmetic.
+        var progressM = Math.Clamp(cars.ProgressM[car], 0f, cars.Line[car].LengthM);
         var context = cars.Context[car];
         if (float.IsFinite(context.AuthorityM))
         {
@@ -240,31 +106,6 @@ internal sealed partial class DebugOverlay
                 stopAt.PositionM - stopAt.Right * build.WidthM * 0.6f,
                 stopAt.PositionM + stopAt.Right * build.WidthM * 0.6f, widthM * 2f, Theme.HeldLine);
         }
-    }
-
-    /// <summary>
-    /// How far along the line the piece the car is on runs out: the end of the lane it is in, the end of
-    /// the junction join it is crossing, or the end of the line where a manoeuvre laid its own geometry —
-    /// a bay template, a recovery straight — and there are no lanes under it at all.
-    /// </summary>
-    /// <remarks>
-    /// <b>The boundaries are the assembler's own</b> (<see cref="Agents.Car.Body.CarFleet.LaneStartsOf"/>),
-    /// which is what keeps this a section of the car's route rather than a second opinion about where a
-    /// lane ends. Ascending along the line, the first boundary past the car is the end of what it is
-    /// driving now. Between one lane's end and the next one's start is the join across the box.
-    /// </remarks>
-    static float PieceEndM(Agents.Car.Body.CarFleet cars, int car, float atM, float totalM)
-    {
-        var lanes = cars.Line[car].LaneCount;
-        var starts = cars.LaneStartsOf(car);
-        var ends = cars.LaneEndsOf(car);
-        for (var slot = 0; slot < lanes; slot++)
-        {
-            if (starts[slot] > atM) return starts[slot];
-            if (ends[slot] > atM) return ends[slot];
-        }
-
-        return totalM;
     }
 
     /// <summary>

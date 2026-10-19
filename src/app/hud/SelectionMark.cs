@@ -104,6 +104,13 @@ internal static class SelectionMark
             return true;
         }
 
+        if (selection.Kind is SelectionKind.Locomotive or SelectionKind.Wagon)
+        {
+            ref readonly var view = ref world.World.View.Wagons[world.WagonOf(selection)];
+            (centreM, sizeM, headingRad) = (view.PositionM, world.Trains.VehicleOf(world.WagonOf(selection)).FootprintM, view.HeadingRad);
+            return view.IsInWorld;
+        }
+
         var person = selection.Index;
         centreM = world.People.PositionM[person];
         headingRad = 0f;
@@ -117,7 +124,6 @@ internal static class SelectionMark
         sizeM = new Vector2(config.PersonDiameterM, PersonCatalog.Shared.Variants[variant].HeightM);
         return true;
     }
-
     /// <summary>
     /// The brackets themselves, round any box the picture holds: the selected unit wears them, and so does
     /// a thing the selection is on its way <em>into</em> (CTL-1a) — one shape said twice, because a goal

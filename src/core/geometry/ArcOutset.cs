@@ -921,9 +921,18 @@ internal static class ArcOutset
     /// and then the whole of it joined.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>A chord and not a repair.</b> What it closes is a feature the move was wide enough to take whole,
     /// so the ring has to carry on across where that feature was — and whether the chord itself is on the
     /// offset at all is the fold test's to say (<see cref="Uncovered"/>), like every other piece here.
+    /// </para>
+    /// <para>
+    /// <b>And none between two pieces that cross</b>, which is a corner the move closes: the ring carries on at the
+    /// crossing, and a chord would only shut the two overruns into a fold <c>d·(1−cos(θ/2))</c> deep. At a degree or
+    /// two that is under the slack a place is weighed with, so the fold is kept, and the walk takes the outermost way
+    /// off the crossing — the half-turn back into it. A surveyed coast's shore came back with a spike at every such
+    /// corner.
+    /// </para>
     /// </remarks>
     static ArcSeg[] Closed(List<ArcSeg> run)
     {
@@ -931,10 +940,15 @@ internal static class ArcOutset
         for (var at = 0; at < run.Count; at++)
         {
             chain.Add(run[at]);
-            Bridge(chain, run[at].EndM, run[(at + 1) % run.Count].StartM);
+
+            var next = run[(at + 1) % run.Count];
+            if (!Overrun(run[at], next)) Bridge(chain, run[at].EndM, next.StartM);
         }
 
         return ArcRings.Joined(CollectionsMarshal.AsSpan(chain), shut: true);
     }
+
+    /// <summary>Whether two pieces run past each other: the place <see cref="Crossed"/> would cut them back to, asked of copies.</summary>
+    static bool Overrun(ArcSeg arriving, ArcSeg leaving) => Crossed(ref arriving, ref leaving);
 
 }

@@ -185,8 +185,7 @@ public class LaneOccupancyInATownTests
         var lane = AQuietLane(world);
         var alongM = world.Roads.LaneLengthM[lane] * 0.5f;
         var on = Spline.SampleAt(world.Roads.ArcsOf(lane), alongM);
-        world.Recovery.OnTheHookOf[wreck] = hauler;
-        world.Recovery.Towing[hauler] = wreck;
+        world.Hitches.Hitch(hauler, wreck, byTheTail: false, forkAlongM: 0f);
 
         world.Cars.Driven[hauler] = false;
         world.StandTheCarAt(

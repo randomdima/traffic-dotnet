@@ -49,24 +49,52 @@ internal static class SelectionPath
     {
         if (pixelsPerMetre <= 0f) return;
 
-        // CTL-5: a hand at the wheel has substituted the behaviour wholesale, so there is no goal under the
-        // unit and no route to it — the picture says so by having nothing to draw.
-        if (world.HandsOn) return;
-
         // The selection's plans and no others (CTL-1a), however many units it holds: what bounds the
         // picture is that somebody asked for these ones, and the set is bounded itself (CTL-1b). Which
         // slot of it a unit stands in is where the town keeps the rest of that unit's way.
+        //
+        // CTL-5: a hand at the wheel has substituted the behaviour wholesale, so there is no goal under a car
+        // or a walker and no route to it — the picture says so by having nothing to draw. A train's leg is
+        // its track and is still where the hand is taking it, and the switch it throws moves it (TRN-11).
         var units = world.Selected;
+        var handsOn = world.HandsOn;
         for (var slot = 0; slot < units.Length; slot++)
         {
-            if (units[slot].Kind == SelectionKind.Car)
+            switch (units[slot].Kind)
             {
-                CarPath(ref draw, world, config, slot, units[slot].Index, pixelsPerMetre);
+                case SelectionKind.Locomotive:
+                    TrainPath(ref draw, world, config, units[slot].Index, pixelsPerMetre);
+                    break;
+                case SelectionKind.Car when !handsOn:
+                    CarPath(ref draw, world, config, slot, units[slot].Index, pixelsPerMetre);
+                    break;
+                case SelectionKind.Person when !handsOn:
+                    WalkerPath(ref draw, world, config, slot, units[slot].Index, pixelsPerMetre);
+                    break;
             }
-            else
-            {
-                WalkerPath(ref draw, world, config, slot, units[slot].Index, pixelsPerMetre);
-            }
+        }
+    }
+
+    /// <summary>
+    /// The train: the rest of its leg ahead of its front, lane by lane over the rail network, through every switch the way
+    /// it is to be set (TRN-9, TRN-11).
+    /// </summary>
+    static void TrainPath(ref ScreenDraw draw, TownWorld world, SimConfig config, int train, float pixelsPerMetre)
+    {
+        var trains = world.Trains;
+        var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
+        var sagM = PathMarks.SagPx / pixelsPerMetre;
+        var leg = trains.LegOf(train);
+        var frontM = trains.FrontM(train);
+        for (var lane = 0; lane < leg.Length; lane++)
+        {
+            var startM = trains.LegStartM(train, lane);
+            var lengthM = world.Rails.LengthM(leg[lane]);
+            if (startM + lengthM <= frontM) continue;
+
+            PathMarks.Chained(
+                ref draw, world.Rails.ArcsOf(leg[lane]), MathF.Max(0f, frontM - startM), lengthM, pitch, bothWays: false, sagM,
+                Theme.SelectionPath, MarkClaims.None);
         }
     }
 

@@ -56,7 +56,7 @@ vec2 railPlaceAt(int segment, float alongM)
 float railNearestAlong(int segment, vec2 pointM)
 {
     float bestM = 0.0;
-    float bestAwayM2 = uintBitsToFloat(0x7f800000u);
+    float bestAwayM2 = floatInfinity();
     for (int chord = 0; chord + 1 < railPointsOf(segment); chord++)
     {
         vec2 from = railPointOf(segment, chord);
@@ -178,7 +178,7 @@ ivec2 railNearest(vec2 pointM, int segments)
 {
     int best = 0;
     float bestAlongM = 0.0;
-    float bestAwayM2 = uintBitsToFloat(0x7f800000u);
+    float bestAwayM2 = floatInfinity();
     for (int segment = 0; segment < segments; segment++)
     {
         float alongM = railNearestAlong(segment, pointM);

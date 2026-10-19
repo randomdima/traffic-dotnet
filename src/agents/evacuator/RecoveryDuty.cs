@@ -44,9 +44,9 @@ internal enum RecoveryStage : byte
 /// <para>
 /// <b>It is laid over the whole fleet rather than over the evacuators alone</b>, for the reason
 /// <see cref="Ambulance.RescueDuty"/> is: a car's index means the same thing here as it does everywhere
-/// else, so nothing has to hold a second numbering and nothing can disagree about which car a tow belongs
-/// to. <see cref="Towing"/> and <see cref="OnTheHookOf"/> are the same fact from its two ends, and both are
-/// on this array so a wreck can be asked what has it as cheaply as an evacuator can be asked what it has.
+/// else, so nothing has to hold a second numbering and nothing can disagree about which car an errand belongs
+/// to. What is actually on an arm is <see cref="TowHitches"/>': a recovery has a wreck from the moment it is
+/// taken and something on the hook only once the arm has got it there.
 /// </para>
 /// <para>
 /// <b>A recovery is bounded</b> (<see cref="SinceS"/>, EVA-8), exactly as a call is: a wreck the traffic
@@ -60,11 +60,6 @@ internal sealed class RecoveryDuty
         Stage = new RecoveryStage[cars];
         Wreck = new int[cars];
         Array.Fill(Wreck, Nothing);
-        Towing = new int[cars];
-        Array.Fill(Towing, Nothing);
-        OnTheHookOf = new int[cars];
-        Array.Fill(OnTheHookOf, Nothing);
-        HeldByTheTail = new bool[cars];
         Depot = new int[cars];
         Array.Fill(Depot, NoBuilding);
         Yard = new int[cars];
@@ -83,23 +78,6 @@ internal sealed class RecoveryDuty
 
     /// <summary>The wreck this recovery is for, or <see cref="Nothing"/>. <b>One wreck to a recovery and one recovery to a wreck.</b></summary>
     public int[] Wreck { get; }
-
-    /// <summary>
-    /// The car actually on this one's bar, or <see cref="Nothing"/>. It is not the same as
-    /// <see cref="Wreck"/>: a recovery has a wreck from the moment it is taken and something on the hook
-    /// only once the arm has got it there.
-    /// </summary>
-    public int[] Towing { get; }
-
-    /// <summary>And the evacuator whose bar this car is on — the same coupling read from the wreck's end.</summary>
-    public int[] OnTheHookOf { get; }
-
-    /// <summary>
-    /// <b>Which end of <em>this car</em> the arm caught</b> (EVA-5) — its tail, or its nose. On the towed
-    /// car's own index rather than the truck's, because it is a fact about how that body is sitting: which
-    /// two of its wheels are in the air, and which way the arm reaches to it.
-    /// </summary>
-    public bool[] HeldByTheTail { get; }
 
     /// <summary>The depot this evacuator belongs to: whose yard a wreck is taken to, and what its own bay is near.</summary>
     public int[] Depot { get; }

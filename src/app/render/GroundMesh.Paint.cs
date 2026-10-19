@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.App.Render;
@@ -40,13 +41,32 @@ internal sealed partial class GroundMesh
         if (dashM <= 0f || pitchM <= dashM) return;
 
         var bands = new PaintedBands(zebras, PaintedStepM(config));
+        var levelCrossings = level == CityPlan.RoadArrays.Ground ? new CrossingStretchFinder(plan, config) : null;
         for (var run = 0; run < runs.Count; run++)
         {
             if (plan.Roads.LevelOf(runs.RoadsOf(run)[0]) != level) continue;
 
+            var arcs = runs.Of(run);
             var (fromM, toM) = runs.PaintedM(run, crossings, config);
-            var unbroken = runs.IsUnbroken(run);
-            LineRound(runs.Of(run), bands, config, fromM, toM, unbroken ? 0f : dashM, pitchM, halfWidthM, tint);
+            if (runs.IsUnbroken(run) || levelCrossings is null)
+            {
+                LineRound(arcs, bands, config, fromM, toM, runs.IsUnbroken(run) ? 0f : dashM, pitchM, halfWidthM, tint);
+                continue;
+            }
+
+            // Unbroken from stop bar to stop bar over a level crossing, as a junction's lines are (RAIL-7).
+            var pieceFromM = fromM;
+            foreach (var stretch in levelCrossings.Along(arcs, toM, CrossingLineKind.Painted))
+            {
+                var (lowM, highM) = (MathF.Max(stretch.FromM, pieceFromM), MathF.Min(stretch.ToM, toM));
+                if (highM <= lowM) continue;
+
+                LineRound(arcs, bands, config, pieceFromM, lowM, dashM, pitchM, halfWidthM, tint);
+                LineRound(arcs, bands, config, lowM, highM, 0f, pitchM, halfWidthM, tint);
+                pieceFromM = highM;
+            }
+
+            LineRound(arcs, bands, config, pieceFromM, toM, dashM, pitchM, halfWidthM, tint);
         }
     }
 

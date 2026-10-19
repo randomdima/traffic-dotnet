@@ -59,9 +59,13 @@ and the tow is five things and no more:
   for the same one, so the arm an evacuator works is exactly the arm a player works. **Nobody gets out to it**
   (`SRV-3`): what covers the last few metres is the winch below, and the same is true of setting a wreck
   down in a yard slot (EVA-6). **What it catches, it catches by either end**, and a wreck
-  is not special: anything with a body may go on the bar, and what is on the bar takes no decisions until it
-  is let off. **Its wheels are straightened as it goes on**, because the pair left on the ground may be its
-  steered one and a car dragged on a wheel wound over is being scrubbed sideways down the road.
+  is not special: **anything with a body may go on the bar** — a car, one on another arm or towing one itself, one
+  in a yard, a rail vehicle out on the map — and what is on the bar takes no decisions until it is let off. **One fork
+  to an end**: an end another arm holds is passed over, and the other end of that body may still be caught, so two
+  arms may hold one body from its two sides and arms make a chain. **Its wheels are straightened as it goes on**,
+  because the pair left on the ground may be its steered one and a car dragged on a wheel wound over is being
+  scrubbed sideways down the road. **A rail vehicle stays on its rails** (`TRN-8`): the arm pulls it along them, its
+  train pulls the arm, and every arm on it lets go as its train leaves the map (`TRN-7`).
 - **An arm.** It is **hinged on the evacuator's deck and clamped to the car it has lifted** — swinging
   freely at one end and not at all at the other — and it takes hold of that car **a fixed distance inside
   the end it caught, the same on every car there is**, a fixed reach from the hinge. **The coupling is the
@@ -78,12 +82,13 @@ and the tow is five things and no more:
   lengths and nothing in between**, the picture swapped on the tick a car goes on the bar, because nothing
   else in this town animates.
 - **Two wheels.** The caught end is lifted onto the arm, so its pair leaves the ground and **the far pair**
-  carries what the arm is not holding up. Those two wheels roll — they are not the locked block `PHY-5`
+  carries what the arm is not holding up — and a car held at both ends stands on neither. Those two wheels roll — they are not the locked block `PHY-5`
   describes, because nothing is braking them — and their sideways grip is what makes the wreck track the
   vehicle pulling it rather than swing about behind the arm.
 - **One movement, and so one occupant.** A coupled pair is one thing moving down one road: the ground the
   wreck stands on — the lane the trailer swings into as the pair turns among it — and what it can no longer
-  stop short of are held under the **truck's** number and not the wreck's (`TER-4c.2`). Both halves matter:
+  stop short of are held under the **truck's** number and not the wreck's (`TER-4c.2`); a chain's, under the truck at
+  its front. Both halves matter:
   unclaimed, the trailer's swing is ground the traffic beside it cannot see; claimed under its own number, it
   cuts its own hauler's grant.
 

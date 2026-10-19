@@ -6,7 +6,7 @@ on it is [agents/train](../../../agents/train/docs/requirements.md).
 ## The track
 
 **RAIL-2** `P6` **The railway is a network of tracks, every loose end of it past an edge of the map**
-(`TRN-1`), and a track is never bent tighter than the least radius a railway is laid round (`SimConfig.Rail`). A
+(`TRN-7`), and a track is never bent tighter than the least radius a railway is laid round (`SimConfig.Rail`). A
 map holds its tracks as lines (`TownMap.Rails`), each named for the **line** it belongs to — two tracks of one
 railway side by side are one line, whose trains run the both of them (`TRN-6`) — and tracks meet only end to end or
 end on line: a switch stands wherever they do, and nothing about it is stored (`TRN-9`).
@@ -31,6 +31,11 @@ twice or cross it at a slant is not laid.
 **RAIL-8** `P3` **A track on a bridge is a level of its own** (`PHY-1a`): no road or walk under it meets it at a crossing,
 and a wagon any of which is on it is on a collision channel of its own and meets nothing it passes over.
 
+**RAIL-11** `P7` **A generated railway may loop once, and its way out passes over its way in on a bridge**
+(`RAIL-8`, `TownBrief.RailLoopDeg`): the loop is laid at the least radius (`RAIL-2`), straight either side, and is
+short enough that every train is over itself on it. The bridge is as long as climbing to its clearance at the ruling
+grade takes either side (`SimConfig.Rail`), and never reaches the track it passes over.
+
 ## The level crossing
 
 **RAIL-1** `P0` **A level crossing closes ahead of every train.** Where a road or a walk meets a track at
@@ -42,5 +47,12 @@ has cleared it.
 does (`TLT-2a`): a car or a walker already over the stop line when the crossing closes is never held on the
 track, and drives or walks off it.
 
-**RAIL-7** `P6` **A closed crossing shows it**: its lights flash from the moment it closes, and its barriers
-are lowered across each road's approach over a lowering time after that, and raised once it opens.
+**RAIL-7** `P6` **A closed crossing shows it, and is painted and lit as a junction is**: an X light over every lane
+coming in flashes from the moment it closes, and a while after that its barriers are lowered across each road's
+approach over a barrier's time; they are raised once it opens, and a raised one is still seen. A barrier stands square
+to the road, no nearer a rail along the road than a clearance, and as near as that at whichever end of its line comes
+nearest. Every lane coming in carries a junction's stop bar short of its barrier, and the road's lines run unbroken from
+stop bar to stop bar.
+
+**RAIL-10** `P6` **A crossing's barrier is a body that stops a car** and nothing else: it is one while it is
+anything but all the way up, nothing it meets moves it, and a lane it closes stays held until it is all the way up.

@@ -340,7 +340,7 @@ internal readonly record struct CarBuild
             CentreAheadOfAxleM = centreAheadOfAxleM,
             TowHingeAheadOfCentreM = towHingeAheadOfCentreM,
             TowReachM = towReachM,
-            TowGripFromTheMiddleM = (lengthM * 0.5f) - config.Evacuator.TowGripInsideTheEndM,
+            TowGripFromTheMiddleM = TowBar.GripFromTheMiddleM(lengthM, config.Evacuator.TowGripInsideTheEndM),
             CgHeightM = cgHeightM ?? config.Car.CgHeightM,
 
             // A share is a share, and a car standing on more than all of itself is not a body the loads

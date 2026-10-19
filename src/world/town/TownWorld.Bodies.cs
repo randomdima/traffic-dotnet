@@ -128,6 +128,8 @@ internal sealed partial class TownWorld
         BodyKind.Car => DamageSubject.Car(
             Cars.MassKgOf(tag.Index), Cars.Broken[tag.Index], CarCatalog.Shared.UnbreakableOf(Cars.Variant[tag.Index])),
         BodyKind.Train => DamageSubject.Train(_trains.VehicleOf(tag.Index).MassKg),
+
+        // A crossing's arm as a wall: what meets it is hurt by it, and it by nothing.
         _ => DamageSubject.Static,
     };
 
@@ -189,8 +191,9 @@ internal sealed partial class TownWorld
 
         // SRV-4: an evacuator breaks like anything else, and a broken one drops what it was pulling where
         // it stands. The truck is a call now and the wreck behind it is a call again, which is the state
-        // EVA-8 already puts a haul in that could not get through.
+        // EVA-8 already puts a haul in that could not get through. So does any arm that is no depot's (EVA-5).
         if (IsAnEvacuator(car)) LoseTheEvacuator(car);
+        else LetGoOfTheLoad(car);
 
         // PHY-6: the driver goes down on the road beside their own door. The bay they were going to is
         // given back on the way, since nothing will arrive there now.

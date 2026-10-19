@@ -4,6 +4,22 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-19 — every authored map runs a railway, the fixture's laid clear of its staging
+
+**The owner (2026-10-19): "add it on all maps"**, asked why O10 had no trains (RAIL-2).
+
+- **O10 and O30 take Odesa's double track** (bearing, offset share and meander alike): they are its brief at scale, and
+  the offset and wander are shares of the short side, so the line stands where Odesa's does.
+- **Test takes a single track parallel to its river, 0.35 of its short side off the middle on the west bank, looped
+  −270°** so its way out turns away from the river (RAIL-11). The fixture is what the detailed checks are staged on,
+  and a track reshapes the wheel's streets past it (RAIL-5): River's line (12°, 0.18), and 12° at −0.3 and 0.3, each
+  left the fixture with no street short enough to be cut twice within 60 m and no arrow laid onto a zebra — the
+  staging four unit tests guard; a loop at the middle kept a single block. Where it runs now it keeps the staging and
+  meets no road. Moved, it is re-chosen by the same tests.
+- **River's loop is laid 0.15 of the long side west along its line** (`railLoopAlongShare`): at the middle it stood in
+  the river.
+- **`BigOdesa` takes none**: it is authored into no map.
+
 ## 2026-10-17 — the town keeps real time whatever the display's rate
 
 **The owner (2026-10-14): "atomic tick is physics tick, render happens every physics tick up to vsync" … "I mean that

@@ -107,13 +107,15 @@ internal static class Towns
     /// brief with no buildings on it stands nobody whatever this says.
     /// </param>
     /// <param name="railTracks">The railway the case asks about (RAIL-2): none, unless the case is about the railway.</param>
+    /// <param name="railLoopDeg">Its loop (RAIL-11): none, unless the case is about the loop.</param>
     public static TownBrief Brief(
         ulong seed, WaterKind water = WaterKind.River, int cars = 60, float gridDistrictShare = 0.5f,
-        int buildings = 0, int people = 0, int railTracks = 0) => new()
+        int buildings = 0, int people = 0, int railTracks = 0, float railLoopDeg = 0f) => new()
     {
         Buildings = buildings,
         People = people,
         RailTracks = railTracks,
+        RailLoopDeg = railLoopDeg,
         RailBearingDeg = 25f,
         RailOffsetShare = 0.12f,
         RailMeander = 0.15f,
@@ -351,9 +353,10 @@ internal static class Towns
     /// </summary>
     /// <remarks>
     /// <b>It is a fact about the map and not a constant.</b> A town whose traffic disperses settles in a
-    /// minute; a map that piles up would name its own figure here, and none of this build's does.
+    /// minute. <b>The fixture takes two</b>: its 19-vehicle train is out over its loop at 68 s, and the world's
+    /// thread grew the solver's contact arrays by 40 KB then (2026-10-19, RAIL-11).
     /// </remarks>
-    public static int SettleTicks(string map) => 3_600;
+    public static int SettleTicks(string map) => map == Fixture ? 7_200 : 3_600;
 
     /// <summary>
     /// Every town of the suite's own that was laid with a pavement — <b>which is what the walking network's

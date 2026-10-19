@@ -51,6 +51,20 @@ public class CollisionLayerTests
         Assert.False(CollisionLayers.Interact(CollisionLayer.Train, CollisionLayer.Downed));
     }
 
+    /// <summary>
+    /// <b>A crossing's arm stops a car and nothing else</b> (RAIL-10): a walker ducks under it, and a body of the town's
+    /// furniture or a train is never where it is lowered.
+    /// </summary>
+    [Fact]
+    public void ACrossingsArmMeetsCarsAndNothingElse()
+    {
+        Assert.True(CollisionLayers.Interact(CollisionLayer.Barrier, CollisionLayer.Car));
+        foreach (var other in (ReadOnlySpan<CollisionLayer>)[CollisionLayer.Static, CollisionLayer.Person, CollisionLayer.Downed, CollisionLayer.Train, CollisionLayer.Barrier])
+        {
+            Assert.False(CollisionLayers.Interact(CollisionLayer.Barrier, other), $"a crossing's arm meets {other}");
+        }
+    }
+
     [Fact]
     public void EveryPairOfLayersAgreesInBothDirections()
     {

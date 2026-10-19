@@ -1,9 +1,14 @@
 {
   "id": "crossing_head",
+  "sprite": "crossing_head.webp",
   "kind": "Head",
-  "describe": "a level-crossing warning signal seen from straight above, top-down only: the round top of its grey post in the middle, and across it, running top to bottom, the top edge of a black backboard carrying two round lamp hoods side by side, one near the top and one near the bottom, each hood a black half-ring open toward the right with dark unlit red glass inside, a thin white and red St Andrew's cross plate edge on top",
+  "describe": "a level-crossing warning signal standing upright, seen from the front and a little above, drawn north up as the town's signs are: a white St Andrew's cross with red borders at the top; under it a black backboard with a thin white rim carrying two round lamps side by side, each with its glass facing the viewer and a black hood over its top like a cap; a grey post running down from the backboard to the bottom edge",
   "footprintM": [
     0.9,
-    0.9
+    1.5
+  ],
+  "lamps": [
+    { "fitting": "rear", "atM": [ -0.21, -0.05 ], "sizeM": [ 0.26, 0.26 ] },
+    { "fitting": "rear", "atM": [ 0.21, -0.05 ], "sizeM": [ 0.26, 0.26 ] }
   ]
 }

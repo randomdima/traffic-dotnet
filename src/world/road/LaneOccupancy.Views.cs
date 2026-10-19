@@ -179,4 +179,44 @@ internal sealed partial class LaneOccupancy
 
         return claims.Length;
     }
+
+    /// <summary>
+    /// <b>Every claim the table holds, as it holds them</b> — a row a holder's claim, every kind, on every way anything is
+    /// laid on, unmerged and in no order — into <paramref name="into"/> as far as it reaches. Answers how many there are,
+    /// which is more than were written where it did not reach.
+    /// </summary>
+    /// <remarks>The table's own rows read straight, for an instrument that draws what is held rather than an answer about it.</remarks>
+    public int HeldClaims(Span<HeldClaim> into)
+    {
+        var count = 0;
+        for (var row = 0; row < _touchedCount; row++)
+        {
+            var way = _touched[row];
+            ref readonly var heads = ref _rows[row];
+            count = Held(heads.Bodies, way, ClaimKind.Body, into, count);
+            count = Held(heads.Mains, way, ClaimKind.Main, into, count);
+            count = Held(heads.Seconds, way, ClaimKind.Secondary, into, count);
+        }
+
+        return count;
+    }
+
+    int Held(int head, int way, ClaimKind kind, Span<HeldClaim> into, int count)
+    {
+        for (var at = head; at != NoSlot; at = _slots[at].Next)
+        {
+            ref readonly var slot = ref _slots[at];
+            if (count < into.Length) into[count] = new HeldClaim(way, slot.FromDm | ((uint)slot.ToDm << 16), (uint)slot.Rung | ((uint)kind << 8), slot.Key);
+            count++;
+        }
+
+        return count;
+    }
 }
+
+/// <summary>
+/// <b>One holder's claim as the table holds it</b> (<see cref="LaneOccupancy.HeldClaims"/>), in sixteen bytes a kernel
+/// reads: its way, its two edges in decimetres of the way (the near in the low half), its rung with its kind in the next
+/// byte, and whose it is (<see cref="LaneOccupancy.KeyOf"/>).
+/// </summary>
+internal readonly record struct HeldClaim(int Way, uint EdgesDm, uint RungAndKind, int Key);

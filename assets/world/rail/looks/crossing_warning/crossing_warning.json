@@ -1,0 +1,9 @@
+{
+  "id": "crossing_warning",
+  "kind": "Sign",
+  "describe": "a road sign warning of a level crossing with barriers, standing upright, seen from the front and a little above, drawn north up as the town's signs are: a white triangle with a thick red border, point up, showing a small black fence, filling the width at the top; a grey post running down from it to the bottom edge",
+  "footprintM": [
+    0.8,
+    1.3
+  ]
+}

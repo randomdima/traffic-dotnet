@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Rail;
 
@@ -17,7 +18,9 @@ namespace TrafficSimulation.World.Rail;
 /// <para>
 /// <b>A crossing's stretch of its road is the ballast's</b>: from where the road meets the first track's ballast to
 /// where it leaves the last's, measured along the road — which on a road crossing at a slant is longer than the band is
-/// wide, by what the slant costs. Its stop lines stand a setback short of that at both ends.
+/// wide, by what the slant costs. <b>Its barriers stand square across the road at both ends, as near the rails as a
+/// clearance</b> (<see cref="Barrier"/>): the clearance at the end of their line nearest a rail, more at the road's middle
+/// where it crosses at a slant. Its stop bars are each lane's own, short of its barrier (<see cref="CrossingStretches"/>).
 /// </para>
 /// </remarks>
 internal sealed class LevelCrossings
@@ -28,7 +31,7 @@ internal sealed class LevelCrossings
     public static LevelCrossings None { get; } = new()
     {
         Track = [], Road = [], Crossing = [], AlongTrackM = [], AlongRoadM = [], CentreM = [], SinAcross = [],
-        Line = [], OfRoad = [], FromRoadM = [], ToRoadM = [], MeetingOffsets = [0],
+        Line = [], OfRoad = [], FromRoadM = [], ToRoadM = [], MeetingOffsets = [0], Barriers = [],
     };
 
     /// <summary>The track each meeting is on.</summary>
@@ -74,6 +77,19 @@ internal sealed class LevelCrossings
     /// </summary>
     public float HalfOverM(CityPlan plan, int meeting) =>
         ((plan.Roads.WidthM[Road[meeting]] * 0.5f) + plan.PavementWidthM) / SinAcross[meeting];
+
+    /// <summary>Two a crossing, in <see cref="Approach"/>'s order: the lines its barriers stand on.</summary>
+    public required CrossingEdge[] Barriers { get; init; }
+
+    /// <summary>Which of <see cref="Barriers"/> traffic coming in at one end of a crossing — <paramref name="withTheRoad"/>, or against it — meets.</summary>
+    public static int Approach(int crossing, bool withTheRoad) => (2 * crossing) + (withTheRoad ? 0 : 1);
+
+    /// <summary>
+    /// <b>The line square across the road a barrier stands on</b> (RAIL-7), on the side traffic coming in at that end of a
+    /// crossing arrives from: as near the rails as <see cref="RailFigures.BarrierRailClearanceM"/> allows, measured along
+    /// the road, at whichever end of its line — the tip of its arm or the walk its drive stands on — comes nearest.
+    /// </summary>
+    public CrossingEdge Barrier(int crossing, bool withTheRoad) => Barriers[Approach(crossing, withTheRoad)];
 
     /// <summary>The crossings each plan laid, read once a plan: the ground, the gear and the room a frame is laid for all ask.</summary>
     static readonly System.Runtime.CompilerServices.ConditionalWeakTable<CityPlan, LevelCrossings> Laid = new();
@@ -135,14 +151,100 @@ internal sealed class LevelCrossings
 
         if (meetings.Count > 0) offsets.Add(meetings.Count);
 
+        var barriers = new CrossingEdge[2 * line.Count];
+        for (var each = 0; each < line.Count; each++)
+        {
+            var road = ofRoad[each];
+            var arcs = plan.Roads.SegmentsOf(road);
+            var halfWidthM = plan.Roads.WidthM[road] * 0.5f;
+            var (tipM, walkM) = (plan.Roads.Flow[road] == RoadFlow.BothWays ? 0f : -halfWidthM, halfWidthM + plan.PavementWidthM);
+            var (first, last) = (offsets[each], offsets[each + 1] - 1);
+            foreach (var withTheRoad in (ReadOnlySpan<bool>)[true, false])
+            {
+                var way = withTheRoad ? 1f : -1f;
+                var alongM = meetings[withTheRoad ? first : last].AlongRoadM;
+                var edge = default(CrossingEdge);
+                for (var pass = 0; pass < BarrierPasses; pass++)
+                {
+                    var at = Spline.SampleAt(arcs, alongM);
+                    edge = new CrossingEdge(at.PositionM, at.Direction * way);
+                    alongM += way * (NearestRailM(meetings, first, last, rails, config.Rail, edge, tipM, walkM) - config.Rail.BarrierRailClearanceM);
+                }
+
+                barriers[Approach(each, withTheRoad)] = edge;
+            }
+        }
+
         return new LevelCrossings
         {
             Track = [.. meetings.Select(m => m.Track)], Road = [.. meetings.Select(m => m.Road)], Crossing = crossing,
             AlongTrackM = [.. meetings.Select(m => m.AlongTrackM)], AlongRoadM = [.. meetings.Select(m => m.AlongRoadM)],
             CentreM = [.. meetings.Select(m => m.CentreM)], SinAcross = [.. meetings.Select(m => m.Sin)],
             Line = [.. line], OfRoad = [.. ofRoad], FromRoadM = [.. fromRoadM], ToRoadM = [.. toRoadM], MeetingOffsets = [.. offsets],
+            Barriers = barriers,
         };
     }
+
+    /// <summary>
+    /// How many times a barrier's line is moved along its road to stand its clearance off the rails: once is exact on a
+    /// straight road, and the next takes up what a bend in it made of the first.
+    /// </summary>
+    const int BarrierPasses = 3;
+
+    /// <summary>
+    /// <b>How near the rails of a crossing's meetings a line across the road comes</b>, measured along the way traffic
+    /// comes in at it, over <paramref name="tipM"/> to <paramref name="walkM"/> across it toward the right-hand kerb — the
+    /// nearer of its two ends, its middle lying between. A rail is its track's line a rail's offset either side, where
+    /// each end's way along the road crosses it.
+    /// </summary>
+    static float NearestRailM(
+        List<(int Track, int Road, float AlongTrackM, float AlongRoadM, Vector2 CentreM, float Sin)> meetings, int first, int last,
+        CityPlan.RailArrays rails, RailFigures rail, CrossingEdge edge, float tipM, float walkM)
+    {
+        var railOffM = (rail.GaugeM * 0.5f) + rail.RailHeadWidthM;
+        var leastM = float.PositiveInfinity;
+        for (var meeting = first; meeting <= last; meeting++)
+        {
+            foreach (var acrossM in (ReadOnlySpan<float>)[tipM, walkM])
+            {
+                var track = rails.TrackOf(meetings[meeting].Track);
+                if (!Crosses(track, edge.AcrossM(acrossM), edge.Travel, meetings[meeting].CentreM, out var atM, out var along)) continue;
+
+                leastM = MathF.Min(leastM, atM - (railOffM / MathF.Abs(Cross(edge.Travel, along))));
+            }
+        }
+
+        return leastM;
+    }
+
+    /// <summary>
+    /// Where the line through <paramref name="fromM"/> along <paramref name="way"/> crosses a track, as how far along it from
+    /// there, and the way the track runs: of every chord it crosses, the one nearest the meeting at <paramref name="nearM"/>.
+    /// </summary>
+    static bool Crosses(ReadOnlySpan<Vector2> lineM, Vector2 fromM, Vector2 way, Vector2 nearM, out float atM, out Vector2 along)
+    {
+        var nearestM = float.PositiveInfinity;
+        (atM, along) = (0f, way);
+        for (var point = 0; point + 1 < lineM.Length; point++)
+        {
+            var chordM = lineM[point + 1] - lineM[point];
+            var meets = Cross(way, chordM);
+            if (meets == 0f) continue;
+
+            var share = Cross(lineM[point] - fromM, way) / meets;
+            if (share is < 0f or > 1f) continue;
+
+            var hereM = Cross(lineM[point] - fromM, chordM) / meets;
+            var offM = Vector2.Distance(fromM + (way * hereM), nearM);
+            if (offM >= nearestM) continue;
+
+            (nearestM, atM, along) = (offM, hereM, Vector2.Normalize(chordM));
+        }
+
+        return !float.IsPositiveInfinity(nearestM);
+    }
+
+    static float Cross(Vector2 one, Vector2 other) => (one.X * other.Y) - (one.Y * other.X);
 
     /// <summary>Whether a place along a road stands on one of its decks, which carries it over whatever is below.</summary>
     static bool OnADeck(CityPlan plan, int road, float alongRoadM)
@@ -154,4 +256,17 @@ internal sealed class LevelCrossings
 
         return false;
     }
+}
+
+/// <summary>
+/// <b>A line square across the road at one end of a level crossing</b> (<see cref="LevelCrossings.Barrier"/>): where it crosses
+/// the road's line, and the way the traffic coming in there travels.
+/// </summary>
+internal readonly record struct CrossingEdge(Vector2 MiddleM, Vector2 Travel)
+{
+    /// <summary>The way along the line toward the kerb on that traffic's right.</summary>
+    public Vector2 TowardTheKerb => Heading.RightOf(Travel);
+
+    /// <summary>The place on the line a distance across the road from its middle, toward the right-hand kerb.</summary>
+    public Vector2 AcrossM(float acrossM) => MiddleM + (TowardTheKerb * acrossM);
 }

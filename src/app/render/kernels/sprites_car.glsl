@@ -4,7 +4,8 @@
 #ifndef SPRITES_CAR_GLSL
 #define SPRITES_CAR_GLSL
 
-// Its pose and wheel, what its lamps say (a CarLampSet), its look and what it tows.
+// Its pose and wheel, what its lamps say (a CarLampSet), its look, what it tows (DeviceWorld.TowingCode) and where along
+// that the fork is.
 struct CarRow
 {
     vec2 positionM;
@@ -16,11 +17,10 @@ struct CarRow
     uint variant;
     uint flags;
     int towing;
-    float pad;
+    float forkAlongM;
 };
 
 const uint CarBroken = 1u;
-const uint CarHeldByTheTail = 256u;
 const uint CarLevelShift = 16u;
 
 #endif

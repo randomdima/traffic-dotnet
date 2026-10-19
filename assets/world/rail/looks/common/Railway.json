@@ -1,5 +1,8 @@
 {
   "variants": [
-    "../track_concrete/track_concrete.json"
+    "../track_concrete/track_concrete.json",
+    "../barrier_arm/barrier_arm.json",
+    "../barrier_drive/barrier_drive.json",
+    "../crossing_light/crossing_light.json"
   ]
 }

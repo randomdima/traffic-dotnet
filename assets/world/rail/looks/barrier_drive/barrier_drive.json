@@ -1,9 +1,10 @@
 {
   "id": "barrier_drive",
+  "sprite": "barrier_drive.webp",
   "kind": "Drive",
-  "describe": "a level-crossing barrier machine seen from straight above, top-down only: a compact metal housing painted yellow and grey with a rounded lid and vents, the barrier's pivot shaft hub at its right end, a short dark counterweight at its left end",
+  "describe": "a sliding level-crossing barrier's drive housing seen from straight above, top-down only: a low rectangular steel box painted yellow with grey edges and a flat lid with a few vent slots, a dark square opening in the middle of its right end where the boom slides out, a small bolted inspection plate on the lid",
   "footprintM": [
-    0.9,
+    1.2,
     0.6
   ]
 }

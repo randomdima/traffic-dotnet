@@ -4,9 +4,8 @@
 // A frame's cars and walkers as the emit reads them (sprites_car.glsl's CarRow, sprites_person.glsl's PersonRow), laid
 // off the world's own state on the device (app/devicetick/DeviceWorld) and nothing the host sends: in mode 0 a thread a
 // car — where its body is and how it points, its wheel, what its lamps say and whether it is a wreck as it last
-// signalled them, which end it hangs off a bar by, and its level off its channels; in mode 2, once every car's row is
-// laid, each car on a bar names itself to its tractor's; in mode 1 a thread a walker — where it stands and faces, how
-// far it has walked, inside, down or walking.
+// signalled them, what its arm holds and where on it, and its level off its channels; in mode 1 a thread a walker — where
+// it stands and faces, how far it has walked, inside, down or walking.
 //
 // **Where a body is and how it points are the view's the host is showing** (WorldView, the slot the frame names), and not
 // the solver's step in flight: what is drawn over a body — its selection, its path, the debug layers — is read off that
@@ -66,12 +65,11 @@ void layTheCar(uint car)
     CarViewRow seen = frame.viewSlot == 0u ? carViews0[car] : carViews1[car];
     uint channels = seen.flags >> 16;
     uint level = channels == 0u ? 0u : uint(findMSB(channels));
-    uint flags = ((row.flags & CarShowsBroken) != 0u ? CarBroken : 0u)
-                 | ((row.flags & CarByTheTail) != 0u ? CarHeldByTheTail : 0u) | (level << CarLevelShift);
+    uint flags = ((row.flags & CarShowsBroken) != 0u ? CarBroken : 0u) | (level << CarLevelShift);
     CarLookRow look = carLooks[car];
     cars[car] = CarRow(
         seen.positionM, trigUnit(seen.headingRad), seen.headingRad, commands[car].steerRad, look.fuseJitter,
-        (row.flags >> CarShowsShift) & 0xffu, look.variant, flags, -1, 0.0);
+        (row.flags >> CarShowsShift) & 0xffu, look.variant, flags, row.towing, row.forkAlongM);
 }
 
 void layTheWalker(uint walker)
@@ -94,6 +92,5 @@ void main()
     if (at >= lay.count) return;
 
     if (lay.mode == 0u) layTheCar(at);
-    else if (lay.mode == 1u) layTheWalker(at);
-    else if (worldCars[at].tractor >= 0) cars[worldCars[at].tractor].towing = int(at);
+    else layTheWalker(at);
 }

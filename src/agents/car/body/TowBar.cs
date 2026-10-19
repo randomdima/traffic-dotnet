@@ -75,7 +75,23 @@ internal static class TowBar
 
     /// <summary>And the eye in the towed car's own frame, the pin's other end (<see cref="EyeM(in CarBuild, Vector2, Vector2, float, bool)"/>).</summary>
     public static Vector2 EyeOnTheBodyM(in CarBuild towed, float reachM, bool byTheTail) =>
-        new(EndSign(byTheTail) * (towed.TowGripFromTheMiddleM + reachM), 0f);
+        EyeOnTheBodyM(towed.TowGripFromTheMiddleM, reachM, byTheTail);
+
+    /// <summary>
+    /// The eye in any towed body's own frame, off how far from its middle the fork takes hold — a rail vehicle's as much
+    /// as a car's, since the arm holds whatever it caught the same way.
+    /// </summary>
+    public static Vector2 EyeOnTheBodyM(float gripFromTheMiddleM, float reachM, bool byTheTail) =>
+        new(EndSign(byTheTail) * (gripFromTheMiddleM + reachM), 0f);
+
+    /// <summary>
+    /// <b>How far from a body's middle the fork takes hold</b>: a fixed distance inside either end of it, whatever the body
+    /// (<see cref="CarBuild.TowGripFromTheMiddleM"/>).
+    /// </summary>
+    public static float GripFromTheMiddleM(float lengthM, float insideTheEndM) => (lengthM * 0.5f) - insideTheEndM;
+
+    /// <summary>Where along a towed body's own axis the fork is, from its middle and forward positive.</summary>
+    public static float ForkAlongM(float gripFromTheMiddleM, bool byTheTail) => EndSign(byTheTail) * gripFromTheMiddleM;
 
     /// <summary>
     /// <b>Where a car on the arm stands</b>: how far behind the tractor's middle its own middle is when the
@@ -154,7 +170,8 @@ internal static class TowBar
     /// <summary>
     /// The pair a towed car is left rolling on, which is always <b>the far one from the fork</b>: the end on
     /// the arm is the end in the air. A car caught by the tail therefore rolls on its own steered pair, which
-    /// is why the wheels of anything put on the bar are straightened first (EVA-5).
+    /// is why the wheels of anything put on the bar are straightened first (EVA-5). A car held at both ends
+    /// has no pair down at all, and is not asked this.
     /// </summary>
     public static int PairOnTheGround(bool byTheTail) => byTheTail ? FrontPair : RearPair;
 

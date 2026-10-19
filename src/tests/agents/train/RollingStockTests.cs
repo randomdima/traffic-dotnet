@@ -17,7 +17,7 @@ public class RollingStockTests
     static TrainCatalog Catalog => TrainCatalog.Shared;
 
     static float LengthM(VehicleKind lead, VehicleKind wagon, int wagons) =>
-        Catalog.ShapeOf(lead).FootprintM.X + (wagons * Catalog.ShapeOf(wagon).FootprintM.X) + (wagons * Config.Train.CouplingGapM);
+        Catalog.ShapeOf(lead).FootprintM.X + (wagons * Catalog.ShapeOf(wagon).FootprintM.X);
 
     /// <summary>
     /// <b>Every train fits on the run-in a warning short of the map</b> (RAIL-1): put down there, its tail is still on the
@@ -44,7 +44,7 @@ public class RollingStockTests
 
     /// <summary>
     /// <b>Two coupled vehicles stand clear of each other on the tightest curve a track is laid round</b> (TRN-8): what the
-    /// inside corners close by as the two bodies turn against each other is less than the coupling's gap.
+    /// inside corners close by as the two bodies turn against each other is less than the buffers between them.
     /// </summary>
     [Fact]
     public void CoupledVehiclesStandClearOfEachOtherOnTheTightestCurve()
@@ -53,9 +53,10 @@ public class RollingStockTests
         {
             foreach (var other in Catalog.Vehicles)
             {
-                var turnRad = ((one.FootprintM.X + other.FootprintM.X) * 0.5f + Config.Train.CouplingGapM) / Config.Rail.LeastRadiusM;
-                var closingM = MathF.Max(one.FootprintM.Y, other.FootprintM.Y) * 0.5f * turnRad;
-                Assert.True(closingM < Config.Train.CouplingGapM, $"{one.Id} and {other.Id} close by {closingM:F3} m on the tightest curve");
+                var buffersM = one.BufferM + other.BufferM;
+                var turnRad = (one.FootprintM.X + other.FootprintM.X) * 0.5f / Config.Rail.LeastRadiusM;
+                var closingM = MathF.Max(one.BodyM.Y, other.BodyM.Y) * 0.5f * turnRad;
+                Assert.True(closingM < buffersM, $"{one.Id} and {other.Id} close by {closingM:F3} m on the tightest curve, {buffersM:F2} m of buffers apart");
             }
         }
     }

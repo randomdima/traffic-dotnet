@@ -31,6 +31,13 @@ internal sealed partial class Game
 
     private partial long Crossings() => Runtime.Vk.Crossings;
 
+    private partial Runtime.Vk? EngineDevice() => _vk;
+
+    /// <summary>The image the frame being filled is drawn into: the engine layers' kernels ride in its recording.</summary>
+    private partial int EngineSlot() => _renderer.ImageIndex;
+
+    private partial int EngineSlots() => _renderer.ImageCount;
+
     /// <summary>
     /// <b>DRV-8 — a second target on the device already drawing this town.</b> The ground and the looks are
     /// the window's own, because they are what the town is: an eye laid from a second cut of either would

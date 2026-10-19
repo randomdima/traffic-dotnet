@@ -9,8 +9,6 @@ namespace TrafficSimulation.World.Road;
 /// </summary>
 internal sealed record RailWayLines(ArcSeg[][] Arcs, byte[] Channels, float WidthM)
 {
-    public static RailWayLines None { get; } = new([], [], 0f);
-
     public int Count => Arcs.Length;
 
     /// <summary>Each lane's length, which is all the way table takes of it (<see cref="TownWays"/>).</summary>

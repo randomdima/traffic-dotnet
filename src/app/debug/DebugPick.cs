@@ -6,8 +6,9 @@ namespace TrafficSimulation.App.Debug;
 internal enum DebugThing : byte
 {
     None,
-    Car,
-    Walker,
+
+    /// <summary>A body of the body table, whatever it is (<see cref="EngineLayers"/>): its row is its index.</summary>
+    Body,
     Boundary,
     Way,
     Line,
@@ -20,7 +21,7 @@ internal enum DebugThing : byte
 /// <b>One thing a layer draws, as the pointer found it</b> (OBS-2t) — a body by its index, a way by its number,
 /// a stretch of boundary or a cell by where it was found.
 /// </summary>
-/// <param name="Index">The car, the walker or the driven line; a cell's column; a stretch's place in its chain.</param>
+/// <param name="Index">The body's row, or the driven line; a cell's column; a stretch's place in its chain.</param>
 /// <param name="Way">The way; a cell's row; the chain a stretch is in.</param>
 /// <param name="AtM">
 /// Where it was found. <b>A boundary, a way and a cell are asked again there every frame</b>: what holds a way
