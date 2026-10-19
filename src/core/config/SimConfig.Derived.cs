@@ -608,9 +608,6 @@ internal sealed partial class SimConfig
     /// <summary>How long one leg of a recovery may run before it is written off (EVA-8).</summary>
     public float EvacuatorGiveUpS => CarPatienceS * Evacuator.GiveUpInBlockedClocks;
 
-    /// <summary>The ceiling on what the tow bar may spend, as an acceleration on the pair's reduced mass (EVA-5).</summary>
-    public float EvacuatorHitchMostMps2 => Evacuator.HitchMostInGrips * Tyre.StandardGravityMps2;
-
     /// <summary>How near an ordered place a car has to have stopped before that order is finished (CTL-8a).</summary>
     public float OrderedPlaceReachM => Car.LengthM * Control.PlaceReachInCarLengths;
 

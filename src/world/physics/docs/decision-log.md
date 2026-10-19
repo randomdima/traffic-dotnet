@@ -3,6 +3,19 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-19 — the solver gained one joint, the link, and damping became each body's
+
+**The owner asked for a real, physics-based solid link for both the tow and the train**, free to spin, with "no
+special physics treatment for link" (`SOL-38`). It is a row in the velocity passes beside the contacts — bilateral
+along the bar and nothing across it — and its stretch is pushed out with the overlaps, so a chain of a dozen wagons
+converges in the solver's own iterations and the GPU's colouring keeps two links of one chain apart. It reverses the
+evacuator's 2026-08-26 "two impulses and no joint": that coupling had a settle time and two caps, which a train of
+heavy wagons could not be priced with.
+
+**Damping is laid with each body.** A train's wheels pay its rolling losses themselves, and the shared 0.1/s at 22 m/s
+asks a 2.2 m/s² of traction a locomotive does not have — meganewtons over a few hundred tonnes. A car keeps the
+figures the 2026-10-12 measurement kept; a rail vehicle gets none.
+
 ## 2026-10-12 — the damping stays, because the driver's margin is in it
 
 **Measured and not taken: `SolverFigures.LinearDamping` and `AngularDamping` to nought.** Every body has an actuator

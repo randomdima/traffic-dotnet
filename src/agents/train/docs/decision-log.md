@@ -1,23 +1,37 @@
 # The train — decision log
 
+## 2026-10-19 — a train is vehicles on rail lanes, coupled by the solver's link
+
+**The owner asked for working trains, not a scripted event**: "they are basically just cars towing each other with
+different wheel physics that limits their positions to the rails but allows free rotation". Each tick is a car's —
+each wheel, then its body, then the forces in the solver — and nothing about a train is posed, pathed or timed by a
+script. The owner's words settled each part:
+
+- **`TRN-2` and `TRN-3` restated by the owner**: a train is a real, heavy mass and takes no damage; it never brakes or
+  yields, and its traction holds its line's speed — a collision may cost a negligible dip, and starting and stopping
+  may compress it.
+- **One solid link for the tow and the train** (`SOL-38`), free to spin, with "no special physics treatment for link".
+  What a train gains on top is its wheel base: each axle or bogie is one large wheel, free to rotate, several along a
+  vehicle (`TRN-8`). Unbraked a rail wheel rolls on very little; locked, it holds very hard.
+- **Rail lanes are real lanes, and a train is a real actor** routed over them: the map may lay any network, and its
+  switches are inferred where tracks meet, each a line in one of its positions that the physics runs as one solid
+  line; the driver sets one about 100 m ahead (`TRN-9`). A wheel knows only its track — it cannot derail for now —
+  and all of it runs on the GPU but the driver, as a car's does.
+- **Dumb for now**: the train places a high-rung claim as police do and never stops; it expects everything to yield
+  or to have been scheduled ahead of it. More than one train runs at once, placed so their legs never share ground
+  ("no need to do any hard math, its all tmp solution", `TRN-5`).
+- **No collision exemptions**: vehicles are spaced so they do not touch, and a track that crosses itself makes a
+  train meet itself. Bridges work as a car's do.
+- **Nothing is removed off the map** (`TRN-7`): a train whose tail has left is taken out whole, waits about two
+  minutes for a round trip estimated rather than simulated, and is put back on the track's other side.
+- **Traced maps are out of this work**: the target is the generated and laboratory maps, whose tracks meet exactly.
+
 ## 2026-10-18 — trains, at the owner's ask
 
 **The owner asked for full trains, not trams**: three kinds — intercity passenger, oil and coal — that stop
 nowhere on a map and come in and go out now and then. **What a train is, is the owner's at `P0`** (`TRN-1` to
-`TRN-4`): it runs through, never slows or yields, and is of unbounded mass in a collision — the owner's words
-were "basically infinite mass" and "P0 all the way", and asked which they meant, both: the rules are the
-owner's, and the crossing's hold is the top of the claim ladder (`RAIL-1`).
+`TRN-4`).
 
-- **A train is a timetable and a position, never a driver.** It reads no claim and is refused nothing, so it
-  has no leg, no patience and no ladder rung of its own; the town's whole answer to it is the crossings.
-- **One train a line at a time** (`TRN-5`) is the cheapest way two unbounded masses never meet, and a train
-  coming "now and then" asks no more.
-- **The wagons are bodies laid once and held out of the world** (`TRN-7`), the way a walker inside a building
-  is, so a train arriving allocates nothing.
-- **A wagon is put where its train is every tick, moving as it does** (`ControlAction.Run`): pose and motion set, never
-  integrated on — so a wagon of no inverse mass shoves what it meets and its own pose is never the solver's answer.
-  It carries the look it wears in the signal's flags, as a car's lamps are signalled, and the world hands it back in its
-  view for the picture.
 - **On a bridge a wagon is on a channel of its own** (`RAIL-8`): `OdesaOsm`'s first run met 2 cars and 11 walkers in
   337 s of trains, the line passing over streets on its bridges. Read off the wagon's middle it still met 6 walkers,
   4 of them under a bridge's end a wagon reached over, so **any of a wagon over a bridge puts it on the bridge's

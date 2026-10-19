@@ -37,6 +37,9 @@ internal readonly ref struct BodyTable
 
     /// <summary>The town's furniture, in the order it was added.</summary>
     public required ReadOnlySpan<int> Statics { get; init; }
+
+    /// <summary>The links held (SOL-38), in the order a step solves them.</summary>
+    public required ReadOnlySpan<LinkRow> Links { get; init; }
 }
 
 /// <summary>
@@ -79,6 +82,7 @@ internal sealed partial class PhysicsWorld
         MostM = _mostM.AsSpan(0, _count),
         Moving = _moving.AsSpan(0, _movingCount),
         Statics = _static.AsSpan(0, _staticCount),
+        Links = _links.Live,
     };
 
     /// <inheritdoc cref="ContactTable"/>

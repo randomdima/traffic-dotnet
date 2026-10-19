@@ -1,14 +1,11 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// Every car's wheels and every tow bar (EVA-5, TowBar; ManagedWorld.TrailerWheels, HaulOnTheBars, StepTheBodies),
-// one thread a car, the car on the bar answering for its pair. Mode 0, after the tyre pass: a car on a bar rolls on the
-// pair at the far end from the fork — the lifted pair spends nothing, the pair down holds what it can of its sideways slip
-// and drags at the ground's drag, and turns with the road — and then every car's wheels are spent on its body in wheel
-// order, each impulse as the tyre pass or the bar left it in its table (DeviceTyres.ImpulseTable), at its point. Mode 1,
-// after every wheel is spent: the bar's pull at the towed car's eye and its opposite at the tractor's hook, answering the
-// motion the tyres have just asked for — run only where a bar is up (DeviceWorld). A car is on one bar and a tractor pulls
-// one car, so no two threads write one body.
+// Every car's wheels (EVA-5, TowBar; ManagedWorld.TrailerWheels, StepTheBodies), one thread a car, after the tyre pass: a
+// car on an arm rolls on the pair at the far end from the fork — the lifted pair spends nothing, the pair down holds what
+// it can of its sideways slip and drags at the ground's drag, and turns with the road — and then every car's wheels are
+// spent on its body in wheel order, each impulse as the tyre pass or the arm left it in its table
+// (DeviceTyres.ImpulseTable), at its point. The arm itself is the solver's link (SOL-38, solve.comp).
 
 layout(local_size_x = 64) in;
 
@@ -92,76 +89,6 @@ void trailerWheels(uint car, WorldCar row)
     }
 }
 
-// One end of the bar off the body it is bolted to (TowBar's HookEnd): its point, that point's velocity, the arm from the
-// body's centre, and the body's two inverses.
-struct HookEnd
-{
-    vec2 atM;
-    vec2 velocityMps;
-    vec2 armM;
-    vec2 inverses;
-};
-
-HookEnd endOf(int body, vec2 atM)
-{
-    vec4 moving = motion[body];
-    vec2 armM = atM - pose[body].xy;
-    return HookEnd(atM, moving.xy + (moving.z * vec2(-armM.y, armM.x)), armM, mass[body]);
-}
-
-float crossOf(vec2 a, vec2 b) { return (a.x * b.y) - (a.y * b.x); }
-
-// TowBar.EffectiveKg.
-float effectiveKg(HookEnd first, HookEnd second, vec2 direction)
-{
-    float turnA = crossOf(first.armM, direction);
-    float turnB = crossOf(second.armM, direction);
-    float resistance = first.inverses.x + second.inverses.x + (first.inverses.y * turnA * turnA)
-                       + (second.inverses.y * turnB * turnB);
-    return resistance > 0.0 ? 1.0 / resistance : 0.0;
-}
-
-// TowBar.Held.
-vec2 held(vec2 impulseNs, float mostNs)
-{
-    float lengthNs = length(impulseNs);
-    return lengthNs <= mostNs || lengthNs <= 0.0 ? impulseNs : impulseNs / lengthNs * mostNs;
-}
-
-// TowBar.PullNs.
-vec2 pullNs(HookEnd tractor, HookEnd towed, float towedKg)
-{
-    if (world.hitchSettleS <= 0.0) return vec2(0.0);
-
-    vec2 alongTheBarM = tractor.atM - towed.atM;
-    vec2 wantMps = (alongTheBarM / world.hitchSettleS) - (towed.velocityMps - tractor.velocityMps);
-    vec2 along = dot(alongTheBarM, alongTheBarM) > 0.0 ? normalize(alongTheBarM) : vec2(1.0, 0.0);
-    vec2 across = vec2(-along.y, along.x);
-    float mostNs = world.hitchMostMps2 * towedKg * world.dtS;
-    vec2 alongNs = held(along * dot(wantMps, along) * effectiveKg(tractor, towed, along), mostNs);
-    vec2 acrossNs = held(across * dot(wantMps, across) * effectiveKg(tractor, towed, across), mostNs * world.hitchSideShare);
-    return alongNs + acrossNs;
-}
-
-void haul(uint car, WorldCar row)
-{
-    uint tractor = uint(row.tractor);
-    int towedBody = row.body;
-    int tractorBody = cars[tractor].body;
-    CarBuildRow tractorBuild = builds[buildOf[tractor]];
-    CarBuildRow towedBuild = builds[buildOf[car]];
-    float endSign = (row.flags & CarByTheTail) != 0u ? -1.0 : 1.0;
-
-    vec4 hooked = pose[tractorBody];
-    vec4 towing = pose[towedBody];
-    precise vec2 hookM = hooked.xy + (hooked.zw * tractorBuild.towHingeAheadOfCentreM);
-    precise vec2 eyeM = towing.xy + (towing.zw * endSign * (towedBuild.towGripFromTheMiddleM + tractorBuild.towReachM));
-    vec2 pull = pullNs(endOf(tractorBody, hookM), endOf(towedBody, eyeM), row.massKg);
-
-    motion[towedBody] = impulsedAt(motion[towedBody], towing.xy, mass[towedBody], pull, eyeM);
-    motion[tractorBody] = impulsedAt(motion[tractorBody], hooked.xy, mass[tractorBody], -pull, hookM);
-}
-
 // Every wheel of the car spent on its body (PhysicsWorld.ApplyImpulseAt), in wheel order as on the host.
 void spendTheWheels(uint car, int body)
 {
@@ -183,12 +110,6 @@ void main()
     if (car >= world.count) return;
 
     WorldCar row = cars[car];
-    if (world.mode == 0u)
-    {
-        if (row.tractor >= 0) trailerWheels(car, row);
-        spendTheWheels(car, row.body);
-        return;
-    }
-
-    if (row.tractor >= 0) haul(car, row);
+    if (row.tractor >= 0) trailerWheels(car, row);
+    spendTheWheels(car, row.body);
 }

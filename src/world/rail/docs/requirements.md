@@ -5,18 +5,23 @@ on it is [agents/train](../../../agents/train/docs/requirements.md).
 
 ## The track
 
-**RAIL-2** `P6` **A track is a line through the whole town**, from past one edge of the map to past another
-(`TRN-1`), and never bent tighter than the least radius a railway is laid round (`SimConfig.Rail`). A map
-holds its tracks as lines (`TownMap.Rails`), each named for the **line** it belongs to: two tracks of one
-railway side by side are one line (`TRN-5`).
+**RAIL-2** `P6` **The railway is a network of tracks, every loose end of it past an edge of the map**
+(`TRN-1`), and a track is never bent tighter than the least radius a railway is laid round (`SimConfig.Rail`). A
+map holds its tracks as lines (`TownMap.Rails`), each named for the **line** it belongs to — two tracks of one
+railway side by side are one line, which fields one train at a time — and tracks meet only end to end or end on
+line: a switch stands wherever they do, and nothing about it is stored (`TRN-9`).
+
+**RAIL-9** `P4` **A track is a lane of its own kind, one each way it is run**: routed over by a train as a road
+lane is by a car, claimed as one, and laid as ground of its own (`RAIL-4`). Two ways over one track, and two tracks
+crossing on the level, share their ground through a mark, as a road lane crossing a walk does.
 
 **RAIL-3** `P0` **The railway is drawn as ballast, sleepers and two rails, between the decks and the driven
 ground** (`TER-7b`): a road crossing a track is laid over it, and across the road's tarmac and its walk only the
 rails are laid — nothing else is painted over the pavement.
 
-**RAIL-4** `P4` **The railway is ground of its own, permitted to nobody** (`TER-3`, `TER-3a`): the ballast's
-band, each track's own width either side of its line. A building and a prop stand clear of it as of any other
-ground that is not grass, and no route is planned along it.
+**RAIL-4** `P4` **The railway is ground of its own, permitted to nobody but a train** (`TER-3`, `TER-3a`): the
+ballast's band, each track's own width either side of its line. A building and a prop stand clear of it as of any
+other ground that is not grass, and no car's or walker's route is planned along it.
 
 **RAIL-5** `P6` **No junction stands on a railway or within a clearance of it, and a road crosses a track
 square enough and once** (`SimConfig.Rail`). A generated town's streets are refused where they would not

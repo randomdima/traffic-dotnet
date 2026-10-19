@@ -102,11 +102,13 @@ internal sealed partial class PhysicsWorld
     {
         if (_staticIndexStale) SettleStatics();
 
+        RestTheLinkedAfresh();
         LayTheIndexes();
         FindContacts();
         IntegratedBodyCount = _movingCount;
         DampAndEmptyThePush(dtS);
         Prepare();
+        PrepareLinks();
         SolveVelocities(dtS);
         SolvePush(dtS);
         IntegrateAndCountTheRest(dtS);
@@ -120,8 +122,8 @@ internal sealed partial class PhysicsWorld
     public BeganTouching BeganTouchingThisStep() => new(this);
 
     /// <summary>
-    /// The damping that reaches every body, applied once a step — and the push accumulator emptied on the same pass,
-    /// since nothing between here and <see cref="SolvePush"/> reads it.
+    /// The damping that reaches every body laid damped, applied once a step — and the push accumulator emptied on the same
+    /// pass, since nothing between here and <see cref="SolvePush"/> reads it.
     /// </summary>
     void DampAndEmptyThePush(float dtS)
     {
@@ -130,8 +132,12 @@ internal sealed partial class PhysicsWorld
         for (var slot = 0; slot < _movingCount; slot++)
         {
             var body = _moving[slot];
-            _velocityMps[body] *= linear;
-            _yawRateRadPerS[body] *= angular;
+            if ((_flags[body] & BodyFlags.Undamped) == 0)
+            {
+                _velocityMps[body] *= linear;
+                _yawRateRadPerS[body] *= angular;
+            }
+
             _pushMps[body] = Vector2.Zero;
             _pushYawRadPerS[body] = 0f;
         }
@@ -195,6 +201,7 @@ internal sealed partial class PhysicsWorld
 
         for (var pass = 0; pass < _config.Solver.VelocityIterations; pass++)
         {
+            SolveLinkVelocities();
             for (var contact = 0; contact < _contactCount; contact++)
             {
                 var first = _contactA[contact];
@@ -254,6 +261,7 @@ internal sealed partial class PhysicsWorld
 
         for (var pass = 0; pass < _config.Solver.PositionIterations; pass++)
         {
+            SolveLinkPush(bias, mostMps);
             for (var contact = 0; contact < _contactCount; contact++)
             {
                 var first = _contactA[contact];

@@ -77,6 +77,16 @@ internal sealed class DeviceSolver : IDisposable
         public uint Buckets;
         public uint ContactCapacity;
         public uint SideRoom;
+        public uint LinkCount;
+        public uint UndampedBit;
+    }
+
+    /// <summary>One link as the solve reads it (<c>kernels/solve.comp</c>'s <c>Link</c>, <see cref="LinkRow"/>).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct LinkGpuRow(int First, int Second, float RestM, uint Unused, Vector2 AnchorFirstM, Vector2 AnchorSecondM)
+    {
+        public static LinkGpuRow Of(in LinkRow link) =>
+            new(link.First, link.Second, link.RestM, 0u, link.AnchorFirstM, link.AnchorSecondM);
     }
 
     /// <summary>Where the step keeps its running totals (<c>kernels/step.glsl</c>).</summary>
@@ -210,6 +220,11 @@ internal sealed class DeviceSolver : IDisposable
     readonly GpuBuffer _order;
     readonly GpuBuffer _totals;
     readonly GpuBuffer _blockSums;
+
+    /// <summary>The links the solve holds (SOL-38), in the order it solves them, written by the host as they change (<see cref="LayTheLinks"/>).</summary>
+    readonly GpuBuffer _links;
+
+    int _linkCount;
 
     // What is read back: the totals every step, and the rest only by a step held to the CPU's that asks for it.
     readonly GpuBuffer _totalsOut;
@@ -375,6 +390,7 @@ internal sealed class DeviceSolver : IDisposable
         _totals = _held.Device<uint>(Totals.Count, BufferUse.Indirect);
         _blockSums = _held.Device<uint>(ScanKernels.Block);
         _totalsOut = _held.Readback<uint>(Totals.Count, BufferUse.Storage);
+        _links = _held.Own(_vk.CreateBuffer(Bytes<LinkGpuRow>(Math.Max(1, _moving.Length)), BufferUse.Storage, HostAccess.Writes));
 
         var pushBytes = (uint)Marshal.SizeOf<StepPush>();
         _gridCount = _held.Kernel("grid_count.comp", 7, pushBytes, sets: 2);
@@ -383,7 +399,7 @@ internal sealed class DeviceSolver : IDisposable
         _narrow = _held.Kernel("narrow.comp", 10, pushBytes);
         _wokenKernel = _held.Kernel("woken.comp", 15, pushBytes);
         _compact = _held.Kernel("compact.comp", 16, pushBytes);
-        _solve = _held.Kernel("solve.comp", 13, pushBytes);
+        _solve = _held.Kernel("solve.comp", 15, pushBytes);
         _integrate = _held.Kernel("integrate.comp", 10, pushBytes);
         _settle = _held.Kernel("settle.comp", 12, pushBytes);
         _settleSpread = _held.Kernel("settle_spread.comp", 12, pushBytes);
@@ -413,7 +429,7 @@ internal sealed class DeviceSolver : IDisposable
         _solveSet = _solve.Bind(
         [
             _contact, _contactNormal, _arms, _pointMass, _impulses, _motion, _push, _mass, _filter, _lowest, _order, _owners,
-            _totals,
+            _totals, _pose, _links,
         ]);
         _integrateSet = _integrate.Bind(
             [_owners, _pose, _heading, _motion, _push, _shape, _bounds, _filter, _restTicks, _afresh]);
@@ -687,6 +703,7 @@ internal sealed class DeviceSolver : IDisposable
     public void Lay(BodyTable table)
     {
         WriteTheMovingRows(table);
+        LayTheLinks(table.Links);
         var owners = _ownersIn.Span<int>();
         var count = 0;
         foreach (var body in _moving)
@@ -738,6 +755,19 @@ internal sealed class DeviceSolver : IDisposable
         for (var at = 0; at < keys.Length; at++) pairs[at] = new UInt2((uint)(keys[at] >> 32), (uint)keys[at]);
 
         _touchingLaid = keys.Length;
+    }
+
+    /// <summary>
+    /// <b>The links the next step holds</b> (SOL-38), in the order it solves them, written where the solve reads them —
+    /// between steps, so never under one in flight. Their bodies' rest is the host's to count afresh (<see cref="CountAfresh"/>).
+    /// </summary>
+    public void LayTheLinks(ReadOnlySpan<LinkRow> links)
+    {
+        var rows = _links.Span<LinkGpuRow>();
+        if (links.Length > rows.Length) throw new InvalidOperationException($"{links.Length} links, past the {rows.Length} the device holds.");
+
+        for (var at = 0; at < links.Length; at++) rows[at] = LinkGpuRow.Of(links[at]);
+        _linkCount = links.Length;
     }
 
     /// <summary>A body whose rest the town counted afresh since the last step — put down or contained — counted afresh by the next.</summary>
@@ -949,6 +979,8 @@ internal sealed class DeviceSolver : IDisposable
             Capacity = (uint)CandidateCapacity,
             ContactCapacity = (uint)ContactCapacity,
             SideRoom = (uint)SideRoom,
+            LinkCount = (uint)_linkCount,
+            UndampedBit = (uint)BodyFlags.Undamped,
         };
     }
 

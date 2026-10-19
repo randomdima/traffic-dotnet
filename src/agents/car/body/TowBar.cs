@@ -3,41 +3,18 @@ using System.Numerics;
 namespace TrafficSimulation.Agents.Car.Body;
 
 /// <summary>
-/// <b>One end of the bar</b>: the point it is anchored at, how fast that point is moving, how far it
-/// stands off its own body's centre, and what an impulse there is worth against that body's mass and
-/// inertia. Gathered because a coupling is two of these and nothing else.
-/// </summary>
-internal readonly record struct HookEnd(
-    Vector2 AtM, Vector2 VelocityMps, Vector2 ArmM, float InverseKg, float InverseInertia);
-
-/// <summary>
-/// <b>A car on the back of another one</b> (EVA-5): where the two bodies are coupled, what the arm between
-/// them spends, and the two wheels the towed car is left rolling on. Nothing here touches a body, so the
-/// whole of the coupling is judged against arithmetic.
+/// <b>A car on the back of another one</b> (EVA-5): where the two bodies are coupled and the two wheels the towed car is
+/// left rolling on. The coupling itself is the solver's link (SOL-38), a pin between the points named here.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The arm is hinged on the tractor's deck and clamped to the car it has lifted</b> — it swings freely at
 /// one end and not at all at the other, which is why it is the one part of a vehicle in this town drawn as a
 /// picture of its own: it moves against the body it is bolted to, and where it points is what the tow is
-/// doing. What that clamp is, in the only terms this engine has, is <see cref="EyeM"/>.
+/// doing. What that clamp is, in terms of a pin free to turn, is <see cref="EyeM"/>.
 /// </para>
 /// <para>
-/// <b>It is the tyre model's shape and not a new kind of physics.</b> A tow is two more impulses at two
-/// more points — the only actuation this engine has (SOL-3) — spent in the same phase the four patches
-/// are, so the solver sees a coupled pair as it sees a car: a body with forces at places on it. There is
-/// no constraint row, no joint in the solver and no second integrator.
-/// </para>
-/// <para>
-/// <b>It is a stiff coupling and not a rigid one, and that is a rule rather than a shortcoming.</b> What it
-/// asks for is priced at what an impulse at those two points is actually worth (<see cref="EffectiveKg"/>)
-/// and then held down to what a coupling may spend — hard along the drawbar, much harder across it. A turn
-/// taken tighter than the trailer can follow therefore stretches the bar and scrubs the trailer round,
-/// which is what a real one does at walking pace; the alternative is a coupling with the authority to spin
-/// the vehicle doing the pulling off its own road, which is what an uncapped one did.
-/// </para>
-/// <para>
-/// <b>And what holds the towed car in line is not the bar at all</b>: it is <see cref="Step"/>, exactly as
+/// <b>And what holds the towed car in line is not the arm at all</b>: it is <see cref="Step"/>, exactly as
 /// a trailer is kept straight by its own axle and not by its hitch.
 /// </para>
 /// </remarks>
@@ -79,8 +56,8 @@ internal static class TowBar
     /// <b>And the point on the towed car the coupling actually holds</b>: a whole reach further along its own
     /// centre line, which is where the hinge stands when the arm is straight. <b>It is a point ahead of the
     /// car and not on it</b>, and that is the whole of what makes a tow track rather than crab — the fork
-    /// clamps the front it has lifted, so the arm cannot pivot against the car it has hold of, and holding a
-    /// point that far up its own axis is what says so in the only terms this engine has (SOL-3).
+    /// clamps the front it has lifted, so the arm cannot pivot against the car it has hold of, and pinning a
+    /// point that far up its own axis to the hinge is what says so with a pin that turns freely (SOL-38).
     /// </summary>
     /// <remarks>
     /// Held at the fork instead, the pair has a hinge at each end and nothing but the trailer's back tyres
@@ -93,6 +70,13 @@ internal static class TowBar
     public static Vector2 EyeM(in CarBuild towed, in CarPose pose, float reachM, bool byTheTail) =>
         EyeM(towed, pose.PositionM, pose.Forward, reachM, byTheTail);
 
+    /// <summary>The hinge in the tractor's own frame, which is where the solver's pin holds it (SOL-38).</summary>
+    public static Vector2 HookOnTheBodyM(in CarBuild tractor) => new(tractor.TowHingeAheadOfCentreM, 0f);
+
+    /// <summary>And the eye in the towed car's own frame, the pin's other end (<see cref="EyeM(in CarBuild, Vector2, Vector2, float, bool)"/>).</summary>
+    public static Vector2 EyeOnTheBodyM(in CarBuild towed, float reachM, bool byTheTail) =>
+        new(EndSign(byTheTail) * (towed.TowGripFromTheMiddleM + reachM), 0f);
+
     /// <summary>
     /// <b>Where a car on the arm stands</b>: how far behind the tractor's middle its own middle is when the
     /// arm is straight and the coupling under no stretch (EVA-5). It is the same distance whichever end the
@@ -100,84 +84,6 @@ internal static class TowBar
     /// </summary>
     public static float SetDownBehindM(in CarBuild tractor, in CarBuild towed) =>
         -tractor.TowHingeAheadOfCentreM + tractor.TowReachM + towed.TowGripFromTheMiddleM;
-
-    /// <summary>
-    /// <b>What the bar is worth this tick</b>, spent <em>on the towed car at its eye</em> and taken back
-    /// from the tractor at its hook. One impulse and its opposite: a coupling adds no momentum to the pair,
-    /// so whatever hauls the wreck forward slows the vehicle hauling it by exactly as much.
-    /// </summary>
-    /// <param name="tractor">The vehicle pulling: where the hook is, how fast that point is going, and what an impulse there is worth.</param>
-    /// <param name="towed">And the same three of the car on the hook, taken at its eye.</param>
-    /// <param name="settleS">
-    /// How long the bar is given to pull its own stretch out, which is the whole of its stiffness. Shorter
-    /// is more rigid; nothing here divides by it without a caller having set it.
-    /// </param>
-    /// <param name="mostMps2">
-    /// The ceiling on what it may spend along the drawbar, as an acceleration on the car being pulled — a
-    /// ceiling and never a target, so an ordinary tow is priced by the drift and only a violent one meets it.
-    /// </param>
-    /// <param name="sideShare">And what share of that it may spend across the drawbar, which is much less.</param>
-    /// <remarks>
-    /// <b>Priced along two axes and not as one number</b>, because what an impulse at a point buys depends
-    /// on which way it points: pulled along the drawbar it fights both masses, pulled across it it also has
-    /// to turn both bodies, and the second is several times heavier than the first. Priced on the masses
-    /// alone the sideways half overshoots by whatever the yaw would have absorbed, and the pair spends the
-    /// tow snaking — which is what the whole of this decomposition is for.
-    /// </remarks>
-    public static Vector2 PullNs(
-        in HookEnd tractor, in HookEnd towed, float settleS, float mostMps2, float sideShare, float towedKg,
-        float dtS)
-    {
-        if (settleS <= 0f) return Vector2.Zero;
-
-        // Where the held point has to get to, as a speed: the stretch pulled out over the settle interval,
-        // less whatever the two ends are already doing to each other. An arm under no stretch and closing at
-        // nothing asks for nothing, which is the state a steady tow spends its time in.
-        var alongTheBarM = tractor.AtM - towed.AtM;
-        var wantMps = (alongTheBarM / settleS) - (towed.VelocityMps - tractor.VelocityMps);
-
-        var along = alongTheBarM.LengthSquared() > 0f
-            ? Vector2.Normalize(alongTheBarM)
-            : new Vector2(1f, 0f);
-        var across = new Vector2(-along.Y, along.X);
-
-        // <b>Capped along the bar and across it separately, and far harder across.</b> Along the drawbar an
-        // impulse only has to move two masses; across it, it has to turn two bodies through moment arms of
-        // a couple of metres each, so the same number of newtons buys several times the yaw — and the yaw it
-        // buys lands on the vehicle doing the pulling, which is the one that has a line to hold. Left on one
-        // budget, a turn taken at walking pace spun the tractor off its own road inside two seconds.
-        var alongNs = Held(
-            along * Vector2.Dot(wantMps, along) * EffectiveKg(tractor, towed, along), mostMps2 * towedKg * dtS);
-        var acrossNs = Held(
-            across * Vector2.Dot(wantMps, across) * EffectiveKg(tractor, towed, across),
-            mostMps2 * sideShare * towedKg * dtS);
-
-        return alongNs + acrossNs;
-    }
-
-    /// <summary>One half of the coupling's answer held down to what it may spend, keeping its direction.</summary>
-    static Vector2 Held(Vector2 impulseNs, float mostNs)
-    {
-        var lengthNs = impulseNs.Length();
-        return lengthNs <= mostNs || lengthNs <= 0f ? impulseNs : impulseNs / lengthNs * mostNs;
-    }
-
-    /// <summary>
-    /// <b>What the pair actually weighs to an impulse in this direction at these two points</b> — the two
-    /// masses and the two inertias, each through its own moment arm. It is the contact solver's own
-    /// arithmetic said of a coupling, because it is the same question about the same two bodies.
-    /// </summary>
-    static float EffectiveKg(in HookEnd first, in HookEnd second, Vector2 direction)
-    {
-        var turnA = Cross(first.ArmM, direction);
-        var turnB = Cross(second.ArmM, direction);
-        var resistance = first.InverseKg + second.InverseKg
-            + (first.InverseInertia * turnA * turnA) + (second.InverseInertia * turnB * turnB);
-
-        return resistance > 0f ? 1f / resistance : 0f;
-    }
-
-    static float Cross(Vector2 a, Vector2 b) => (a.X * b.Y) - (a.Y * b.X);
 
     /// <summary>
     /// Where the two wheels a towed car still stands on meet the ground — the axle at its far end from the

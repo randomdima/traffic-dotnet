@@ -17,7 +17,7 @@ namespace TrafficSimulation.World.Town;
 /// <remarks>
 /// <para>
 /// <b>Every figure it keeps is its own</b>: the body table it stood off the laying, the commands and aims it was
-/// signalled, the tyres' carry, the tow bars, the motion into the step.
+/// signalled, the tyres' carry, which car is on whose arm, the motion into the step.
 /// </para>
 /// <para>
 /// <b>It steps beside the actors</b>, as the device's world does: <see cref="Begin"/> takes the signals and hands the
@@ -92,10 +92,9 @@ internal sealed class ManagedWorld : WorldLayer
         public override int GetHashCode() => HashCode.Combine(PositionM, Forward, Channels, BuildsLaid);
     }
 
-    /// <summary>The car each tractor tows, the tractor each towed car hangs off, or −1; and which end it is held by (EVA-5).</summary>
-    readonly int[] _towing, _onTheHookOf;
+    /// <summary>The tractor each towed car hangs off, or −1; and which end it is held by (EVA-5).</summary>
+    readonly int[] _onTheHookOf;
     readonly bool[] _byTheTail;
-    int _onTheBar;
 
     readonly BodyId[] _walkerBody;
     readonly Vector2[] _aimM;
@@ -160,6 +159,7 @@ internal sealed class ManagedWorld : WorldLayer
 
         var cars = laying.Cars;
         var count = cars.Length;
+        _physics.FitLinks(count);
         _carBody = new BodyId[count];
         _variant = new byte[count];
         _build = new CarBuild[count];
@@ -169,7 +169,6 @@ internal sealed class ManagedWorld : WorldLayer
         _wheels = new WheelScratch(count);
         _wheelsOnAWay = new byte[count];
         _accelerationMps2 = new Vector2[count];
-        _towing = new int[count];
         _onTheHookOf = new int[count];
         _byTheTail = new bool[count];
         _carIntoMps = new Vector2[count];
@@ -183,7 +182,6 @@ internal sealed class ManagedWorld : WorldLayer
         Array.Fill(_followed, LineFollowed.None);
         _lineReadOff = new LineReadOff[count];
         _lineReadAs = new LineReadAs[count];
-        Array.Fill(_towing, -1);
         Array.Fill(_onTheHookOf, -1);
 
         for (var car = 0; car < count; car++)
@@ -329,7 +327,6 @@ internal sealed class ManagedWorld : WorldLayer
 
         for (var car = 0; car < _carBody.Length; car++) StepTheTyres(car);
 
-        HaulOnTheBars(dtS);
         _physics.Step(dtS);
         SettleTheLoads(dtS);
         WriteTheView(into, stepped: true);
@@ -431,21 +428,23 @@ internal sealed class ManagedWorld : WorldLayer
         }
     }
 
+    /// <summary>
+    /// <b>A car put on a tractor's arm, or taken off it</b> (EVA-5): its lifted pair and the pin the solver holds between
+    /// the tractor's hinge and the car's eye (<see cref="PhysicsWorld.Link"/>), in the car's own slot.
+    /// </summary>
     void Couple(int towed, int tractor, bool byTheTail)
     {
-        var was = _onTheHookOf[towed];
-        if (was >= 0)
-        {
-            _towing[was] = -1;
-            _onTheBar--;
-        }
-
         _onTheHookOf[towed] = tractor;
         _byTheTail[towed] = byTheTail;
-        if (tractor < 0) return;
+        if (tractor < 0)
+        {
+            _physics.Unlink(towed);
+            return;
+        }
 
-        _towing[tractor] = towed;
-        _onTheBar++;
+        _physics.Link(
+            towed, _carBody[tractor], TowBar.HookOnTheBodyM(_build[tractor]), _carBody[towed],
+            TowBar.EyeOnTheBodyM(_build[towed], _build[tractor].TowReachM, byTheTail), 0f);
     }
 
     /// <summary>
@@ -542,40 +541,6 @@ internal sealed class ManagedWorld : WorldLayer
         var alongMps = Vector2.Dot(pose.VelocityMps, pose.Forward);
         var spin = _tyres.SpinOf(car);
         for (var wheel = 0; wheel < TowBar.Wheels; wheel++) spin[down + wheel] = alongMps;
-    }
-
-    /// <summary>
-    /// <b>Every tow bar, spent as the pair of impulses it is</b> (EVA-5), after the wheels and before the step: the bar
-    /// answers the motion the tyres have just asked for, which is the whole of the coupling's stability.
-    /// </summary>
-    void HaulOnTheBars(float dtS)
-    {
-        if (_onTheBar == 0) return;
-
-        for (var tractor = 0; tractor < _carBody.Length; tractor++)
-        {
-            var towed = _towing[tractor];
-            if (towed < 0) continue;
-
-            var tractorPose = PoseOf(tractor);
-            var trailer = PoseOf(towed);
-            var hookM = TowBar.HookM(_build[tractor], tractorPose);
-            var eyeM = TowBar.EyeM(_build[towed], trailer, _build[tractor].TowReachM, _byTheTail[towed]);
-            var pullNs = TowBar.PullNs(
-                EndOfTheBar(_carBody[tractor], tractorPose, hookM), EndOfTheBar(_carBody[towed], trailer, eyeM),
-                Config.Evacuator.HitchSettleS, Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare,
-                trailer.MassKg, dtS);
-            _physics.ApplyImpulseAt(_carBody[towed], pullNs, eyeM);
-            _physics.ApplyImpulseAt(_carBody[tractor], -pullNs, hookM);
-        }
-    }
-
-    HookEnd EndOfTheBar(BodyId body, in CarPose pose, Vector2 atM)
-    {
-        var armM = atM - pose.PositionM;
-        return new HookEnd(
-            atM, pose.VelocityMps + (pose.YawRateRadPerS * new Vector2(-armM.Y, armM.X)), armM,
-            _physics.InverseMassOf(body), _physics.InverseInertiaOf(body));
     }
 
     /// <summary>

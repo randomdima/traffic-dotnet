@@ -31,10 +31,7 @@ layout(push_constant) uniform World
     float slidingGripMps2;
     float aimUnderfootM2;
 
-    // The tow bar (EVA-5, TowBar).
-    float hitchSettleS;
-    float hitchMostMps2;
-    float hitchSideShare;
+    // What a towed car's own wheels carry (EVA-5, TowBar.Step).
     float onTheTrailerAxleShare;
 
     // How far ahead the wheel is aimed, as a time (DrivingFigures.LookaheadS).

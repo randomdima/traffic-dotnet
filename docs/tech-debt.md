@@ -714,6 +714,11 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   intercity — or the warning reach against it. `Trains.Send` also starts a train twice the warning reach short of the
   edge, 616 m at intercity speed, which the exam track's 600 m clamps. A lay-time comparison of the run-off with the
   longest train plus the warning reach at its line's speed closes it.
+- **A chain of links is not solved whole in a step** (SOL-38, 2026-10-19; the owner asked it kept track of): the links
+  are Gauss–Seidel rows, so a pull on the head of ten bodies on nine bars leaves the head at 7.0 m/s of a common 5.0
+  after the sixteen passes, and the chain moves as one only some ticks later (`LinkTests`). A train therefore stretches
+  and closes up on its couplings as its traction changes, which the owner accepted for starting and stopping. A chain
+  of bars solved whole — its matrix is tridiagonal, so one sweep each way — in each pass closes it.
 
 ## Waiting on the owner
 

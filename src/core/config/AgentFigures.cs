@@ -1025,38 +1025,6 @@ internal sealed class EvacuatorFigures
     public int HaulsBeforeSettingItDown { get; init; } = 3;
 
     /// <summary>
-    /// How long the bar takes to pull its own stretch out. <b>It is the stiffness</b>, in the only units a
-    /// coupling solved as an impulse has: seven ticks at the shipped rate, which is rigid to anything
-    /// watching and still slack enough that a shunt is absorbed rather than snapping the pair straight.
-    /// </summary>
-    public float HitchSettleS { get; init; } = 0.12f;
-
-    /// <summary>
-    /// The most the bar may be worth, in <em>g</em> on the pair's reduced mass
-    /// (<see cref="SimConfig.EvacuatorHitchMostMps2"/>). <b>A ceiling and never a target</b>, on the tyre
-    /// model's own terms: what the coupling spends is the lesser of what the drift asks for and this. Two
-    /// and a half <em>g</em> is more than a coupling ever needs to hold a steady tow — comfortably over
-    /// what the tyres at either end of the bar can put through it — and little enough that a shunt cannot
-    /// throw either body across the street, or the reaction at the hook spin the vehicle doing the pulling
-    /// off its own line.
-    /// </summary>
-    /// <remarks>
-    /// <b>In grips rather than in m/s², because every figure it is measured against is.</b> It stands
-    /// against what the tyres hold, so a coupling authored as a bare deceleration is one that stops
-    /// out-reaching them the moment the rubber changes.
-    /// </remarks>
-    public float HitchMostInGrips { get; init; } = 2.548f;
-
-    /// <summary>
-    /// <b>And what share of that the bar may spend sideways</b> — a small one, and the figure that keeps a
-    /// tow from being a jack-knife. An impulse across the drawbar acts through a moment arm on both bodies
-    /// at once, so it buys several times the yaw the same impulse along the bar buys, and every bit of that
-    /// yaw lands on the vehicle with a line to hold. Held down to this, a turn taken too tight for the
-    /// trailer stretches the coupling and scrubs the trailer round instead of spinning the truck.
-    /// </summary>
-    public float HitchSideShare { get; init; } = 0.12f;
-
-    /// <summary>
     /// <b>What share of a towed car's weight is still on its own back wheels</b> (EVA-5). The rest is on the
     /// hook, which is what lifting the nose means: the front pair leaves the ground, the back pair carries
     /// what the bar is not holding up, and that load is the whole of what those two wheels grip with.

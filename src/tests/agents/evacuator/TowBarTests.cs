@@ -6,7 +6,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Agents.Evacuator;
 
 /// <summary>
-/// <b>EVA-5's arithmetic, judged without a body</b>: where the coupling is anchored, what it spends, and
+/// <b>EVA-5's arithmetic, judged without a body</b>: where the coupling is anchored, and
 /// what the two wheels under a towed car do. Everything <see cref="TowBar"/> answers is a function of
 /// numbers, which is the whole reason it is a component rather than a passage of the town.
 /// </summary>
@@ -24,11 +24,6 @@ public class TowBarTests
 
     static CarPose Standing(float atX, float headingRad = 0f) =>
         new(new Vector2(atX, 0f), headingRad, Vector2.Zero, 0f, Config.Car.MassKg, Vector2.Zero);
-
-    static HookEnd EndAt(Vector2 atM, Vector2 velocityMps, in CarPose pose, float massKg) => new(
-        atM, velocityMps, atM - pose.PositionM, 1f / massKg,
-        // The solver's own box inertia, so the arithmetic under test is priced the way the town prices it.
-        12f / (massKg * ((Config.Car.LengthM * Config.Car.LengthM) + (Config.Car.WidthM * Config.Car.WidthM))));
 
     /// <summary>
     /// EVA-5: <b>the coupling's two ends meet the moment the crew has winched a wreck onto the arm</b>, which
@@ -108,118 +103,6 @@ public class TowBarTests
         Assert.Equal(TowBar.FrontPair, TowBar.PairOnTheGround(byTheTail: true));
         Assert.Equal(TowBar.RearPair, TowBar.PairOnTheGround(byTheTail: false));
         Assert.NotEqual(TowBar.PairInTheAir(byTheTail: true), TowBar.PairOnTheGround(byTheTail: true));
-    }
-
-    /// <summary>
-    /// <b>And the point it holds is ahead of the towed car and not on it</b> (EVA-5), which is what stops a
-    /// tow crabbing: pulled at a point that far up its own axis, a wreck dragged out of line is turned back
-    /// into it by the same impulse that is hauling it.
-    /// </summary>
-    [Fact]
-    public void AWreckDraggedOutOfLineIsTurnedBackIntoIt()
-    {
-        var askewRad = 0.5f;
-        var tractor = Standing(0f);
-        var towed = new CarPose(
-            new Vector2(-TowBar.SetDownBehindM(Evacuator, Nominal), 0f), askewRad, Vector2.Zero, 0f,
-            Config.Car.MassKg, Vector2.Zero);
-
-        var hookM = TowBar.HookM(Evacuator, tractor);
-        var eyeM = TowBar.EyeM(Nominal, towed, Evacuator.TowReachM, byTheTail: false);
-        var pullNs = TowBar.PullNs(
-            EndAt(hookM, Vector2.Zero, tractor, 3200f), EndAt(eyeM, Vector2.Zero, towed, Config.Car.MassKg),
-            Config.Evacuator.HitchSettleS, Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare,
-            Config.Car.MassKg, Config.TickSeconds);
-
-        // The moment of that impulse about the wreck's own middle, against the way it is skewed.
-        var armM = eyeM - towed.PositionM;
-        var turningNms = (armM.X * pullNs.Y) - (armM.Y * pullNs.X);
-        Assert.True(turningNms * askewRad < 0f, $"a wreck skewed {askewRad:F2} rad was turned {turningNms:F1} Nm further");
-    }
-
-    /// <summary>
-    /// <b>An arm under no stretch, with neither end moving relative to the other, asks for nothing</b> — the
-    /// state a steady tow spends its time in, and the one that must cost the pair no impulse at all.
-    /// </summary>
-    [Fact]
-    public void AnArmUnderNoStretchSpendsNothing()
-    {
-        var movingMps = new Vector2(9f, 0f);
-        var pose = Standing(0f);
-
-        var pullNs = TowBar.PullNs(
-            EndAt(new Vector2(3f, 7f), movingMps, pose, 3200f),
-            EndAt(new Vector2(3f, 7f), movingMps, pose, Config.Car.MassKg),
-            Config.Evacuator.HitchSettleS, Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare,
-            Config.Car.MassKg, Config.TickSeconds);
-
-        Assert.Equal(0f, pullNs.Length(), 3);
-    }
-
-    /// <summary>
-    /// EVA-5: a stretched bar pulls the eye <em>towards</em> the hook. The sign is the one thing about a
-    /// coupling that cannot be got wrong quietly — reversed, it flings the load away and the tow is a
-    /// catapult.
-    /// </summary>
-    [Fact]
-    public void AStretchedBarPullsTheEyeTowardsTheHook()
-    {
-        var hookM = new Vector2(2f, 0f);
-        var eyeM = Vector2.Zero;
-        var pose = Standing(0f);
-
-        var pullNs = TowBar.PullNs(
-            EndAt(hookM, Vector2.Zero, pose, 3200f), EndAt(eyeM, Vector2.Zero, pose, Config.Car.MassKg),
-            Config.Evacuator.HitchSettleS, Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare,
-            Config.Car.MassKg, Config.TickSeconds);
-
-        Assert.True(pullNs.X > 0f, $"the bar pushed the eye away from the hook ({pullNs.X:F1} Ns)");
-        Assert.True(MathF.Abs(pullNs.Y) < 1e-3f, "a bar stretched along one axis pulled across it");
-    }
-
-    /// <summary>
-    /// And never harder than it may (EVA-5): a stretch of metres meets the ceiling rather than being paid
-    /// in full, so a coupling handed an impossible correction cannot throw either body across the street.
-    /// </summary>
-    [Fact]
-    public void TheBarIsCappedAtWhatItMaySpend()
-    {
-        var pose = Standing(0f);
-        var pullNs = TowBar.PullNs(
-            EndAt(new Vector2(40f, 0f), Vector2.Zero, pose, 3200f),
-            EndAt(Vector2.Zero, Vector2.Zero, pose, Config.Car.MassKg),
-            Config.Evacuator.HitchSettleS, Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare,
-            Config.Car.MassKg, Config.TickSeconds);
-
-        var mostNs = Config.EvacuatorHitchMostMps2 * Config.Car.MassKg * Config.TickSeconds;
-        Assert.True(pullNs.Length() <= mostNs + 1e-3f, $"the bar spent {pullNs.Length():F0} Ns of {mostNs:F0}");
-    }
-
-    /// <summary>
-    /// <b>And far less across the bar than along it</b>, which is the figure that keeps a tow from being a
-    /// jack-knife: the same stretch offered sideways buys a small fraction of the impulse.
-    /// </summary>
-    [Fact]
-    public void TheBarSpendsFarLessAcrossItselfThanAlongItself()
-    {
-        var pose = Standing(0f);
-        var eye = EndAt(Vector2.Zero, Vector2.Zero, pose, Config.Car.MassKg);
-
-        var alongNs = TowBar.PullNs(
-            EndAt(new Vector2(40f, 0f), Vector2.Zero, pose, 3200f), eye, Config.Evacuator.HitchSettleS,
-            Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare, Config.Car.MassKg, Config.TickSeconds);
-
-        // The same impossible correction offered across the arm rather than along it. The arm's own
-        // direction is the line between the two points, so a stretch is always "along" — what is measured
-        // here is the sideways budget, reached by giving the eye a speed across that line.
-        var acrossNs = TowBar.PullNs(
-            EndAt(new Vector2(4f, 0f), Vector2.Zero, pose, 3200f),
-            EndAt(Vector2.Zero, new Vector2(0f, 40f), pose, Config.Car.MassKg), Config.Evacuator.HitchSettleS,
-            Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare, Config.Car.MassKg, Config.TickSeconds);
-
-        Assert.True(
-            MathF.Abs(acrossNs.Y) < alongNs.Length() * 0.5f,
-            $"the bar spent {MathF.Abs(acrossNs.Y):F0} Ns across itself against {alongNs.Length():F0} Ns along it");
     }
 
     /// <summary>

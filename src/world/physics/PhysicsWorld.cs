@@ -68,6 +68,12 @@ internal enum BodyFlags : byte
 
     /// <summary>Frozen and filed in the moving index until the frozen one is laid again — so it is filed there once.</summary>
     Unfiled = 1 << 6,
+
+    /// <summary>
+    /// Never damped (SOL-38): a rail vehicle, whose wheels pay its rolling losses themselves — the solver's drag on top
+    /// would ask its traction for meganewtons at line speed.
+    /// </summary>
+    Undamped = 1 << 7,
 }
 
 /// <summary>
@@ -86,8 +92,8 @@ internal enum BodyFlags : byte
 /// it belongs to the agent, and the only thing that reads it is what draws.
 /// </para>
 /// <para>
-/// The damping figures reach every body and are three orders under the foot grip, so they do not decide
-/// how far a walker glides; the grip does.
+/// The damping figures reach every body but a rail vehicle and are three orders under the foot grip, so they do not
+/// decide how far a walker glides; the grip does.
 /// </para>
 /// </remarks>
 internal sealed partial class PhysicsWorld
@@ -183,11 +189,14 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     /// <param name="halfSizeM">The shape's outermost half-length and half-flank, rounding included (CAR-12b).</param>
     /// <param name="cornerRadiusM">How much of each corner is rounded off. The core is <paramref name="halfSizeM"/> less this on both axes.</param>
-    public BodyId AddCar(Vector2 positionM, float headingRad, Vector2 halfSizeM, float cornerRadiusM, float massKg)
+    /// <param name="onRails">A rail vehicle: on the trains' layer, and never damped (<see cref="BodyFlags.Undamped"/>).</param>
+    public BodyId AddCar(
+        Vector2 positionM, float headingRad, Vector2 halfSizeM, float cornerRadiusM, float massKg, bool onRails = false)
     {
         var body = Add(
             positionM, headingRad, halfSizeM - new Vector2(cornerRadiusM), cornerRadiusM,
-            CollisionLayer.Car, BodyFlags.Enabled, massKg);
+            onRails ? CollisionLayer.Train : CollisionLayer.Car,
+            onRails ? BodyFlags.Enabled | BodyFlags.Undamped : BodyFlags.Enabled, massKg);
 
         _dynamicCount++;
         Join(body.Index);

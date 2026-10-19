@@ -17,6 +17,9 @@
 // contact order.
 //
 // One workgroup does the whole of it, so a colour waits for the last with a workgroup barrier rather than a queue's.
+//
+// The links (SOL-38) are run first in every pass, by one thread in the host's own order: a chain of them shares bodies
+// link to link, so no colour would hold more than one of it, and they are few.
 
 layout(local_size_x = 1024) in;
 
@@ -40,6 +43,19 @@ layout(std430, binding = 9) coherent buffer Lowest { uint lowest[]; };
 layout(std430, binding = 10) coherent buffer Order { uint order[]; };
 layout(std430, binding = 11) readonly buffer Owners { int owners[]; };
 layout(std430, binding = 12) buffer Totals { uint totals[]; };
+layout(std430, binding = 13) readonly buffer Pose { vec4 pose[]; };
+
+// The links (SOL-38, PhysicsWorld.Links, DeviceSolver.LinkGpuRow), in the order the host solves them.
+struct Link
+{
+    ivec2 bodies;
+    float restM;
+    uint unused;
+    vec2 anchorFirstM;
+    vec2 anchorSecondM;
+};
+
+layout(std430, binding = 14) readonly buffer Links { Link links[]; };
 
 shared uint remaining;
 shared uint colours;
@@ -185,6 +201,156 @@ void solvePush(uint at)
     }
 }
 
+// A link as PhysicsWorld.PrepareLinks lays it, worked out afresh each pass: the poses do not move while the step solves,
+// so it is the same answer each time.
+struct PreparedLink
+{
+    bool holds;
+    vec2 armA;
+    vec2 armB;
+    vec2 axis;
+    vec2 stretchM;
+
+    // A pin's inverse 2×2 (xx, xy, yy), or a bar's mass along its axis in x (PhysicsWorld.PinMass, EffectiveMass).
+    vec3 mass;
+};
+
+float linkEffectiveMass(uint first, uint second, vec2 armA, vec2 armB, vec2 direction)
+{
+    float turnA = shapeCross(armA, direction);
+    float turnB = shapeCross(armB, direction);
+    vec2 massA = mass[first];
+    vec2 massB = mass[second];
+    precise float resistance = massA.x + massB.x + massA.y * turnA * turnA + massB.y * turnB * turnB;
+    return resistance > 0.0 ? roundedQuotient(1.0, resistance) : 0.0;
+}
+
+vec3 pinMass(uint first, uint second, vec2 armA, vec2 armB)
+{
+    vec2 massA = mass[first];
+    vec2 massB = mass[second];
+    precise float masses = massA.x + massB.x;
+    precise float xx = masses + massA.y * armA.y * armA.y + massB.y * armB.y * armB.y;
+    precise float xy = -(massA.y * armA.x * armA.y) - massB.y * armB.x * armB.y;
+    precise float yy = masses + massA.y * armA.x * armA.x + massB.y * armB.x * armB.x;
+    precise float determinant = xx * yy - xy * xy;
+    if (determinant <= 0.0) return vec3(0.0);
+
+    float inverse = roundedQuotient(1.0, determinant);
+    precise vec3 r = vec3(yy * inverse, -xy * inverse, xx * inverse);
+    return r;
+}
+
+PreparedLink prepareLink(uint at)
+{
+    Link link = links[at];
+    uint first = uint(link.bodies.x);
+    uint second = uint(link.bodies.y);
+    PreparedLink p;
+    p.holds = (filter_[first] & filter_[second] & enabledBit) != 0u;
+    p.armA = vec2(0.0);
+    p.armB = vec2(0.0);
+    p.axis = vec2(0.0);
+    p.stretchM = vec2(0.0);
+    p.mass = vec3(0.0);
+    if (!p.holds) return p;
+
+    vec4 poseA = pose[first];
+    vec4 poseB = pose[second];
+    p.armA = shapeRotate(poseA.zw, link.anchorFirstM);
+    p.armB = shapeRotate(poseB.zw, link.anchorSecondM);
+    precise vec2 apartM = poseB.xy + p.armB - (poseA.xy + p.armA);
+    float lengthM = roundedLength(apartM);
+
+    if (link.restM > 0.0)
+    {
+        p.axis = lengthM > 0.0 ? roundedQuotient(apartM, lengthM) : poseA.zw;
+        precise float stretchM = lengthM - link.restM;
+        precise float beyondM = max(abs(stretchM) - allowedPenetrationM, 0.0);
+        p.stretchM = vec2(stretchM < 0.0 ? -beyondM : beyondM, 0.0);
+        p.mass = vec3(linkEffectiveMass(first, second, p.armA, p.armB, p.axis), 0.0, 0.0);
+        return p;
+    }
+
+    precise float pinBeyondM = max(lengthM - allowedPenetrationM, 0.0);
+    precise vec2 stretched = apartM * roundedQuotient(pinBeyondM, lengthM);
+    p.stretchM = lengthM > 0.0 ? stretched : vec2(0.0);
+    p.mass = pinMass(first, second, p.armA, p.armB);
+    return p;
+}
+
+// PhysicsWorld.LinkImpulse.
+vec2 linkImpulse(float restM, PreparedLink p, vec2 changeMps)
+{
+    if (restM > 0.0)
+    {
+        precise vec2 along = p.axis * (p.mass.x * shapeDot(changeMps, p.axis));
+        return along;
+    }
+
+    precise vec2 r = vec2(p.mass.x * changeMps.x + p.mass.y * changeMps.y, p.mass.y * changeMps.x + p.mass.z * changeMps.y);
+    return r;
+}
+
+// PhysicsWorld.LinkPushMps.
+vec2 linkPushMps(float restM, PreparedLink p)
+{
+    if (restM > 0.0)
+    {
+        precise float wanted = -p.stretchM.x * contactBias;
+        return p.axis * clamp(wanted, -maxPushOutMps, maxPushOutMps);
+    }
+
+    precise vec2 wantedMps = -p.stretchM * contactBias;
+    float speedMps = roundedLength(wantedMps);
+    precise vec2 held = wantedMps * roundedQuotient(maxPushOutMps, speedMps);
+    return speedMps > maxPushOutMps ? held : wantedMps;
+}
+
+// Every link's closing taken out, one after another in the host's order (PhysicsWorld.SolveLinkVelocities), by one thread.
+void solveLinkVelocities()
+{
+    for (uint at = 0u; at < linkCount; at++)
+    {
+        PreparedLink p = prepareLink(at);
+        if (!p.holds) continue;
+
+        Link link = links[at];
+        uint first = uint(link.bodies.x);
+        uint second = uint(link.bodies.y);
+        vec2 closingMps = closing(motion[first], motion[second], p.armA, p.armB);
+        spend(first, second, p.armA, p.armB, linkImpulse(link.restM, p, -closingMps), false);
+    }
+}
+
+// And every link's stretch past the allowance pushed out on the push accumulator (PhysicsWorld.SolveLinkPush).
+void solveLinkPush()
+{
+    for (uint at = 0u; at < linkCount; at++)
+    {
+        PreparedLink p = prepareLink(at);
+        if (!p.holds || p.stretchM == vec2(0.0)) continue;
+
+        Link link = links[at];
+        uint first = uint(link.bodies.x);
+        uint second = uint(link.bodies.y);
+        precise vec2 changeMps = linkPushMps(link.restM, p) - closing(push_[first], push_[second], p.armA, p.armB);
+        spend(first, second, p.armA, p.armB, linkImpulse(link.restM, p, changeMps), true);
+    }
+}
+
+// Whether any link is stretched past the allowance, as solveLinkPush reckons it.
+bool anyLinkStretched()
+{
+    for (uint at = 0u; at < linkCount; at++)
+    {
+        PreparedLink p = prepareLink(at);
+        if (p.holds && p.stretchM != vec2(0.0)) return true;
+    }
+
+    return false;
+}
+
 void main()
 {
     uint thread = gl_LocalInvocationID.x;
@@ -276,6 +442,7 @@ void main()
         }
 
         colourStart[MostColours + 1u] = running;
+        if (anyLinkStretched()) anyDeep = true;
         totals[ColoursAt] = colours;
         totals[LeftOverAt] = colourStart[MostColours + 1u] - colourStart[MostColours];
     }
@@ -294,6 +461,12 @@ void main()
     bool deep = workgroupUniformAnyDeep();
     for (uint pass = 0u; pass < velocityIterations; pass++)
     {
+        if (linkCount > 0u)
+        {
+            if (thread == 0u) solveLinkVelocities();
+            sync();
+        }
+
         for (uint colour = 0u; colour < colourCount; colour++)
         {
             for (uint at = colourStart[colour] + thread; at < colourStart[colour + 1u]; at += 1024u) solveVelocity(order[at]);
@@ -314,6 +487,12 @@ void main()
     sync();
     for (uint pass = 0u; pass < (deep ? positionIterations : 0u); pass++)
     {
+        if (linkCount > 0u)
+        {
+            if (thread == 0u) solveLinkPush();
+            sync();
+        }
+
         for (uint colour = 0u; colour < colourCount; colour++)
         {
             for (uint at = colourStart[colour] + thread; at < colourStart[colour + 1u]; at += 1024u) solvePush(order[at]);

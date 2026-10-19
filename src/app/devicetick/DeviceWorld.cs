@@ -70,9 +70,6 @@ internal sealed partial class DeviceWorld : WorldLayer
         public float FootGripMps2;
         public float SlidingGripMps2;
         public float AimUnderfootM2;
-        public float HitchSettleS;
-        public float HitchMostMps2;
-        public float HitchSideShare;
         public float OnTheTrailerAxleShare;
         public float LookaheadS;
         public int FirstWagonBody;
@@ -164,10 +161,8 @@ internal sealed partial class DeviceWorld : WorldLayer
     readonly BoundSet[] _wagonsViewSets = new BoundSet[2];
     readonly GpuBuffer[] _wagonViews = new GpuBuffer[2];
 
-    /// <summary>Whether each car hangs off a tow bar as last signalled (<see cref="ControlAction.Tow"/>), and how many do.</summary>
-    readonly bool[] _towed;
-
-    int _bars;
+    /// <summary>The links the solve holds (SOL-38), each in its car's slot, as the signals leave them (<see cref="Couple"/>).</summary>
+    readonly LinkSlots _links;
 
     WorldPush _push;
 
@@ -187,7 +182,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         _walkers = laying.Walkers.Length;
         _wagons = laying.Wagons.Length;
         _last = new LastInBatch[laying.Agents];
-        _towed = new bool[_cars];
+        _links = new LinkSlots(_cars);
         var config = laying.Config;
         _heldAroundAWheelM = config.Road.HeldAroundAWheelM;
 
@@ -291,9 +286,6 @@ internal sealed partial class DeviceWorld : WorldLayer
             FootGripMps2 = config.PersonFootGripMps2,
             SlidingGripMps2 = config.PersonSlidingGripMps2,
             AimUnderfootM2 = config.Person.AimUnderfootM2,
-            HitchSettleS = config.Evacuator.HitchSettleS,
-            HitchMostMps2 = config.EvacuatorHitchMostMps2,
-            HitchSideShare = config.Evacuator.HitchSideShare,
             OnTheTrailerAxleShare = config.Evacuator.OnTheTrailerAxleShare,
             LookaheadS = config.Driving.LookaheadS,
             FirstWagonBody = laying.BodyOf(laying.AgentOfWagon(0)),
@@ -541,6 +533,7 @@ internal sealed partial class DeviceWorld : WorldLayer
     protected override void Begin(float dtS, WorldView into, bool readCovers)
     {
         var signals = WriteTheSignals();
+        RestTheLinkedAfresh();
         if (dtS != _push.DtS)
         {
             _push.DtS = dtS;
@@ -558,14 +551,8 @@ internal sealed partial class DeviceWorld : WorldLayer
         _tyres.Run(commands, _cars);
         _walkersKernel.Dispatch(commands, _walkersSet, Groups(_walkers), _push with { Count = (uint)_walkers });
         _vk.BetweenKernels(commands);
-        _towKernel.Dispatch(commands, _towSet, Groups(_cars), _push with { Count = (uint)_cars, Mode = 0 });
+        _towKernel.Dispatch(commands, _towSet, Groups(_cars), _push with { Count = (uint)_cars });
         _vk.BetweenKernels(commands);
-        if (_bars > 0)
-        {
-            _towKernel.Dispatch(commands, _towSet, Groups(_cars), _push with { Count = (uint)_cars, Mode = 1 });
-            _vk.BetweenKernels(commands);
-        }
-
         _solver.Record(commands, dtS);
         _vk.BetweenKernels(commands);
         if (readCovers)
@@ -707,20 +694,47 @@ internal sealed partial class DeviceWorld : WorldLayer
             case ControlAction.Tow:
                 // world_signals.comp takes the tractor as its car index.
                 var tractor = signal.Tractor < 0 ? -1 : _laying.Roster.CarIndex(signal.Tractor);
-                CountTheBar(_laying.Roster.CarIndex(signal.Agent), tractor >= 0);
+                Couple(_laying.Roster.CarIndex(signal.Agent), tractor, (signal.Flags & ControlSignal.ByTheTail) != 0);
                 return new SignalRow(body, actionAndFlags, new Vector2(BitConverter.Int32BitsToSingle(tractor), 0f), default, default);
         }
 
         return new SignalRow(body, actionAndFlags, p01, p23, default);
     }
 
-    /// <summary>A car's bar as the signal leaves it, kept count of so a step with none up runs no pull (<c>world_tow.comp</c>).</summary>
-    void CountTheBar(int car, bool towed)
+    /// <summary>
+    /// <b>A car's arm as the signal leaves it</b> (EVA-5): the pin the solver holds between the tractor's hinge and the
+    /// car's eye, in the car's own slot, as <see cref="ManagedWorld"/> links it — laid for the solve before the step
+    /// (<see cref="RestTheLinkedAfresh"/>).
+    /// </summary>
+    void Couple(int towed, int tractor, bool byTheTail)
     {
-        if (_towed[car] == towed) return;
+        if (tractor < 0)
+        {
+            _links.Unlink(towed);
+            return;
+        }
 
-        _towed[car] = towed;
-        _bars += towed ? 1 : -1;
+        var tractorBuild = _laying.Builds.Of(_laying.Cars[tractor].Variant);
+        var towedBuild = _laying.Builds.Of(_laying.Cars[towed].Variant);
+        _links.Link(
+            towed,
+            new LinkRow(
+                BodyOfCar(tractor), BodyOfCar(towed), TowBar.HookOnTheBodyM(tractorBuild),
+                TowBar.EyeOnTheBodyM(towedBuild, tractorBuild.TowReachM, byTheTail), 0f));
+    }
+
+    /// <summary>
+    /// The links laid for the solve where they changed, and every linked body's rest counted afresh by the step, as
+    /// <see cref="PhysicsWorld"/> counts it (SOL-38).
+    /// </summary>
+    void RestTheLinkedAfresh()
+    {
+        if (_links.Changed) _solver.LayTheLinks(_links.Live);
+        foreach (ref readonly var link in _links.Live)
+        {
+            _solver.CountAfresh(link.First);
+            _solver.CountAfresh(link.Second);
+        }
     }
 
     /// <summary>The rows <see cref="WriteTheSignals"/> wrote copied to where the device reads them, recorded; the caller barriers after.</summary>

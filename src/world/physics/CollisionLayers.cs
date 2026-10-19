@@ -24,7 +24,7 @@ internal enum CollisionLayer : ulong
     /// </summary>
     Downed = 1UL << 3,
 
-    /// <summary>A train's wagon (TRN-3): it meets the traffic and nothing else — not the town's furniture, not another wagon, not a casualty.</summary>
+    /// <summary>A rail vehicle (TRN-3): the trains' own layer, so what a train meets is read off a touch.</summary>
     Train = 1UL << 4,
 }
 
@@ -66,9 +66,9 @@ internal static class CollisionLayers
         // nothing but the ground can reach it (PHY-5b).
         CollisionLayer.Static,
 
-        // A wagon of unbounded mass against the furniture or another wagon is two bodies neither of which may move, so it
-        // looks for the traffic alone (TRN-3).
-        CollisionLayer.Person | CollisionLayer.Car,
+        // A rail vehicle is a body like a car (TRN-3): it meets everything a car does, and every other rail vehicle — of
+        // its own train too, which its couplings keep clear of it.
+        CollisionLayer.Static | CollisionLayer.Person | CollisionLayer.Car | CollisionLayer.Train,
     ];
 
     static readonly CollisionLayer[] Masks = Symmetrise(Scans);

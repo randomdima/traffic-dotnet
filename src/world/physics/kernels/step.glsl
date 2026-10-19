@@ -54,6 +54,10 @@ layout(push_constant) uniform Step
     // many of them the bodies it woke may find (woken.comp).
     uint contactCapacity;
     uint sideRoom;
+
+    // How many links the solve holds (solve.comp, PhysicsWorld.Links), and the flag a body never damped carries (BodyFlags.Undamped).
+    uint linkCount;
+    uint undampedBit;
 };
 
 // Where the step keeps its running totals and the indirect dispatches made of them (DeviceSolver.Totals).

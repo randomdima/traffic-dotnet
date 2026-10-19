@@ -1,5 +1,15 @@
 # The evacuator — decision log
 
+## 2026-10-19 — the coupling is the solver's link, the one a train is coupled by
+
+**The owner asked for one real, physics-based solid link, free to turn, for the tow and the train alike**, with "no
+special physics treatment for link" ([agents/train](../../train/docs/decision-log.md)). The tow's two impulses before
+the step — a settle time, a cap along the bar and a harder one across it — are gone, and the arm is a pin the solver
+holds (`SOL-38`): the truck's hinge and the wreck's eye kept on one point. What stays the evacuator's own is where it
+takes hold (the eye a reach up the wreck's axis, which is the clamp) and the lift (the trailer wheels' share); the
+link is shared. The coupling is rigid now rather than stiff, so a turn tighter than the wreck can follow is the
+trailer wheels scrubbing, not the bar stretching.
+
 ## 2026-10-16 — a wreck beside no road is not taken
 
 A wreck with no hitching place (`TownWorld.TheHitchingPlace`) was taken, given up at the next decision for want of
@@ -67,24 +77,6 @@ the distance an artist drew between hinge and fork, so it lives beside the pictu
 straight street the wreck settled a third of a right angle off the truck's line. A real underlift clamps
 what it has picked up, and the way to say that in `SOL-3`'s terms is to hold a point a whole reach further
 along the wreck's centre line, where the hinge stands when the arm is straight.
-
-## 2026-08-26 — the coupling is two impulses and the solver gained no joint
-
-A constraint row is the rigid answer and would never stretch. What it costs is a new thing the solver *is*:
-`SOL-1`…`SOL-36` describe a component presenting two shapes and two ways to actuate a body, and every one
-of its costs is argued against that shape. The coupling is spent like the tyres — impulses at points, in
-the phase the wheel impulses already use — which is `SOL-3` used rather than extended, allocates nothing,
-and puts the tow in one file of arithmetic judgeable without a body. The bar stretches by a few
-centimetres, and what holds the wreck in line is its own back axle, as with a real trailer.
-
-## 2026-08-26 — the bar is priced at the effective mass at its two points, and capped harder sideways
-
-Priced on the two masses alone the coupling overshoots asymmetrically, because an impulse two and a half
-metres off a body's centre spends part of itself turning that body; the ringing came out as yaw on the
-vehicle with a line to hold. It is priced instead at the two masses and two inertias each through its own
-moment arm — the contact solver's own arithmetic asked about a coupling. The sideways axis is capped at a
-small fraction because across the drawbar the same impulse buys several times the yaw, all of it landing
-on the truck: uncapped, a corner at walking pace spun the tractor through fifty degrees in two seconds.
 
 ## 2026-08-26 — a towed wreck's ground is its truck's
 

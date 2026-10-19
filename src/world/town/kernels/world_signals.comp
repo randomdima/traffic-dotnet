@@ -183,9 +183,17 @@ void takeAnEvent(WorldSignal s)
 
     if (action == SignalTow)
     {
-        // p01.x: the tractor's car index, or −1.
-        cars[car].tractor = floatBitsToInt(s.p01.x);
+        // p01.x: the tractor's car index, or −1. Coupled, both bodies are thawed, as a link made wakes both
+        // (PhysicsWorld.Link); the link itself the host lays for the solve (DeviceWorld.Couple).
+        int tractor = floatBitsToInt(s.p01.x);
+        cars[car].tractor = tractor;
         cars[car].flags = (cars[car].flags & ~CarByTheTail) | ((flags & TowByTheTail) != 0u ? CarByTheTail : 0u);
+        if (tractor >= 0)
+        {
+            thaw(body, car);
+            thaw(cars[tractor].body, tractor);
+        }
+
         return;
     }
 

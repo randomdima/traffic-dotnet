@@ -64,12 +64,12 @@ and the tow is five things and no more:
   steered one and a car dragged on a wheel wound over is being scrubbed sideways down the road.
 - **An arm.** It is **hinged on the evacuator's deck and clamped to the car it has lifted** — swinging
   freely at one end and not at all at the other — and it takes hold of that car **a fixed distance inside
-  the end it caught, the same on every car there is**, a fixed reach from the hinge. The coupling is spent
-  as **one impulse and its opposite**, which is the only way this engine actuates anything (`SOL-3`), and it
-  adds no momentum to the pair. **It is a stiff coupling and not a rigid one**: a turn taken tighter than
-  the trailer can follow stretches it and scrubs the trailer round. **A joined pair still collide**: the
-  physics knows nothing about the coupling, so a truck that shunts the car on its own arm hits it as it
-  would hit anybody.
+  the end it caught, the same on every car there is**, a fixed reach from the hinge. **The coupling is the
+  solver's link** (`SOL-38`), the one a train is coupled by: a pin holding the truck's hinge and a point a
+  whole reach up the wreck's own axis together, so the arm swings at the hinge and is clamped at the fork. It
+  is rigid and adds no momentum to the pair, and a turn taken tighter than the trailer can follow scrubs the
+  trailer round on its wheels. **A joined pair still collide**: a link stops no contact, so a truck that
+  shunts the car on its own arm hits it as it would hit anybody.
 - **Two pictures.** The arm is the **one part of a vehicle in this town drawn as a picture of its own**,
   because it is the one part that moves against the body it is bolted to: **drawn in over its own deck with
   nothing on it, and reaching out at the car it is holding when there is**. **Its reach is a distance
@@ -116,9 +116,8 @@ On `SimConfig.Evacuator` ([core](../../../core/docs/requirements.md#where-a-figu
 yard holds, how long the hitch and the workshop take, how near the wreck and how near a slot the truck has
 to have stopped, the bound on a leg and how many hauls a wreck is worth, how far inside a car's end the fork
 takes hold, how much of a towed car's weight stays on its own wheels, how much wider of its line a tow may
-run than a car — and the coupling's own three: how quickly the arm pulls its stretch out, the most it may
-spend and what share of that it may spend sideways. Where the arm is and how far it reaches are the
-variant's own (EVA-5).
+run than a car. The coupling has none: it is the solver's link. Where the arm is and how far it reaches are
+the variant's own (EVA-5).
 
 ## What the tow cannot do
 

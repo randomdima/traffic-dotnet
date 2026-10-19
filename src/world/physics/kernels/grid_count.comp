@@ -8,8 +8,8 @@
 //
 // With CountAndDamp the roster is the step's moving bodies, and each is first given its state as the step begins
 // (owned.glsl) — an owner's overlap cleared for the step to find again, as PhysicsWorld.BeginTheContacts clears the
-// awake roster's, and a frozen body's left as it froze — and then the damping that reaches every moving body once a step
-// (PhysicsWorld.DampAndEmptyThePush), in the world or not, which no pass before the solve reads.
+// awake roster's, and a frozen body's left as it froze — and then the damping that reaches every moving body laid damped
+// once a step (PhysicsWorld.DampAndEmptyThePush), in the world or not, which no pass before the solve reads.
 
 layout(local_size_x = 64) in;
 
@@ -51,7 +51,7 @@ void main()
         }
 
         state[body] = s;
-        motion[body] = vec4(m.xy * linearKeep, m.z * angularKeep, m.w);
+        if ((flags & undampedBit) == 0u) motion[body] = vec4(m.xy * linearKeep, m.z * angularKeep, m.w);
     }
 
     if (!inTheWorld) return;

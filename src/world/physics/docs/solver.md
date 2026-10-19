@@ -9,14 +9,14 @@ physics layer is [requirements.md](requirements.md); why the solver is written h
 ## Scope
 
 **In.** The broad phase over the town, the narrow phase for the two shapes this town has, the contact
-solver, the contact-begin report, the static-overlap query, and the body table those read.
+solver and the links it holds, the contact-begin report, the static-overlap query, and the body table those read.
 
 **Out, and the exclusion list is the requirement.** Every row below would be reasonable in a physics
 library and is wrong here; adding one back is a change to this document first.
 
 | Not provided | Because |
 |---|---|
-| Joints, motors, springs | Nothing in the town is jointed. A car is one body |
+| Joints beyond the link, motors, springs | A car is one body; what couples two is one link (`SOL-38`), and nothing in the town is hinged any other way |
 | Sensors, triggers, overlap events | The town asks its own indexes what is near what |
 | Ray and shape casts | No driver looks down the road at a body: what is ahead is the claims' to answer ([claims](../../road/docs/claims.md)) |
 | Shapes beyond the rounded oriented box | OBJ-2's five bodies are all of them. Neither the radius nor the coreless disc is a second shape: same axes, same separating axis, same clip |
@@ -43,6 +43,12 @@ answer by a test.
 **SOL-8** `P4` Whether anything static stands inside an axis-aligned box.
 **SOL-9** `P4` How deep one body is into everything touching it, for the probe that measures PHY-1.
 **SOL-10** `P8` Counts of what it is carrying — static, dynamic, integrated, frozen, and the last step's contacts.
+**SOL-38** `P4` **One kind of link between two bodies: a solid bar, free to turn at both ends.** It holds a point on
+each body, in that body's own frame, a rest length apart — rigidly, along the bar, solved in the same passes as the
+contacts and its stretch pushed out as an overlap is (`SOL-12`). It spends nothing across the bar, so it turns neither
+body about its own point; a rest length of zero is a pin. A link stops no contact between its two bodies, a linked
+body never comes to rest — so the two never freeze apart (`SOL-37b`) — and one to a body out of the world holds
+nothing. Whether a body is damped is laid with it.
 
 ## What must be true of it
 
