@@ -30,8 +30,8 @@ internal readonly record struct WagonLaid(Vector2 HalfSizeM, float CornerRadiusM
 /// <remarks>
 /// <para>
 /// <b>One numbering</b>: a world stands the furniture first, then every walker, then every car, each in roster order
-/// (<see cref="AgentRoster"/>), then every wagon the town's trains can field (<see cref="Wagons"/>), signalled as the
-/// agents past the roster (<see cref="AgentOfWagon"/>) — a wagon decides nothing, so it is on no roster the loop walks.
+/// (<see cref="AgentRoster"/>), then every rail vehicle the town's trains can field (<see cref="Wagons"/>), signalled as
+/// the agents past the roster (<see cref="AgentOfWagon"/>) — driven by its train's driver, so on no roster the loop walks.
 /// A signal names an agent (<see cref="ControlSignal.Agent"/>), and only the world knows which body that is
 /// (<see cref="BodyOf"/>).
 /// </para>

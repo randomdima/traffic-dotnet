@@ -189,6 +189,26 @@ public class RailWheelsTests
     }
 
     /// <summary>
+    /// <b>A rail vehicle runs through a car standing on its track</b> (TRN-2, TRN-3): the car shoved aside by its weight,
+    /// the vehicle slowed by no more than the momentum it gave the car, and still on its line.
+    /// </summary>
+    [Fact]
+    public void AVehicleRunsThroughACarOnItsTrackLosingOnlyWhatItGaveTheCar()
+    {
+        var rig = new Rig(Straight, Coach, new Vector2(1000f, 2000f), 0f, 22f);
+        var car = rig.World.AddNominalCar(new Vector2(1060f, 2000.5f), MathF.PI / 2f);
+
+        rig.Advance(180);
+
+        var speedMps = rig.World.VelocityOf(rig.Body).X;
+        var gaveMps = 22f * Config.Car.MassKg / (Config.Car.MassKg + Coach.MassKg);
+        var rollingMps = Config.Train.RollingResistance * Config.Tyre.StandardGravityMps2 * 3f;
+        Assert.True(rig.World.PositionOf(car).X > 1060f + 1f, "the car was not shoved along by the coach");
+        Assert.InRange(speedMps, 22f - (2f * gaveMps) - rollingMps, 22f - rollingMps + 0.01f);
+        Assert.True(rig.WorstOffM() < 0.02f, $"a bogie stood {rig.WorstOffM():F3} m off its line after the car");
+    }
+
+    /// <summary>
     /// <b>Facing a switch a wheel takes the branch it is set to</b>, and trailing back through it the common end however
     /// it is set (TRN-9): a coach run east across a fork set each way ends on that way.
     /// </summary>

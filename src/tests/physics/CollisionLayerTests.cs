@@ -36,6 +36,21 @@ public class CollisionLayerTests
         Assert.False(CollisionLayers.Interact(CollisionLayer.Downed, CollisionLayer.Downed));
     }
 
+    /// <summary>
+    /// <b>A train has no exemptions</b> (TRN-3): it meets what a car meets and every other rail vehicle, its own train's
+    /// among them — what keeps those apart is their couplings, and a track crossing itself makes a train meet itself.
+    /// </summary>
+    [Fact]
+    public void ARailVehicleMeetsEverythingACarDoesAndOtherRailVehicles()
+    {
+        foreach (var other in (ReadOnlySpan<CollisionLayer>)[CollisionLayer.Static, CollisionLayer.Person, CollisionLayer.Car, CollisionLayer.Train])
+        {
+            Assert.True(CollisionLayers.Interact(CollisionLayer.Train, other), $"a rail vehicle passes through {other}");
+        }
+
+        Assert.False(CollisionLayers.Interact(CollisionLayer.Train, CollisionLayer.Downed));
+    }
+
     [Fact]
     public void EveryPairOfLayersAgreesInBothDirections()
     {
