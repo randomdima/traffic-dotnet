@@ -196,8 +196,6 @@ the five crossings it did.
   laid in its own level's stack.
 - **The bridge's kerb is not struck across its ends**, where it is the ground's road carried on; the ground runs on
   under the deck there, so the deck's end meets tarmac.
-- **The page draws one run over the whole ground**, the level above included: no traced map reaches it (`WEB-4`),
-  and no other map lays a level.
 - **A skid on a bridge and a walker are on the ground's run**: a mark keeps no level, and a walker is always on the
   ground (`PHY-1a`), so either on a deck is drawn under it.
 

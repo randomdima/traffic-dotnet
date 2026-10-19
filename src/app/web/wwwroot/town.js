@@ -25,9 +25,17 @@ const TEXTURE = { pages: 0, glyphs: 1, surfaces: 2 };
 
 // Draws in painter's order, at their offsets in the indirect buffer. The ground is indexed and so is
 // five words; the others are four. The sprites are three runs: what lies under the buildings, the
-// buildings and props laid once (a stretch of them a frame), and what moves over them.
-const DRAW = { ground: 0, underlay: 32, under: 48, standing: 64, over: 80, overlay: 96 };
-const INDIRECT_BYTES = 112;
+// buildings and props laid once (a stretch of them a frame), and what moves over them. Then the level
+// above, as the desktop draws it (TER-7b, PHY-1a): its ground over the bodies on the ground, its marks,
+// and the bodies on it.
+const DRAW = {
+    ground: 0, underlay: 32, under: 48, standing: 64, over: 80,
+    aboveGround: 96, underlayAbove: 128, above: 144, overlay: 160,
+};
+const INDIRECT_BYTES = 176;
+
+// Where each of a frame's counts stands in the array it hands over (WebGpu.FrameCount).
+const COUNT = { under: 0, standingFirst: 1, standing: 2, over: 3, above: 4, overlay: 5, underlay: 6, underlayAbove: 7 };
 
 // The keys the town reads, in the order src/runtime/web/AppWindow.Web.cs names them. The two lists are
 // one list, and a key added to either without the other is a key that does nothing.
@@ -74,9 +82,14 @@ const state = {
     counts: new Uint32Array(INDIRECT_BYTES / 4),
     keys: new Uint8Array(BUTTONS + 8),
     axes: new Float64Array(AXIS_COUNT),
-    indexCount: 0,
-    // Where the sprites over the buildings start in their buffer, in bytes.
+    // The index buffer's two draws: the ground, then the level above straight after it.
+    groundIndexCount: 0,
+    aboveIndexCount: 0,
+    // Where the sprites over the buildings and those on the level above start in their buffer, and the marks on the
+    // level above in theirs, in bytes.
     overOffset: 0,
+    aboveOffset: 0,
+    underlayAboveOffset: 0,
     // Whether an indirect draw may start part way into its buffer; without it the buildings' stretch is drawn
     // from the first of them, which is more than the frame sees and never less.
     firstInstance: false,
@@ -276,9 +289,12 @@ function texture(slot, view, width, height, layers, layer, level, levels) {
 
 /// The bind group and the recording, made again whenever what they are made of changes — a map opened,
 /// a canvas resized — and never while a frame is being drawn.
-function rebuild(indexCount, overOffset) {
-    state.indexCount = indexCount;
+function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, underlayAboveOffset) {
+    state.groundIndexCount = groundIndexCount;
+    state.aboveIndexCount = aboveIndexCount;
     state.overOffset = overOffset;
+    state.aboveOffset = aboveOffset;
+    state.underlayAboveOffset = underlayAboveOffset;
     if (!state.indirect) {
         state.indirect = state.device.createBuffer({
             size: INDIRECT_BYTES,
@@ -314,7 +330,7 @@ function rebuild(indexCount, overOffset) {
     pass.setPipeline(state.pipelines.overlay);
     pass.setVertexBuffer(0, state.buffers[SLOT.underlay]);
     pass.drawIndirect(state.indirect, DRAW.underlay);
-    engineRuns(pass, [ENGINE.ground, ENGINE.above]);
+    engineRuns(pass, [ENGINE.ground]);
 
     pass.setPipeline(state.pipelines.sprite);
     pass.setVertexBuffer(0, state.buffers[SLOT.sprites]);
@@ -323,6 +339,22 @@ function rebuild(indexCount, overOffset) {
     pass.drawIndirect(state.indirect, DRAW.standing);
     pass.setVertexBuffer(0, state.buffers[SLOT.sprites], overOffset);
     pass.drawIndirect(state.indirect, DRAW.over);
+
+    // The level above, over the bodies on the ground, its marks over it, and the bodies on it over those. A town with
+    // nothing above its ground draws nothing in any of them.
+    pass.setPipeline(state.pipelines.ground);
+    pass.setVertexBuffer(0, state.buffers[SLOT.ground]);
+    pass.setIndexBuffer(state.buffers[SLOT.indices], 'uint32');
+    pass.drawIndexedIndirect(state.indirect, DRAW.aboveGround);
+
+    pass.setPipeline(state.pipelines.overlay);
+    pass.setVertexBuffer(0, state.buffers[SLOT.underlay], underlayAboveOffset);
+    pass.drawIndirect(state.indirect, DRAW.underlayAbove);
+    engineRuns(pass, [ENGINE.above]);
+
+    pass.setPipeline(state.pipelines.sprite);
+    pass.setVertexBuffer(0, state.buffers[SLOT.sprites], aboveOffset);
+    pass.drawIndirect(state.indirect, DRAW.above);
 
     // The interface and everything that annotates a body, over all of it.
     pass.setPipeline(state.pipelines.overlay);
@@ -334,8 +366,8 @@ function rebuild(indexCount, overOffset) {
 }
 
 // The engine layers' runs (src/app/debug/EngineLayers.cs), each drawn from where a kernel wrote it and as many as the draw
-// the kernel wrote says: the ground's, the level above's (which a page draws with the ground's, WEB-4), and the run over
-// the bodies. None where no layer of them has been turned on.
+// the kernel wrote says: the ground's, the level above's, and the run over the bodies. None where no layer of them has
+// been turned on.
 const ENGINE = { ground: 0, above: 1, over: 2 };
 const ENGINE_DRAW_BYTES = 16;
 
@@ -356,7 +388,9 @@ function engineRuns(pass, runs) {
 /// The engine layers' quads and draws, kernel buffers both, drawn from the next recording on — or none, for nought.
 function engine(quads, draws, runBytes) {
     state.engine = quads > 0 ? { quads, draws, runBytes } : null;
-    if (state.bundle) rebuild(state.indexCount, state.overOffset);
+    if (state.bundle) {
+        rebuild(state.groundIndexCount, state.aboveIndexCount, state.overOffset, state.aboveOffset, state.underlayAboveOffset);
+    }
 }
 
 /// Everything the device is holding for a town that is being taken down. The recording goes with it,
@@ -371,33 +405,44 @@ function release() {
 }
 
 /// The whole frame: the memory the simulation just wrote, then the recording that reads it.
-function frame(
-    camera, under, over, overlay, underlay, underCount, standingFirst, standingCount, overCount, overlayCount,
-    underlayCount) {
+function frame(camera, under, over, above, overlay, underlay, underlayAbove, frameCounts) {
     if (!state.bundle) return;
 
     const queue = state.device.queue;
+    const given = bytes(frameCounts);
     const counts = state.counts;
-    counts[0] = state.indexCount;
-    counts[1] = 1;
+    counts[DRAW.ground / 4] = state.groundIndexCount;
+    counts[DRAW.ground / 4 + 1] = 1;
     counts[DRAW.underlay / 4] = 4;
-    counts[DRAW.underlay / 4 + 1] = underlayCount;
+    counts[DRAW.underlay / 4 + 1] = given[COUNT.underlay];
     counts[DRAW.under / 4] = 4;
-    counts[DRAW.under / 4 + 1] = underCount;
+    counts[DRAW.under / 4 + 1] = given[COUNT.under];
     counts[DRAW.standing / 4] = 4;
-    counts[DRAW.standing / 4 + 1] = state.firstInstance ? standingCount : standingFirst + standingCount;
-    counts[DRAW.standing / 4 + 3] = state.firstInstance ? standingFirst : 0;
+    counts[DRAW.standing / 4 + 1] = state.firstInstance
+        ? given[COUNT.standing] : given[COUNT.standingFirst] + given[COUNT.standing];
+    counts[DRAW.standing / 4 + 3] = state.firstInstance ? given[COUNT.standingFirst] : 0;
     counts[DRAW.over / 4] = 4;
-    counts[DRAW.over / 4 + 1] = overCount;
+    counts[DRAW.over / 4 + 1] = given[COUNT.over];
+    counts[DRAW.aboveGround / 4] = state.aboveIndexCount;
+    counts[DRAW.aboveGround / 4 + 1] = 1;
+    counts[DRAW.aboveGround / 4 + 2] = state.groundIndexCount;
+    counts[DRAW.underlayAbove / 4] = 4;
+    counts[DRAW.underlayAbove / 4 + 1] = given[COUNT.underlayAbove];
+    counts[DRAW.above / 4] = 4;
+    counts[DRAW.above / 4 + 1] = given[COUNT.above];
     counts[DRAW.overlay / 4] = 4;
-    counts[DRAW.overlay / 4 + 1] = overlayCount;
+    counts[DRAW.overlay / 4 + 1] = given[COUNT.overlay];
     queue.writeBuffer(state.indirect, 0, counts);
 
     queue.writeBuffer(state.buffers[SLOT.camera], 0, bytes(camera));
-    if (underCount > 0) queue.writeBuffer(state.buffers[SLOT.sprites], 0, bytes(under));
-    if (overCount > 0) queue.writeBuffer(state.buffers[SLOT.sprites], state.overOffset, bytes(over));
-    if (overlayCount > 0) queue.writeBuffer(state.buffers[SLOT.overlay], 0, bytes(overlay));
-    if (underlayCount > 0) queue.writeBuffer(state.buffers[SLOT.underlay], 0, bytes(underlay));
+    if (given[COUNT.under] > 0) queue.writeBuffer(state.buffers[SLOT.sprites], 0, bytes(under));
+    if (given[COUNT.over] > 0) queue.writeBuffer(state.buffers[SLOT.sprites], state.overOffset, bytes(over));
+    if (given[COUNT.above] > 0) queue.writeBuffer(state.buffers[SLOT.sprites], state.aboveOffset, bytes(above));
+    if (given[COUNT.overlay] > 0) queue.writeBuffer(state.buffers[SLOT.overlay], 0, bytes(overlay));
+    if (given[COUNT.underlay] > 0) queue.writeBuffer(state.buffers[SLOT.underlay], 0, bytes(underlay));
+    if (given[COUNT.underlayAbove] > 0) {
+        queue.writeBuffer(state.buffers[SLOT.underlay], state.underlayAboveOffset, bytes(underlayAbove));
+    }
 
     const encoder = state.device.createCommandEncoder();
     const pass = encoder.beginRenderPass({

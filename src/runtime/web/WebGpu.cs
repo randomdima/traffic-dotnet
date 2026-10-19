@@ -73,11 +73,15 @@ internal static partial class WebGpu
     }
 
     /// <summary>The bind group and the recording, made again when a map is opened and never while a frame is drawn.</summary>
+    /// <param name="groundIndexCount">The index buffer's first draw: the ground, under every body.</param>
+    /// <param name="aboveIndexCount">Its second, straight after the first: the level above, over the bodies on the ground.</param>
     /// <param name="overOffset">Where the sprites drawn over the buildings start in their buffer, in bytes.</param>
-    public static void Rebuild(int indexCount, int overOffset)
+    /// <param name="aboveOffset">Where the sprites on the level above start in the same buffer, in bytes.</param>
+    /// <param name="underlayAboveOffset">Where the marks on the level above start in the underlay's, in bytes.</param>
+    public static void Rebuild(int groundIndexCount, int aboveIndexCount, int overOffset, int aboveOffset, int underlayAboveOffset)
     {
         Count();
-        RebuildJs(indexCount, overOffset);
+        RebuildJs(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, underlayAboveOffset);
     }
 
     /// <summary>Everything the device holds for a town being taken down, and the recording that read it.</summary>
@@ -99,16 +103,22 @@ internal static partial class WebGpu
 
     /// <summary>
     /// The whole frame: the memory the simulation just wrote, and the counts that say how much of it to read — the
-    /// sprites under the buildings, the stretch of the buildings laid once, and the sprites over them.
+    /// sprites under the buildings, the stretch of the buildings laid once, the sprites over them and those on the level
+    /// above, the interface, and the marks on the ground and on the level above — at <see cref="FrameCount"/>'s places.
     /// </summary>
     public static void Frame(
-        Span<byte> camera, Span<byte> under, Span<byte> over, Span<byte> overlay, Span<byte> underlay,
-        int underCount, int standingFirst, int standingCount, int overCount, int overlayCount, int underlayCount)
+        Span<byte> camera, Span<byte> under, Span<byte> over, Span<byte> above, Span<byte> overlay, Span<byte> underlay,
+        Span<byte> underlayAbove, Span<int> counts)
     {
         Count();
-        FrameJs(
-            camera, under, over, overlay, underlay, underCount, standingFirst, standingCount, overCount, overlayCount,
-            underlayCount);
+        FrameJs(camera, under, over, above, overlay, underlay, underlayAbove, counts);
+    }
+
+    /// <summary>Where each of <see cref="Frame"/>'s counts stands (<c>town.js</c>'s <c>COUNT</c>).</summary>
+    public static class FrameCount
+    {
+        public const int Under = 0, StandingFirst = 1, Standing = 2, Over = 3, Above = 4, Overlay = 5, Underlay = 6,
+            UnderlayAbove = 7, Length = 8;
     }
 
     /// <summary>What the page has seen since the last frame asked, into the run's own memory.</summary>
@@ -431,7 +441,7 @@ internal static partial class WebGpu
         int width, int height, int layers, int layer, int level, int levels);
 
     [JSImport("town.rebuild", "town.js")]
-    static partial void RebuildJs(int indexCount, int overOffset);
+    static partial void RebuildJs(int groundIndexCount, int aboveIndexCount, int overOffset, int aboveOffset, int underlayAboveOffset);
 
     [JSImport("town.release", "town.js")]
     static partial void ReleaseJs();
@@ -444,9 +454,11 @@ internal static partial class WebGpu
         [JSMarshalAs<JSType.MemoryView>] Span<byte> camera,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> under,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> over,
+        [JSMarshalAs<JSType.MemoryView>] Span<byte> above,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> overlay,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> underlay,
-        int underCount, int standingFirst, int standingCount, int overCount, int overlayCount, int underlayCount);
+        [JSMarshalAs<JSType.MemoryView>] Span<byte> underlayAbove,
+        [JSMarshalAs<JSType.MemoryView>] Span<int> counts);
 
     [JSImport("town.pump", "town.js")]
     static partial void PumpJs(
