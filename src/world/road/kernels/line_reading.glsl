@@ -210,7 +210,7 @@ bool lineNext(inout LinePieces pieces, LineFollowedRow followed, out LaneArc pie
                 continue;
             }
 
-            return false;
+            break;
         }
 
         if (pieces.part == 1)
@@ -236,6 +236,10 @@ bool lineNext(inout LinePieces pieces, LineFollowedRow followed, out LaneArc pie
             return true;
         }
     }
+
+    // Out of the loop rather than in it: naga, which Firefox validates WGSL with, refuses a function that ends in a
+    // loop with no break, though the spec allows it.
+    return false;
 }
 
 // A walk to the piece a distance along the stretch falls in: the first whose end it does not pass, or the last. It stops
