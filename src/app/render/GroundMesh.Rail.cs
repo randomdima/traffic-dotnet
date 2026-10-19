@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Rail;
@@ -7,9 +8,8 @@ using TrafficSimulation.World.Rail;
 namespace TrafficSimulation.App.Render;
 
 /// <summary>
-/// <b>The railway, drawn</b> (RAIL-3, TER-7b): every track a strip of its art laid along its own line, between the decks
-/// and the driven ground, so a road crossing it is laid over it — and, with the paint, the strip's two rails alone laid back
-/// across every road and walk that crosses a track, and a stop line short of the ballast on both sides.
+/// <b>The railway, drawn</b> (RAIL-3, TER-7b): every track a strip of its art laid whole along its own line under the
+/// roads and walks that cross it, and its two rails laid again over them — the track, then the road, then the rails.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,8 +19,9 @@ namespace TrafficSimulation.App.Render;
 /// world. What the picture leaves clear past its ballast is not drawn, and the ground beneath shows.
 /// </para>
 /// <para>
-/// <b>Across a road only the rails are laid back</b>, the owner's word (2026-10-19): each rail's own band of the strip's
-/// picture, so the rail over the tarmac is the rail on the ballast.
+/// <b>The rails are each rail's own band of the strip's picture</b>, laid along the whole track so nothing has to know where
+/// a road crosses it: over the ballast they land on the rail already drawn there, and over the tarmac and the walk the
+/// rail is the rail on the ballast.
 /// </para>
 /// </remarks>
 internal sealed partial class GroundMesh
@@ -35,45 +36,31 @@ internal sealed partial class GroundMesh
     public static string[] SurfaceFiles() => [.. ProjectPaths.GroundSurfaceFiles(), RailLooks.Shared.Track.SpritePath];
 
     /// <summary>
-    /// Every track's strip, stopped short of every road and walk that crosses it at grade — where the road's own layers
-    /// show and only the rails are laid back (<see cref="CrossingPaint"/>) — each stop cut along the road's edge.
+    /// Every track's strip where it stands at grade, under the whole of the town's ground, or on a bridge, over it — laid
+    /// whole: a road crossing it at grade is laid over it, and its rails over that (<see cref="Rails"/>).
     /// </summary>
-    void Railway(CityPlan plan, LevelCrossings crossings, TrackLine[] tracks, SimConfig config)
+    void Track(TrackLine[] tracks, SimConfig config, Vector2 sizeM, bool bridged)
     {
         var look = TrackLook(config);
-        var halfM = look.FootprintM.Y * 0.5f;
-        for (var track = 0; track < tracks.Length; track++)
-        {
-            var cuts = new List<(float FromM, float ToM, float Skew)>();
-            for (var meeting = 0; meeting < crossings.Count; meeting++)
-            {
-                if (crossings.Track[meeting] != track) continue;
-
-                var (atM, halfOverM) = (crossings.AlongTrackM[meeting], crossings.HalfOverM(plan, meeting));
-                cuts.Add((atM - halfOverM, atM + halfOverM, SkewOf(plan, crossings, tracks[track], meeting)));
-            }
-
-            cuts.Sort((one, other) => one.FromM.CompareTo(other.FromM));
-            var (fromM, fromSkew) = (0f, 0f);
-            foreach (var (cutFromM, cutToM, skew) in cuts)
-            {
-                if (cutFromM > fromM) TrackStrip(tracks[track], fromM, cutFromM, 0f, halfM, 0f, 1f, look.FootprintM.X, plan.WorldSizeM, fromSkew, skew);
-                if (cutToM > fromM) (fromM, fromSkew) = (cutToM, skew);
-            }
-
-            TrackStrip(tracks[track], fromM, tracks[track].LengthM, 0f, halfM, 0f, 1f, look.FootprintM.X, plan.WorldSizeM, fromSkew, 0f);
-        }
+        foreach (var track in tracks) TrackStrip(track, 0f, look.FootprintM.Y * 0.5f, 0f, 1f, look.FootprintM.X, sizeM, bridged);
     }
 
-    /// <summary>
-    /// How far along a track a crossing road's edge stands for every metre off the track's line: nought square across,
-    /// and the cotangent of the slant otherwise — what a strip stopped at that edge cuts its end along.
-    /// </summary>
-    static float SkewOf(CityPlan plan, LevelCrossings crossings, TrackLine track, int meeting)
+    /// <summary>Both rails of every track, each its own band of the strip's picture, laid along the whole of it over the ground.</summary>
+    void Rails(TrackLine[] tracks, SimConfig config, Vector2 sizeM)
     {
-        var road = Spline.SampleAt(plan.Roads.SegmentsOf(crossings.Road[meeting]), crossings.AlongRoadM[meeting]).Direction;
-        var along = track.AlongAt(crossings.AlongTrackM[meeting]);
-        return Vector2.Dot(road, along) / Vector2.Dot(road, new Vector2(-along.Y, along.X));
+        var rail = config.Rail;
+        var look = TrackLook(config);
+        var widthM = look.FootprintM.Y;
+        var railOffM = (rail.GaugeM + rail.RailHeadWidthM) * 0.5f;
+        var bandHalfM = rail.RailBandM * 0.5f;
+        foreach (var track in tracks)
+        {
+            foreach (var offM in (ReadOnlySpan<float>)[-railOffM, railOffM])
+            {
+                var middle = 0.5f + (offM / widthM);
+                TrackStrip(track, offM, bandHalfM, middle - (bandHalfM / widthM), middle + (bandHalfM / widthM), look.FootprintM.X, sizeM);
+            }
+        }
     }
 
     /// <summary>
@@ -91,31 +78,10 @@ internal sealed partial class GroundMesh
         return look;
     }
 
-    /// <summary>
-    /// <b>The rails laid back over every road crossing a track</b>, and a stop line across the road a setback short of the
-    /// ballast at either end of each crossing (RAIL-3) — paint, laid with the rest of it.
-    /// </summary>
-    void CrossingPaint(CityPlan plan, LevelCrossings crossings, TrackLine[] tracks, SimConfig config, Vector3 paint)
+    /// <summary>A stop line across the road a setback short of the ballast at either end of each level crossing (RAIL-3).</summary>
+    void StopLines(CityPlan plan, LevelCrossings crossings, SimConfig config, Vector3 paint)
     {
         var rail = config.Rail;
-        var look = TrackLook(config);
-        var widthM = look.FootprintM.Y;
-        var railOffM = (rail.GaugeM + rail.RailHeadWidthM) * 0.5f;
-        var bandHalfM = rail.CrossingRailBandM * 0.5f;
-        for (var meeting = 0; meeting < crossings.Count; meeting++)
-        {
-            var track = tracks[crossings.Track[meeting]];
-            var (atM, halfOverM) = (crossings.AlongTrackM[meeting], crossings.HalfOverM(plan, meeting));
-            var skew = SkewOf(plan, crossings, track, meeting);
-            foreach (var offM in (ReadOnlySpan<float>)[-railOffM, railOffM])
-            {
-                var middle = 0.5f + (offM / widthM);
-                TrackStrip(
-                    track, atM - halfOverM, atM + halfOverM, offM, bandHalfM, middle - (bandHalfM / widthM), middle + (bandHalfM / widthM),
-                    look.FootprintM.X, plan.WorldSizeM, skew, skew);
-            }
-        }
-
         for (var crossing = 0; crossing < crossings.Crossings; crossing++)
         {
             var road = crossings.OfRoad[crossing];
@@ -130,8 +96,9 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// <b>A band of the track's strip swept along a stretch of its line</b>: <paramref name="offsetM"/> off the line and a
-    /// half-width either side of that, showing the strip's picture from <paramref name="acrossFrom"/> to
+    /// <b>A band of the track's strip swept along its line</b>, every chord or those on a bridge or off one
+    /// (<paramref name="bridged"/>): <paramref name="offsetM"/> off the
+    /// line and a half-width either side of that, showing the strip's picture from <paramref name="acrossFrom"/> to
     /// <paramref name="acrossTo"/> of its width — the whole strip, or one rail's band of it. Cut to the map, and cut again
     /// wherever a chord ends or the along coordinate starts over (<see cref="GroundVertex.TrackPicturesFiled"/>).
     /// </summary>
@@ -140,11 +107,8 @@ internal sealed partial class GroundMesh
     /// width across both — so two chords' quads share the line their corners stand on, with no gap outside the bend and no
     /// fold inside it, a track never being bent tight enough for a mitre to reach past the next point (RAIL-2).
     /// </remarks>
-    /// <param name="fromSkew">How far along the track the stretch's first end stands for every metre off the line, so it
-    /// is cut along a crossing road's edge (<see cref="SkewOf"/>); <paramref name="toSkew"/> the same of its last.</param>
     void TrackStrip(
-        TrackLine track, float fromM, float toM, float offsetM, float halfM, float acrossFrom, float acrossTo, float pictureM,
-        Vector2 sizeM, float fromSkew = 0f, float toSkew = 0f)
+        TrackLine track, float offsetM, float halfM, float acrossFrom, float acrossTo, float pictureM, Vector2 sizeM, bool? bridged = null)
     {
         var pointM = track.PointM;
         var atM = track.AtM;
@@ -152,14 +116,15 @@ internal sealed partial class GroundMesh
         for (var chord = 0; chord + 1 < pointM.Length; chord++)
         {
             var (chordFromM, chordToM) = (atM[chord], atM[chord + 1]);
-            if (chordToM <= fromM || chordFromM >= toM || chordToM <= chordFromM) continue;
+            if (chordToM <= chordFromM) continue;
+            if (bridged is { } onABridge && (track.LevelAt((chordFromM + chordToM) * 0.5f) != TownMap.RailArrays.AtGrade) != onABridge) continue;
             if (!MapCut.Shares(pointM[chord], pointM[chord + 1], sizeM, out var enters, out var leaves) || leaves <= enters) continue;
 
             var lengthM = chordToM - chordFromM;
             var (startM, endM) = (pointM[chord], pointM[chord + 1]);
             var (startMitre, endMitre) = (Mitre(pointM, chord), Mitre(pointM, chord + 1));
-            var pieceFromM = MathF.Max(fromM, chordFromM + (enters * lengthM));
-            var lastM = MathF.Min(toM, chordFromM + (leaves * lengthM));
+            var pieceFromM = chordFromM + (enters * lengthM);
+            var lastM = chordFromM + (leaves * lengthM);
             while (pieceFromM < lastM)
             {
                 var pieceToM = MathF.Min(lastM, (MathF.Floor(pieceFromM / restartM) + 1f) * restartM);
@@ -167,12 +132,11 @@ internal sealed partial class GroundMesh
                 var picturesTo = picturesFrom + ((pieceToM - pieceFromM) / pictureM);
                 foreach (var (alongM, pictures) in (ReadOnlySpan<(float, float)>)[(pieceFromM, picturesFrom), (pieceToM, picturesTo)])
                 {
-                    var skew = alongM == fromM ? fromSkew : alongM == toM ? toSkew : 0f;
+                    var share = (alongM - chordFromM) / lengthM;
+                    var mitre = Vector2.Lerp(startMitre, endMitre, share);
                     foreach (var (offM, across) in (ReadOnlySpan<(float, float)>)[(offsetM - halfM, acrossFrom), (offsetM + halfM, acrossTo)])
                     {
-                        var share = (alongM + (skew * offM) - chordFromM) / lengthM;
-                        var mitre = Vector2.Lerp(startMitre, endMitre, Math.Clamp(share, 0f, 1f));
-                        Corner(Vector2.Lerp(startM, endM, share) + (mitre * offM), GroundVertex.OnTheTrack(pictures + (skew * offM / pictureM), across));
+                        Corner(Vector2.Lerp(startM, endM, share) + (mitre * offM), GroundVertex.OnTheTrack(pictures, across));
                     }
                 }
 

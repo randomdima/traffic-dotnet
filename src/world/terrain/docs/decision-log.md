@@ -1,11 +1,11 @@
 # Terrain — decision log
 
-## 2026-10-18 — the railway is a layer of the stack, under the driven ground
+## 2026-10-19 — the track under the town's ground, its rails over it
 
-**The owner approved it** (`TER-7b` is theirs): the railway's ballast, sleepers and rails are drawn after the
-water and the decks and before the driven ground, so a road crossing a track is laid over it and the rails are
-laid back across the tarmac and the walk, the track's strip stopping short of both ([world/rail](../../rail/docs/decision-log.md)). A track over a river is drawn over
-the water as its own bridge; the railway is ground of its own (`Ground.Rail`), legal to nobody.
+**The owner set the stack** (`TER-7b` is theirs), "Tracks <- Road <- Rails": the railway's track is laid right after
+the grass, so the walk and the road crossing it are laid over the whole of it, and its rails after the paint, over
+them and their marks ([world/rail](../../rail/docs/decision-log.md)). A track on a bridge — over a river or a road — is laid with
+the rails. The railway is ground of its own (`Ground.Rail`), legal to nobody.
 
 ## 2026-10-12 — a kind of ground is a permission and nothing more
 

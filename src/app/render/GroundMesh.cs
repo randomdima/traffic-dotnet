@@ -443,6 +443,7 @@ internal sealed partial class GroundMesh
             _laidFrom = (plan, config),
         };
         var startedAt = Stopwatch.GetTimestamp();
+        var worldM = plan.WorldSizeM;
 
         // <b>The pavement is a step and not a shape this pass works out for itself</b> (TER-3c): the walk
         // and the lines a car is driven on are the town's own (<see cref="Paving"/>). Derived again here,
@@ -457,6 +458,13 @@ internal sealed partial class GroundMesh
         var grass = mesh.Starting();
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain);
         mesh.Laid(GroundPart.Grass, grass);
+
+        // <b>The track at grade under all the town's ground</b> (RAIL-3, TER-7b): laid whole, so a road and its walk crossing
+        // it are laid over it, and its rails are laid again over them (GroundPart.Rails).
+        var tracks = TrackLine.Of(plan.Rails);
+        var track = mesh.Starting();
+        mesh.Track(tracks, config, worldM, bridged: false);
+        mesh.Laid(GroundPart.Track, track);
 
         // <b>The merge apart from the layers struck off it</b>: the two are one ask (<c>Paving.Rings</c>)
         // and the first of them is the expensive half by two orders of magnitude, so a ground that takes
@@ -480,7 +488,6 @@ internal sealed partial class GroundMesh
         // edge (<see cref="LaneShell"/>), and what the map keeps is that ground cut there, with no kerb struck along
         // the cut.
         var linesFrom = Stopwatch.GetTimestamp();
-        var worldM = plan.WorldSizeM;
         var walkLine = MapCut.Rings(Line(rings.Walk.Rings), worldM);
         var carriagewayLine = MapCut.Rings(Line(rings.Carriageway.Rings), worldM);
         var walkFill = Filled(walkLine, kerbM);
@@ -533,13 +540,6 @@ internal sealed partial class GroundMesh
         var decks = mesh.Starting();
         mesh.Decks(plan, paving.Lanes, CityPlan.RoadArrays.Ground, config);
         mesh.Laid(GroundPart.Decks, decks);
-
-        // <b>The railway between the decks and the driven ground</b> (RAIL-3, TER-7b): a road crossing it is laid over it,
-        // and the rails are laid back across that road with the paint.
-        var tracks = TrackLine.Of(plan.Rails);
-        var railway = mesh.Starting();
-        mesh.Railway(plan, LevelCrossings.Of(plan, config), tracks, config);
-        mesh.Laid(GroundPart.Rail, railway);
 
         // <b>The carriageway at its own size</b> (TER-7b): the boundary filled as the shape it is, over the
         // walk that reaches under it, and struck after the decks because a bridge carries its carriageway
@@ -603,9 +603,8 @@ internal sealed partial class GroundMesh
         const byte ground = CityPlan.RoadArrays.Ground;
         var marks = mesh.Starting();
 
-        // The rails laid back over the roads crossing the railway (RAIL-3): on the road and no mark of a lane, so before
-        // the marks start.
-        mesh.CrossingPaint(plan, LevelCrossings.Of(plan, config), tracks, config, Paint);
+        // A level crossing's stop lines (RAIL-3): on the road and no mark of a lane, so before the marks start.
+        mesh.StopLines(plan, LevelCrossings.Of(plan, config), config, Paint);
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh.LaneDashes(runs, plan, config, held, crossed, Paint, ground);
         mesh.RoadsideLines(plan, config, held, crossed, Paint, ground);
@@ -617,6 +616,13 @@ internal sealed partial class GroundMesh
         mesh.FirstArrowVertex = mesh._vertices.Count;
         mesh.Arrows(paving.Lanes, arrows, config, Paint, ground);
         mesh.Laid(GroundPart.Paint, marks);
+
+        // <b>Then the rails over every road, walk and mark crossing them</b> (RAIL-3, TER-7b), with the track on a bridge
+        // under them: what a train is borne on is over the ground it crosses and the paint on it.
+        var rails = mesh.Starting();
+        mesh.Track(tracks, config, worldM, bridged: true);
+        mesh.Rails(tracks, config, worldM);
+        mesh.Laid(GroundPart.Rails, rails);
 
         var above = mesh.Starting();
         mesh.Above(plan, paving, config, held, crossed, bars, arrows, runs, surveyed);

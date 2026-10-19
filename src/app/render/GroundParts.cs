@@ -9,17 +9,20 @@ namespace TrafficSimulation.App.Render;
 internal enum GroundPart : byte
 {
     Grass,
+
+    /// <summary>The railway's ballast, sleepers and rails at grade, under the roads and walks that cross it (RAIL-3).</summary>
+    Track,
     Walk,
     WalkKerb,
     Water,
     Decks,
-
-    /// <summary>The railway's ballast, sleepers and rails, under the roads that cross it (RAIL-3).</summary>
-    Rail,
     Carriageway,
     Slabs,
     Kerb,
     Paint,
+
+    /// <summary>The rails over the roads, walks and paint that cross them, and the track on a bridge under them (RAIL-3).</summary>
+    Rails,
 
     /// <summary>
     /// <b>The bridges over other roads, drawn as roads of their own over the ground and its bodies</b> (TER-7b,
@@ -62,8 +65,8 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Names =
     [
-        "Grass", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Railway", "Carriageway", "Paved slabs",
-        "Town kerb", "Paint", "Bridges over roads",
+        "Grass", "Railway track", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Carriageway", "Paved slabs",
+        "Town kerb", "Paint", "Rails", "Bridges over roads",
     ];
 
     /// <summary>
@@ -73,7 +76,7 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Words =
     [
-        "grass", "walk", "walk-kerb", "water", "decks", "rail", "carriageway", "slabs", "kerb", "paint",
+        "grass", "track", "walk", "walk-kerb", "water", "decks", "carriageway", "slabs", "kerb", "paint", "rails",
         "overpasses",
     ];
 

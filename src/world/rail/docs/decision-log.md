@@ -3,9 +3,7 @@
 ## 2026-10-18 — a railway, its ground and its crossings
 
 **The owner asked for railways with new road crossings, rails and the rest.** The crossing's closing is the
-owner's at `P0` (`RAIL-1`), and so is where the railway is drawn in the ground's stack (`RAIL-3`, `TER-7b`):
-asked, the owner approved a layer of its own between the decks and the driven ground, the road laid over it at
-a crossing.
+owner's at `P0` (`RAIL-1`), and so is where the railway is drawn in the ground's stack (`RAIL-3`, `TER-7b`).
 
 - **A crossing holds the way a light does, and is not a lane.** Laying the track as a way of the town would
   have put it in the ribbon atlas and let the marks the claims already compute close the crossings; it would
@@ -38,8 +36,11 @@ paint over pavement, it should only have rails" — which is `RAIL-3`'s, theirs,
   the gauge and centred and the ballast a shoulder past the sleepers, never to the 4.4 m asked; `qq sprites cut` fits a
   track by its rails and leaves the rest of the band clear, a verge the grass shows through. The ground still keeps the
   whole band clear (`RAIL-4`), and a picture authored at another width than the ballast is refused.
-- **At a crossing the strip stops at the walk's outer edge, cut along the road's slant**, and each rail's own band of the
-  picture is laid back over road and walk alike: the rail over the tarmac is the rail on the ballast.
+- **The track under the road, the rails over it** — the owner's stack, "Tracks <- Road <- Rails" (`RAIL-3`, `TER-7b`):
+  the strip is laid whole right after the grass, with no cut at a crossing, and each rail's own band of its picture is
+  laid along the whole track after the paint, over a road's marks too, so nothing asks where a road crosses it. A track on a bridge is
+  laid with the rails, over the ground it crosses. Cutting the strip at each crossing's walk left its ends to match the
+  road's edge, which looked right on grass and not on roads.
 - **The crossing's gear is still laid in code** (`CrossingSprites`): its sheet (`railway_a`) drew every piece 1.5 to 3
   times its outline in all three attempts, the cap; whether to ask again is the owner's (`docs/tech-debt.md`).
 

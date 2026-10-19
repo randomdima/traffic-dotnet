@@ -70,7 +70,7 @@ internal sealed class LevelCrossings
 
     /// <summary>
     /// How far along its track a meeting's road reaches either way, kerb to kerb and the walk either side, at the track's
-    /// line — the stretch the track's strip stops short of and only its rails are laid back over (RAIL-3).
+    /// line — the stretch of track the road covers.
     /// </summary>
     public float HalfOverM(CityPlan plan, int meeting) =>
         ((plan.Roads.WidthM[Road[meeting]] * 0.5f) + plan.PavementWidthM) / SinAcross[meeting];

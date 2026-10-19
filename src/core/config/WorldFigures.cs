@@ -470,10 +470,10 @@ internal sealed class RailFigures
     public float RailHeadWidthM { get; init; } = 0.075f;
 
     /// <summary>
-    /// How wide a band of the track's picture about each rail is laid back across a road (RAIL-3): the rail and the
-    /// flangeway either side of it.
+    /// How wide a band of the track's picture about each rail is laid over the roads and walks crossing it (RAIL-3): the
+    /// rail and the flangeway either side of it.
     /// </summary>
-    public float CrossingRailBandM { get; init; } = 0.24f;
+    public float RailBandM { get; init; } = 0.24f;
 
     /// <summary>The ballast's band across one track, shoulder to shoulder (RAIL-4).</summary>
     public float BallastWidthM { get; init; } = 4.4f;

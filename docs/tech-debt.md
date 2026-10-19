@@ -490,7 +490,7 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 ## Inconsistencies
 
 - **Two readings of where a way meets a track** (2026-10-18): `LevelCrossings` crosses each road's centreline with the
-  tracks for what is drawn — the rails laid back, the stop lines, the gear — and `CrossingHolds` crosses every way's own line with
+  tracks for what is drawn — the stop lines and the gear — and `CrossingHolds` crosses every way's own line with
   them for what is held. They agree on which roads cross; where a lane's hold begins is its own ballast edge less the
   setback, measured along the lane, and where the drawn stop line stands is the road centreline's, so on a skewed or
   curving crossing the two part by a fraction of a metre. Drawing the stop lines off the holds' lane stretches closes it.
@@ -507,8 +507,8 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   outline that much wide at any width asked, and `qq sprites cut`'s rows allowance (`FIT_ROWS_MAX`, the owner's minor
   deviation) squeezes it onto the collider, so a coach's roof detail is that much narrower than drawn. A sheet that fits
   unsqueezed closes it.
-- **A crossing's walk is drawn as walk and answered as railway** (`TER-7`, 2026-10-19): the strip stops at a crossing
-  road's walk and only the rails are laid over it (`RAIL-3`), while `GroundShapes.At` puts the ballast over the walk there.
+- **A crossing's walk is drawn as walk and answered as railway** (`TER-7`, 2026-10-19): a crossing road's walk is
+  drawn over the track and only the rails over it (`RAIL-3`), while `GroundShapes.At` puts the ballast over the walk there.
   Nothing permitted on a walk is placed at a crossing, so no prop or route reads the difference yet. Answering the walk
   over the ballast inside a crossing's stretch closes it.
 

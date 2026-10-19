@@ -72,9 +72,9 @@ its shape: it is tarmac nothing is drawn on and nothing drives over, half a lane
 movement starts at, reaching out under the pavement corner beside the mouth.
 
 **TER-7b** `P0` **The ground is a stack of layers, and a layer struck off the town's own boundary is one region
-of it.** The town is drawn bottom to top — the grass over the whole world, then the pavement and the kerb
-along its outer face, then the water and the decks, then the railway (`RAIL-3`), then the driven ground at its own size and the slabs,
-then the town's own kerb, then the paint — and **the pavement and the driven ground are each the ground
+of it.** The town is drawn bottom to top — the grass over the whole world, then the railway's track (`RAIL-3`), then
+the pavement and the kerb along its outer face, then the water and the decks, then the driven ground at its own size and
+the slabs, then the town's own kerb, then the paint, then the rails — and **the pavement and the driven ground are each the ground
 within one distance of the kerb**, filled as the shape it is. The boundary is computed once (`LaneShell`)
 and each of the two is it moved by a figure (`GroundRings`), so a layer has an edge that is a line rather
 than whatever a heap of overlapping pieces happened to leave. **A layer reaches the boundary and encloses

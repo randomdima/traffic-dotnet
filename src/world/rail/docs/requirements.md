@@ -15,9 +15,9 @@ end on line: a switch stands wherever they do, and nothing about it is stored (`
 lane is by a car, claimed as one, and laid as ground of its own (`RAIL-4`). Two ways over one track, and two tracks
 crossing on the level, share their ground through a mark, as a road lane crossing a walk does.
 
-**RAIL-3** `P0` **The railway is drawn as ballast, sleepers and two rails, between the decks and the driven
-ground** (`TER-7b`): a road crossing a track is laid over it, and across the road's tarmac and its walk only the
-rails are laid — nothing else is painted over the pavement.
+**RAIL-3** `P0` **The railway is drawn as ballast, sleepers and two rails: the track under the town's ground, and
+its rails over it** (`TER-7b`): a road and its walk crossing a track are laid over the whole of it, and only its
+rails are laid over their tarmac and pavement — nothing else is painted over the pavement.
 
 **RAIL-4** `P4` **The railway is ground of its own, permitted to nobody but a train** (`TER-3`, `TER-3a`): the
 ballast's band, each track's own width either side of its line. A building and a prop stand clear of it as of any

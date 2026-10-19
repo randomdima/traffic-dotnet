@@ -9,8 +9,8 @@ using Xunit;
 namespace TrafficSimulation.Tests.Render;
 
 /// <summary>
-/// <b>The railway as the ground draws it</b> (RAIL-3): the suite's own city with a double track across it, its strips and
-/// the rails laid back over the roads that cross them.
+/// <b>The railway as the ground draws it</b> (RAIL-3): the suite's own city with a double track across it, its strips under
+/// the roads that cross them and the rails over those roads.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P5)]
@@ -28,14 +28,17 @@ public class GroundMeshRailTests
         return (plan, GroundMesh.Build(plan, Config));
     });
 
-    /// <summary>Across a road and its walk the track's strip is not laid — only each rail's own band of it is (the owner, 2026-10-19).</summary>
+    /// <summary>
+    /// Across a road and its walk the track's strip is laid whole under them, and each rail's own band of it over them: the
+    /// track, then the road, then the rails (the owner, 2026-10-19).
+    /// </summary>
     [Fact]
-    public void OnlyTheRailsAreLaidAcrossARoadAndItsWalk()
+    public void ACrossingRoadIsLaidOverTheTrackAndTheRailsOverTheRoad()
     {
         var (plan, mesh) = Laid.Value;
         var crossings = LevelCrossings.Of(plan, Config);
         var tracks = TrackLine.Of(plan.Rails);
-        var strip = TrackTriangles(mesh);
+        var (under, over) = (TrackTriangles(mesh, GroundPart.Track), TrackTriangles(mesh, GroundPart.Rails));
         var railOffM = (Config.Rail.GaugeM + Config.Rail.RailHeadWidthM) * 0.5f;
         Assert.NotEqual(0, crossings.Count);
 
@@ -49,8 +52,8 @@ public class GroundMeshRailTests
             foreach (var overM in (ReadOnlySpan<float>)[0f, walkM, -walkM])
             {
                 var lineM = track.PlaceAt(crossings.AlongTrackM[meeting] + overM);
-                Assert.False(Covered(strip, lineM), $"meeting {meeting}: the strip is laid {overM:F1} m along the track from the road's middle");
-                Assert.True(Covered(strip, lineM + (across * railOffM)) && Covered(strip, lineM - (across * railOffM)), $"meeting {meeting}: a rail is not laid back {overM:F1} m along");
+                Assert.True(Covered(under, lineM), $"meeting {meeting}: the strip is not laid under the road {overM:F1} m along the track from its middle");
+                Assert.True(Covered(over, lineM + (across * railOffM)) && Covered(over, lineM - (across * railOffM)), $"meeting {meeting}: a rail is not laid over the road {overM:F1} m along");
             }
         }
     }
@@ -63,12 +66,13 @@ public class GroundMeshRailTests
         return Vector2.Dot(road, along) / Vector2.Dot(road, new Vector2(-along.Y, along.X));
     }
 
-    static List<Vector2[]> TrackTriangles(GroundMesh mesh)
+    static List<Vector2[]> TrackTriangles(GroundMesh mesh, GroundPart part)
     {
         var vertices = mesh.Vertices;
         var indices = mesh.Indices;
+        var laid = mesh.Parts[(int)part];
         var triangles = new List<Vector2[]>();
-        for (var at = 0; at + 2 < indices.Length; at += 3)
+        for (var at = laid.FirstIndex; at + 2 < laid.FirstIndex + laid.IndexCount; at += 3)
         {
             if (vertices[(int)indices[at]].Surface != Surface.Track) continue;
 
