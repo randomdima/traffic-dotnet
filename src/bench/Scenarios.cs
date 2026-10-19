@@ -22,7 +22,8 @@ internal static class Scenarios
     public static ScenarioWatch[] For(TownWorld world, SimConfig config)
     {
         var town = new TownWatch(world, config);
-        return Stages(world.Plan.Name) ? [ExamWatch.Over(config, world), town] : [town];
+        ScenarioWatch[] every = world.Trains.Count > 0 ? [town, new RailWatch(world, config)] : [town];
+        return Stages(world.Plan.Name) ? [ExamWatch.Over(config, world), .. every] : every;
     }
 
     /// <summary>

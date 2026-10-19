@@ -37,6 +37,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     held it short; the same entry.
   - 67 (a left turn on green gives way to the oncoming right turn): driver 1 never gets where it was sent. It failed
     before the redesign too, and nothing has looked at why.
+- **`ShippedCityTests.NothingIsLaidOnItsWater(OdesaOsm)`** (maps) fails: spawn 23825 stands at (1258.7, 12635.0) on
+  ground permitted to nobody. It fails on 2746772d, the tree before the trains work (2026-10-19), so it came with the
+  uncommitted map work before it. Tracing which ground that is — water, ballast or a lot — and keeping the spawn off
+  it closes it.
 - **Sixteen town tests are skipped** for the decisions no claim can make any more: all fourteen of
   `OvertakeInATownTests` (CAR-46, CAR-50, PER-28) and two of `LaneSwitchInATownTests` (getting past a wreck and slower
   traffic, CAR-53). They come back with the entry below.
@@ -706,6 +710,10 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   states GEN-4f's way in kept on the road and passes with `ParkingIn.TheStopIsDeadAhead` taken out, so what holds the
   rule is Odesa's and River's stuck probes (decision log of the parking slice, 2026-10-16). A fixture street with a
   car park just past a bend closes it.
+- **A train on `OdesaOsm` swings about its line's speed and off its line** (2026-10-19; traced maps are out of the trains
+  work, the owner's call): over 120 s its locomotive ran 21.6–23.6 m/s against 22 and a bogie stood up to 0.26 m off the
+  track, where on `Odesa` it holds 15.00–15.01 m/s and 4 mm. The traced line turns sharply at its points, which a coach's
+  bogies take as kinks. Laying a traced track's points on a curve no tighter than the least radius closes it.
 - **A chain of links is not solved whole in a step** (SOL-38, 2026-10-19; the owner asked it kept track of): the links
   are Gauss–Seidel rows, so a pull on the head of ten bodies on nine bars leaves the head at 7.0 m/s of a common 5.0
   after the sixteen passes, and the chain moves as one only some ticks later (`LinkTests`). A train therefore stretches
