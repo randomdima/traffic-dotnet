@@ -604,6 +604,28 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   under a lit lens on `atM`, and the generator draws lenses a few centimetres off their frames — `micro_mint`'s
   and `retro_cream`'s tail lamps and indicators most (`cars_civil_c-v3`). The lit lens itself is where its zone map
   says (CAR-14a); its spill is off by that much. Centring the glow on the texels the bake lit for it closes it.
+- **The first batch's lamps burn misplaced and clipped** (2026-10-20, `cars_fleet_a`): the bake looks for a lens's zone
+  only within a window about its authored rectangle (`LampAtlasBake.RectOf`, `Zoned`), the rectangles were laid by the
+  template rather than read off the art, and the zone maps were unmasked repaints drawn 1–8 px off the sprite. A lens
+  the art drew elsewhere is cut short or missed. `qq props` now cuts a car's lamps as mirrored arc polygons in a
+  place–look–snap loop an agent drives (`raw_assets/agents/car/prompting.md`, zones_trial), and the eight trial cars
+  are cut with it, four of them by agents working from its help alone; the props files and per-kind masks are scratch
+  (`.tmp/props/`) and nothing reads them. Keeping the props files beside each variant under `raw_assets/` and the bake
+  lighting a lamp's whole prop in place of a rectangle window closes this, and `ZONE_REACH_M`, the zone maps and the
+  blob trial (`.tmp/zone_tool.py`, superseded) go with it.
+- **`qq props` snap has little to go on where a lens has no frame and no colour of its own** (2026-10-20,
+  `.qq/props.py`): `supermini_red`'s rear lamp scores 0.12, its brake found no frame rim on four of six edges under
+  `--pull=frame`, and which part of it is the brake is a reading, not a finding. A lens drawn wider on one side than
+  the other (`panelvan_forest`'s head, sides 1.4–3.6 texels apart on four edges) can sit on neither side's rim in a
+  symmetric shape; snap now settles halfway, so each side is off by about a texel, one over its frame and one short. Off a texel on one side only, with no better
+  place for the copy: `hatch_coral`'s front indicator (an orange lens drawn on one side alone) and `midsaloon_black`'s
+  rear indicator.
+  A third term — a lens's highlights, or the zones the model's map gives as a
+  prior — closes the first; the second is the art's, and closes with a redraw.
+- **remotegen's `video` command is documented nowhere and its `--last-image` has never run** _owner_ (2026-10-20,
+  `.claude/skills/remotegen/remotegen.py`): added for the lamp trials, which the owner set aside (no clip lit a lamp).
+  Whether it stays is the owner's. If it stays, a SKILL.md section and one `--last-image` run close it; if not,
+  deleting `cmd_video` and `openrouter.video_request` does.
 - **The bigger civilian cars' noses are rounder than their collision boxes** (2026-10-18): `cars_civil_c`'s five largest
   bodies and all nine wrecks leave 1–3 % of their outline bare at the corners (`qq sprites cut`, holes), so a car
   is struck a few centimetres outside its paint there. Barely visible; a brief naming the corner radius in words,
