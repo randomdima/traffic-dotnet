@@ -200,9 +200,9 @@ internal static class TerrainStage
     }
 
     static float Wander(float along, Vector3 phase) =>
-        (MathF.Sin((along * MathF.Tau * WavesOver.X) + phase.X) * WaveShare.X)
-        + (MathF.Sin((along * MathF.Tau * WavesOver.Y) + phase.Y) * WaveShare.Y)
-        + (MathF.Sin((along * MathF.Tau * WavesOver.Z) + phase.Z) * WaveShare.Z);
+        (Trig.Sin((along * MathF.Tau * WavesOver.X) + phase.X) * WaveShare.X)
+        + (Trig.Sin((along * MathF.Tau * WavesOver.Y) + phase.Y) * WaveShare.Y)
+        + (Trig.Sin((along * MathF.Tau * WavesOver.Z) + phase.Z) * WaveShare.Z);
 
     static float At(Vector3 of, int index) => index switch { 0 => of.X, 1 => of.Y, _ => of.Z };
 

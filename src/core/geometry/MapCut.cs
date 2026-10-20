@@ -72,14 +72,14 @@ internal static class MapCut
 
             if (!Crossing(fromM, toM, sizeM, out var enters, out var leaves)) continue;
 
-            run ??= [OnTheEdge(Vector2.Lerp(fromM, toM, enters), sizeM)];
+            run ??= [OnTheEdge(Blend.Lerp(fromM, toM, enters), sizeM)];
             if (leaves >= 1f)
             {
                 Join(run, toM);
                 continue;
             }
 
-            Join(run, OnTheEdge(Vector2.Lerp(fromM, toM, leaves), sizeM));
+            Join(run, OnTheEdge(Blend.Lerp(fromM, toM, leaves), sizeM));
             if (run.Count >= 2) runs.Add(run);
             run = null;
         }

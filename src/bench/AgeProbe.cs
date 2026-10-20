@@ -66,37 +66,9 @@ internal static class AgeProbe
                 $"{Micro(phases, phases.BodyTicks),8:F1}{Micro(phases, sub.SolverTicks),8:F1}{Micro(phases, phases.ContactTicks),10:F1}" +
                 $"{world.IntegratedBodyCount,8}{world.FrozenBodyCount,8}{Stopwatch.GetElapsedTime(started).TotalSeconds,8:F1}" +
                 $"{PhaseTimes.Microseconds(phases.WorstTickTicks),8:F1}{phases.WorstTickAt,9}" +
-                $"{PhaseTimes.Microseconds(phases.WorstIndexTicks),10:F1}  {Digest(world):x16}");
+                $"{PhaseTimes.Microseconds(phases.WorstIndexTicks),10:F1}  {world.Digest():x16}");
         }
     }
 
     static double Micro(in PhaseTimes phases, long ticks) => phases.MillisecondsPer(ticks) * 1000d;
-
-    /// <summary>Every body's pose and motion, hashed bit for bit.</summary>
-    static ulong Digest(TownWorld world)
-    {
-        var hash = 14695981039346656037UL;
-        for (var car = 0; car < world.Cars.Count; car++)
-        {
-            Mix(ref hash, world.Cars.PositionM[car].X);
-            Mix(ref hash, world.Cars.PositionM[car].Y);
-            Mix(ref hash, world.Cars.HeadingRad[car]);
-            Mix(ref hash, world.Cars.VelocityMps[car].X);
-            Mix(ref hash, world.Cars.VelocityMps[car].Y);
-        }
-
-        for (var person = 0; person < world.People.Count; person++)
-        {
-            Mix(ref hash, world.People.PositionM[person].X);
-            Mix(ref hash, world.People.PositionM[person].Y);
-        }
-
-        return hash;
-
-        static void Mix(ref ulong into, float value)
-        {
-            into ^= (uint)BitConverter.SingleToInt32Bits(value);
-            into *= 1099511628211UL;
-        }
-    }
 }

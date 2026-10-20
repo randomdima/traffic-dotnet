@@ -14,6 +14,19 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   back empty for walker 29, and why, closes it.
 - **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
   the leg it had before the hand" (2026-10-19, the hand's change in hand). Closed by that change.
+- **Four tests fail since the town's arithmetic left libm** (2026-10-20, core log); all four pass on 79dddfaf:
+  - `PedestrianWaysTests.ALaneWeldedToOnePointIsTheOnlyOneNothingIsLaidDown` and
+    `PedestrianNodesTests.APointStandingOnThePointItsLaneArrivesAtIsOnePointMidwayBetweenThem` (unit, WLK-12): "the
+    fixture town welds no lane at all". The fixture had one weld, node 62's lane 1 (983.2, 858.1), whose point is where
+    two all but parallel kerb lines meet: the roads' headings a float apart (`citygen/gen`'s `Atan2` and `Asin`) move it
+    0.4 m, and its pair now stands 1.083 m apart against `Road.FootConnectorMergeM`'s 1 m. The plan's junctions are the
+    same to the bit. Each asks the fixture for a weld it no longer lays; a fixture that welds by its own shape, or the
+    point found by a better-conditioned construction than a near-parallel meet, closes them;
+  - `PersonActionTests.AWalkerInTheRoadClaimsTheStretchOfItsWayItStepsBackOnto` (town, PER-25): the walker put on the
+    nearest street lane's middle is read as walking and not rejoining. Not traced; which walker and lane the probe now
+    picks, and why the world does not read that body as in the road, closes it;
+  - `WalkingTests.ABodyOnNoWayOfTheNetworkPlansNothing` (town, PER-26): "walker 22 is on no way of the network and
+    plans 4535" — the rule broken in the settled town, as the `WayIntents` entry above is. Not traced.
 
 - **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) is skipped, failing: the worst bar's gap is 0.0426 m off the setback
   against `FramesM`, a 0.04 m bound measured on the fixture. It fails on 5a973d8, 2b8936c7 and 9f5c05af (2026-09-30)
@@ -23,8 +36,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   ticks on 2026-10-16, with the machine at a load of ~25 and the test host already on the shipped collector; it has
   passed every run since, five in a row on a quiet machine. What allocated under load is not known; an allocation
   trace (`dotnet-trace`'s GC allocation ticks) of a failing run closes it.
-- **Eight exam cards fail** (2026-10-16; 60, 82, 85 and 86 pass since a car short of a box plans none of one it could
+- **Nine exam cards fail** (2026-10-16; 60, 82, 85 and 86 pass since a car short of a box plans none of one it could
   not get out of, and yields what it holds there at rest, the road log):
+  - 110, failing on 79dddfaf as on the tree after it (2026-10-20), and not looked at.
   - 39 and 44 (the nearer of two straights goes first; four left turns at once), failing on 2026-10-18's working tree
     with the level-crossing card taken out of the table as well — so they moved with the uncommitted car work and not
     with the railway, which the exam map otherwise lacks. 39's driver 0 is on the box 0.1 s after driver 1; 44's driver
@@ -44,22 +58,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     held it short; the same entry.
   - 67 (a left turn on green gives way to the oncoming right turn): driver 1 never gets where it was sent. It failed
     before the redesign too, and nothing has looked at why.
-- **`ShippedCityTests.NothingIsLaidOnItsWater(OdesaOsm)`** (maps) fails: spawn 23825 stands at (1258.7, 12635.0) on
-  ground permitted to nobody — spawn 9534 at (1276.9, 12596.7) since the offset stopped folding at shallow corners
-  (2026-10-19), the same ground re-laid. It fails on 2746772d, the tree before the trains work (2026-10-19), so it came
-  with the uncommitted map work before it. Tracing which ground that is — water, ballast or a lot — and keeping the spawn off
-  it closes it.
 - **Sixteen town tests are skipped** for the decisions no claim can make any more: all fourteen of
   `OvertakeInATownTests` (CAR-46, CAR-50, PER-28) and two of `LaneSwitchInATownTests` (getting past a wreck and slower
   traffic, CAR-53). They come back with the entry below.
-- **Two town rules broke when the world's trigonometry became `Trig`** (2026-10-15, core log; both pass on 5a973d8):
-  `Heading.Unit` lays the town as well as turning it, so the suite's town stands a float off where it stood, and each
-  rule was kept by less than that:
-  - `BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark` (GEN-55): building 28 stands 1.3 m off the middle of a rank
-    reaching 9.0 m with 7.8 m of frontage either side — 0.1 m onto the rounding;
-  - `WalkingTests.TheWalkDrawnForAWalkerSetsOffTheWayTheBodyIsWalking` (CTL-1a): walker 47's walk sets off 9 cm behind
-    the body.
-  Each traced to the margin the generator or the re-plan keeps (or does not) closes it; neither is the trigonometry's.
+- **`BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark`** (town, GEN-55) has failed since the world's trigonometry
+  became `Trig` (2026-10-15, core log; it passes on 5a973d8): `Heading.Unit` lays the town as well as turning it, so the
+  suite's town stands a float off where it stood, and building 28 stands 1.3 m off the middle of a rank reaching 9.0 m
+  with 7.8 m of frontage either side — 0.1 m onto the rounding. Traced to the margin the generator keeps (or does not),
+  it closes; it is not the trigonometry's.
 - **The kernels have not been held to `Trig` on a GPU** (2026-10-15): `TrigKernelTests` and `RoundedKernelTests` pass
   on lavapipe, which the suite runs. The device tier pointed at the RX 9070 XT by hand closes it.
 
@@ -145,9 +151,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   it is the runtime's or a static's first time. `DeviceAllocationGateTests` warms past it as the managed gate does
   (`Towns.SettleTicks`). An allocation trace of that tick names it.
 - **The page's device world** (2026-10-15, web log), each found standing it up:
-  - **no tier runs it**: `qq web` on River, OdesaOsm and O30 is the whole of what has looked at it. A lockstep would not hold to the bit
-    in any case — WGSL cannot forbid a driver to fuse (core log), and `fma` in `world_view.comp` may run unfused — so a
-    tolerance probe of the page's world against the managed one, driven by `qq web --ask`, closes it;
+  - **no tier runs it**: `qq web` on River, Odesa, OdesaOsm and O30 is the whole of what has looked at it. A page's
+    managed world is the desktop's to the bit — the plan's and the bodies' digests at tick 600 are the desktop
+    `--shot --seconds 10`'s on Odesa and OdesaOsm (2026-10-20) — but its device world is not, standing millimetres off
+    its managed one by tick 600 on Odesa: WGSL cannot forbid a driver to fuse (core log), and `fma` in `world_view.comp`
+    may run unfused. A tolerance probe of the page's device world against the managed one, driven by `qq web --ask`,
+    closes it;
   - **what moves is drawn off the CPU's fill and no tyre mark is drawn**: `sprites_count.comp` and `sprites_write.comp`
     bind 19 storage buffers, and the marks' ring is never read back. Packing the emit's tables as the atlas's were, and
     a web half of `DeviceSprites` feeding `TownRenderer.Web`, closes it;
@@ -173,6 +182,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     through naga as the page compiles it (`Kernels.Web.targets`, since Firefox refused `world_view.comp`'s `lineNext`
     and `tyre_pass.comp`'s push block on 2026-10-20), but naga is Firefox's validator and not Chrome's, and nothing
     runs the page in Firefox. `qq web` exiting non-zero on a WebGPU error, and a run in Firefox, close it;
+  - **the published page lost its `_framework/`** between a publish at 00:40 and 00:53 on 2026-10-20, with only
+    `qq tests device` and `qq tests unit town` built in between, so a `qq web --no-build` would have served a page
+    that cannot start. Not traced; which build clears `bin/web/Release/net11.0/publish/wwwroot/_framework`, and
+    `--no-build` refusing a bundle without one, close it;
   - **nothing asks whether the device can hold the town's tables**: a buffer past the adapter's
     `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
     promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.
@@ -201,13 +214,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     6.0 ms car tick on one thread, at the page's single core and about twice a desktop core's cost. The cars'
     ticks over workers (the desktop entry above) wants a page given threads, which wants cross-origin isolation and so
     headers GitHub Pages cannot send;
-  - **the page lays another town than the desktop** (WEB-1; OdesaOsm, 2026-10-16): at the port pier OBS-1b opens on
-    (5094,12760, `--view 300`) the zones' undrawn prefabs stand elsewhere and at other sizes — one 40 m square on the
-    desktop is three rounded blocks along the road on the page — and a taxi stands at tick 0 where the desktop has none; desktop Debug and Release agree. Not traced; the likeliest cause is the
-    citygen's `MathF` (core log, 2026-10-15) — glibc on the desktop, emscripten's libm on the page, which may part by a
-    float — and `ZoneBuildings` weighs its prefabs by `MathF.Exp`/`Log` and turns them by `Atan2`/`Cos`. A plan digest
-    each head prints after each stage of the lay, finding the first that parts, closes the tracing; the fix is that
-    stage's arithmetic made the same on both;
+  - **the open's figures above were not taken again since the town left libm** (2026-10-20, core log): a page laid
+    OdesaOsm's plan in 39.4 s and its town in 31.7 (`?managed-world`, one run), where the desktop's plan is 14.1 s
+    before and 14.2 s after. Whether the page's 39.4 is `Trig`'s and `Powers`' cost under WebAssembly or where the
+    page already stood on 79dddfaf is not known; `qq web --cpu` on OdesaOsm on both trees closes it;
   - **a page's atlas can stand a float off the host's**: WGSL cannot say `precise`, so a browser may fuse what the host
     rounds twice (`trig.glsl`), and a page has no read-back to hold its digest to the host's. Vulkan's is the host's to
     the bit;

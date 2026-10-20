@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.Agents.Car.Body;
 
@@ -313,7 +314,7 @@ internal readonly record struct CarBuild
         // engine — is its own file's and has no dial over it.
         var maxSteerRad = MathF.Min(
             (maxSteeringDeg ?? config.Car.MaxSteeringDeg) * MathF.PI / 180f, MostSteerRad);
-        var turningRadiusM = wheelbaseM / MathF.Tan(maxSteerRad);
+        var turningRadiusM = wheelbaseM / Trig.Tan(maxSteerRad);
         var brakingMps2 = config.CarBrakingMps2 * handling.Braking;
         var friction = (tyreFriction ?? config.Tyre.Friction) * config.Trim.Friction;
         var gripMps2 = friction * config.Tyre.StandardGravityMps2;

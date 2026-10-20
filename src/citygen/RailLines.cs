@@ -108,7 +108,7 @@ internal static class RailLines
 
             // The bridge spans the ballast under it and climbs to it at the ruling grade either side — on its inner track,
             // which runs the least radius round where the line runs its own, and so climbs in less than the line runs.
-            var underHalfM = (halfSpacingM + (rail.BallastWidthM * 0.5f)) / MathF.Abs(MathF.Sin(loopRad));
+            var underHalfM = (halfSpacingM + (rail.BallastWidthM * 0.5f)) / MathF.Abs(Trig.Sin(loopRad));
             var halfSpanM = underHalfM + (rail.BridgeClearanceM / rail.GradeMostShare * radiusM / rail.LeastRadiusM);
             if (overM - halfSpanM <= underM + underHalfM)
             {
@@ -154,7 +154,7 @@ internal static class RailLines
 
         /// <summary>The wander's share at a distance along it, from nought where it starts.</summary>
         public float At(float alongM) =>
-            (MathF.Sin(alongM * FirstPerM) + (SecondWaveWeight * MathF.Sin(alongM * SecondPerM))) / (1f + SecondWaveWeight);
+            (Trig.Sin(alongM * FirstPerM) + (SecondWaveWeight * Trig.Sin(alongM * SecondPerM))) / (1f + SecondWaveWeight);
     }
 
     /// <summary>

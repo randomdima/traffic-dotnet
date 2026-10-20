@@ -1,4 +1,5 @@
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Gen;
@@ -48,7 +49,7 @@ internal static class LitJunctions
             // The logarithm of u^(1/w), which orders the keys the same way and does not underflow for a heavy
             // junction; one minus the draw keeps u off nought.
             candidates.Add(junction);
-            keys.Add(MathF.Log(1f - draw.NextFloat()) / Movements(arms[junction]));
+            keys.Add(Powers.Log(1f - draw.NextFloat()) / Movements(arms[junction]));
         }
 
         var order = candidates.ToArray();

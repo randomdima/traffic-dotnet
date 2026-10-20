@@ -16,7 +16,7 @@ internal readonly record struct CrossingLight(Vector2 CentreM, float HeadingRad,
         var alongM = (stretch.FromM + config.Road.StopBarThicknessM + stretch.BarrierM - (config.Rail.BarrierWidthM * 0.5f)) * 0.5f;
         var at = Spline.SampleAt(line, alongM);
         var lamps = Heading.RightOf(at.Direction);
-        return new CrossingLight(at.PositionM, MathF.Atan2(lamps.Y, lamps.X), stretch.Approach);
+        return new CrossingLight(at.PositionM, Trig.Atan2(lamps.Y, lamps.X), stretch.Approach);
     }
 }
 
@@ -60,7 +60,7 @@ internal sealed class CrossingGear
         (_plan, _crossings, _rail) = (plan, crossings, rail);
         (Crossing, PivotM, DownAlong, ArmM, Lights) = (crossing, pivotM, downAlong, armM, lights);
         ArmHeadingRad = new float[crossing.Length];
-        for (var each = 0; each < crossing.Length; each++) ArmHeadingRad[each] = MathF.Atan2(downAlong[each].Y, downAlong[each].X);
+        for (var each = 0; each < crossing.Length; each++) ArmHeadingRad[each] = Trig.Atan2(downAlong[each].Y, downAlong[each].X);
 
         _closedAtS = new float[crossings.Crossings];
         _openedAtS = new float[crossings.Crossings];

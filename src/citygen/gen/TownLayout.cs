@@ -336,11 +336,11 @@ internal sealed class TownLayout(
     static (float OutOfFrom, float OutOfTo) Bearings(Vector2 fromM, Vector2 toM, float curvature)
     {
         var runM = toM - fromM;
-        var chordRad = MathF.Atan2(runM.Y, runM.X);
+        var chordRad = Trig.Atan2(runM.Y, runM.X);
         if (MathF.Abs(curvature) <= 0f) return (chordRad, chordRad + MathF.PI);
 
         var radiusM = 1f / MathF.Abs(curvature);
-        var halfRad = MathF.Asin(MathF.Min(1f, runM.Length() * 0.5f / radiusM)) * MathF.Sign(curvature);
+        var halfRad = Trig.Asin(MathF.Min(1f, runM.Length() * 0.5f / radiusM)) * MathF.Sign(curvature);
         return (chordRad - halfRad, chordRad + halfRad + MathF.PI);
     }
 
@@ -358,7 +358,7 @@ internal sealed class TownLayout(
 
         var leaves = edge.ThroughM[0] - fromM;
         var arrives = edge.ThroughM[^1] - toM;
-        return (MathF.Atan2(leaves.Y, leaves.X), MathF.Atan2(arrives.Y, arrives.X));
+        return (Trig.Atan2(leaves.Y, leaves.X), Trig.Atan2(arrives.Y, arrives.X));
     }
 
     /// <summary>

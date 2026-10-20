@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Traced;
 
@@ -154,7 +155,7 @@ internal static partial class TracedCarParks
         Ladder? best = null;
         foreach (var bearingRad in Bearings(outline))
         {
-            var frame = new Frame(outline[0], new Vector2(MathF.Cos(bearingRad), MathF.Sin(bearingRad)), new Vector2(-MathF.Sin(bearingRad), MathF.Cos(bearingRad)));
+            var frame = new Frame(outline[0], new Vector2(Trig.Cos(bearingRad), Trig.Sin(bearingRad)), new Vector2(-Trig.Sin(bearingRad), Trig.Cos(bearingRad)));
             var local = Array.ConvertAll(outline, frame.In);
             var (lowV, highV) = (local.Min(at => at.Y), local.Max(at => at.Y));
             var crossing = near.Select(segment => (A: frame.In(segment.AM), B: frame.In(segment.BM), HalfM: segment.HalfM + config.WalkOuterM)).ToList();
@@ -212,7 +213,7 @@ internal static partial class TracedCarParks
         for (var at = 0; at < outline.Length; at++)
         {
             var run = outline[(at + 1) % outline.Length] - outline[at];
-            if (run.Length() >= BearingSideLeastM) sides.Add((MathF.Atan2(run.Y, run.X), run.Length()));
+            if (run.Length() >= BearingSideLeastM) sides.Add((Trig.Atan2(run.Y, run.X), run.Length()));
         }
 
         var bearings = new List<float>();
@@ -363,7 +364,7 @@ internal static partial class TracedCarParks
             tried.Add((last, u, Vector2.UnitY));
         }
 
-        var minSquareSin = MathF.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
+        var minSquareSin = Trig.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
         var halfAisleM = config.CarParkAisleWidthM * 0.5f;
         var reachM = config.CityGen.CarParkEntranceReachM;
         var found = new List<(Entrance Entrance, float LengthM)>();

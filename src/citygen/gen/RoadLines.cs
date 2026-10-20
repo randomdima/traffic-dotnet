@@ -513,7 +513,7 @@ internal sealed class RoadLines(
     static ArcSeg Arc(Vector2 fromM, Vector2 unit, float chordM, float curvature)
     {
         var radiusM = 1f / MathF.Abs(curvature);
-        var half = MathF.Asin(MathF.Min(1f, chordM * 0.5f / radiusM));
+        var half = Trig.Asin(MathF.Min(1f, chordM * 0.5f / radiusM));
 
         // An arc's chord runs at its own start bearing plus half its sweep (<see cref="ArcSeg.PointAtM"/>),
         // so the bearing it has to start on is the chord's less that half — the tangent at the node.
@@ -602,5 +602,5 @@ internal sealed class RoadLines(
             : config.CityGen.StreetWanderInBlocks);
     }
 
-    static float Facing(Vector2 unit) => MathF.Atan2(unit.Y, unit.X);
+    static float Facing(Vector2 unit) => Trig.Atan2(unit.Y, unit.X);
 }

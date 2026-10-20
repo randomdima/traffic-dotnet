@@ -356,7 +356,7 @@ internal sealed class Survey
                         // more than the straight-on tolerance, and the other no further back than beside the end.
                         var (inX, inY) = Into(atStart);
                         var crossSin = Math.Abs((inX * runY) - (inY * runX)) / Math.Sqrt(lengthSq);
-                        if (crossSin < Math.Sin(straightRad) || (inX * offX) + (inY * offY) < 0.0) continue;
+                        if (crossSin < Trig.Sin((double)straightRad) || (inX * offX) + (inY * offY) < 0.0) continue;
 
                         (best, bestLeg, bestAlong, bestM) = (other, leg, along, apartM);
                     }
@@ -474,8 +474,11 @@ internal sealed class Survey
             if (left) leaving.Add(run[^1]);
         }
 
-        double Apart(int one, int other) =>
-            Math.Sqrt(Math.Pow(placedM[one].X - placedM[other].X, 2) + Math.Pow(placedM[one].Y - placedM[other].Y, 2));
+        double Apart(int one, int other)
+        {
+            var (acrossXM, acrossYM) = (placedM[one].X - placedM[other].X, placedM[one].Y - placedM[other].Y);
+            return Math.Sqrt((acrossXM * acrossXM) + (acrossYM * acrossYM));
+        }
 
         // Held on the edge: a rounding's step past it is a road standing off the map (GEN-2b).
         int Added(Vector2D fromM, Vector2D toM, double share)

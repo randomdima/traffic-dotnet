@@ -93,7 +93,7 @@ internal static partial class TracedCarParks
                     }
 
                     ground.Stand(bay);
-                    bayLines.Add(new ArcSeg(fromM, MathF.Atan2(outward.Y, outward.X), lengthM, 0f));
+                    bayLines.Add(new ArcSeg(fromM, Trig.Atan2(outward.Y, outward.X), lengthM, 0f));
                     right.Add(onTheRight);
                 }
             }

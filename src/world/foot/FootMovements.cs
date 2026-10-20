@@ -447,7 +447,7 @@ internal sealed class FootMovements
         var run = ontoM - fromM;
         var lengthM = run.Length();
         return lengthM > LineTolerance.RoundingM
-            ? [new ArcSeg(fromM, MathF.Atan2(run.Y, run.X), lengthM, 0f)]
+            ? [new ArcSeg(fromM, Trig.Atan2(run.Y, run.X), lengthM, 0f)]
             : [];
     }
 

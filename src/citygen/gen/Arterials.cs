@@ -415,7 +415,7 @@ internal sealed class Arterials
     public float ThetaOf(Vector2 pointM)
     {
         var offsetM = pointM - _districts.HubM;
-        return MathF.Atan2(offsetM.Y, offsetM.X);
+        return Trig.Atan2(offsetM.Y, offsetM.X);
     }
 
     static float Wrapped(float thetaRad) => thetaRad - (MathF.Tau * MathF.Floor(thetaRad / MathF.Tau));

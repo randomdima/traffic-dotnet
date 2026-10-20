@@ -463,7 +463,7 @@ internal static class ArcOutset
         var lengthM = runM.Length();
         if (lengthM <= LineTolerance.At(LineTolerance.RoundingM, fromM)) return 0;
 
-        into[0] = new ArcSeg(fromM, MathF.Atan2(runM.Y, runM.X), lengthM, 0f);
+        into[0] = new ArcSeg(fromM, Trig.Atan2(runM.Y, runM.X), lengthM, 0f);
         return 1;
     }
 
@@ -865,7 +865,7 @@ internal static class ArcOutset
         var lengthM = runM.Length();
         if (lengthM <= LineTolerance.At(LineTolerance.RoundingM, fromM)) return;
 
-        run.Add(new ArcSeg(fromM, MathF.Atan2(runM.Y, runM.X), lengthM, 0f));
+        run.Add(new ArcSeg(fromM, Trig.Atan2(runM.Y, runM.X), lengthM, 0f));
     }
 
     /// <summary>How far one piece turns to take up the next, negative to the walker's left.</summary>
@@ -873,7 +873,7 @@ internal static class ArcOutset
     {
         var leaving = Heading.Unit(from.HeadingAtRad(from.LengthM));
         var taking = onto.StartUnit;
-        return MathF.Atan2(
+        return Trig.Atan2(
             (leaving.X * taking.Y) - (leaving.Y * taking.X), Vector2.Dot(leaving, taking));
     }
 
@@ -913,7 +913,7 @@ internal static class ArcOutset
 
         var leaving = from.EndM - from.StartM;
         var taking = onto.EndM - onto.StartM;
-        return MathF.Atan2((leaving.X * taking.Y) - (leaving.Y * taking.X), Vector2.Dot(leaving, taking));
+        return Trig.Atan2((leaving.X * taking.Y) - (leaving.Y * taking.X), Vector2.Dot(leaving, taking));
     }
 
     /// <summary>

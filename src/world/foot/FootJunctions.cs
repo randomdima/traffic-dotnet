@@ -320,7 +320,7 @@ internal sealed class FootJunctions
 
         return neighbour;
 
-        static float Bearing(Vector2 unit) => MathF.Atan2(unit.Y, unit.X);
+        static float Bearing(Vector2 unit) => Trig.Atan2(unit.Y, unit.X);
     }
 
     /// <summary>

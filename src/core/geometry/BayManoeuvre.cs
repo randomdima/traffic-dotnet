@@ -79,14 +79,14 @@ internal static class BayManoeuvre
     {
         if (!Towards(from, to, out var sideSign, out var turnRad, out var aheadM, out var besideM)) return Shape.None;
 
-        var sinTurn = MathF.Sin(turnRad);
-        var cosTurn = MathF.Cos(turnRad);
+        var sinTurn = Trig.Sin(turnRad);
+        var cosTurn = Trig.Cos(turnRad);
         var swingCos = (((besideM - (straightensUpM * sinTurn)) / radiusM) + 1f + cosTurn) * 0.5f;
-        var swingRad = swingCos >= 1f ? 0f : MathF.Acos(MathF.Max(swingCos, -1f));
+        var swingRad = swingCos >= 1f ? 0f : Trig.Acos(MathF.Max(swingCos, -1f));
         if (swingRad > mostSwingRad) return Shape.None;
 
-        var intoTheBayM = (besideM - (radiusM * ((2f * MathF.Cos(swingRad)) - 1f - cosTurn))) / sinTurn;
-        var onM = aheadM - (intoTheBayM * cosTurn) - (2f * radiusM * MathF.Sin(swingRad)) - (radiusM * sinTurn);
+        var intoTheBayM = (besideM - (radiusM * ((2f * Trig.Cos(swingRad)) - 1f - cosTurn))) / sinTurn;
+        var onM = aheadM - (intoTheBayM * cosTurn) - (2f * radiusM * Trig.Sin(swingRad)) - (radiusM * sinTurn);
         if (onM < -LineTolerance.RoundingM) return Shape.None;
 
         var laid = 0;
@@ -109,9 +109,9 @@ internal static class BayManoeuvre
     {
         if (!Towards(from, to, out _, out var turnRad, out var aheadM, out var besideM)) return Shape.None;
 
-        var sinTurn = MathF.Sin(turnRad);
-        var tangentM = radiusM * MathF.Tan((MathF.PI - turnRad) * 0.5f);
-        var cornerM = aheadM - (besideM * MathF.Cos(turnRad) / sinTurn);
+        var sinTurn = Trig.Sin(turnRad);
+        var tangentM = radiusM * Trig.Tan((MathF.PI - turnRad) * 0.5f);
+        var cornerM = aheadM - (besideM * Trig.Cos(turnRad) / sinTurn);
         var pullM = cornerM + tangentM;
         if (pullM < -LineTolerance.RoundingM || (besideM / sinTurn) - tangentM < straightensUpM) return Shape.None;
 
@@ -157,7 +157,7 @@ internal static class BayManoeuvre
         var away = Vector2.Dot(travel, normal) >= 0f ? normal : -normal;
 
         var turnRad = Spline.WrapRad(alongRad - from.HeadingRad);
-        var tangentM = radiusM * MathF.Abs(MathF.Tan(turnRad * 0.5f));
+        var tangentM = radiusM * MathF.Abs(Trig.Tan(turnRad * 0.5f));
         var outToTheLineM = Spline.Cross(onM - from.AtM, along) / across;
         var perAsideM = Spline.Cross(away, along) / across;
         var asideM = perAsideM <= 0f ? 0f : MathF.Max(0f, (tangentM - outToTheLineM) / perAsideM);
@@ -248,10 +248,10 @@ internal static class BayManoeuvre
     public static Shape ParallelIn(
         Pose from, Pose to, float outSign, float deepM, float radiusM, float straightensUpM, Span<ArcSeg> into)
     {
-        var outRad = MathF.Asin(MathF.Min(1f, deepM / radiusM));
+        var outRad = Trig.Asin(MathF.Min(1f, deepM / radiusM));
         var along = Heading.Unit(to.HeadingRad);
         var outward = new Vector2(-along.Y, along.X) * outSign;
-        var deepAtM = to.AtM - (along * deepM) - (outward * (radiusM * (1f - MathF.Cos(outRad))));
+        var deepAtM = to.AtM - (along * deepM) - (outward * (radiusM * (1f - Trig.Cos(outRad))));
         var turnedOutRad = to.HeadingRad + (outSign * outRad);
         var backIn = AlongsideBackIn(from, new Pose(deepAtM, turnedOutRad + MathF.PI), radiusM, straightensUpM, into);
         if (!backIn.Exists) return Shape.None;
@@ -380,14 +380,14 @@ internal static class BayManoeuvre
         firstRad = 0f;
         secondRad = 0f;
         aheadM = 0f;
-        var cosFirst = (1f + MathF.Cos(deltaRad) - ((besideM - (postM * MathF.Sin(deltaRad))) / radiusM)) * 0.5f;
+        var cosFirst = (1f + Trig.Cos(deltaRad) - ((besideM - (postM * Trig.Sin(deltaRad))) / radiusM)) * 0.5f;
         if (cosFirst is < 0f or > 1f) return false;
 
-        firstRad = MathF.Acos(cosFirst);
+        firstRad = Trig.Acos(cosFirst);
         secondRad = firstRad - deltaRad;
         if (secondRad < 0f) return false;
 
-        aheadM = (radiusM * ((2f * MathF.Sin(firstRad)) - MathF.Sin(deltaRad))) + (postM * MathF.Cos(deltaRad));
+        aheadM = (radiusM * ((2f * Trig.Sin(firstRad)) - Trig.Sin(deltaRad))) + (postM * Trig.Cos(deltaRad));
         return true;
     }
 
@@ -413,7 +413,7 @@ internal static class BayManoeuvre
         var bay = Heading.Unit(to.HeadingRad);
         var across = Spline.Cross(ahead, bay);
         sideSign = across >= 0f ? 1f : -1f;
-        turnRad = MathF.Atan2(sideSign * across, Vector2.Dot(ahead, bay));
+        turnRad = Trig.Atan2(sideSign * across, Vector2.Dot(ahead, bay));
 
         var offM = to.AtM - from.AtM;
         aheadM = Vector2.Dot(offM, ahead);

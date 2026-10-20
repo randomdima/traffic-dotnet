@@ -283,7 +283,7 @@ internal sealed class Trains
         if (point == 0 || point + 1 >= pointM.Length) return float.PositiveInfinity;
 
         var (inM, outM) = (pointM[point] - pointM[point - 1], pointM[point + 1] - pointM[point]);
-        var turnRad = MathF.Abs(MathF.Atan2((inM.X * outM.Y) - (inM.Y * outM.X), Vector2.Dot(inM, outM)));
+        var turnRad = MathF.Abs(Trig.Atan2((inM.X * outM.Y) - (inM.Y * outM.X), Vector2.Dot(inM, outM)));
         return turnRad == 0f ? float.PositiveInfinity : (inM.Length() + outM.Length()) * 0.5f / turnRad;
     }
 
@@ -521,7 +521,7 @@ internal sealed class Trains
             var rearBogieM = PlaceOnTheLeg(train, middleM + shape.BogiesM[^1]);
             var along = frontBogieM - rearBogieM;
             orders.Add(new TrainOrder(
-                TrainOrderKind.Place, slot, _look[slot], (frontBogieM + rearBogieM) * 0.5f, MathF.Atan2(along.Y, along.X), _speedMps[train]));
+                TrainOrderKind.Place, slot, _look[slot], (frontBogieM + rearBogieM) * 0.5f, Trig.Atan2(along.Y, along.X), _speedMps[train]));
             orders.Add(new TrainOrder(TrainOrderKind.Couple, slot, vehicle == 0 ? -1 : _slotOf[train][vehicle - 1]));
             orders.Add(new TrainOrder(TrainOrderKind.Drive, slot, 0, Command: Rolling));
             _channels[slot] = CityPlan.RoadArrays.GroundChannel;

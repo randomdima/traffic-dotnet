@@ -124,7 +124,7 @@ internal sealed class Districts
         // crossing a town on two banks cannot do without is then the shortest line over the water there is,
         // and it is the wheel's rotation that buys it rather than any node moved afterwards.
         var firstSpokeRad = water.Bridgeable
-            ? MathF.Atan2(-inlandM.Y, -inlandM.X)
+            ? Trig.Atan2(-inlandM.Y, -inlandM.X)
             : draw.NextFloat(0f, MathF.Tau / spokes);
 
         return new Districts(districts, new DistrictWheel(hubM, ringRadiusM, firstSpokeRad, spokes));

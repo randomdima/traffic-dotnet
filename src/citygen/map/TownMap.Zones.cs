@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.CityGen.Zones;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Map;
 
@@ -206,7 +207,7 @@ internal sealed partial record TownMap
                     {
                         var (from, to) = (ring[before], ring[at]);
                         var (fromIn, toIn) = (Vector2.Dot(from, axis) - least, Vector2.Dot(to, axis) - least);
-                        if ((fromIn >= 0f) != (toIn >= 0f)) kept.Add(Vector2.Lerp(from, to, fromIn / (fromIn - toIn)));
+                        if ((fromIn >= 0f) != (toIn >= 0f)) kept.Add(Blend.Lerp(from, to, fromIn / (fromIn - toIn)));
                         if (toIn >= 0f) kept.Add(to);
                     }
 

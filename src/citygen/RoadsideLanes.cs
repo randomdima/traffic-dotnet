@@ -251,7 +251,7 @@ internal sealed class RoadsideLanes
             if (other == own || arms[other].Level != arm.Level) continue;
 
             others++;
-            var turnRad = side * MathF.Atan2(Spline.Cross(arm.Out, arms[other].Out), Vector2.Dot(arm.Out, arms[other].Out));
+            var turnRad = side * Trig.Atan2(Spline.Cross(arm.Out, arms[other].Out), Vector2.Dot(arm.Out, arms[other].Out));
             if (turnRad <= 0f) turnRad += 2f * MathF.PI;
             if (turnRad >= nextRad) continue;
 
@@ -329,7 +329,7 @@ internal sealed class RoadsideLanes
         if (mine < 0) return -1;
 
         var leavesMine = _joined.LaneToJunction[mine] == junction;
-        var straightAcross = -MathF.Cos(_straightRad);
+        var straightAcross = -Trig.Cos(_straightRad);
         for (var other = 0; other < arms.Length; other++)
         {
             if (other == own || arms[other].Level != arms[own].Level) continue;

@@ -66,7 +66,7 @@ internal sealed class WaterRules(
         var steps = Math.Max(2, (int)(runM / stepM));
         for (var step = 0; step <= steps; step++)
         {
-            var atM = Vector2.Lerp(fromM, toM, step / (float)steps);
+            var atM = Blend.Lerp(fromM, toM, step / (float)steps);
             if (Wet(atM) || Wet(atM + sideM) || Wet(atM - sideM)) return true;
         }
 

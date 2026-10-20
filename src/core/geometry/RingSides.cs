@@ -399,8 +399,8 @@ internal sealed class RingSides
 
             // From the centre to the point the heading stands at: a quarter turn back from the way the arc
             // bends (Heading.RightOf), at the radius.
-            var (fromSin, fromCos) = Math.SinCos(fromRad);
-            var (middleSin, middleCos) = Math.SinCos(middleRad);
+            var (fromSin, fromCos) = Trig.SinCos(fromRad);
+            var (middleSin, middleCos) = Trig.SinCos(middleRad);
             return new Piece(
                 fromM, toM, new Vector2((float)(fromSin / curvature), (float)(-fromCos / curvature)), Vector2.Zero,
                 Side(middleSin / curvature), Side(-middleCos / curvature), true);

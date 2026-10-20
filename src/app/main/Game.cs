@@ -241,6 +241,9 @@ internal sealed partial class Game : IDisposable
     /// <summary>The device world a town was laid with taken as this head steps and draws it — <see cref="TickOnTheDevice"/>'s other half.</summary>
     partial void TookTheDeviceWorld(TownWorld town, DeviceWorld world);
 
+    /// <summary>One tick of the town taken, for a head that says something of it at a tick of its own (a page's digest).</summary>
+    partial void Ticked(TownWorld world, long tick);
+
     /// <summary>
     /// <b>Whether what moves is emitted on the device and drawn where it is written</b>
     /// (<see cref="EmitTheMoving"/>) rather than filled from the town's copy: a town whose world the device steps, on a
@@ -927,6 +930,7 @@ internal sealed partial class Game : IDisposable
 
                 _loop.Advance();
                 foreach (var watch in _scenario) watch.Saw(_loop.World);
+                Ticked(_loop.World, _loop.Tick);
             }
 
             if (waiting) _clock.Postpone(due - ran);

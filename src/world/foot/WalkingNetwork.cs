@@ -1027,7 +1027,7 @@ internal sealed class WalkingNetwork
             Spline.SampleAt(offset.Of(to), 0f).HeadingRad
             - Spline.SampleAt(offset.Of(from), offset.LengthM[from]).HeadingRad);
 
-        var tangentM = offsetM * MathF.Tan(MathF.Abs(turnRad) * 0.5f);
+        var tangentM = offsetM * Trig.Tan(MathF.Abs(turnRad) * 0.5f);
         return turnRad > 0f ? 2f * tangentM : tangentM;
     }
 
@@ -1064,7 +1064,7 @@ internal sealed class WalkingNetwork
         var lengthM = run.Length();
         if (lengthM < SamePlaceM) return 0;
 
-        into[0] = new ArcSeg(fromM, MathF.Atan2(run.Y, run.X), lengthM, 0f);
+        into[0] = new ArcSeg(fromM, Trig.Atan2(run.Y, run.X), lengthM, 0f);
         return 1;
     }
 

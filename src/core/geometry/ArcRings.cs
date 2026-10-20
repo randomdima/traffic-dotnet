@@ -193,7 +193,7 @@ internal sealed class ArcRings
                 var gapM = loose[next[run]][0].StartM - loose[run][^1].EndM;
                 if (gapM != Vector2.Zero)
                 {
-                    chain.Add(new ArcSeg(loose[run][^1].EndM, MathF.Atan2(gapM.Y, gapM.X), gapM.Length(), 0f));
+                    chain.Add(new ArcSeg(loose[run][^1].EndM, Trig.Atan2(gapM.Y, gapM.X), gapM.Length(), 0f));
                 }
             }
 
@@ -653,7 +653,7 @@ internal sealed class ArcRings
         var stretch = _kept[from];
         var arriving = Heading.Unit(stretch.HeadingAtRad(stretch.LengthM));
         var leaving = _kept[onto].StartUnit;
-        return MathF.Atan2(
+        return Trig.Atan2(
             (arriving.X * leaving.Y) - (arriving.Y * leaving.X), Vector2.Dot(arriving, leaving));
     }
 

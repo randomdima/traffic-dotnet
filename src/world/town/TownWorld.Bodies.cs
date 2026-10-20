@@ -43,7 +43,7 @@ internal sealed partial class TownWorld
     /// What a car's lagged acceleration closes on its new reading by in one step of <paramref name="dtS"/>: the same on
     /// every car in the town, and an exponential, which is not a thing to take once a car.
     /// </summary>
-    public static float LoadSettledShare(SimConfig config, float dtS) => 1f - MathF.Exp(-dtS / config.Tyre.LoadSettleS);
+    public static float LoadSettledShare(SimConfig config, float dtS) => 1f - Powers.Exp(-dtS / config.Tyre.LoadSettleS);
 
     /// <summary>
     /// A settled load with each of its two under <paramref name="leastMps2"/> made nought

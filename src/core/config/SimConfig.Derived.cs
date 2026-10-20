@@ -61,7 +61,7 @@ internal sealed partial class SimConfig
     public float CarTrackM => Car.WidthM;
 
     /// <summary>≈ 3.9 m: the nominal car's own circle, the rear axle's at full lock.</summary>
-    public float CarTurningRadiusM => Car.WheelbaseM / MathF.Tan(Car.MaxSteeringDeg * MathF.PI / 180f);
+    public float CarTurningRadiusM => Car.WheelbaseM / Trig.Tan(Car.MaxSteeringDeg * MathF.PI / 180f);
 
     /// <summary>How far the middle of the body stands ahead of the rear axle the line is driven for.</summary>
     public float CarCentreAheadOfAxleM => Car.WheelbaseM * 0.5f;

@@ -312,7 +312,7 @@ internal static partial class ShellFill
         if (sweepRad <= 0f) return 1;
 
         var radiusM = 1f / MathF.Abs(arc.Curvature);
-        var stepRad = 2f * MathF.Acos(Math.Clamp(1f - (sagM / radiusM), -1f, 1f));
+        var stepRad = 2f * Trig.Acos(Math.Clamp(1f - (sagM / radiusM), -1f, 1f));
         if (turnRad > 0f) stepRad = MathF.Min(stepRad, turnRad);
 
         return stepRad <= 0f ? 1 : Math.Max(1, (int)MathF.Ceiling(sweepRad / stepRad));

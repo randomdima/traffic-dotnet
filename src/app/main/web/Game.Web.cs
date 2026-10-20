@@ -88,7 +88,18 @@ internal sealed partial class Game
         foreach (var (_, ms) in world.Plan.LaidMs) planMs += ms;
         Console.WriteLine(
             $"{world.Plan.Name}: the plan {planMs / 1000:F1} s, the town {world.StoodMs / 1000:F1} s — of it the pavement " +
-            $"{world.FootMs / 1000:F1} s and the atlas {world.AtlasMs / 1000:F1} s");
+            $"{world.FootMs / 1000:F1} s and the atlas {world.AtlasMs / 1000:F1} s; plan digest {world.Plan.Digest():x16}");
+    }
+
+    /// <summary>
+    /// The tick a page says its bodies' digest at, once a town: a desktop's <c>--shot --seconds 10</c> prints the same
+    /// figure at the same tick of the same map (WEB-1).
+    /// </summary>
+    const long DigestTick = 600;
+
+    partial void Ticked(TownWorld world, long tick)
+    {
+        if (tick == DigestTick) Console.WriteLine($"{world.Plan.Name}: bodies digest {world.Digest():x16} at tick {tick}");
     }
 
     /// <summary>The handover, for a town whose watches staged it on the managed world first (<see cref="LaidTown.Lay"/>).</summary>

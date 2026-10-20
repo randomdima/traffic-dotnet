@@ -1084,7 +1084,7 @@ internal readonly record struct KerbNodes(
     /// <summary>Whether the ways across of this and another turn no more than <paramref name="oneBandWithinDeg"/> apart.</summary>
     public bool OneBand(in KerbNodes other, float oneBandWithinDeg) =>
         MathF.Abs(Vector2.Dot(Vector2.Normalize(FarM - NearM), Vector2.Normalize(other.FarM - other.NearM))) >=
-        MathF.Cos(float.DegreesToRadians(oneBandWithinDeg));
+        Trig.Cos(float.DegreesToRadians(oneBandWithinDeg));
 
     /// <summary>
     /// <b>Whether the bands laid across these and another's points, each <paramref name="depthM"/> deep, reach more than

@@ -183,7 +183,7 @@ internal static class ShowroomPlan
                 {
                     var outward = onTheRight ? at.Right : -at.Right;
                     var line = new ArcSeg(
-                        at.PositionM + (outward * (lot.KerbM - config.CarParkKerbOverlapM)), MathF.Atan2(outward.Y, outward.X),
+                        at.PositionM + (outward * (lot.KerbM - config.CarParkKerbOverlapM)), Trig.Atan2(outward.Y, outward.X),
                         lot.BayLineM, 0f);
                     lines.Add(line);
                     right.Add(onTheRight);
@@ -356,7 +356,7 @@ internal static class ShowroomPlan
         List<Footing> footings, ref int next, Vector2 startM, Vector2 along, Vector2 outward, float lengthM, Stood stood, SimConfig config)
     {
         var (cursorM, depthM) = (0f, 0f);
-        var headingRad = MathF.Atan2(along.Y, along.X);
+        var headingRad = Trig.Atan2(along.Y, along.X);
         while (next < footings.Count && cursorM + footings[next].SizeM.X <= lengthM)
         {
             var footing = footings[next++];

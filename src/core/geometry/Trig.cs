@@ -3,10 +3,15 @@ using System.Runtime.CompilerServices;
 namespace TrafficSimulation.Core.Geometry;
 
 /// <summary>
-/// The world layer's trigonometry, in floats alone: the same operations in the same order as
-/// <c>core/geometry/kernels/trig.glsl</c>, so a body stepped by the managed world and by the device turns to the same bit.
+/// The town's trigonometry, in floats alone: the same operations in the same order as
+/// <c>core/geometry/kernels/trig.glsl</c>, so a body stepped by the managed world and by the device turns to the same bit,
+/// and a town laid on the desktop and in a page is laid alike.
 /// </summary>
 /// <remarks>
+/// <para><b>Nothing a town is laid or ticked through asks <see cref="MathF"/> or <see cref="Math"/> for a transcendental</b>
+/// (core log, 2026-10-20): they are the platform's libm — glibc on the desktop, emscripten's in a page — and part by a
+/// float, which a car park's bays carry into a different town. <see cref="Asin"/>, <see cref="Acos"/> and the double
+/// <see cref="SinCos(double)"/> are the host's alone and no kernel mirrors them; <see cref="Powers"/> is the rest.</para>
 /// <para><b>Why not <see cref="MathF"/></b>: glibc's <c>sincosf</c> sums in doubles, which WebGPU has none of and a
 /// handset's Vulkan seldom has, and its correctly rounded tangent and arctangents need a double's last bits to settle
 /// (core log, 2026-10-15). These are Cephes' single-precision polynomials, within three floats of exact — nothing the town
@@ -171,6 +176,157 @@ internal static class Trig
     }
 
     const uint SignBit = 0x8000_0000u;
+
+    const float Asin0 = 4.2163199048e-2f;
+    const float Asin1 = 2.4181311049e-2f;
+    const float Asin2 = 4.5470025998e-2f;
+    const float Asin3 = 7.4953002686e-2f;
+    const float Asin4 = 1.6666752422e-1f;
+
+    /// <summary>Below this the arcsine is its argument, as the series would answer.</summary>
+    const float AsinTinyBelow = 1e-4f;
+
+    /// <summary>asin of <paramref name="x"/> (Cephes' <c>asinf</c>); NaN outside [−1, 1].</summary>
+    public static float Asin(float x)
+    {
+        var magnitude = MathF.Abs(x);
+        if (!(magnitude <= 1f)) return float.NaN;
+
+        // Past a half, asin(m) = π/2 − 2 asin(√((1 − m)/2)), whose argument the series is good for.
+        var folded = magnitude > 0.5f;
+        var z = folded ? 0.5f * (1f - magnitude) : magnitude * magnitude;
+        var reduced = folded ? MathF.Sqrt(z) : magnitude;
+        var rad = reduced;
+        if (reduced >= AsinTinyBelow)
+        {
+            var series = Asin0 * z + Asin1;
+            series = series * z + Asin2;
+            series = series * z + Asin3;
+            series = series * z + Asin4;
+            rad = series * z * reduced + reduced;
+        }
+
+        if (folded) rad = HalfPi - (rad + rad);
+        return x < 0f ? -rad : rad;
+    }
+
+    /// <summary>acos of <paramref name="x"/>; NaN outside [−1, 1].</summary>
+    public static float Acos(float x)
+    {
+        if (!(MathF.Abs(x) <= 1f)) return float.NaN;
+
+        // Near ±1 by the half angle, where π/2 − asin would lose what the answer has left.
+        if (x < -0.5f) return Pi - 2f * Asin(MathF.Sqrt(0.5f * (1f + x)));
+        if (x > 0.5f) return 2f * Asin(MathF.Sqrt(0.5f * (1f - x)));
+        return HalfPi - Asin(x);
+    }
+
+    const double SinD1 = -1.66666666666666324348e-01;
+    const double SinD2 = 8.33333333332248946124e-03;
+    const double SinD3 = -1.98412698298579493134e-04;
+    const double SinD4 = 2.75573137070700676789e-06;
+    const double SinD5 = -2.50507602534068634195e-08;
+    const double SinD6 = 1.58969099521155010221e-10;
+    const double CosD1 = 4.16666666666666019037e-02;
+    const double CosD2 = -1.38888888888741095749e-03;
+    const double CosD3 = 2.48015872894767294178e-05;
+    const double CosD4 = -2.75573143513906633035e-07;
+    const double CosD5 = 2.08757232129817482790e-09;
+    const double CosD6 = -1.13596475577881948265e-11;
+
+    /// <summary>2⁻²⁶: below it a double's sine is its argument and its cosine one, to the bit.</summary>
+    const double DoubleTinyBelow = 1.4901161193847656e-8;
+
+    const double ToNearestWhole = 6755399441055744.0;
+    const double TwoOverPiD = 6.36619772367581382433e-01;
+    const double QuarterPiD = 7.85398163397448278999e-01;
+    const double HalfPiD1 = 1.57079632673412561417e+00;
+    const double HalfPiD1Tail = 6.07710050650619224932e-11;
+    const double HalfPiD2 = 6.07710050630396597660e-11;
+    const double HalfPiD2Tail = 2.02226624879595063154e-21;
+    const double HalfPiD3 = 2.02226624871116645580e-21;
+    const double HalfPiD3Tail = 8.47842766036889956997e-32;
+
+    /// <summary>
+    /// sin and cos of <paramref name="x"/> in doubles (fdlibm's, as musl keeps it): within a double of exact below
+    /// 2²⁰·π/2 radians, which is more turn than anything in a town; past it the reduction loses bits, but every head
+    /// loses the same ones.
+    /// </summary>
+    public static (double Sin, double Cos) SinCos(double x)
+    {
+        if (double.IsNaN(x) || double.IsInfinity(x)) return (double.NaN, double.NaN);
+
+        var magnitude = Math.Abs(x);
+        if (magnitude < DoubleTinyBelow) return (x, 1d);
+        if (magnitude <= QuarterPiD) return (SinKernel(x, 0d, false), CosKernel(x, 0d));
+
+        var quadrant = QuarterTurnsOf(x, out var head, out var tail);
+        double sine = SinKernel(head, tail, true), cosine = CosKernel(head, tail);
+        return (quadrant & 3) switch
+        {
+            0 => (sine, cosine),
+            1 => (cosine, -sine),
+            2 => (-sine, -cosine),
+            _ => (-cosine, sine),
+        };
+    }
+
+    public static double Sin(double x) => SinCos(x).Sin;
+
+    static double SinKernel(double x, double tail, bool hasTail)
+    {
+        var z = x * x;
+        var w = z * z;
+        var r = SinD2 + z * (SinD3 + z * SinD4) + z * w * (SinD5 + z * SinD6);
+        var v = z * x;
+        return hasTail ? x - ((z * (0.5 * tail - v * r) - tail) - v * SinD1) : x + v * (SinD1 + z * r);
+    }
+
+    static double CosKernel(double x, double tail)
+    {
+        var z = x * x;
+        var w = z * z;
+        var r = z * (CosD1 + z * (CosD2 + z * CosD3)) + w * w * (CosD4 + z * (CosD5 + z * CosD6));
+        var half = 0.5 * z;
+        w = 1.0 - half;
+        return w + (((1.0 - w) - half) + (z * r - x * tail));
+    }
+
+    /// <summary>
+    /// <paramref name="x"/> less its nearest whole number of quarter turns, as a head and a tail, by π/2 in three parts and
+    /// their tails (musl's <c>__rem_pio2</c>, its medium case for every argument).
+    /// </summary>
+    static int QuarterTurnsOf(double x, out double head, out double tail)
+    {
+        var turns = x * TwoOverPiD + ToNearestWhole - ToNearestWhole;
+        var quadrant = (int)(long)turns;
+        var r = x - turns * HalfPiD1;
+        var w = turns * HalfPiD1Tail;
+        head = r - w;
+
+        var exponentX = (int)((BitConverter.DoubleToUInt64Bits(x) >> 52) & 0x7ff);
+        var exponentHead = (int)((BitConverter.DoubleToUInt64Bits(head) >> 52) & 0x7ff);
+        if (exponentX - exponentHead > 16)
+        {
+            var t = r;
+            w = turns * HalfPiD2;
+            r = t - w;
+            w = turns * HalfPiD2Tail - ((t - r) - w);
+            head = r - w;
+            exponentHead = (int)((BitConverter.DoubleToUInt64Bits(head) >> 52) & 0x7ff);
+            if (exponentX - exponentHead > 49)
+            {
+                t = r;
+                w = turns * HalfPiD3;
+                r = t - w;
+                w = turns * HalfPiD3Tail - ((t - r) - w);
+                head = r - w;
+            }
+        }
+
+        tail = (r - head) - w;
+        return quadrant;
+    }
 
     /// <summary>Every bit set where <paramref name="condition"/> holds, none where it does not, without a branch.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

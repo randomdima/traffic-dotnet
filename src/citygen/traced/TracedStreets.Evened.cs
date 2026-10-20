@@ -89,7 +89,7 @@ internal static partial class TracedStreets
     /// </remarks>
     static void Parted(List<Road> roads, List<Vector2> centreM, Carriageways carriageways, SimConfig config)
     {
-        var leastCos = MathF.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
+        var leastCos = Trig.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
         var samples = new Dictionary<Road, int>();
         var over = new Dictionary<(Road Road, Road Other), (int Count, List<float> OverM, float SideSum)>();
         var alongside = new List<(Road Road, float RightM)>();
@@ -364,7 +364,7 @@ internal static partial class TracedStreets
         }
 
         var onward = new Dictionary<(Road Road, bool AtTo), (Road Road, bool AtTo)>();
-        var leastCos = MathF.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
+        var leastCos = Trig.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
         var outOf = new List<Vector2>();
         for (var junction = 0; junction < at.Length; junction++)
         {

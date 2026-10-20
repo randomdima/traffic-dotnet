@@ -42,7 +42,7 @@ internal sealed class TrackChords
                     continue;
                 }
 
-                var seg = new ArcSeg(lineM[point], MathF.Atan2(runM.Y, runM.X), lengthM, 0f);
+                var seg = new ArcSeg(lineM[point], Trig.Atan2(runM.Y, runM.X), lengthM, 0f);
                 foreach (var cell in Cells(Vector2.Min(seg.StartM, seg.EndM), Vector2.Max(seg.StartM, seg.EndM)))
                 {
                     if (!_cells.TryGetValue(cell, out var list)) _cells[cell] = list = [];

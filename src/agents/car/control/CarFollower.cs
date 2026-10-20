@@ -270,7 +270,7 @@ internal static class CarFollower
             return new LineDrive(InTheGear(backingPedals, reverse), DrivingHold.BackingUp, float.NaN, Hazard: false);
         }
 
-        var steerTan = MathF.Tan(steerRad);
+        var steerTan = Trig.Tan(steerRad);
         var targetMps = TargetSpeedMps(
             config, build, line, entryM, progressM, lengthM, steerRad, alongMps, lookaheadM, context, out var hold,
             out var plannedMps, pass, lastMps2, cursor, steerTan);
@@ -779,7 +779,7 @@ internal static class CarFollower
     }
 
     /// <summary>The tangent of a wheel's angle, unless the caller already has it.</summary>
-    static float TanOf(float steerRad, float steerTan) => float.IsNaN(steerTan) ? MathF.Tan(steerRad) : steerTan;
+    static float TanOf(float steerRad, float steerTan) => float.IsNaN(steerTan) ? Trig.Tan(steerRad) : steerTan;
 
     /// <summary>
     /// <b>The most a driver brakes at in the ordinary way</b> (CAR-47): what the tyres have left along the roll once

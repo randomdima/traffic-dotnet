@@ -269,7 +269,7 @@ internal static class TracedAlignment
     /// </summary>
     static float Edge(Window window, float keptM, float leftM, float toleranceM)
     {
-        while (MathF.Abs(MathF.Log(leftM / keptM)) > RadiusPrecision)
+        while (MathF.Abs(Powers.Log(leftM / keptM)) > RadiusPrecision)
         {
             var middleM = MathF.Sqrt(keptM * leftM);
             if (window.OffM(middleM) <= toleranceM) keptM = middleM;
@@ -282,26 +282,26 @@ internal static class TracedAlignment
     /// <summary>The radius whose arc keeps a corner's stretch of the survey nearest, by golden section on its logarithm.</summary>
     static float Closest(Window window, float leastRadiusM, float roomM)
     {
-        var (low, high) = (MathF.Log(leastRadiusM), MathF.Log(roomM));
+        var (low, high) = (Powers.Log(leastRadiusM), Powers.Log(roomM));
         var (inner, outer) = (high - (Golden * (high - low)), low + (Golden * (high - low)));
-        var (innerOffM, outerOffM) = (window.OffM(MathF.Exp(inner)), window.OffM(MathF.Exp(outer)));
+        var (innerOffM, outerOffM) = (window.OffM(Powers.Exp(inner)), window.OffM(Powers.Exp(outer)));
         while (high - low > RadiusPrecision)
         {
             if (innerOffM <= outerOffM)
             {
                 (high, outer, outerOffM) = (outer, inner, innerOffM);
                 inner = high - (Golden * (high - low));
-                innerOffM = window.OffM(MathF.Exp(inner));
+                innerOffM = window.OffM(Powers.Exp(inner));
             }
             else
             {
                 (low, inner, innerOffM) = (inner, outer, outerOffM);
                 outer = low + (Golden * (high - low));
-                outerOffM = window.OffM(MathF.Exp(outer));
+                outerOffM = window.OffM(Powers.Exp(outer));
             }
         }
 
-        return MathF.Exp((low + high) * 0.5f);
+        return Powers.Exp((low + high) * 0.5f);
     }
 
     /// <summary>(√5 − 1) ⁄ 2, the share of its interval a golden section keeps each step.</summary>

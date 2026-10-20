@@ -26,7 +26,8 @@ public class MovementLineTests
 
         var line = Movement(Vector2.Zero, 0f, toM, ToRad);
 
-        Assert.Equal((0f, 10f - TurnM), (line[0].Curvature, line[0].LengthM));
+        Assert.Equal(0f, line[0].Curvature);
+        Assert.Equal(10f - TurnM, line[0].LengthM, 1e-5f);
         Assert.Equal(1f / TurnM, line[1].Curvature, 1e-4f);
         Arrives(line, toM, ToRad);
     }

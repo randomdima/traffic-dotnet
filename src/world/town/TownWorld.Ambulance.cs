@@ -139,7 +139,7 @@ internal sealed partial class TownWorld
         var doorM = DriverDoorM(car);
         _containers.Alight(car, person);
         People.Stage[person] = TripStage.StandingBy;
-        Place(person, doorM, MathF.Atan2(doorM.Y - Cars.PositionM[car].Y, doorM.X - Cars.PositionM[car].X), PlaceBesideTheCar(car));
+        Place(person, doorM, Trig.Atan2(doorM.Y - Cars.PositionM[car].Y, doorM.X - Cars.PositionM[car].X), PlaceBesideTheCar(car));
         RaiseTheCall(person);
     }
 

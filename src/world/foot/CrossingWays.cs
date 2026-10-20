@@ -541,7 +541,7 @@ internal sealed class CrossingWays
     static ArcSeg Straight(Vector2 fromM, Vector2 ontoM)
     {
         var run = ontoM - fromM;
-        return new ArcSeg(fromM, MathF.Atan2(run.Y, run.X), run.Length(), 0f);
+        return new ArcSeg(fromM, Trig.Atan2(run.Y, run.X), run.Length(), 0f);
     }
 
     static void File(List<float>[][] parting, Place place)

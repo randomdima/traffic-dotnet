@@ -86,7 +86,7 @@ internal static partial class ShellFill
             if (previous != Vector2.Zero)
             {
                 turned[at] += MathF.Abs(
-                    MathF.Atan2(Spline.Cross(previous, along), Vector2.Dot(previous, along)));
+                    Trig.Atan2(Spline.Cross(previous, along), Vector2.Dot(previous, along)));
             }
 
             previous = along;

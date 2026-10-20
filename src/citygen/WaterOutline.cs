@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen;
 
@@ -67,7 +68,7 @@ internal static class WaterOutline
         var along = edge < 2
             ? (atM - fromM.X) / (toM.X - fromM.X)
             : (atM - fromM.Y) / (toM.Y - fromM.Y);
-        var crossingM = Vector2.Lerp(fromM, toM, Math.Clamp(along, 0f, 1f));
+        var crossingM = Blend.Lerp(fromM, toM, Math.Clamp(along, 0f, 1f));
 
         // On the edge and not a rounding either side of it: the next edge's cut reads this point back, and a
         // shore a millionth of a metre off the map is still off the map.

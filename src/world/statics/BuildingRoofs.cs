@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Statics;
 
@@ -93,7 +94,7 @@ internal static class BuildingRoofs
         // The building's own axes at its own bearing. The art's door is its +y, so the door is across the
         // building exactly when the ways in lie more along its x than along its y.
         var headingRad = plan.Buildings.HeadingRad[building];
-        var along = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
+        var along = new Vector2(Trig.Cos(headingRad), Trig.Sin(headingRad));
         var across = new Vector2(-along.Y, along.X);
 
         return MathF.Abs(Vector2.Dot(towardsWays, along)) > MathF.Abs(Vector2.Dot(towardsWays, across));
@@ -109,7 +110,7 @@ internal static class BuildingRoofs
         var towardsWays = TowardsTheWaysIn(plan, building, centreM);
         if (towardsWays.LengthSquared() <= 0f) return false;
 
-        var door = new Vector2(-MathF.Sin(headingRad), MathF.Cos(headingRad));
+        var door = new Vector2(-Trig.Sin(headingRad), Trig.Cos(headingRad));
         return Vector2.Dot(door, towardsWays) < 0f;
     }
 

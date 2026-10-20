@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen;
 
@@ -24,7 +25,7 @@ internal readonly record struct DistrictWheel(Vector2 HubM, float RingRadiusM, f
     public int At(Vector2 pointM)
     {
         var offsetM = pointM - HubM;
-        var angle = MathF.Atan2(offsetM.Y, offsetM.X) - FirstSpokeRad;
+        var angle = Trig.Atan2(offsetM.Y, offsetM.X) - FirstSpokeRad;
         angle -= MathF.Tau * MathF.Floor(angle / MathF.Tau);
         var sector = (int)(angle / (MathF.Tau / Spokes)) % Spokes;
         var inside = !HasRing || offsetM.Length() <= RingRadiusM;

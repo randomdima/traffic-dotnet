@@ -293,7 +293,7 @@ internal static class SpawnStage
     }
 
     static float Bearing(Vector2 outwardM) =>
-        outwardM.LengthSquared() > 1e-6f ? MathF.Atan2(outwardM.Y, outwardM.X) : 0f;
+        outwardM.LengthSquared() > 1e-6f ? Trig.Atan2(outwardM.Y, outwardM.X) : 0f;
 
     /// <summary>
     /// Which of the lanes are stood on: every <c>n</c>th one from a drawn start, so the traffic is spread

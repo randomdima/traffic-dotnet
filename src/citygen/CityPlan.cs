@@ -147,6 +147,35 @@ internal sealed class CityPlan
     public Paving Paving(SimConfig config) => _paving ??= PavingLaidWithIt ?? CityGen.Paving.Lay(Ground, config);
 
     /// <summary>
+    /// <b>The plan's shapes as one number that another process, build or head agrees on</b>, which is what says a change
+    /// to how a town is laid left the town where it was, and a page laid the desktop's town (WEB-1). Folded byte by byte
+    /// (FNV-1a) and not with <c>HashCode</c>, whose seed is drawn per process.
+    /// </summary>
+    public ulong Digest()
+    {
+        var hash = 14695981039346656037UL;
+        Fold(ref hash, Roads.Segments);
+        Fold(ref hash, Roads.FromJunction);
+        Fold(ref hash, Roads.ToJunction);
+        Fold(ref hash, Junctions.CentreM);
+        Fold(ref hash, Junctions.Lit);
+        Fold(ref hash, CarParks.Street);
+        Fold(ref hash, CarParks.Road);
+        Fold(ref hash, Buildings.CentreM);
+        Fold(ref hash, Buildings.HeadingRad);
+        Fold(ref hash, Props.CentreM);
+        Fold(ref hash, Scenery.CentreM);
+        Fold(ref hash, Spawns.PositionM);
+        return hash;
+
+        static void Fold<T>(ref ulong into, ReadOnlySpan<T> values)
+            where T : unmanaged
+        {
+            foreach (var value in System.Runtime.InteropServices.MemoryMarshal.AsBytes(values)) into = (into ^ value) * 1099511628211UL;
+        }
+    }
+
+    /// <summary>
     /// How far a zebra reaches across the road, kerb to kerb: <b>the width of the road it is painted on,
     /// measured along the paint's own axis</b> (TER-6). A crossing laid off square is longer by exactly what
     /// the skew costs it, and one laid square across its road is the carriageway's width.

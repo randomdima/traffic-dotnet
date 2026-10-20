@@ -346,8 +346,8 @@ internal static partial class TracedStreets
                 {
                     if (arriving.Road == leaving.Road || arriving.Lanes(arriving: true) == 0 || leaving.Lanes(arriving: false) == 0) continue;
 
-                    var inRad = MathF.Atan2(-arriving.OutM.Y, -arriving.OutM.X);
-                    var outRad = MathF.Atan2(leaving.OutM.Y, leaving.OutM.X);
+                    var inRad = Trig.Atan2(-arriving.OutM.Y, -arriving.OutM.X);
+                    var outRad = Trig.Atan2(leaving.OutM.Y, leaving.OutM.X);
                     var turnRad = Spline.WrapRad(outRad - inRad);
                     if (MathF.Abs(turnRad) <= straightRad || MathF.Abs(turnRad) >= MathF.PI - straightRad) continue;
 
@@ -356,7 +356,7 @@ internal static partial class TracedStreets
                     var outM = leaving.LaneEndM(arriving: false, nearSide, config.RoadSideSign);
                     if (!Spline.ToTheCorner(inM, inRad, outM, outRad, out _, out var beforeM, out var afterM)) continue;
 
-                    var tangentM = config.JunctionTurnRoomM * MathF.Tan(MathF.Abs(turnRad) * 0.5f);
+                    var tangentM = config.JunctionTurnRoomM * Trig.Tan(MathF.Abs(turnRad) * 0.5f);
                     Needs(arriving, arriving.StandoffM + tangentM - beforeM);
                     Needs(leaving, leaving.StandoffM + tangentM - afterM);
                 }
@@ -709,7 +709,7 @@ internal static partial class TracedStreets
 
             if (alongM >= legM) return at;
 
-            pointsM.Insert(at, Vector2.Lerp(pointsM[at - 1], pointsM[at], alongM / legM));
+            pointsM.Insert(at, Blend.Lerp(pointsM[at - 1], pointsM[at], alongM / legM));
             return at;
         }
 

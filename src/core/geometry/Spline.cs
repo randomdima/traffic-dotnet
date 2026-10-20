@@ -147,7 +147,7 @@ internal static class Spline
             if (MathF.Abs(arc.Curvature) <= StraightCurvature) continue;
 
             var sweepRad = (double)arc.Curvature * arc.LengthM;
-            segmentsM2 += (sweepRad - Math.Sin(sweepRad)) / (2.0 * arc.Curvature * arc.Curvature);
+            segmentsM2 += (sweepRad - Trig.Sin(sweepRad)) / (2.0 * arc.Curvature * arc.Curvature);
         }
 
         return (twice * 0.5) + segmentsM2;
@@ -706,7 +706,7 @@ internal static class Spline
         into[0] = one.PointAtM(oneM);
         return 1;
 
-        static float Facing(Vector2 runM) => MathF.Atan2(runM.Y, runM.X);
+        static float Facing(Vector2 runM) => Trig.Atan2(runM.Y, runM.X);
     }
 
     /// <summary>How many Newton's steps two flat pieces' crossing is run on by: the first lands within the arithmetic.</summary>
@@ -843,7 +843,7 @@ internal static class Spline
             // circle stands half the turn off the start heading. Read as the angle between two vectors out
             // of the centre, a road's bend puts that centre kilometres away and both vectors are that long,
             // so the angle between them is what is left of two floats agreeing to six figures.
-            var halfTurnRad = MathF.Atan2(Cross(arc.StartUnit, offM), Vector2.Dot(arc.StartUnit, offM));
+            var halfTurnRad = Trig.Atan2(Cross(arc.StartUnit, offM), Vector2.Dot(arc.StartUnit, offM));
             atM = ChordAlongM(arc, offM, halfTurnRad);
 
             // <b>The chord names one turn of the circle and the caller may mean the turn before it.</b> A
@@ -964,16 +964,16 @@ internal static class Spline
 
             arriving /= arrivingM;
             leaving /= leavingM;
-            var turnRad = MathF.Atan2(Cross(arriving, leaving), Vector2.Dot(arriving, leaving));
+            var turnRad = Trig.Atan2(Cross(arriving, leaving), Vector2.Dot(arriving, leaving));
             if (MathF.Abs(turnRad) < 1e-4f) continue;
 
             var cornerReachM = reachM[corner - 1];
-            var cornerRadiusM = cornerReachM / MathF.Tan(MathF.Abs(turnRad) * 0.5f);
+            var cornerRadiusM = cornerReachM / Trig.Tan(MathF.Abs(turnRad) * 0.5f);
             var enterM = pointsM[corner] - arriving * cornerReachM;
 
             written += Straight(cursorM, enterM, arriving, into[written..]);
             into[written++] = new ArcSeg(
-                enterM, MathF.Atan2(arriving.Y, arriving.X), cornerRadiusM * MathF.Abs(turnRad),
+                enterM, Trig.Atan2(arriving.Y, arriving.X), cornerRadiusM * MathF.Abs(turnRad),
                 MathF.Sign(turnRad) / cornerRadiusM);
             cursorM = pointsM[corner] + leaving * cornerReachM;
             leg = leaving;
@@ -993,7 +993,7 @@ internal static class Spline
         var leaving = pointsM[corner + 1] - pointsM[corner];
         arriving /= arriving.Length();
         leaving /= leaving.Length();
-        return MathF.Tan(MathF.Abs(MathF.Atan2(Cross(arriving, leaving), Vector2.Dot(arriving, leaving))) * 0.5f);
+        return Trig.Tan(MathF.Abs(Trig.Atan2(Cross(arriving, leaving), Vector2.Dot(arriving, leaving))) * 0.5f);
     }
 
     /// <param name="along">
@@ -1007,7 +1007,7 @@ internal static class Spline
         var lengthM = along == Vector2.Zero ? run.Length() : Vector2.Dot(run, along);
         if (lengthM < 1e-4f) return 0;
 
-        into[0] = new ArcSeg(fromM, MathF.Atan2(heading.Y, heading.X), lengthM, 0f);
+        into[0] = new ArcSeg(fromM, Trig.Atan2(heading.Y, heading.X), lengthM, 0f);
         return 1;
     }
 
@@ -1105,7 +1105,7 @@ internal static class Spline
         }
 
         var from = Heading.Unit(fromHeadingRad);
-        var tangentM = radiusM * MathF.Abs(MathF.Tan(turnRad * 0.5f));
+        var tangentM = radiusM * MathF.Abs(Trig.Tan(turnRad * 0.5f));
         beforeM -= tangentM;
         afterM -= tangentM;
         if (beforeM < -LineTolerance.RoundingM || afterM < -LineTolerance.RoundingM) return 0;
@@ -1137,7 +1137,7 @@ internal static class Spline
             return 0f;
         }
 
-        return MathF.Max(0f, MathF.Min(beforeM, afterM)) / MathF.Abs(MathF.Tan(turnRad * 0.5f));
+        return MathF.Max(0f, MathF.Min(beforeM, afterM)) / MathF.Abs(Trig.Tan(turnRad * 0.5f));
     }
 
     /// <summary>
@@ -1150,7 +1150,7 @@ internal static class Spline
     {
         turnRad = WrapRad(toHeadingRad - fromHeadingRad);
         fromCornerM = cornerToM = 0f;
-        var apart = MathF.Sin(turnRad);
+        var apart = Trig.Sin(turnRad);
         if (MathF.Abs(apart) < 1e-4f) return false;
 
         var chord = toM - fromM;
@@ -1335,7 +1335,7 @@ internal static class Spline
 
         var widestM = WidestTurnM(fromM, fromHeadingRad, toM, toHeadingRad);
         radiusM = MathF.Min(radiusM, widestM);
-        var halfTan = MathF.Abs(MathF.Tan(turnRad * 0.5f));
+        var halfTan = MathF.Abs(Trig.Tan(turnRad * 0.5f));
         var leftM = afterM - (radiusM * halfTan);
         if (leftM > LineTolerance.RoundingM && leftM < CarriedOnByM(radiusM, toM))
         {
@@ -1409,8 +1409,8 @@ internal static class Spline
         var apartM = acrossM.Length();
         if (apartM < 2f * radiusM) return 0;
 
-        var offRad = MathF.Asin(MathF.Min(1f, 2f * radiusM / apartM));
-        var straightRad = MathF.Atan2(acrossM.Y, acrossM.X) + (firstSign * offRad);
+        var offRad = Trig.Asin(MathF.Min(1f, 2f * radiusM / apartM));
+        var straightRad = Trig.Atan2(acrossM.Y, acrossM.X) + (firstSign * offRad);
         var firstRad = WrapRad(straightRad - fromHeadingRad) * firstSign;
         var secondRad = WrapRad(toHeadingRad - straightRad) * -firstSign;
         // A turn the other way by less than a rounding along the circle is no turn; by more, it is a kink in the line.
@@ -1419,7 +1419,7 @@ internal static class Spline
 
         var straight = Heading.Unit(straightRad);
         var leaveM = firstM - (Heading.RightOf(straight) * (radiusM * firstSign));
-        var straightM = apartM * MathF.Cos(offRad);
+        var straightM = apartM * Trig.Cos(offRad);
         if (straightM > LineTolerance.RoundingM && straightM < CarriedOnByM(radiusM, leaveM)) return 0;
 
         var laid = 0;
@@ -1464,7 +1464,7 @@ internal static class Spline
         var secondM = toM + (Heading.RightOf(Heading.Unit(toHeadingRad)) * (radiusM * sideSign));
         var acrossM = secondM - firstM;
         var straightM = acrossM.Length();
-        var straightRad = straightM > LineTolerance.RoundingM ? MathF.Atan2(acrossM.Y, acrossM.X) : toHeadingRad;
+        var straightRad = straightM > LineTolerance.RoundingM ? Trig.Atan2(acrossM.Y, acrossM.X) : toHeadingRad;
         var roundingRad = LineTolerance.RoundingM / radiusM;
         var firstRad = Round(sideSign * (straightRad - fromHeadingRad), roundingRad);
         var secondRad = Round(sideSign * (toHeadingRad - straightRad), roundingRad);
@@ -1522,7 +1522,7 @@ internal static class Spline
     /// (<see cref="HalfATurnRad"/>) — so a line over it is not an arc between its two ends at all but two
     /// arcs bowing out past the ground between them.
     /// </remarks>
-    public static readonly float HalfATurnOfItsChord = HalfATurnRad * 0.5f / MathF.Sin(HalfATurnRad * 0.5f);
+    public static readonly float HalfATurnOfItsChord = HalfATurnRad * 0.5f / Trig.Sin(HalfATurnRad * 0.5f);
 
     /// <summary>
     /// The single arc a pair of poses gets when no biarc joins them — two antiparallel tangents a lane
@@ -1559,10 +1559,10 @@ internal static class Spline
         var curvature = 2f * Cross(direction, chord) / chordLengthSq;
         if (MathF.Abs(curvature) < StraightCurvature)
         {
-            return new ArcSeg(fromM, MathF.Atan2(chord.Y, chord.X), MathF.Sqrt(chordLengthSq), 0f);
+            return new ArcSeg(fromM, Trig.Atan2(chord.Y, chord.X), MathF.Sqrt(chordLengthSq), 0f);
         }
 
-        var turnRad = 2f * MathF.Atan2(Cross(direction, chord), Vector2.Dot(direction, chord));
+        var turnRad = 2f * Trig.Atan2(Cross(direction, chord), Vector2.Dot(direction, chord));
         return new ArcSeg(fromM, headingRad, turnRad / curvature, curvature);
     }
 

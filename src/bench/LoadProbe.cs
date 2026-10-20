@@ -61,7 +61,7 @@ internal static class LoadProbe
             $"{plan.Roundabouts.Count} roundabouts, " +
             $"{plan.Props.Count} props and {plan.Scenery.Count} of scenery, {plan.Buildings.Count} buildings; {planAllocated}");
         foreach (var (stage, ms) in plan.LaidMs) Say($"  {stage}", ms, string.Empty);
-        Console.WriteLine($"  {"digest",-12}{Digest(plan):x16}   the plan's shapes, equal across processes and builds");
+        Console.WriteLine($"  {"digest",-12}{plan.Digest():x16}   the plan's shapes, equal across processes and builds");
         // The paving's rings and its merge are laid on first asking, by whichever of the town and the ground asks first,
         // and asked here so that neither stage is charged with them.
         var pavingAt = Stopwatch.GetTimestamp();
@@ -163,29 +163,6 @@ internal static class LoadProbe
 
         var places = loose.ToArray().Take(Listed).Select(run => $"{run[^1].EndM.X:F0} {run[^1].EndM.Y:F0}");
         Console.WriteLine($"  {"",-12}{"",8}   {outline} runs ending at {string.Join("; ", places)}");
-    }
-
-    /// <summary>
-    /// <b>The plan's shapes as one number that another process and another build agree on</b>, which is what
-    /// says a change to how a town is laid left the town where it was. Folded byte by byte and not with
-    /// <c>HashCode</c>, whose seed is drawn per process.
-    /// </summary>
-    static ulong Digest(CityPlan plan)
-    {
-        var hash = 14695981039346656037UL;
-        Fold(ref hash, plan.Roads.Segments);
-        Fold(ref hash, plan.Roads.FromJunction);
-        Fold(ref hash, plan.Roads.ToJunction);
-        Fold(ref hash, plan.Junctions.CentreM);
-        Fold(ref hash, plan.Junctions.Lit);
-        Fold(ref hash, plan.CarParks.Street);
-        Fold(ref hash, plan.CarParks.Road);
-        Fold(ref hash, plan.Buildings.CentreM);
-        Fold(ref hash, plan.Buildings.HeadingRad);
-        Fold(ref hash, plan.Props.CentreM);
-        Fold(ref hash, plan.Scenery.CentreM);
-        Fold(ref hash, plan.Spawns.PositionM);
-        return hash;
     }
 
     /// <summary>The atlas's tables as one number, on the plan's terms: what says a change to how it is filed filed the same.</summary>

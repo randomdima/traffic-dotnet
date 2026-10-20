@@ -261,7 +261,7 @@ internal static class CarParks
                 var footM = middle.PositionM + (middle.Direction * asideM);
                 var fromM = footM + (outward * (KerbDepthM(line, middle, footM, outward, kerbM, config) - config.CarParkKerbOverlapM));
                 var lengthM = Vector2.Dot(footM + (outward * kerbM) - fromM, outward) + config.CarParkBayDepthM;
-                var bayLine = new ArcSeg(fromM, MathF.Atan2(outward.Y, outward.X), lengthM, 0f);
+                var bayLine = new ArcSeg(fromM, Trig.Atan2(outward.Y, outward.X), lengthM, 0f);
 
                 // <b>A node stands a lead off each end, as every node does</b> (GEN-46), and each owes the town a
                 // locality like any other (GEN-16) — the one over the street as much as the one past the far end.

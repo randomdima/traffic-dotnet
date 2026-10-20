@@ -1,5 +1,23 @@
 # The kernel — decision log
 
+## 2026-10-20 — everything a town is laid or ticked through turns by `Trig`, and nothing asks libm
+
+**The owner (2026-10-20) chose it over a citygen-only change**, once a page was seen laying another Odesa than the
+desktop: one car park's `MathF.Atan2` came out a float apart under emscripten's libm and glibc's, a bay node stood a
+float off, and every bay after it — and the town on them — was laid elsewhere.
+
+- **No transcendental in `citygen`, `world`, `agents` or `core` is the platform's**: the float ones are `Trig`'s
+  (`Asin` and `Acos` added, the host's alone) and `Powers`' (`Exp`, `Log`, `Pow`, `Cbrt`, Cephes' series), and the
+  double sine and cosine the ribbons and rings turn by are `Trig.SinCos(double)`, fdlibm's as musl keeps it. The
+  drawing, the camera and the art bake keep `MathF`: nothing they answer is laid or ticked. `TransverseMercator`
+  keeps `Math`: only `qq osm` projects, and what it writes is the map.
+- **`Vector2.Lerp` is `Blend.Lerp`**: it fuses where the machine has a fused multiply-add, which x64 has and a page
+  has not. `Blend.Lerp` is the desktop's answer written as an explicit `MathF.FusedMultiplyAdd`, which is exact on
+  both, so the desktop's towns did not move for it.
+- **What moved**: every laid town, by a float where `Trig` or `Powers` answers other than glibc did.
+- **Checked by a digest each head prints**: a page's console says the plan's (`CityPlan.Digest`) at the open and the
+  bodies' (`TownWorld.Digest`) at tick 600; a desktop's `--shot` prints both at its tick.
+
 ## 2026-10-15 — the kernels compute in floats alone, and the world turns its angles by `Trig`
 
 **The owner (2026-10-15), in their words: "Try f32 everywhere. We want builds to ne the same in the end. Keep track on
@@ -13,8 +31,7 @@ arctangents are correctly rounded only by settling a double's last bits.
   every step a float sum, product or quotient both sides round alike. A float or two apart was a different town (a
   shoved car's heading a float off left a contact 34 µm deeper, and the pair froze a step later, `SOL-37`), so it is
   the arithmetic the host world uses where a kernel mirrors it — `Heading.Unit`, `ArcSeg.Sinc`, `Spline.NearestOnArc`,
-  the tyres' steer, the wheel's aim, a walker's bearing and the sprites' — and nowhere else: the citygen, the ground's
-  mesh and the interface keep `MathF`.
+  the tyres' steer, the wheel's aim, a walker's bearing and the sprites'.
 - **Within three floats of exact** (`TrigTests`) where glibc's is within half of one. Held: `TrigKernelTests`, every
   normal float's answer `Trig`'s to the bit on lavapipe, and `DeviceWorldTests`' lockstep.
 - **What moved** (side effects, [tech-debt](../../../docs/tech-debt.md)): `Heading.Unit` lays the town as well as turning

@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.CityGen.Traced;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Map;
 
@@ -103,7 +104,7 @@ internal sealed partial record TownMap
                 var steps = Math.Max(1, (int)MathF.Ceiling(runM / StumpStepM));
                 for (var step = 0; step < steps; step++)
                 {
-                    if (footprints.Holds(Vector2.Lerp(a, b, (step + 0.5f) / steps))) insideM += runM / steps;
+                    if (footprints.Holds(Blend.Lerp(a, b, (step + 0.5f) / steps))) insideM += runM / steps;
                 }
 
                 lengthM += runM;

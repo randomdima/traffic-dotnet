@@ -153,7 +153,7 @@ internal sealed class RailGraph
             var (fromM, toM) = LaneForward[lane] ? (points[chord], points[chord + 1]) : (points[^(chord + 1)], points[^(chord + 2)]);
             var runM = toM - fromM;
             var lengthM = runM.Length();
-            if (lengthM > 0f) arcs.Add(new ArcSeg(fromM, MathF.Atan2(runM.Y, runM.X), lengthM, 0f));
+            if (lengthM > 0f) arcs.Add(new ArcSeg(fromM, Trig.Atan2(runM.Y, runM.X), lengthM, 0f));
         }
 
         return _arcs[lane] = [.. arcs];
@@ -574,7 +574,7 @@ internal sealed class RailGraph
 
         var through = -Leaving(segments, common);
         var branches = ends.Where(end => end != common)
-            .OrderBy(end => MathF.Atan2(Cross(through, Leaving(segments, end)), Vector2.Dot(through, Leaving(segments, end))))
+            .OrderBy(end => Trig.Atan2(Cross(through, Leaving(segments, end)), Vector2.Dot(through, Leaving(segments, end))))
             .ThenBy(end => end);
         return [common, .. branches];
     }

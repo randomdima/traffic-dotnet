@@ -91,8 +91,9 @@ internal static class ShotRun
 
         // The phases and nothing else: there is no window to time on this path, so the read-out says the
         // frame was not measured rather than printing the zero it would come to.
-        return stage.Draw(
+        var report = stage.Draw(
             ask, ui, world, loop.Tick, scenario, new FrameFigures { Phases = loop.Phases, Sub = world.Sub });
+        return report with { PlanDigest = world.Plan.Digest(), BodiesDigest = world.Digest() };
     }
 }
 
@@ -173,6 +174,9 @@ internal readonly record struct ShotRequest(
 /// <summary>What the frame turned out to be — the census a caller prints or asserts on.</summary>
 /// <param name="InterfaceQuads">Both buffers' worth: the ground marks drawn under the bodies and everything drawn over them.</param>
 /// <param name="Seed">The plan's own seed, which is what makes the picture reproducible from the caption alone.</param>
+/// <param name="PlanDigest">The plan's <see cref="CityPlan.Digest"/>, and <paramref name="BodiesDigest"/> the town's
+/// <see cref="TownWorld.Digest"/> at <paramref name="Tick"/>: what a page's console prints for the same map, to be held
+/// to it (WEB-1). Nought for a frame that is not of a run.</param>
 internal readonly record struct ShotReport(
     string Map,
     string Path,
@@ -186,7 +190,9 @@ internal readonly record struct ShotReport(
     long Tick,
     int InterfaceQuads,
     long Crossings,
-    ulong Seed)
+    ulong Seed,
+    ulong PlanDigest = 0,
+    ulong BodiesDigest = 0)
 {
     /// <summary>
     /// What a metre is worth on this frame — the one figure a review quotes when it says a thing is

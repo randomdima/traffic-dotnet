@@ -187,6 +187,7 @@ internal static class Program
                           $"at tick {shot.Tick}, {shot.InterfaceQuads} interface quads, no window");
         if (shot.Crossings > 0)
             Console.WriteLine($"{"",-9}the offscreen frame is {shot.Crossings} crossings, against a window's five");
+        Console.WriteLine($"{"",-9}plan digest {shot.PlanDigest:x16}, bodies digest {shot.BodiesDigest:x16} at tick {shot.Tick}");
 
         // The band goes on afterwards and never into the frame, so a picture asked for without it is
         // the same pixels this build has always written (SHT-1).

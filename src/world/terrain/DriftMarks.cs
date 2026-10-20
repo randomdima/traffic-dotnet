@@ -135,9 +135,9 @@ internal sealed class DriftMarks
 
         if (Count == _marks.Length) Unfile(_next);
 
-        var centreM = Vector2.Lerp(fromM, toM, 0.5f);
+        var centreM = Blend.Lerp(fromM, toM, 0.5f);
         _marks[_next] = new DriftMark(
-            centreM, lengthM, widthM, MathF.Atan2(spanM.Y, spanM.X), Math.Clamp(intensity, 0f, 1f), ploughed);
+            centreM, lengthM, widthM, Trig.Atan2(spanM.Y, spanM.X), Math.Clamp(intensity, 0f, 1f), ploughed);
         File(_next, RowOf(centreM.Y));
 
         _next = (_next + 1) % _marks.Length;

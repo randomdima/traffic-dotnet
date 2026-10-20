@@ -81,7 +81,7 @@ internal static class TracedSea
         {
             var atM = ring[point];
             var runM = ring[(point + 1) % ring.Length] - atM;
-            if (runM.LengthSquared() > 0f) pieces.Add(new ArcSeg(atM, MathF.Atan2(runM.Y, runM.X), runM.Length(), 0f));
+            if (runM.LengthSquared() > 0f) pieces.Add(new ArcSeg(atM, Trig.Atan2(runM.Y, runM.X), runM.Length(), 0f));
         }
 
         return [.. pieces];

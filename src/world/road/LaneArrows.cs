@@ -221,17 +221,17 @@ internal sealed class LaneArrows
         }
 
         var acrossM = reachM
-            - (figures.LaneArrowHeadLengthM * MathF.Sin(MathF.Abs(sweepRad)))
-            - (figures.LaneArrowHeadWidthM * 0.5f * MathF.Cos(sweepRad));
+            - (figures.LaneArrowHeadLengthM * Trig.Sin(MathF.Abs(sweepRad)))
+            - (figures.LaneArrowHeadWidthM * 0.5f * Trig.Cos(sweepRad));
         var radiusM = MathF.Max(
-            acrossM / (1f - MathF.Cos(sweepRad)), figures.LaneArrowShaftWidthM * 0.5f);
+            acrossM / (1f - Trig.Cos(sweepRad)), figures.LaneArrowShaftWidthM * 0.5f);
         var arcM = MathF.Min(radiusM * MathF.Abs(sweepRad), runM);
         radiusM = arcM / MathF.Abs(sweepRad);
 
         var headM = MathF.Max(
-            figures.LaneArrowHeadLengthM * MathF.Cos(sweepRad),
-            figures.LaneArrowHeadWidthM * 0.5f * MathF.Sin(MathF.Abs(sweepRad)));
-        return (arcM, sweepRad / arcM, (radiusM * MathF.Sin(MathF.Abs(sweepRad))) + headM);
+            figures.LaneArrowHeadLengthM * Trig.Cos(sweepRad),
+            figures.LaneArrowHeadWidthM * 0.5f * Trig.Sin(MathF.Abs(sweepRad)));
+        return (arcM, sweepRad / arcM, (radiusM * Trig.Sin(MathF.Abs(sweepRad))) + headM);
     }
 
     /// <summary>

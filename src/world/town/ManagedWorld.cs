@@ -695,7 +695,7 @@ internal sealed class ManagedWorld : WorldLayer
             var alongAndAcrossMps2 = new Vector2(
                 Vector2.Dot(heldMps2, forward), Vector2.Dot(heldMps2, Heading.RightOf(forward)));
             _accelerationMps2[car] = TownWorld.AtLeastALoad(
-                Vector2.Lerp(_accelerationMps2[car], alongAndAcrossMps2, settled), leastMps2);
+                Blend.Lerp(_accelerationMps2[car], alongAndAcrossMps2, settled), leastMps2);
         }
     }
 

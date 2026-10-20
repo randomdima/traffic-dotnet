@@ -72,4 +72,46 @@ public class TrigTests
 
         Assert.InRange(worst, 0, MostFloatsOff);
     }
+
+    [Fact]
+    public void ArcsineAndArccosineAreWithinThreeFloats()
+    {
+        var random = new Random(41);
+        var worst = 0L;
+        for (var draw = 0; draw < 1 << 18; draw++)
+        {
+            var x = (random.NextSingle() * 2f) - 1f;
+            worst = Math.Max(worst, FloatsApart(Trig.Asin(x), (float)Math.Asin(x)));
+            worst = Math.Max(worst, FloatsApart(Trig.Acos(x), (float)Math.Acos(x)));
+        }
+
+        Assert.InRange(worst, 0, MostFloatsOff);
+    }
+
+    [Fact]
+    public void ADoubleSineAndCosineAreWithinADouble()
+    {
+        static long DoublesApart(double one, double other)
+        {
+            static long Ordered(double x)
+            {
+                var bits = BitConverter.DoubleToInt64Bits(x);
+                return bits < 0 ? long.MinValue - bits : bits;
+            }
+
+            return Math.Abs(Ordered(one) - Ordered(other));
+        }
+
+        var random = new Random(43);
+        var worst = 0L;
+        for (var draw = 0; draw < 1 << 18; draw++)
+        {
+            var angle = (random.NextDouble() - 0.5) * (draw % 2 == 0 ? 16.0 : 2e5);
+            var (sine, cosine) = Trig.SinCos(angle);
+            worst = Math.Max(worst, DoublesApart(sine, Math.Sin(angle)));
+            worst = Math.Max(worst, DoublesApart(cosine, Math.Cos(angle)));
+        }
+
+        Assert.InRange(worst, 0, 1);
+    }
 }

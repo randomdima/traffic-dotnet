@@ -54,7 +54,7 @@ internal sealed partial class TownWorld
     float DrawADwellS(int person)
     {
         var building = _config.Building;
-        var share = MathF.Pow(People.Draw[person].NextFloat(), building.DwellSkew);
+        var share = Powers.Pow(People.Draw[person].NextFloat(), building.DwellSkew);
         return building.DwellMinS + ((building.DwellMaxS - building.DwellMinS) * share);
     }
 
@@ -70,7 +70,7 @@ internal sealed partial class TownWorld
         if (!TryPutDownOff(door, free, beside: -1, out var spotM, out var spot)) return false;
 
         _containers.LeaveBuilding(building, person);
-        Place(person, spotM, MathF.Atan2(spotM.Y - centreM.Y, spotM.X - centreM.X), spot);
+        Place(person, spotM, Trig.Atan2(spotM.Y - centreM.Y, spotM.X - centreM.X), spot);
         return true;
     }
 

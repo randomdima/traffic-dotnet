@@ -1,5 +1,7 @@
+using System.Numerics;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
@@ -31,6 +33,16 @@ internal sealed class TownWatch : ScenarioWatch
 
     const int WhatArrived = 0;
     const int WhatItCost = 1;
+    const int HowItHeldTheRoad = 2;
+
+    /// <summary>
+    /// The speed under which a car's sideslip is not read: below it the velocity's direction is the solver's noise and a
+    /// car turning on the spot slips by any angle.
+    /// </summary>
+    const float SlipReadFromMps = 2f;
+
+    /// <summary>The sideslip a car-tick is counted as sliding past: well over what a tyre's slip angle asks of an ordinary turn.</summary>
+    const float SlidingPastDeg = 5f;
 
     static readonly string[] TheClaims =
     [
@@ -42,6 +54,7 @@ internal sealed class TownWatch : ScenarioWatch
     [
         "how far the town drove",
         "what the town cost its people",
+        "how the cars held the road",
     ];
 
     /// <summary>What the watch asks of a step.</summary>
@@ -72,6 +85,17 @@ internal sealed class TownWatch : ScenarioWatch
     /// pavement runs through a wall reports the whole run here, and nothing else in the town notices it.
     /// </summary>
     int _longestStillTicks;
+
+    /// <summary>
+    /// <b>The angle between where each moving car points and where it goes</b>, summed over car-ticks: what tells a car
+    /// that drives its lane from one that slides along it, on whichever world steps it.
+    /// </summary>
+    double _slipSumDeg;
+
+    long _slipTicks;
+    long _slidingTicks;
+    float _worstSlipDeg;
+    int _worstSlipCar = -1;
 
     /// <summary>How long one tick is, which is what turns a speed into the metres a car covered in it.</summary>
     readonly float _tickSeconds;
@@ -218,6 +242,20 @@ internal sealed class TownWatch : ScenarioWatch
                 into.Add(Touches);
                 into.Add(" touches");
                 break;
+
+            case HowItHeldTheRoad:
+                into.Add("sideslip mean ");
+                into.Add(_slipTicks == 0 ? 0f : (float)(_slipSumDeg / _slipTicks), "F2");
+                into.Add(" deg, worst ");
+                into.Add(_worstSlipDeg, "F1");
+                into.Add(" deg ");
+                Named(ref into, _worstSlipCar < 0 ? -1 : _walkers + _worstSlipCar);
+                into.Add(", ");
+                into.Add(_slipTicks == 0 ? 0f : 100f * _slidingTicks / _slipTicks, "F1");
+                into.Add(" % of moving car-ticks past ");
+                into.Add(SlidingPastDeg, "F0");
+                into.Add(" deg");
+                break;
         }
     }
 
@@ -322,7 +360,24 @@ internal sealed class TownWatch : ScenarioWatch
         {
             if (!world.Cars.Driven[car] || world.Cars.Broken[car]) continue;
 
-            drivenM += world.Cars.VelocityMps[car].Length() * _tickSeconds;
+            var velocityMps = world.Cars.VelocityMps[car];
+            var speedMps = velocityMps.Length();
+            drivenM += speedMps * _tickSeconds;
+            if (speedMps < SlipReadFromMps) continue;
+
+            // At the rear axle, which a car rolling on its tyres carries straight ahead whatever it turns by: read at the
+            // body's centre, a kinematic turn is a sideslip of its own.
+            var forward = world.Cars.Forward[car];
+            var centreAheadM = world.Cars.BuildOf(car).CentreAheadOfAxleM;
+            var yawRateRadPerS = world.Cars.YawRateRadPerS[car];
+            var axleMps = velocityMps + yawRateRadPerS * centreAheadM * new Vector2(forward.Y, -forward.X);
+            var along = Math.Abs(Vector2.Dot(forward, axleMps));
+            var across = Math.Abs(forward.X * axleMps.Y - forward.Y * axleMps.X);
+            var slipDeg = Trig.Atan2(across, along) * (180f / MathF.PI);
+            _slipSumDeg += slipDeg;
+            _slipTicks++;
+            if (slipDeg > SlidingPastDeg) _slidingTicks++;
+            if (slipDeg > _worstSlipDeg) (_worstSlipDeg, _worstSlipCar) = (slipDeg, car);
         }
 
         return _runs.Step(_overlapM, _pastM, people.PositionM.AsSpan(0, _walkers), _afoot, drivenM);

@@ -104,7 +104,7 @@ internal sealed class SignalHeads
             approach = Vector2.Normalize(approach);
             var lamps = new Vector2(-approach.Y, approach.X);
             heads.Add(new SignalHead(
-                bars.CentreM[bar] + (approach * config.Signals.HeadSetbackM), MathF.Atan2(lamps.Y, lamps.X),
+                bars.CentreM[bar] + (approach * config.Signals.HeadSetbackM), Trig.Atan2(lamps.Y, lamps.X),
                 ForCars: true, lane));
         }
 
@@ -124,7 +124,7 @@ internal sealed class SignalHeads
 
             // A quarter turn back off the lamp direction, because this art stacks its lamps down the
             // frame where the car head runs them across it.
-            var headingRad = MathF.Atan2(upright.Y, upright.X) - (MathF.PI * 0.5f);
+            var headingRad = Trig.Atan2(upright.Y, upright.X) - (MathF.PI * 0.5f);
 
             var alongM = (zebras.DepthM[crossing] * 0.5f) + (config.Signals.WalkHeadWidthM * 0.5f) +
                          config.Signals.HeadClearanceM;

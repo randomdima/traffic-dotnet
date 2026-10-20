@@ -255,7 +255,7 @@ internal static class ZoneBuildings
 
                 var outward = -Heading.RightOf(seated);
                 var wallM = lineWallM + (outward * MathF.Max(0f, backM));
-                var headingRad = MathF.Atan2(seated.Y, seated.X) + skewRad;
+                var headingRad = Trig.Atan2(seated.Y, seated.X) + skewRad;
                 var centreM = wallM + (-Heading.RightOf(Heading.Unit(headingRad)) * (sizeM.Y * 0.5f));
                 var there = zones.SettingsAt(wallM + (outward * figures.ZoneDepthM));
                 if (there.LookShares[(int)look] <= 0f) continue;
@@ -297,7 +297,7 @@ internal static class ZoneBuildings
         var draw = new Rng(seed, Streams.Behind ^ (ulong)zone);
         var meanM2 = said.BehindM2 > 0f ? said.BehindM2 : prefabs.MeanM2(said.LookShares);
         var (leastM, mostM) = zones.BoxOf(zone);
-        float? bearingRad = said.BearingDeg is { } bearingDeg ? MathF.Atan2(-MathF.Cos(bearingDeg * (MathF.PI / 180f)), MathF.Sin(bearingDeg * (MathF.PI / 180f))) : null;
+        float? bearingRad = said.BearingDeg is { } bearingDeg ? Trig.Atan2(-Trig.Cos(bearingDeg * (MathF.PI / 180f)), Trig.Sin(bearingDeg * (MathF.PI / 180f))) : null;
 
         var standing = new Standing(figures.ZonePartyWallM, config.Grid.Main.CellM);
         var stood = new List<Stood>();
@@ -305,14 +305,14 @@ internal static class ZoneBuildings
         var offered = (int)MathF.Ceiling(leftM2 / meanM2 * figures.ZoneBehindOffered);
         for (var at = 0; at < offered && leftM2 > 0f; at++)
         {
-            var atM = Vector2.Lerp(leastM, mostM, new Vector2(draw.NextFloat(), draw.NextFloat()));
+            var atM = Blend.Lerp(leastM, mostM, new Vector2(draw.NextFloat(), draw.NextFloat()));
             var look = said.Look(draw.NextFloat());
             var prefab = prefabs.Of(look)[prefabs.Drawn(look, said.BehindM2, ref draw)];
             if (zones.At(atM) != zone || own.Face.Nearest(own, atM, figures.ZoneBehindClearM, out _, out _) is not null) continue;
             if (Walked(atM) is not var (onM, street)) continue;
 
             var sizeM = prefabs.SizeM(prefab);
-            var headingRad = bearingRad ?? MathF.Atan2(street.Y, street.X);
+            var headingRad = bearingRad ?? Trig.Atan2(street.Y, street.X);
             if (!standing.Clear(atM, headingRad, sizeM) || !frontage.Clear(atM, headingRad, sizeM)) continue;
             if (!OnClearGround(ground, own.Ground, atM, Heading.Unit(headingRad), sizeM, config)) continue;
 
@@ -353,7 +353,7 @@ internal static class ZoneBuildings
             var steps = Math.Max(1, (int)MathF.Ceiling(Vector2.Distance(fromM, toM) / stepM));
             for (var step = 0; step < steps; step++)
             {
-                if (!Clear(Vector2.Lerp(fromM, toM, step / (float)steps))) return false;
+                if (!Clear(Blend.Lerp(fromM, toM, step / (float)steps))) return false;
             }
         }
 
@@ -410,7 +410,7 @@ internal static class ZoneBuildings
         public (Vector2 WallM, Vector2 Along)? Seat(Working own, Vector2 onM, Vector2 along, float widthM, SimConfig config)
         {
             var figures = config.CityGen;
-            var turnCos = MathF.Cos(figures.ZoneFrontageTurnDeg * (MathF.PI / 180f));
+            var turnCos = Trig.Cos(figures.ZoneFrontageTurnDeg * (MathF.PI / 180f));
             var samples = Math.Max(2, (int)MathF.Ceiling(widthM / config.Terrain.GroundStepM) + 1);
 
             // Where the walk stands under each place along the front, as a distance off the street from the line it was asked on.
@@ -515,14 +515,14 @@ internal static class ZoneBuildings
 
         Weights WeightsOf(List<int> wears, float footprintM2)
         {
-            var width = MathF.Log(spread);
+            var width = Powers.Log(spread);
             var each = new float[wears.Count];
             var total = 0f;
             for (var at = 0; at < wears.Count; at++)
             {
                 var prefab = wears[at];
-                var off = MathF.Log(_sizeM[prefab].X * _sizeM[prefab].Y / footprintM2) / width;
-                each[at] = MathF.Exp(-0.5f * off * off);
+                var off = Powers.Log(_sizeM[prefab].X * _sizeM[prefab].Y / footprintM2) / width;
+                each[at] = Powers.Exp(-0.5f * off * off);
                 total += each[at];
             }
 

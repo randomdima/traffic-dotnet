@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Town;
 
@@ -92,7 +93,7 @@ internal sealed partial class TownWorld
         }
 
         _containers.Alight(car, owner);
-        Place(owner, spotM, MathF.Atan2(spotM.Y - Cars.PositionM[car].Y, spotM.X - Cars.PositionM[car].X), spot);
+        Place(owner, spotM, Trig.Atan2(spotM.Y - Cars.PositionM[car].Y, spotM.X - Cars.PositionM[car].X), spot);
 
         if (People.Manual[owner])
         {

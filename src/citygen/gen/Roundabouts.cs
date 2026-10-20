@@ -143,7 +143,7 @@ internal static class Roundabouts
             var gapRad = Wrapped(layout.OutwardRad(next, node) - layout.OutwardRad(arms[arm], node));
             widestRad = MathF.Max(widestRad, gapRad);
 
-            radiusM = MathF.Max(radiusM, spanM * 0.5f / MathF.Sin(gapRad * 0.5f));
+            radiusM = MathF.Max(radiusM, spanM * 0.5f / Trig.Sin(gapRad * 0.5f));
         }
 
         return widestRad > MathF.PI ? float.NaN : radiusM;

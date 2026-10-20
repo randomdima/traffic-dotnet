@@ -51,7 +51,7 @@ internal readonly struct RibbonPiece
         _startX = arc.StartM.X;
         _startY = arc.StartM.Y;
         _headingRad = arc.HeadingRad;
-        (_headingSin, _headingCos) = Math.SinCos(_headingRad);
+        (_headingSin, _headingCos) = Trig.SinCos(_headingRad);
         IsStraight = RibbonAtlas.IsStraight(arc);
         _curvature = IsStraight ? 0.0 : arc.Curvature;
 
@@ -69,7 +69,7 @@ internal readonly struct RibbonPiece
         _sweepRad = Math.Abs(_curvature) * LengthM;
         _firstRadialX = (_startX - _centreX) / _radiusM;
         _firstRadialY = (_startY - _centreY) / _radiusM;
-        var (turnSin, turnCos) = Math.SinCos(_curvature * LengthM);
+        var (turnSin, turnCos) = Trig.SinCos(_curvature * LengthM);
         _lastRadialX = (_firstRadialX * turnCos) - (_firstRadialY * turnSin);
         _lastRadialY = (_firstRadialX * turnSin) + (_firstRadialY * turnCos);
     }
@@ -171,7 +171,7 @@ internal readonly struct RibbonPiece
     public void SliceAt(double onM, double halfM, out double fromX, out double fromY, out double toX, out double toY)
     {
         // A straight's heading is the one its sine and cosine were taken of when it was made.
-        var (sin, cos) = IsStraight ? (_headingSin, _headingCos) : Math.SinCos(_headingRad + (_curvature * onM));
+        var (sin, cos) = IsStraight ? (_headingSin, _headingCos) : Trig.SinCos(_headingRad + (_curvature * onM));
 
         // The right of the heading (Heading.RightOf), which is the side an arc of positive curvature
         // turns towards and has its centre on.
@@ -286,7 +286,7 @@ internal readonly struct RibbonPiece
             _lastY = piece._lastRadialY;
             if (trimM == 0.0 || piece.IsStraight) return;
 
-            var (sin, cos) = Math.SinCos(piece._curvature * trimM);
+            var (sin, cos) = Trig.SinCos(piece._curvature * trimM);
             (_firstX, _firstY) = ((_firstX * cos) - (_firstY * sin), (_firstX * sin) + (_firstY * cos));
             (_lastX, _lastY) = ((_lastX * cos) + (_lastY * sin), (_lastY * cos) - (_lastX * sin));
         }

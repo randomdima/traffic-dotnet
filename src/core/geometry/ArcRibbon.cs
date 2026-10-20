@@ -68,6 +68,6 @@ internal static class ArcRibbon
     static ArcSeg Across(Vector2 fromM, Vector2 toM)
     {
         var runM = toM - fromM;
-        return new ArcSeg(fromM, MathF.Atan2(runM.Y, runM.X), runM.Length(), 0f);
+        return new ArcSeg(fromM, Trig.Atan2(runM.Y, runM.X), runM.Length(), 0f);
     }
 }

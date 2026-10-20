@@ -411,7 +411,7 @@ internal static class IdlePlan
 
             kind[car] = SpawnKindCar;
             positionM[car] = on.PositionM + (right * config.LaneOffsetM * config.RoadSideSign);
-            headingRad[car] = MathF.Atan2(forward.Y, forward.X);
+            headingRad[car] = Trig.Atan2(forward.Y, forward.X);
         }
 
         return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad };

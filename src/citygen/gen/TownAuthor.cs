@@ -133,7 +133,7 @@ internal static class TownAuthor
                 var (a, b) = (points[at], points[(at + 1) % points.Count]);
                 var (aIn, bIn) = (Vector2.Dot(a, normal) - offsetM, Vector2.Dot(b, normal) - offsetM);
                 if (aIn >= 0f) kept.Add(a);
-                if ((aIn >= 0f) != (bIn >= 0f)) kept.Add(Vector2.Lerp(a, b, aIn / (aIn - bIn)));
+                if ((aIn >= 0f) != (bIn >= 0f)) kept.Add(Blend.Lerp(a, b, aIn / (aIn - bIn)));
             }
 
             points = kept;

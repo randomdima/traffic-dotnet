@@ -100,7 +100,7 @@ internal static class ConnectionPoints
     {
         /// <summary>The lead itself, which is what a road laid to this arm begins with and a movement ends on.</summary>
         public ArcSeg Lead(float standoffM) =>
-            new(NodeM, MathF.Atan2(OutwardUnit.Y, OutwardUnit.X), standoffM, Curvature);
+            new(NodeM, Trig.Atan2(OutwardUnit.Y, OutwardUnit.X), standoffM, Curvature);
     }
 
     /// <summary>
@@ -152,7 +152,7 @@ internal static class ConnectionPoints
             : -Heading.Unit(arcs[^1].HeadingAtRad(arcs[^1].LengthM));
 
         // The lead walked the other way: from the stand point back down the road to the node it stands off.
-        var back = Spline.ArcThrough(standM, MathF.Atan2(-standUnit.Y, -standUnit.X), nodeM);
+        var back = Spline.ArcThrough(standM, Trig.Atan2(-standUnit.Y, -standUnit.X), nodeM);
         var outward = -Heading.Unit(back.HeadingAtRad(back.LengthM));
 
         return new Arm(
@@ -202,10 +202,10 @@ internal static class ConnectionPoints
         var chord = Chord(nodeM, towardM);
         if (curvature == 0f) return chord;
 
-        var halfRad = MathF.Asin(
+        var halfRad = Trig.Asin(
             MathF.Min(1f, Vector2.Distance(nodeM, towardM) * 0.5f * MathF.Abs(curvature))) * MathF.Sign(curvature);
 
-        return Heading.Unit(MathF.Atan2(chord.Y, chord.X) - halfRad);
+        return Heading.Unit(Trig.Atan2(chord.Y, chord.X) - halfRad);
     }
 
     /// <summary>
@@ -284,7 +284,7 @@ internal static class ConnectionPoints
         var boundRad = BoundRad(config, Vector2.Distance(nodeM, towardM));
         var turnedRad = draw.NextFloat(-boundRad, boundRad);
 
-        var (sin, cos) = MathF.SinCos(turnedRad);
+        var (sin, cos) = Trig.SinCos(turnedRad);
         return new Vector2((chord.X * cos) - (chord.Y * sin), (chord.X * sin) + (chord.Y * cos));
     }
 
@@ -321,7 +321,7 @@ internal static class ConnectionPoints
 
         var floorM = config.CarCorneringRadiusM(config.CityGen.ArterialDesignSpeedMps);
 
-        return MathF.Min(boundRad, MathF.Atan(TangentShareOfSegment * betweenM / (3f * floorM)));
+        return MathF.Min(boundRad, Trig.Atan(TangentShareOfSegment * betweenM / (3f * floorM)));
     }
 
     /// <summary>

@@ -140,7 +140,7 @@ internal static class TracedPieces
             var halfTurnRad = MathF.Abs(piece.Curvature * piece.LengthM) * 0.5f;
             if (halfTurnRad < 1e-4f || halfTurnRad >= MathF.PI * 0.5f) continue;
 
-            cornersM.Add(piece.StartM + (piece.StartUnit * (MathF.Tan(halfTurnRad) / MathF.Abs(piece.Curvature))));
+            cornersM.Add(piece.StartM + (piece.StartUnit * (Trig.Tan(halfTurnRad) / MathF.Abs(piece.Curvature))));
         }
 
         return [.. cornersM];
@@ -279,8 +279,8 @@ internal static class TracedPieces
         var sine = crossM / awayM.Length();
         if (!(MathF.Abs(sine) < 1f)) return 0;
 
-        var awayRad = MathF.Atan2(awayM.Y, awayM.X);
-        var offRad = MathF.Asin(sine);
+        var awayRad = Trig.Atan2(awayM.Y, awayM.X);
+        var offRad = Trig.Asin(sine);
         var found = 0;
         foreach (var psi in (ReadOnlySpan<float>)[awayRad + offRad, awayRad + MathF.PI - offRad])
         {
@@ -332,7 +332,7 @@ internal static class TracedPieces
 
         tangentM = MathF.Min(tangentM, MathF.Min(leavingM, arrivingM));
         var turnRad = Spline.WrapRad(toRad - fromRad);
-        var curvature = MathF.CopySign(MathF.Tan(MathF.Abs(turnRad) * 0.5f) / tangentM, turnRad);
+        var curvature = MathF.CopySign(Trig.Tan(MathF.Abs(turnRad) * 0.5f) / tangentM, turnRad);
         var laid = 0;
         var atM = fromM;
         if (leavingM - tangentM > 0f)
@@ -427,15 +427,15 @@ internal static class TracedPieces
             var toM = _line[^1].EndM;
             var chord = toM - fromM;
             var chordM = chord.Length();
-            var chordRad = MathF.Atan2(chord.Y, chord.X);
+            var chordRad = Trig.Atan2(chord.Y, chord.X);
             var stretchM = Stretch(0, _line.Length - 1);
             var mayM = MayStandOffM(0, _line.Length - 1);
 
             // The arc through both ends and the line's middle leaves at half the turn the chord to the middle and
             // the chord on from it make.
             var middleM = Spline.SampleAt(_line, _startM[^1] * 0.5f).PositionM;
-            var throughRad = Spline.WrapRad(MathF.Atan2(middleM.Y - fromM.Y, middleM.X - fromM.X) - chordRad);
-            var onRad = Spline.WrapRad(MathF.Atan2(toM.Y - middleM.Y, toM.X - middleM.X) - chordRad);
+            var throughRad = Spline.WrapRad(Trig.Atan2(middleM.Y - fromM.Y, middleM.X - fromM.X) - chordRad);
+            var onRad = Spline.WrapRad(Trig.Atan2(toM.Y - middleM.Y, toM.X - middleM.X) - chordRad);
             var seedRad = throughRad - onRad;
 
             var reachRad = MathF.Min(MathF.PI * 0.5f, 16f * mayM / MathF.Max(chordM, 1e-3f));
@@ -543,7 +543,7 @@ internal static class TracedPieces
             {
                 var meetingM = from.StartM + (Heading.Unit(from.HeadingRad) * leavingM);
                 var insideM = OffRunM(_line[first..(last + 1)], meetingM, _startM[last + 1] - _startM[first]);
-                var tangentM = insideM / MathF.Tan(MathF.Abs(Spline.WrapRad(toRad - from.HeadingRad)) * 0.25f);
+                var tangentM = insideM / Trig.Tan(MathF.Abs(Spline.WrapRad(toRad - from.HeadingRad)) * 0.25f);
                 foreach (var scale in BendScales)
                 {
                     if (Corner(from.StartM, from.HeadingRad, to.EndM, toRad, tangentM * scale, into) == 3 && Keeps(into[..3], stretchM, mayM)) return 3;
@@ -685,7 +685,7 @@ internal static class TracedPieces
         {
             var spanM = _alongM[point + 1] - _alongM[point];
             var along = spanM > 0f ? Math.Clamp((atM - _alongM[point]) / spanM, 0f, 1f) : 0f;
-            return Vector2.Lerp(_surveyedM[point], _surveyedM[point + 1], along);
+            return Blend.Lerp(_surveyedM[point], _surveyedM[point + 1], along);
         }
 
         static float OffRunM(ReadOnlySpan<ArcSeg> run, Vector2 pointM, float runM)

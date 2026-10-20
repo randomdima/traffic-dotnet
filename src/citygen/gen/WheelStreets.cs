@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Gen;
@@ -62,7 +63,7 @@ internal static class WheelStreets
         var rules = new WaterRules(
             wet, config.Terrain.GroundStepM, bridgeable, config.CityGen.BridgeDeckLongestM,
             Lattice.CorridorM(config), (config.RoadWidthM * 0.5f) + config.PavementWidthM,
-            rails, Lattice.CorridorM(config) + config.Rail.JunctionClearanceM, MathF.Cos(config.Rail.CrossingSkewMostDeg * MathF.PI / 180f));
+            rails, Lattice.CorridorM(config) + config.Rail.JunctionClearanceM, Trig.Cos(config.Rail.CrossingSkewMostDeg * MathF.PI / 180f));
         var districts = Districts.Of(zones);
         took("districts");
 

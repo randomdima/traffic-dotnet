@@ -177,6 +177,10 @@ X,Y:X,Y`, both in interface pixels — because the menu, the panels and the tabs
 and there is nothing in the page to find. **The drag is a finger and not a held mouse** (`CTL-9`), and
 this is the only way a panel dragged or a camera pinched is ever driven.
 
+**Whether a page laid and ran the desktop's town is two numbers** (WEB-1): its console says the plan's digest at the
+open and the bodies' at tick 600, and a desktop `--shot --map NAME --seconds 10` prints the same two. A page's managed
+world (`?managed-world`) is held to them to the bit; its device world is the desktop's only within what a driver may fuse.
+
 **`qq web --cpu FILE` is where a page's open went**: the browser's sampling profiler from the navigate until the town
 says it stood, named off the native module's symbol map, self and inclusive by function — and `--cpu-read` with
 `--focus` asks a kept profile again, which is how code the page runs interpreted and the desktop never does is found.

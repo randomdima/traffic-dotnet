@@ -75,7 +75,7 @@ internal readonly record struct Overtake(
     {
         var acrossM = MathF.Abs(asideM);
         var byTheBendM = MathF.Sqrt(Tau * acrossM / mostBend);
-        var byTheRackM = MathF.Cbrt(Tau * Tau * acrossM / bendPerM);
+        var byTheRackM = Powers.Cbrt(Tau * Tau * acrossM / bendPerM);
         return MathF.Max(byTheBendM, byTheRackM);
     }
 
@@ -164,13 +164,13 @@ internal readonly record struct Overtake(
     public Overtake From(int lane, float shiftM) =>
         this with { Lane = lane, OutM = OutM - shiftM, BackM = BackM - shiftM, ClearsM = ClearsM - shiftM };
 
-    float TurnOfAStep(float intoM, float stepM) => AsideM / (stepM * stepM) * Tau * MathF.Sin(Tau * intoM / stepM);
+    float TurnOfAStep(float intoM, float stepM) => AsideM / (stepM * stepM) * Tau * Trig.Sin(Tau * intoM / stepM);
 
     /// <summary>How much of the way across a step is <paramref name="share"/> of the way into it.</summary>
-    public static float Rise(float share) => share - (MathF.Sin(Tau * share) / Tau);
+    public static float Rise(float share) => share - (Trig.Sin(Tau * share) / Tau);
 
     /// <summary>And how steeply, in the step's own across for its own length.</summary>
-    public static float RiseSlope(float share) => 1f - MathF.Cos(Tau * share);
+    public static float RiseSlope(float share) => 1f - Trig.Cos(Tau * share);
 
     const float Tau = MathF.PI * 2f;
 }

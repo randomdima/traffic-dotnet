@@ -233,7 +233,7 @@ internal sealed class ExamGround
     public float RingRadiusM =>
         MathF.Max(
             _config.RoundaboutRadiusFloorM,
-            (_config.RoadFootprintM + _config.PavementWidthM) * 0.5f / MathF.Sin(MathF.PI * 0.25f));
+            (_config.RoadFootprintM + _config.PavementWidthM) * 0.5f / Trig.Sin(MathF.PI * 0.25f));
 
     /// <summary>
     /// <b>How far round a cell's box reaches</b>: the standoff its lanes end at (TER-5), and the whole ring
@@ -256,7 +256,7 @@ internal sealed class ExamGround
     public static ExamArm Turned(ExamArm arm, int quarters) => (ExamArm)((((int)arm + quarters) % 4 + 4) % 4);
 
     /// <summary>The angle a direction is, which is the one thing the spawn arrays carry a pose as.</summary>
-    public static float Facing(Vector2 direction) => MathF.Atan2(direction.Y, direction.X);
+    public static float Facing(Vector2 direction) => Trig.Atan2(direction.Y, direction.X);
 
     /// <summary>Half a carriageway's width to the driver's own side of a line driven along a bearing (TER-4a).</summary>
     public Vector2 Beside(Vector2 travel) =>
@@ -429,7 +429,7 @@ internal sealed class ExamGround
 
             var chord = arrives.StandM - leaves.StandM;
             var chordM = chord.Length();
-            var half = MathF.Asin(MathF.Min(1f, chordM * 0.5f * MathF.Abs(curvature)));
+            var half = Trig.Asin(MathF.Min(1f, chordM * 0.5f * MathF.Abs(curvature)));
             var sweep = 2f * half * MathF.Sign(curvature);
             ArcSeg[] piece =
             [

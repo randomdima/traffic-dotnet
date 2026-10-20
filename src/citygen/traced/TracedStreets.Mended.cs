@@ -217,7 +217,7 @@ internal static partial class TracedStreets
     /// </summary>
     static TracedRoad[] Chained(TracedRoad[] roads, Vector2D[] pointM, SimConfig config)
     {
-        var leastCos = MathF.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
+        var leastCos = Trig.Cos(float.DegreesToRadians(config.Road.TurnStraightToleranceDeg));
         var (starting, ending) = (new Dictionary<int, List<int>>(), new Dictionary<int, List<int>>());
         for (var road = 0; road < roads.Length; road++)
         {

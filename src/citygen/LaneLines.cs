@@ -966,7 +966,7 @@ internal sealed class LaneLines
     /// twice the half-angle the chord subtends, and nothing on a straight.
     /// </summary>
     static float CarriedOnRad(float curvature, float chordM) =>
-        2f * MathF.Asin(Math.Clamp(chordM * curvature * 0.5f, -1f, 1f));
+        2f * Trig.Asin(Math.Clamp(chordM * curvature * 0.5f, -1f, 1f));
 
     /// <summary>
     /// How near two lane ends have to stand before the movement between them is no movement at all: the
@@ -1252,7 +1252,7 @@ internal sealed class LaneLines
             if (Spline.ToTheCorner(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, out var turnRad, out var beforeM, out var afterM)
                 && beforeM > 0f && afterM > 0f)
             {
-                var tangentM = radiusM * MathF.Tan(MathF.Abs(turnRad) * 0.5f);
+                var tangentM = radiusM * Trig.Tan(MathF.Abs(turnRad) * 0.5f);
                 (leaveM, joinM) = (MathF.Max(0f, beforeM - tangentM) * share, MathF.Max(0f, afterM - tangentM) * share);
 
                 // A run onto the lane out too short to be told from more of the turn before it is turned into instead.
