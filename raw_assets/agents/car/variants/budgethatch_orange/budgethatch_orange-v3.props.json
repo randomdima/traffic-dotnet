@@ -1,0 +1,38 @@
+{
+  "car": "budgethatch_orange",
+  "sprite": {"variant": "raw_assets/agents/car/variants/budgethatch_orange/budgethatch_orange-v3.png", "sizePx": [391, 212]},
+  "axisY": {"rear": 105.00, "front": 105.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [17.01, 29.00, 1.20],
+      [11.93, 54.13, 0.83],
+      [12.07, 61.44, 0.21],
+      [16.08, 62.59, 1.09],
+      [20.67, 56.78, -0.63],
+      [24.50, 38.12, 0.61],
+      [30.97, 29.88, 0.94],
+      [31.64, 26.22, 0.18],
+      [23.42, 25.86, 1.25]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "points": [
+      [13.42, 50.74, 0.60],
+      [12.10, 55.91, 0.66],
+      [12.70, 60.99, 2.81],
+      [17.96, 53.32, 0.72],
+      [20.23, 44.55, 0.71],
+      [15.47, 44.72, 0.90]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "mirrorDx": 4.5, "axisY": 104.25, "points": [
+      [345.21, 30.96, 0.64],
+      [344.60, 33.00, 0.51],
+      [363.52, 55.99, 1.61],
+      [373.29, 59.85, 0.83],
+      [371.63, 51.65, 0.00],
+      [363.49, 36.99, 1.42],
+      [356.25, 32.99, -0.92],
+      [348.76, 32.11, 0.32]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

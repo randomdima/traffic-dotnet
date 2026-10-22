@@ -83,8 +83,14 @@ tool said of it.
    on; a part burns on its copy side only, so the authored side shows its main lamp whole.
 6. `install CAR`: the game's lamps. The car's zone map is painted from the props (a channel a glass colour, so a
    section inside a housing burns with both), each prop's lens a side becomes a `lamps` entry boxed on its texels,
-   and the props file is kept beside the sprite's variant under raw_assets/. It refuses a lens reaching past the
-   lamp sheet's cell (20 texels from its centre) or more than ten. A new picture (`qq sprites use`) drops them.
+   and the props file is kept beside the sprite's variant under raw_assets/, as `<variant>.props.json` — one a
+   picture, never written over by another's. It refuses a lens reaching past the lamp sheet's cell (20 texels from
+   its centre) or more than ten. A new picture (`qq sprites use`) drops them; `restore CAR` brings back the props
+   kept for the picture the sprite is, and `install` puts them back in the game.
+7. `mirror CAR`: the copy side's lamp art painted from the authored side's, each lamp reflected where its prop's copy
+   lies, on the picture at its own resolution — the body, its outline and its paint as drawn (paint is never painted
+   over paint). Kept as a new variant naming the picture and props it came from, installed, and the same props
+   installed onto it. Run it once a car's props are done: the copy side then draws each lens the authored side does.
 
 A look at a prop (`show --prop`, with `--bare` for the art unmarked beside it) paints what it covers in its outline's
 colour, see-through: what the game will light, which should fill the lens to its frame and stop there, on both
@@ -148,6 +154,9 @@ rather than following its rim), `"lock": true` (out of snap).
     cut CAR                       a coverage PNG a kind, clipped to the body, and the car lit, prop by prop, a
                                   smaller one burning over a bigger
     install CAR                   the zone map and `lamps` written from the props, the props kept under raw_assets/
+    restore CAR                   the props kept for the sprite's picture back as the working file
+    mirror CAR                    the copy side's lamp art painted from the authored side's, kept as a new picture,
+                                  installed with these props
     show CAR [--end=rear]         both ends; or one end, a view a side
     show CAR --prop=P             one prop, a view a side, its parts named
     show CAR --prop=P --vertex=N  round one vertex
@@ -176,6 +185,7 @@ import json
 import math
 import re
 import shutil
+import time
 from pathlib import Path
 
 import _props_fit as fit
@@ -238,6 +248,15 @@ def main():
               "colour shows it: a probe to start from, each to check against the art and correct")
         for line in notes:
             print(line)
+        a.action = "show"
+    if a.action == "restore":
+        kept = kept_props(base, car)
+        if not kept.is_file():
+            cli.fail(f"no lamps were kept for {car['variant']} ({_sim.rel(base, kept)}): `seed` it")
+        if doc_path.exists():
+            shutil.copy(doc_path, doc_path.with_suffix(".prev.json"))
+        shutil.copy(kept, doc_path)
+        print(f"{_sim.rel(base, doc_path)}: the lamps kept for {Path(car['variant']).name}, as installed")
         a.action = "show"
     if a.action == "undo":
         prev = doc_path.with_suffix(".prev.json")
@@ -316,6 +335,8 @@ def main():
         return cut(base, folder, doc, car)
     if a.action == "install":
         return install(base, doc_path, doc, car)
+    if a.action == "mirror":
+        return mirror(base, doc_path, doc, car)
     tag ="_".join(str(t) for t in (a.prop, f"v{a.vertex}" if a.vertex is not None else None,
                                      f"e{a.edge}" if a.edge is not None else None,
                                      f"at{a.at[0]:g}_{a.at[1]:g}" if a.at else None,
@@ -344,10 +365,11 @@ def parse_args():
         formatter_class=Help,
     )
     parser.add_argument("action", choices=["seed", "find", "trace", "show", "snap", "axis", "move", "bow", "split", "drop",
-                                           "undo", "cut", "install"],
+                                           "undo", "cut", "install", "restore", "mirror"],
                         help="seed and trace every lamp it can, list each end's lens patches, trace one prop off the "
-                             "art, look, pull onto the part, refit the axes, edit a part, step back, cut, or install "
-                             "into the game")
+                             "art, look, pull onto the part, refit the axes, edit a part, step back, cut, install "
+                             "into the game, restore the lamps kept for the sprite's picture, or mirror the authored "
+                             "side's lamp art onto the copy side")
     parser.add_argument("car", help="the car's id, a folder under assets/agents/car/variants/")
     parser.add_argument("--prop", default=None, help="the prop of this name: shown close up, snapped, or edited")
     parser.add_argument("--vertex", type=cli.counting, default=None, metavar="N",
@@ -961,6 +983,123 @@ def cut(base, folder, doc, car):
     return 0
 
 
+#: How far past a copy's outline `mirror` paints the authored side's art over the copy side, and over how many texels
+#: more it fades into the copy side's own: the frame round a lens and the paint just off it come with the lens. And how
+#: far past the outline a texel of a lens's colour is the copy side's own lens drawn larger, painted over as well.
+MIRROR_GROW_PX, MIRROR_FEATHER_PX, MIRROR_REACH_PX = 3, 2, 6
+#: The ring round a lamp, on each side, whose median is that side's paint there; and how near it (channel distance,
+#: 0-255) a texel is paint. Paint is never painted over paint, so a wing in primer or a rust spot on the copy side
+#: stays (`classic_red`); paint over a copy lens drawn larger is recoloured to the copy side's.
+MIRROR_PAINT_RING_PX, MIRROR_PAINT_NEAR = (4, 8), 40
+
+
+def mirror(base, doc_path, doc, car):
+    """The copy side's lamps painted from the authored side's, each reflected where its prop's copy lies, on the
+    sprite's picture at its own resolution — the body, its outline and everything else as drawn. Kept as a new variant
+    naming the picture and the props it was painted from, installed, and the same props installed onto it: the art
+    under each copy is then the authored lens to the texel."""
+    import argparse as ap
+
+    import numpy as np
+    from PIL import Image, PngImagePlugin
+
+    import sprites
+
+    if doc["sprite"]["variant"] != car["variant"]:
+        cli.fail(f"the props were cut on {doc['sprite']['variant']}, the sprite is {car['variant']}: `restore` or `seed`")
+    mirrored = [p for p in doc["props"] if "points" in p and p["mirror"]]
+    if not mirrored:
+        cli.fail("no mirrored prop with an outline: nothing to paint the copy side from")
+    shutil.copy(doc_path, kept_props(base, car))
+
+    source = base / car["variant"]
+    picture = Image.open(source)
+    cut_info = json.loads(picture.text.get("cut", "{}"))
+    pixels = np.asarray(picture.convert("RGBA")).astype(np.float32)
+    big_h, big_w = pixels.shape[:2]
+    h, w = car["rgba"].shape[:2]
+    kx, ky = big_w / w, big_h / h
+    lens_colour = np.isin(car["classes"], list("raw"))
+    solid = car["rgba"][..., 3] > 0.5
+    best = np.zeros((big_h, big_w), np.float32)
+    painted = pixels.copy()
+    ys, xs = np.mgrid[0:big_h, 0:big_w]
+
+    def grown(mask, px):
+        for _ in range(px):
+            mask = trace.dilate4(mask)
+        return mask
+
+    def paint_round(mask):
+        """The median colour of the picture's body in a ring round a mask on the sprite's grid."""
+        near, far = (grown(mask, px) for px in MIRROR_PAINT_RING_PX)
+        ring = np.asarray(Image.fromarray(((far & ~near & solid) * 255).astype(np.uint8)).resize((big_w, big_h)))
+        return np.median(pixels[ring > 127][:, :3], axis=0)
+
+    for p in mirrored:
+        axis, dx = fit.copy_at(doc, car, p)
+        rings = fit.rings(doc, car, p)
+        copy = fit.coverage(rings[1:2], (h, w)) > 0.5
+        own_paint, copy_paint = paint_round(fit.coverage(rings[:1], (h, w)) > 0.5), paint_round(copy)
+        core = copy | (grown(copy, MIRROR_REACH_PX) & lens_colour)
+        core = grown(core, MIRROR_GROW_PX)
+        # Fully painted in the core, fading over the feather: a texel's weight on the sprite's grid, then the picture's.
+        weight, ring = core.astype(np.float32), core
+        for k in range(1, MIRROR_FEATHER_PX + 1):
+            wider = trace.dilate4(ring)
+            weight[wider & ~ring] = 1 - k / (MIRROR_FEATHER_PX + 1)
+            ring = wider
+        big = np.asarray(Image.fromarray(weight).resize((big_w, big_h), Image.BILINEAR))
+        at = big > best
+        if not at.any():
+            continue
+        # A texel's centre on the sprite's grid, reflected about the copy's axis and shifted back, read off the picture.
+        sx = (xs[at] + 0.5) / kx - dx
+        sy = 2 * axis - (ys[at] + 0.5) / ky
+        xy = np.stack([sx * kx, sy * ky], -1).astype(np.float32)
+        took = np.stack([fit.sample(pixels[..., c], xy) for c in range(4)], -1)
+        took_paint = np.abs(took[:, :3] - own_paint).max(-1) <= MIRROR_PAINT_NEAR
+        here_paint = np.abs(pixels[at, :3] - copy_paint).max(-1) <= MIRROR_PAINT_NEAR
+        # The authored side's paint, where it lands on the copy side's lens, in the copy side's paint and its shading.
+        colour = np.where(took_paint[:, None], took[:, :3] * copy_paint / np.maximum(own_paint, 1), took[:, :3])
+        # Paint off the authored side's body is no lens: weighed by its alpha, so the copy side keeps its own there.
+        wt = np.where(took_paint & here_paint, 0.0, big[at] * took[:, 3] / 255)
+        painted[at, :3] = pixels[at, :3] * (1 - wt[:, None]) + colour * wt[:, None]
+        best[at] = big[at]
+
+    folder, name_was = source.parent, source.stem
+    records = sprites.read_jsonl(folder / sprites.VARIANTS)
+    was = next((r for r in records if r["variant"] == name_was), None)
+    if was is None:
+        cli.fail(f"{name_was} has no record in {_sim.rel(base, folder / sprites.VARIANTS)}")
+    i = car["id"]
+    version = 1 + max((int(m.group(2)) for q in folder.glob(f"{i}-v*.png")
+                       if (m := sprites.VERSIONED.fullmatch(q.stem))), default=0)
+    name = f"{i}-v{version}"
+    png = PngImagePlugin.PngInfo()
+    png.add_text("cut", json.dumps({**cut_info, "lampsMirrored": {"from": name_was, "props": _sim.rel(base, kept_props(base, car))}}))
+    Image.fromarray(np.clip(painted, 0, 255).astype(np.uint8), "RGBA").save(folder / f"{name}.png", pnginfo=png)
+    sprites.append(folder / sprites.VARIANTS, {
+        "variant": name, **{k: was[k] for k in ("frame", "cell", "box", "pxPerM", "score") if k in was},
+        "lampsMirroredFrom": name_was, "props": _sim.rel(base, kept_props(base, car)), "status": "candidate",
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S")})
+    print(f"kept {name}: {name_was} with its copy side's lamps painted from the authored side's "
+          f"({len(mirrored)} props), {_sim.rel(base, folder / (name + '.png'))}")
+
+    sprites.use(base, ap.Namespace(refs=[name]))
+    now = load_car(base, i)
+    now["pull"] = car["pull"]
+    doc["sprite"] = sprite_cut_on(now)
+    return install(base, doc_path, doc, now)
+
+
+def kept_props(base, car):
+    """Where the props cut on the sprite's picture are kept: beside that variant, named by it — one a picture, so
+    another picture's lamps are never written over them."""
+    variant = base / car["variant"]
+    return variant.with_name(f"{variant.stem}.props.json")
+
+
 def install(base, doc_path, doc, car):
     """The props into the game: the car's zone map painted from them, a lens a side of each in its `lamps`, and the
     props file kept under raw_assets/ as what both were made from."""
@@ -1006,8 +1145,8 @@ def install(base, doc_path, doc, car):
 
     folder = base / VARIANTS / car["id"]
     described = folder / f"{car['id']}.json"
-    sprite_src = json.loads((folder / f"{car['id']}.src.json").read_text(encoding="utf-8"))["variant"]
-    raw = base / Path(sprite_src).parent / f"{car['id']}.props.json"
+    sprite_src = car["variant"]
+    raw = kept_props(base, car)
     shutil.copy(doc_path, raw)
     zones_name = f"{car['id']}_zones.png"
     Image.fromarray(zones, "RGBA").save(folder / zones_name)

@@ -1,1 +1,2 @@
-{"variant": "boxestate_blue-v1", "frame": "fleet100_b03-v1", "cell": 2, "pxPerM": 107.039, "score": 4, "status": "used", "ts": "2026-10-22T01:18:01"}
+{"variant": "boxestate_blue-v1", "frame": "fleet100_b03-v1", "cell": 2, "pxPerM": 107.039, "score": 4, "status": "candidate", "ts": "2026-10-22T01:18:01"}
+{"variant": "boxestate_blue-v3", "frame": "fleet100_b03-v1", "cell": 2, "pxPerM": 107.039, "score": 4, "lampsMirroredFrom": "boxestate_blue-v1", "props": "raw_assets/agents/car/variants/boxestate_blue/boxestate_blue-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:10"}

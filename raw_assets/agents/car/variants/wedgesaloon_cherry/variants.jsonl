@@ -1,1 +1,2 @@
-{"variant": "wedgesaloon_cherry-v1", "frame": "fleet100_b03-v1", "cell": 7, "pxPerM": 104.038, "score": 3, "status": "used", "ts": "2026-10-22T01:18:01"}
+{"variant": "wedgesaloon_cherry-v1", "frame": "fleet100_b03-v1", "cell": 7, "pxPerM": 104.038, "score": 3, "status": "candidate", "ts": "2026-10-22T01:18:01"}
+{"variant": "wedgesaloon_cherry-v3", "frame": "fleet100_b03-v1", "cell": 7, "pxPerM": 104.038, "score": 3, "lampsMirroredFrom": "wedgesaloon_cherry-v1", "props": "raw_assets/agents/car/variants/wedgesaloon_cherry/wedgesaloon_cherry-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:46"}

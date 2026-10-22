@@ -1,0 +1,27 @@
+{
+  "car": "hatch90s_black",
+  "sprite": {"variant": "raw_assets/agents/car/variants/hatch90s_black/hatch90s_black-v3.png", "sizePx": [398, 211]},
+  "axisY": {"rear": 104.00, "front": 104.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [26.82, 32.75, 2.13],
+      [20.09, 49.16, 1.19],
+      [24.04, 51.32, -0.04],
+      [45.05, 36.08, 0.13],
+      [55.11, 30.58, 1.06],
+      [53.67, 27.15, 0.03],
+      [38.21, 25.51, 1.35]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "mirrorDx": 1.0, "points": [
+      [344.37, 32.05, 0.94],
+      [372.41, 60.45, 0.29],
+      [378.36, 63.24, 1.42],
+      [382.29, 59.55, 0.49],
+      [378.85, 49.27, 6.69],
+      [345.37, 27.75, 1.51]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

@@ -1,1 +1,2 @@
-{"variant": "hatch90s_black-v1", "frame": "fleet100_b03-v2", "cell": 5, "pxPerM": 100.241, "score": 3, "status": "used", "ts": "2026-10-22T01:18:01"}
+{"variant": "hatch90s_black-v1", "frame": "fleet100_b03-v2", "cell": 5, "pxPerM": 100.241, "score": 3, "status": "candidate", "ts": "2026-10-22T01:18:01"}
+{"variant": "hatch90s_black-v3", "frame": "fleet100_b03-v2", "cell": 5, "pxPerM": 100.241, "score": 3, "lampsMirroredFrom": "hatch90s_black-v1", "props": "raw_assets/agents/car/variants/hatch90s_black/hatch90s_black-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:23"}

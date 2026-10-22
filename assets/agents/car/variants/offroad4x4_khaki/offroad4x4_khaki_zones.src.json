@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/offroad4x4_khaki/offroad4x4_khaki.props.json",
- "cutOn": "raw_assets/agents/car/variants/offroad4x4_khaki/offroad4x4_khaki-v1.png",
+ "variant": "raw_assets/agents/car/variants/offroad4x4_khaki/offroad4x4_khaki-v3.props.json",
+ "cutOn": "raw_assets/agents/car/variants/offroad4x4_khaki/offroad4x4_khaki-v3.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

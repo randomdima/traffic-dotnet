@@ -1,1 +1,2 @@
-{"variant": "minihatch_green-v1", "frame": "fleet100_b02-v2", "cell": 1, "pxPerM": 113.089, "score": 4, "status": "used", "ts": "2026-10-22T00:04:45"}
+{"variant": "minihatch_green-v1", "frame": "fleet100_b02-v2", "cell": 1, "pxPerM": 113.089, "score": 4, "status": "candidate", "ts": "2026-10-22T00:04:45"}
+{"variant": "minihatch_green-v3", "frame": "fleet100_b02-v2", "cell": 1, "pxPerM": 113.089, "score": 4, "lampsMirroredFrom": "minihatch_green-v1", "props": "raw_assets/agents/car/variants/minihatch_green/minihatch_green-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:28"}

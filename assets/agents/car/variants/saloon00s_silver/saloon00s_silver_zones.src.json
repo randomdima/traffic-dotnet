@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/saloon00s_silver/saloon00s_silver.props.json",
- "cutOn": "raw_assets/agents/car/variants/saloon00s_silver/saloon00s_silver-v1.png",
+ "variant": "raw_assets/agents/car/variants/saloon00s_silver/saloon00s_silver-v3.props.json",
+ "cutOn": "raw_assets/agents/car/variants/saloon00s_silver/saloon00s_silver-v3.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

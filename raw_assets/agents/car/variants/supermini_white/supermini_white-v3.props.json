@@ -1,0 +1,31 @@
+{
+  "car": "supermini_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/supermini_white/supermini_white-v3.png", "sizePx": [389, 207]},
+  "axisY": {"rear": 101.00, "front": 103.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [24.83, 32.20, 2.86],
+      [16.03, 55.69, 0.91],
+      [19.87, 55.63, -1.27],
+      [39.64, 29.46, 0.88],
+      [39.75, 26.49, 0.30],
+      [33.38, 25.95, 2.13]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "pull": "frame", "axisY": 102.15, "mirrorDx": 1.5, "points": [
+      [334.00, 24.77, 3.70],
+      [368.36, 59.39, 1.49],
+      [366.73, 46.53, 0.00],
+      [357.99, 33.56, 0.00],
+      [348.43, 28.11, 0.44]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "over": ["head"], "axisY": 103.0, "points": [
+      [338.84, 30.47, 0.12],
+      [340.16, 27.86, 0.81],
+      [343.72, 28.13, 0.00],
+      [344.30, 30.34, 1.36],
+      [340.19, 32.91, 0.00]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

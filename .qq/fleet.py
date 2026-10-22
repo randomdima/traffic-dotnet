@@ -16,6 +16,8 @@ drawing is which. No layout picture is sent: the brief says the grid, each car's
 car sheet is one base (BASE) and what its kind adds (NEW, or WRECKS with `--wrecks`), then the cars; the one picture
 sent is the style row (`qq sprites template --style=... --style-whole`) for new cars, the batch's own cars for wrecks.
 A re-roll's fault lines go at the top by hand.
+
+`status` lists each car of a batch against the steps to the fleet (STEPS) and names the first it is missing.
 """
 
 from __future__ import annotations
@@ -49,6 +51,8 @@ def main():
     rows = batch_rows(paths.resolve_in_root(a.plan, base), a.batch)
     if a.action == "brief":
         return brief(base, rows, a.frame, a.wrecks)
+    if a.action == "status":
+        return status(base, rows)
     for r in rows:
         folder = base / VARIANTS / r["id"]
         if folder.exists():
@@ -67,8 +71,9 @@ def parse_args():
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("action", choices=["scaffold", "brief"],
-                        help="scaffold: write the batch's variant files; brief: write its sheet's prompt and id list")
+    parser.add_argument("action", choices=["scaffold", "brief", "status"],
+                        help="scaffold: write the batch's variant files; brief: write its sheet's prompt and id list; "
+                             "status: where each car of the batch stands, and its next step")
     parser.add_argument("--plan", default=".tmp/gen/fleet_plan.md", help="the plan file, inside the project")
     parser.add_argument("--batch", type=cli.counting, default=1, metavar="INT", help="which `## batch <N>` section")
     parser.add_argument("--frame", type=frame_name, default=None,
@@ -180,6 +185,45 @@ def brief(base, rows, frame, wrecks):
     ids.write_text(json.dumps([r["id"] + ("_broken" if wrecks else "") for r in rows]) + "\n", encoding="utf-8")
     print(f"{out.relative_to(base)}\n{ids.relative_to(base)}: {len(rows)} {'wrecks' if wrecks else 'cars'} in a "
           f"{cols}x{rows_of} grid")
+    return 0
+
+
+#: The fleet the game drives, by its variant files' paths relative to it.
+FLEET = VARIANTS / "common" / "Fleet.json"
+#: A car's steps in the order they are done, each with what it takes (for `status`).
+STEPS = (("file", "`qq fleet scaffold`"), ("picture", "a sheet, `qq sprites cut`, `keep`, `use`"),
+         ("lamps", "`qq props seed` … `install` (an agent a car)"), ("mirrored", "`qq props mirror`"),
+         ("wreck", "`qq fleet brief --wrecks`, a sheet, `cut`, `keep`, `use <id>_broken-vN`"),
+         ("fleet", f"listed in {FLEET}, then `--lamps` and `qq proof`"))
+
+
+def status(base, rows):
+    """Each car of the batch: which of STEPS it has, and the first it has not — so nothing is skipped on the way to
+    the fleet (a car listed with no lamps is what `CarLampTests` refuses)."""
+    listed = {Path(v).parent.name for v in json.loads((base / FLEET).read_text(encoding="utf-8"))["variants"]}
+    print(f"{'id':<22} " + " ".join(f"{s:<8}" for s, _ in STEPS) + " next")
+    waiting = 0
+    for r in rows:
+        folder = base / VARIANTS / r["id"]
+        described = folder / f"{r['id']}.json"
+        d = json.loads(described.read_text(encoding="utf-8")) if described.is_file() else {}
+        source = folder / f"{r['id']}.src.json"
+        variant = json.loads(source.read_text(encoding="utf-8"))["variant"] if source.is_file() else None
+        record = {}
+        if variant:
+            listing = base / Path(variant).parent / "variants.jsonl"
+            stem = Path(variant).stem
+            record = next((json.loads(line) for line in listing.read_text(encoding="utf-8").splitlines()
+                           if line.strip() and json.loads(line)["variant"] == stem), {})
+        has = {"file": bool(d), "picture": bool(variant), "lamps": bool(d.get("lamps")),
+               "mirrored": "lampsMirroredFrom" in record,
+               "wreck": bool((d.get("wreck") or {}).get("sprite")) and (folder / d["wreck"]["sprite"]).is_file(),
+               "fleet": r["id"] in listed}
+        nxt = next(((s, how) for s, how in STEPS if not has[s]), None)
+        waiting += nxt is not None
+        print(f"{r['id']:<22} " + " ".join(f"{'yes' if has[s] else '-':<8}" for s, _ in STEPS)
+              + (f" {nxt[0]}: {nxt[1]}" if nxt else " done"))
+    print(f"{len(rows) - waiting} of {len(rows)} done")
     return 0
 
 

@@ -1,1 +1,2 @@
-{"variant": "golf3_red-v1", "frame": "fleet100_b02-v2", "cell": 4, "pxPerM": 112.687, "score": 3, "status": "used", "ts": "2026-10-22T00:04:45"}
+{"variant": "golf3_red-v1", "frame": "fleet100_b02-v2", "cell": 4, "pxPerM": 112.687, "score": 3, "status": "candidate", "ts": "2026-10-22T00:04:45"}
+{"variant": "golf3_red-v3", "frame": "fleet100_b02-v2", "cell": 4, "pxPerM": 112.687, "score": 3, "lampsMirroredFrom": "golf3_red-v1", "props": "raw_assets/agents/car/variants/golf3_red/golf3_red-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:21"}

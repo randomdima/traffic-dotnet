@@ -1,0 +1,27 @@
+{
+  "car": "smallsuv_yellow",
+  "sprite": {"variant": "raw_assets/agents/car/variants/smallsuv_yellow/smallsuv_yellow-v3.png", "sizePx": [404, 208]},
+  "axisY": {"rear": 102.50, "front": 104.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "mirrorDx": -1.0, "points": [
+      [28.44, 32.47, 1.08],
+      [20.08, 45.85, 0.41],
+      [20.50, 50.23, 0.81],
+      [23.33, 50.49, -2.04],
+      [54.49, 28.16, 0.76],
+      [55.33, 25.14, 0.84],
+      [40.06, 24.20, 2.12]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [349.43, 25.64, 0.64],
+      [348.25, 28.33, -0.68],
+      [381.59, 57.63, 1.03],
+      [384.47, 54.22, -0.07],
+      [382.38, 45.99, 1.16],
+      [375.62, 35.86, 4.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

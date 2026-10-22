@@ -9,7 +9,7 @@
   "massKg": 1100,
   "frontAxleM": 1.14,
   "rearAxleM": -1.34,
-  "trackM": 1.75,
+  "trackM": 1.749,
   "drivetrain": 1,
   "maxSteeringDeg": 34,
   "tyreFriction": 0.8,

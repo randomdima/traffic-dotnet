@@ -1,1 +1,2 @@
-{"variant": "saloon00s_green-v1", "frame": "fleet100_b03-v1", "cell": 9, "pxPerM": 103.302, "score": 3, "status": "used", "ts": "2026-10-22T01:18:01"}
+{"variant": "saloon00s_green-v1", "frame": "fleet100_b03-v1", "cell": 9, "pxPerM": 103.302, "score": 3, "status": "candidate", "ts": "2026-10-22T01:18:01"}
+{"variant": "saloon00s_green-v3", "frame": "fleet100_b03-v1", "cell": 9, "pxPerM": 103.302, "score": 3, "lampsMirroredFrom": "saloon00s_green-v1", "props": "raw_assets/agents/car/variants/saloon00s_green/saloon00s_green-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:32"}

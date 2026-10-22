@@ -1,1 +1,2 @@
-{"variant": "kombiold_red-v1", "frame": "fleet100_b03-v2", "cell": 4, "pxPerM": 101.932, "score": 3, "status": "used", "ts": "2026-10-22T01:18:01"}
+{"variant": "kombiold_red-v1", "frame": "fleet100_b03-v2", "cell": 4, "pxPerM": 101.932, "score": 3, "status": "candidate", "ts": "2026-10-22T01:18:01"}
+{"variant": "kombiold_red-v3", "frame": "fleet100_b03-v2", "cell": 4, "pxPerM": 101.932, "score": 3, "lampsMirroredFrom": "kombiold_red-v1", "props": "raw_assets/agents/car/variants/kombiold_red/kombiold_red-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:26"}

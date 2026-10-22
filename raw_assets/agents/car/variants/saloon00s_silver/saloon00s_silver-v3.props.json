@@ -1,0 +1,27 @@
+{
+  "car": "saloon00s_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/saloon00s_silver/saloon00s_silver-v3.png", "sizePx": [407, 204]},
+  "axisY": {"rear": 100.50, "front": 101.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "mirrorDx": 1.0, "points": [
+      [25.88, 30.77, 3.36],
+      [16.24, 58.73, 0.45],
+      [17.65, 61.02, 1.26],
+      [23.31, 58.13, -0.55],
+      [32.51, 38.29, 0.65],
+      [33.91, 30.57, 2.50]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "mirrorDx": 1.0, "pull": "frame", "points": [
+      [358.26, 25.79, 1.06],
+      [356.11, 28.58, 1.39],
+      [382.68, 55.24, 2.73],
+      [391.77, 55.06, 0.22],
+      [391.71, 52.79, 2.66],
+      [376.77, 30.86, 0.62],
+      [372.63, 28.93, 1.19]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

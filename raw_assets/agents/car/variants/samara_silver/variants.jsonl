@@ -1,1 +1,2 @@
-{"variant": "samara_silver-v1", "frame": "fleet100_b02-v2", "cell": 3, "pxPerM": 111.471, "score": 4, "status": "used", "ts": "2026-10-22T00:04:45"}
+{"variant": "samara_silver-v1", "frame": "fleet100_b02-v2", "cell": 3, "pxPerM": 111.471, "score": 4, "status": "candidate", "ts": "2026-10-22T00:04:45"}
+{"variant": "samara_silver-v3", "frame": "fleet100_b02-v2", "cell": 3, "pxPerM": 111.471, "score": 4, "lampsMirroredFrom": "samara_silver-v1", "props": "raw_assets/agents/car/variants/samara_silver/samara_silver-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:37"}

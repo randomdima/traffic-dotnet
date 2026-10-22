@@ -1294,6 +1294,8 @@ def drop(base, a):
                 r.pop("recutOf")
         (folder / VARIANTS).write_text("".join(json.dumps(r) + "\n" for r in records if r is not record), encoding="utf-8")
         (folder / f"{name}.png").unlink(missing_ok=True)
+        # The lamps cut on the picture (`qq props install`) go with it.
+        (folder / f"{name}.props.json").unlink(missing_ok=True)
         print(f"dropped {_sim.rel(base, folder / (name + '.png'))}")
     for gone in unkept_lineage(base):
         gone.unlink()
@@ -1428,6 +1430,9 @@ def use(base, a):
     (described.parent / now).write_bytes(data)
     if not is_wreck(d, i) and not zones and d.get("zones"):
         drop_lamps(base, described, d["zones"])
+    if not is_wreck(d, i) and (kept := variant.with_name(f"{name}.props.json")).is_file():
+        print(f"{_sim.rel(base, kept)}: lamps were cut on this picture — `qq props restore {i}` and "
+              f"`qq props install {i}` put them back")
     source = described.parent / f"{i}{SOURCE}"
     source.write_text(json.dumps({"variant": _sim.rel(base, variant), "pxPerM": round(density, 2),
                                   "encoding": f"{fmt} {how}"}, indent=1) + "\n", encoding="utf-8")
