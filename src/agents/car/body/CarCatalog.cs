@@ -324,6 +324,8 @@ internal sealed class CarCatalog
                 "beaconBlue" => CarLampFitting.BeaconBlue,
                 "beaconAmber" => CarLampFitting.BeaconAmber,
                 "head" => CarLampFitting.Head,
+                "brake" => CarLampFitting.Brake,
+                "reverse" => CarLampFitting.Reverse,
                 _ => throw new InvalidDataException($"{path}: names no lamp fitting '{file.Fitting}'."),
             };
 

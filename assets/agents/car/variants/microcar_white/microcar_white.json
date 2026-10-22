@@ -1,0 +1,19 @@
+{
+  "id": "microcar_white",
+  "sprite": "microcar_white.webp",
+  "wreck": { "sprite": "microcar_white_broken.webp" },
+  "describe": "modern two-seat city microcar, good condition, white with a contrasting black safety-cell frame round the cabin, a very short stubby nose, a big curved windscreen, one rear window, almost no boot, its flanks straight and full width from nose to tail, round-cornered headlamps, small tail lamps",
+  "footprintM": [2.700, 1.936],
+  "collisionM": { "sizeM": [2.700, 1.651], "cornerRadiusM": 0.499 },
+  "massKg": 900,
+  "frontAxleM": 0.88,
+  "rearAxleM": -0.99,
+  "trackM": 1.7,
+  "drivetrain": 0,
+  "maxSteeringDeg": 36,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.62,
+  "frontWeightShare": 0.4,
+  "handling": { "maxSpeed": 0.78, "acceleration": 0.9, "braking": 0.95 },
+  "lamps": []
+}

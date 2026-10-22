@@ -12,6 +12,8 @@ import types
 import _props_fit as fit
 
 OUTLINE = {"head": (70, 150, 255), "ind": (255, 170, 0), "brake": (255, 50, 110), "reverse": (0, 240, 240)}
+#: How opaque a prop's paint is with `--marks=fill`: enough to see what it covers, little enough to see the art.
+FILL_ALPHA = 0.47
 #: The part a view is about, under its outline: a colour no kind's outline and no lamp's lens has.
 FOCUS = (120, 255, 0)
 LIGHT = {"head": (255, 244, 225), "ind": (255, 140, 10), "brake": (255, 25, 15), "reverse": (235, 242, 255)}
@@ -179,8 +181,9 @@ def stretched(img, inside):
     return np.clip((img - lo) / np.maximum(hi - lo, 1e-3), 0, 1)
 
 
-def lit(car, doc, by_kind=None):
-    """The sprite at night with every prop burning in its lamp's colour, and its glow: RGB 0..1."""
+def lit(car, doc):
+    """The sprite at night with every prop burning in its lamp's colour, and its glow: RGB 0..1. A part burns on its
+    copy side only, so the authored side shows its main lamp whole, the size it fills its lens."""
     import numpy as np
 
     rgba = car["rgba"]
@@ -188,8 +191,17 @@ def lit(car, doc, by_kind=None):
     lum = rgba[..., :3] @ np.array(LUMA, np.float32)
     solid = (rgba[..., 3] > 0.5).astype(np.float32)
     glow = np.zeros_like(out)
-    # The biggest first, so an indicator drawn over its main lamp burns on top of it.
-    for kind, cov in sorted((by_kind or kind_coverage(car, doc)).items(), key=lambda kc: -kc[1].sum()):
+    shape = rgba.shape[:2]
+    rows = np.arange(shape[0])[:, None] + 0.5
+
+    def burning(p):
+        cov = fit.prop_coverage(doc, car, p, shape)
+        return cov * (rows >= fit.copy_at(doc, car, p)[0]) if "part" in p else cov
+
+    # Prop by prop, the biggest first, so a section or a part burns on top of the lamp it lies over. By kind, every
+    # end's indicators together would outweigh a head and burn under it.
+    props = [(p["kind"], burning(p)) for p in doc["props"]]
+    for kind, cov in sorted(props, key=lambda kc: -kc[1].sum()):
         cov = cov * solid
         if not (cov > 0.5).any():
             continue
@@ -208,7 +220,7 @@ def kind_coverage(car, doc):
     shape = car["rgba"].shape[:2]
     out = {}
     for p in doc["props"]:
-        out[p["kind"]] = np.maximum(out.get(p["kind"], 0), fit.coverage(fit.rings(doc, car, p), shape))
+        out[p["kind"]] = np.maximum(out.get(p["kind"], 0), fit.prop_coverage(doc, car, p, shape))
     return out
 
 
@@ -333,6 +345,8 @@ def panel(view, zoom, rgb, name, doc, car, props, focus, marks, grid):
     img = np.where(inside[..., None], rgb[np.clip(iy, 0, h - 1), np.clip(ix, 0, w - 1)], np.array(BEYOND, np.float32))
     if name in STRETCHED:
         img = stretched(img, inside)
+    if marks == "fill" and view.kind == "map":
+        img = painted(img, ix, iy, inside, doc, car, props)
     every = rule_steps(view, zoom)
     img = gridded(img, ruled, every, zoom, grid)
     area = Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8))
@@ -365,6 +379,23 @@ def panel(view, zoom, rgb, name, doc, car, props, focus, marks, grid):
     layer = layer.crop((MARGIN_LEFT_PX, MARGIN_TOP_PX, MARGIN_LEFT_PX + area.width, MARGIN_TOP_PX + area.height))
     im.paste(layer, (MARGIN_LEFT_PX, MARGIN_TOP_PX), layer)
     return np.asarray(im)
+
+
+def painted(img, ix, iy, inside, doc, car, props):
+    """The view with every lens's coverage painted in its outline's colour, see-through so the art under it reads: what
+    the game will light, texel by texel, which an outline only bounds. A part is left to its outline: it stands in
+    for a lens the art does not draw, and paint over its parent would hide whether the art draws one there."""
+    import numpy as np
+
+    h, w = car["rgba"].shape[:2]
+    cy, cx = np.clip(iy, 0, h - 1), np.clip(ix, 0, w - 1)
+    for p in props:
+        if "part" in p:
+            continue
+        cov = fit.prop_coverage(doc, car, p, (h, w))[cy, cx] * inside * FILL_ALPHA
+        colour = np.array(OUTLINE.get(p["kind"], (230, 230, 230)), np.float32) / 255
+        img = img * (1 - cov[..., None]) + colour * cov[..., None]
+    return img
 
 
 def rule_steps(view, zoom):
@@ -492,7 +523,7 @@ def map_marks(ink, view, zoom, doc, car, props, focus, marks, font):
             scr = to_screen(view, zoom, [q[:2] for q in pts])
             for sx, sy in scr:
                 ink.ellipse([sx - 2.5, sy - 2.5, sx + 2.5, sy + 2.5], fill=colour + (255,), outline=(0, 0, 0, 255))
-            if marks != "full" or not named:
+            if marks not in ("fill", "full") or not named:
                 continue
             s, placed = fit.winding(pts), []
             for i in range(len(pts)):
@@ -502,7 +533,7 @@ def map_marks(ink, view, zoom, doc, car, props, focus, marks, font):
                 mid, nrm = fit.on_edge(p0, p1, pts[i][2], s, [0.5])
                 placed.append(name_out(ink, placed, to_screen(view, zoom, mid)[0], turned(view, nrm[0]), f"e{i}",
                                        colour, font))
-        if marks == "full" and not named and len(rs) and len(rs[0]):
+        if marks in ("fill", "full") and not named and len(rs) and len(rs[0]):
             # Beside the prop rather than on it, so the name hides no lens.
             scr = to_screen(view, zoom, rs[0])
             label(ink, (scr[:, 0].max() + 4, scr[:, 1].min() - 4), p["name"], colour, font, anchor="ls")
@@ -543,7 +574,7 @@ def strip_marks(ink, view, zoom, doc, car, p, marks, font):
         x1, y1 = at(a, -STRIP_PX)
         for y in np.arange(y0, y1, 8):
             ink.line([(x0, y), (x0, min(y + 4, y1))], fill=(255, 255, 255, 200), width=1)
-    if marks != "full":
+    if marks not in ("fill", "full"):
         return
     like = fit.likeness(car, fit.rings(doc, car, p), fit.pull_of(car, p))
     t, offs, score = fit.rim_search(view.p0, view.p1, view.bow, view.s, like, None, view.reach)

@@ -1,0 +1,31 @@
+{
+  "id": "supermini_white",
+  "sprite": "supermini_white.webp",
+  "zones": "supermini_white_zones.png",
+  "wreck": { "sprite": "supermini_white_broken.webp" },
+  "describe": "modern five-door supermini hatchback, average condition, white, short sloping bonnet, rounded roof, steep hatchback tail, swept headlamps, tail lamps wrapping round the corners",
+  "footprintM": [4.050, 2.160],
+  "collisionM": { "sizeM": [4.050, 1.843], "cornerRadiusM": 0.661 },
+  "massKg": 1150,
+  "frontAxleM": 1.225,
+  "rearAxleM": -1.325,
+  "trackM": 1.922,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.84,
+  "cgHeightM": 0.55,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.9, "acceleration": 1, "braking": 1 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.733, -0.642], "sizeM": [0.26, 0.323] },
+    { "fitting": "brake", "atM": [-1.733, 0.59], "sizeM": [0.26, 0.323] },
+    { "fitting": "head", "atM": [1.64, -0.642], "sizeM": [0.354, 0.355] },
+    { "fitting": "head", "atM": [1.661, 0.61], "sizeM": [0.364, 0.344] },
+    { "fitting": "indicator", "atM": [1.536, -0.767], "sizeM": [0.052, 0.063] },
+    { "fitting": "indicator", "atM": [1.536, 0.757], "sizeM": [0.052, 0.063] },
+    { "fitting": "indicator", "atM": [-1.713, -0.725], "sizeM": [0.229, 0.157] },
+    { "fitting": "indicator", "atM": [-1.713, 0.673], "sizeM": [0.229, 0.157] },
+    { "fitting": "reverse", "atM": [-1.817, -0.537], "sizeM": [0.094, 0.115] },
+    { "fitting": "reverse", "atM": [-1.817, 0.485], "sizeM": [0.094, 0.115] }
+  ]
+}

@@ -33,10 +33,13 @@ internal enum CarLampSet : byte
 /// </summary>
 internal enum CarLampFitting : byte
 {
-    /// <summary>The rear cluster: red under the pedal, white in reverse gear.</summary>
+    /// <summary>
+    /// A rear cluster that is one lens: red under the pedal, white in reverse gear. A body whose art draws its
+    /// reversing lamp apart carries <see cref="Brake"/> and <see cref="Reverse"/> instead.
+    /// </summary>
     Rear,
 
-    /// <summary>A front corner lamp, which flashes on the side the car is about to turn or step across to.</summary>
+    /// <summary>A corner lamp, front or rear, which flashes on the side the car is about to turn or step across to.</summary>
     Indicator,
 
     /// <summary>One end of a beacon bar, red at rest. Lit, the bar's two ends swap colours (AMB-4).</summary>
@@ -58,6 +61,12 @@ internal enum CarLampFitting : byte
 
     /// <summary>A headlamp, which burns for as long as anything drives the car (CAR-14.8).</summary>
     Head,
+
+    /// <summary>A rear cluster's red section, lit under the pedal and nothing else (CAR-14.2).</summary>
+    Brake,
+
+    /// <summary>A rear cluster's clear section, lit in reverse gear whatever the pedal (CAR-14.3).</summary>
+    Reverse,
 }
 
 /// <summary>
@@ -128,7 +137,8 @@ internal static class CarLamps
 {
     /// <summary>
     /// The most lenses one variant may draw — a rear pair, a front pair, a beacon bar's two ends and a
-    /// second bar of four, which is the ambulance. The catalogue refuses a variant that draws more,
+    /// second bar of four, which is the ambulance; or a civilian car's whole set, headlamps, brake and
+    /// reversing lamps and an indicator at each corner. The catalogue refuses a variant that draws more,
     /// since the buffer a frame is laid for is this many a car.
     /// </summary>
     /// <remarks>
@@ -292,6 +302,8 @@ internal static class CarLamps
                 CarLampFitting.BeaconRed => (swapped ? CarLamp.BeaconBlue : CarLamp.BeaconRed, beaconOn),
                 CarLampFitting.BeaconBlue => (swapped ? CarLamp.BeaconRed : CarLamp.BeaconBlue, beaconOn),
                 CarLampFitting.Head => (CarLamp.Head, (showing & CarLampSet.Head) != 0),
+                CarLampFitting.Brake => (CarLamp.Brake, braking),
+                CarLampFitting.Reverse => (CarLamp.Reverse, (showing & CarLampSet.Reverse) != 0),
 
                 // An amber bar has no second colour to swap to, so its ends take the burn in turns: each
                 // one blinks between its own lit glass and its own dull glass, half a period apart.

@@ -1,0 +1,31 @@
+{
+  "id": "saloon00s_green",
+  "sprite": "saloon00s_green.webp",
+  "zones": "saloon00s_green_zones.png",
+  "wreck": { "sprite": "saloon00s_green_broken.webp" },
+  "describe": "2000s budget compact four-door saloon, worn: faded dark green paint, rust spots on the wheel arches, one rear door in a lighter green, rounded bonnet, rounded roof, short separate boot, oval headlamps, round-cornered tail lamps",
+  "footprintM": [4.240, 2.139],
+  "collisionM": { "sizeM": [4.240, 1.830], "cornerRadiusM": 0.649 },
+  "massKg": 1080,
+  "frontAxleM": 1.3,
+  "rearAxleM": -1.27,
+  "trackM": 1.909,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.78,
+  "cgHeightM": 0.56,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.78, "acceleration": 0.76, "braking": 0.85 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.86, -0.6], "sizeM": [0.188, 0.355] },
+    { "fitting": "brake", "atM": [-1.86, 0.558], "sizeM": [0.188, 0.355] },
+    { "fitting": "head", "atM": [1.776, -0.621], "sizeM": [0.375, 0.355] },
+    { "fitting": "head", "atM": [1.776, 0.59], "sizeM": [0.375, 0.355] },
+    { "fitting": "indicator", "atM": [1.755, -0.715], "sizeM": [0.333, 0.177] },
+    { "fitting": "indicator", "atM": [1.755, 0.683], "sizeM": [0.333, 0.177] },
+    { "fitting": "indicator", "atM": [-1.849, -0.694], "sizeM": [0.156, 0.177] },
+    { "fitting": "indicator", "atM": [-1.849, 0.642], "sizeM": [0.156, 0.177] },
+    { "fitting": "reverse", "atM": [-1.901, -0.485], "sizeM": [0.104, 0.125] },
+    { "fitting": "reverse", "atM": [-1.901, 0.443], "sizeM": [0.104, 0.125] }
+  ]
+}

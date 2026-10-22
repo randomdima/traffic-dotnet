@@ -16,17 +16,82 @@ background colour, no shadow, nothing half-transparent" in place of the magenta 
 share 0.56) with the indicator's touching it at the flank end (0.84), as CAR-14b reads a cluster. A headlamp
 frame out in the middle of the nose is drawn as bare bonnet (`cars_civil_b-v1`).
 
-**A wreck is asked from the finished cars**: the layout of `<id>_broken` outlines (no part frames) as image 1 and
-the installed cars, in the same order, as image 2 (`qq sprites template … --style=<the car ids>`).
+**A wreck is asked from the finished cars**, described like a body: the installed cars in order as the only image
+(`qq sprites template … --style=<the car ids>` makes it), the `_broken` ids as `--cells`, and a brief listing each
+wreck by its car (`.tmp/gen/briefs/fleet100_w01-v2.txt` is the pattern). `use` shrinks a wreck to its car's
+footprint and never writes its car's geometry.
 
-**A sheet's lamps are mapped by its zone map** (CAR-14a): image 1 the sheet the cars were cut from, alone, no mask,
-and this brief (the ask only; the record holds it whole). The colours are `qq sprites`' `ZONE_COLOURS`:
+**A car's lamps are cut, not generated** (CAR-14a, 2026-10-21): `qq props` outlines each lens on the sprite and
+`qq props install` paints the zone map from the outlines. No zone map is asked of the model any more; the sections
+below on zone maps and lit frames are what led there.
 
-> Make the same image as a zone map: keep every car exactly where it is, at exactly its size, outline and shape, and
-> repaint each part of it as one flat, solid colour… Bodywork pure white #FFFFFF; every window pure black #000000;
-> each tail lamp lens pure red #FF0000; each amber indicator lens pure yellow #FFFF00; each headlamp lens pure blue
-> #0000FF; each reversing lens pure green #00FF00; chrome trim mid grey #808080. Each lamp zone covers exactly the
-> lens drawn in the original…
+## fleet100 (2026-10-21) — the hundred-car fleet, batch by batch
+
+Sheets `fleet100_bNN` (bodies) and `fleet100_wNN` (their wrecks), both from `qq fleet brief` (`--wrecks`): one base
+for every car sheet — style, view, layout, shape, background — then what new cars or wrecks add, then the cars
+(2026-10-21, the owner: simpler, one base; batch 1's briefs were the longer form). Style picture from batch 2: the
+same three cars taken whole from their frame (`--style-whole`), mirrors not clipped.
+
+- **The ten smallest in a 4×3 came back chubby** (`fleet100_b01-v1`): 8 of 10 bodies 10–20 % wider than their class.
+  A whole re-roll opening with each car's measured width fault and "leave the extra room empty rather than filling it
+  with a wider car" fitted three more (v2); the round or old small bodies (`citymini_*`, `tavria_white`,
+  `rearengine_sky`) stayed 14–17 % wide in both, as round bodies have before, and were kept at score 3.
+- **Condition holds in the paint when the brief says so**: "condition shows in the paint only — faded colour, small
+  rust spots, a panel a slightly different shade; the body is whole" gave worn cars that read worn with whole outlines.
+- **Batch 2 on one 3×3 with the shorter base fitted 8 of 9 widths at once** (`fleet100_b02-v1`), against 2 of 10 on
+  batch 1's 4×3 — the cell's shape, not the wording, made batch 1 chubby.
+- **A rear indicator needs saying in the car's own line** (`fleet100_b02`): with the rear lamps as "three separate
+  lenses" in the general lines only, six of nine tails came back one red cluster with an orange core (v1); the boxy
+  old ones (Samara, UAZ, Zhiguli, whose describes say "split into red, amber and white sections") split. v2 named the
+  fault per car and gave each its own tail ("a separate amber indicator lens at the top and a white reversing lens"):
+  seven of nine then drew a visible amber lens, at the cost of two bodies 9–10 % wide. `qq fleet brief` now ends every
+  new car's line that way. No car has drawn a white reversing lens yet.
+- **A mask redo narrows a body but does not split its tail** (`fleet100_b03`): v1 split the four old Soviet tails
+  (their describes say "split into red, amber and white sections") and drew the five rounder cars one red cluster and
+  no front indicator, six of nine bodies 8–13 % wide. v2 redid those five cells under a mask, naming each width fault
+  and the lenses the kept cells draw: the van and the crossover came back narrower (+13 → +8 %, +11 → +6 %), the two
+  saloons wider (+8 → +12 %, +9 → +10 %), and every tail one red cluster again. Cells were kept from whichever attempt
+  drew them narrower; the lamp cut divides the clusters. "Wedge saloon" alone drew a three-box saloon like the
+  classic beside it (`wedgesaloon_cherry`, score 3).
+- **Halves mirror cleanly and come back fat** (`fleet100_b04_half-v1`, a trial, $0.018): batch 4 asked as each car's
+  upper half (`qq fleet brief --half`, the style row cut to halves with `--style-half`), mirrored whole by `cut`. All
+  nine kept the slice — a straight bottom edge over 99–100 % of the length, no outline along it — and mirrored they
+  read as whole cars with matched sides and lamps. The model shades each half 5–15 % darker over its last rows as if
+  the body rounded off there, and draws a thin line on some, which mirrored is a crease down the middle; `cut` drops 6
+  px off every half (4 left a line on a white roof). But the model drew every half about the same 105–110 px thick
+  whatever width was asked: with the 6 px gone, six of nine whole cars still 9–22 % wide (three in band). Front corners all split headlamp and amber indicator;
+  every tail still one red cluster with an orange core, a pale lens beside it towards the slice.
+- **Halves given up, and a whole car mirrored at the cut too** (the owner, 2026-10-22: symmetry of the whole car is
+  not viable; the original pictures are kept). Tried on batches 1 and 4: each drawing split at its long centre line
+  and the upper half mirrored (`.tmp/proof/b01_after_beside.gif`, batch 1 before and after). The model draws every
+  car a little from below its centre line — on `fleet100_b01`–`b04` the lower flank's doors and side windows show —
+  and the line a drawing's roof, window and bonnet edges mirror about best sits 3 to 15 px above the middle of its
+  outline: the 8–13 % width fault every whole sheet has had is that flank, the view and not the brief. Mirrored about
+  that line the widths came within 8 % of the plan on 8 of 9 a sheet, but the strongly side-on drawings came out up to
+  12 % narrow, and a mirrored car reads as a different drawing of the car.
+- **No wording holds a half's height; it is the roll** (2026-10-22, ten trial frames of batch 4, $0.19, compared on
+  `cut`'s `_cuts.png` and `_ends.png`). The model draws every half 445–465 px long, filling its cell, and as tall as
+  that roll happens to: the mean half height ran 95–118 px a frame against 83–97 asked. **S**, the style row swapped
+  for three narrow cars with split tails (`samara_silver`, `boxsaloon_beige`, `classic_red`, `--style-half`): +24 %
+  mean, tails in segments; a thin example does not draw thin halves. **P**, the old row with a scale and each half's
+  size in pixels and "a long thin strip": 5 of 9 in band, every cabin a glass cutaway. **C**, S with the pixel sizes
+  only: +10 %. **D**, S opening on the height fault ("halves come back 15–30 % too tall … do not round the height
+  up"): 7 of 9 in band — but **E**, **F** (twice), **G** and **H**, all opening the same way, fitted 0, 6, 1, 1 and 0.
+  **T**, a flat grey silhouette of each half at its size as image 1, "paint each car into its shape": ignored, size
+  and place, +24 %; a layout is ignored filled as it is outlined. What the wording buys is a few per cent on the mean;
+  a batch's widths are had by keeping each car from whichever roll drew it in band.
+- **The rear indicator splits off when it is put in the bumper** (same trials). Named as its own framed amber lens
+  beside the red — in an opening paragraph (E), and again in every car's line (F) — it stayed an orange core in the
+  red; F's per-car line did bring the white reversing lens on 6 of 9 and the front amber on 8 of 9. Asked as "not part
+  of the tail lamp at all … a small yellow lens of its own set into the rear bumper … lemon yellow, never orange"
+  (G), all nine drew it apart — at the slice, so mirrored the two met as one lens in the middle. "Near the outer
+  corner, closer to the flank than the slice … an indicator at the slice would merge with its twin" (H): red, yellow
+  and white separate on all nine, the yellow still nearer the middle than the corner, and four fronts lost their
+  amber. `qq fleet brief --half` opens on the height and on H's lamps, and ends each car's line with H's corners.
+- **A clear layout is ignored** (`fleet100_w01-v1`, a template laid on transparent, since taken out): outlines in pale grey on transparent
+  did not hold the model, which drew its own three-column grid at its own scale. **Wrecks asked described** —
+  the intact cars as the only image, `--cells` with the `_broken` ids, cut by order like the bodies — came back all ten
+  in order (v2), the damage milder than the layout attempt drew.
 
 ## cars_fleet_a_lit (2026-10-20) — the lit state as an edit of the sheet, a trial, $0.018
 
@@ -140,10 +205,25 @@ sprite's own texels burning in the lamp's colour by their lightness, and its glo
   outboard half of its main lamp, and a missing reversing lens the inboard third of the tail, overlapping both (the
   owner). On red paint only a lens the lines close off counts; where they do not, the tail is short (`supermini_red`).
   The model's map always knows which lamp is which; it never knows the lens edge, so the tool's map is the one.
-- **Cut as shapes by an agent** (`qq props`): blobs from either map are not a lamp's outline. A lens is a few arcs and
-  near convex, so a prop is a mirrored arc polygon with rounded corners, put on by eye, snapped to the rim the
-  placement's own colours imply, and looked at again; a missing indicator or reverse is a part of its main lamp
-  (`"part"`), not a shape of its own. Four agents cut seven cars from the tool's help alone, 3–7 looks a car. The art
+- **Cut by an agent** (`qq props`): blobs from either map are not a lamp's outline. A prop is a mirrored arc polygon
+  with rounded corners, put on by eye and snapped to the rim the placement's own colours imply. A missing indicator
+  or reverse is a part of its main lamp (`"part"`), not a shape of its own. Four agents cut seven cars from the tool's
+  help alone, 3–7 looks a car. Marking the lens's texels instead (`qq props-px`) was tried three ways on the same
+  cars and then, each way in a root of its own holding only its tool and three cars none had cut, side by side:
+  from a text grid alone, the lit heads came out smaller and a car cost 267–354 s and 92–107k tokens; with each
+  marked texel painted on the picture, as good as the polygons lit, at 245–272 s and 86–91k; the polygons took
+  133–200 s and 62–78k, and are smooth by construction where a texel outline wobbles row to row. So the polygons
+  stay, with the pixel loop's paint, seed and lit picture taken into them. Most of what those polygon runs spent
+  went on correcting points typed off the rulers by eye, so seed now lays a first outline of each lens traced off
+  the art (its colour patch, a pale one's glass, both sides averaged); on the same three cars, in a root of its own,
+  a car then took 90–112 s, 58–59k tokens and 14–17 calls against 21–27. The trace is a probe to start from, not
+  the cut: it reads colour classes and misreads highlights, glass and sections, so the agent still checks every
+  outline against the art on both sides and corrects it, and owns the result. The trace fitted its arcs to the
+  contour as sharp corners, so a rounded corner took two vertices and a texel's step in a frame a third, and snap
+  only ever moves vertices: `fleetsaloon_white`'s brake came out 11 points with a kink on a straight run, which an
+  agent passed because every figure it read was on the rim. A looser tangent for taking a vertex out (20° against
+  8°) and a cap of 8 points left 376 points over the sixteen cars' 58 props against 532, with as many over half a
+  texel after a snap (8); the report names a spare vertex (`SPARE`), and that brake settles at 5. The art
   is lopsided by 0.5–3 texels side to side on most of them, along x as well as y, so one axis an end leaves a copy a
   texel or two off; a prop takes its own `axisY` and `mirrorDx`. The cars' `lamps` rectangles are nowhere near the
   lenses on any of the eight and serve only as names. Against the thirteen indicators that have a lens of their own,
@@ -207,6 +287,9 @@ The same nine (batch 2) asked twice from `qq fleet brief`: `cars_fleet_b_bare-v1
   style is chunkier than batch 1's and two drew tyres.
 - **Transparent output is a soft matte**: bodies at alpha ~253, never 255, and a faint glow of each car's own
   colours round it at alpha under ~100. `cut` makes the body solid and keeps only a two-pixel rim over alpha 64.
+  The glow's colour is also left in the RGB of pixels at alpha 0 (half a million a frame), which a viewer that ignores
+  alpha shows as haze and flares; "no glow or halo" in the brief does not stop it. remotegen clears every pixel under
+  alpha 16 to transparent black as it saves a frame (`clear_hidden`, 2026-10-22).
 
 ## cars_fleet_a (2026-10-20) — the real-class fleet's first nine, full lamp set, $0.17
 

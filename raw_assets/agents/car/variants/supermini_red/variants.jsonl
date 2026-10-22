@@ -1,0 +1,2 @@
+{"variant": "supermini_red-v1", "frame": "cars_fleet_a-v3", "cell": 2, "box": [576, 78, 385, 184], "pxPerM": 95.082, "score": 3, "status": "candidate", "ts": "2026-10-20T15:27:28"}
+{"variant": "supermini_red-v2", "frame": "fleet100_b02-v2", "cell": 6, "pxPerM": 110.864, "score": 4, "status": "used", "ts": "2026-10-22T00:04:45"}

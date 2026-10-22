@@ -1,0 +1,19 @@
+{
+  "id": "citycar_lime",
+  "sprite": "citycar_lime.webp",
+  "wreck": { "sprite": "citycar_lime_broken.webp" },
+  "describe": "modern five-door city car, good condition, lime green, short rounded bonnet, tall roof with one long glass area, short hatchback tail, slim headlamps swept back into the front wings, tall tail lamps",
+  "footprintM": [3.600, 2.033],
+  "collisionM": { "sizeM": [3.600, 1.722], "cornerRadiusM": 0.622 },
+  "massKg": 940,
+  "frontAxleM": 1.1,
+  "rearAxleM": -1.28,
+  "trackM": 1.804,
+  "drivetrain": 1,
+  "maxSteeringDeg": 34,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.56,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.85, "acceleration": 0.95, "braking": 0.95 },
+  "lamps": []
+}

@@ -67,7 +67,7 @@ internal static class Program
         if (options.Lamps) return CutTheLamps();
         if (options.Proof is not null)
         {
-            Console.WriteLine($"{options.Proof} written — {LampProof.Write(options.Proof, config)} frames");
+            Console.WriteLine($"{options.Proof} written — {LampProof.Write(options.Proof, config, glow: !options.NoGlow)} frames");
             return 0;
         }
 
@@ -671,7 +671,7 @@ internal static class Program
         bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
         string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
         bool BotWaits, string? Author, bool ManagedWorld, string? Mend = null, string? Park = null,
-        string? Fleet = null, string? Proof = null)
+        string? Fleet = null, string? Proof = null, bool NoGlow = false)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: a small town laid from a
@@ -922,6 +922,10 @@ internal static class Program
                         options = options with { Proof = args[i + 1] };
                         i++;
                         break;
+                    // A proof's lit lenses alone, the light round them left out, to judge the lens the zone map cut.
+                    case "--no-glow":
+                        options = options with { NoGlow = true };
+                        break;
                     case "--title" when i + 1 < args.Length:
                         options = options with { Title = args[i + 1], Caption = true };
                         i++;
@@ -939,7 +943,7 @@ internal static class Program
                                                     "--windowed, --display NAME|N, --managed-world,--seconds N, --validate, --check, " +
                                                     "--bench NAME|all, --lamps, --drive FILE|-, --live, " +
                                                     "--frames DIR, --frame-width PX, --out FILE.md, --author BRIEF|all, " +
-                                                    "--fleet ID,ID,..., --proof FILE.gif");
+                                                    "--fleet ID,ID,..., --proof FILE.gif, --no-glow");
                 }
             }
 

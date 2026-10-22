@@ -1,0 +1,27 @@
+{
+  "car": "citymini_yellow",
+  "sprite": {"variant": "raw_assets/agents/car/variants/citymini_yellow/citymini_yellow-v2.png", "sizePx": [336, 181]},
+  "axisY": {"rear": 90.50, "front": 90.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [15.06, 35.69, 0.05],
+      [12.99, 46.46, 1.28],
+      [16.22, 46.83, 0.03],
+      [29.70, 30.19, 0.12],
+      [31.91, 28.18, 1.73],
+      [27.22, 23.37, 2.60]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [285.79, 25.80, 0.51],
+      [286.08, 27.31, 0.38],
+      [310.50, 51.20, 0.06],
+      [312.58, 52.77, 1.20],
+      [315.62, 50.07, -0.35],
+      [312.96, 42.11, 1.62],
+      [303.57, 30.40, 1.46]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

@@ -182,7 +182,7 @@ public class LampSpriteTests
     [Fact]
     public void AHeadlampBurnsItsLensAndLaysNoGlow()
     {
-        var variant = Array.FindIndex(Catalogue.Variants, look => look.Id == "hatch_coral");
+        var variant = FirstWithHeadlamps();
         var fleet = Lit(variant);
         var drawn = Drawn(fleet, fleet.PositionM[0], out var written);
 
@@ -200,6 +200,20 @@ public class LampSpriteTests
         }
 
         Assert.Equal(2, heads);
+    }
+
+    /// <summary>The first look of the fleet drawing a headlamp, whichever the shipped fleet holds.</summary>
+    static int FirstWithHeadlamps()
+    {
+        for (var variant = 0; variant < Catalogue.SheetCount; variant++)
+        {
+            foreach (var lens in Catalogue.LensesOf(variant))
+            {
+                if (lens.Fitting == CarLampFitting.Head) return variant;
+            }
+        }
+
+        throw new InvalidOperationException("no look in the fleet draws a headlamp");
     }
 
     /// <summary>A quad standing on this spot of the town, turned the way the car is.</summary>

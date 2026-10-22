@@ -1,0 +1,44 @@
+{
+  "car": "minihatch_green",
+  "sprite": {"variant": "raw_assets/agents/car/variants/minihatch_green/minihatch_green-v1.png", "sizePx": [367, 199]},
+  "axisY": {"rear": 99.00, "front": 98.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "mirrorDx": -1.0, "points": [
+      [21.45, 34.16, 1.87],
+      [13.44, 56.23, 0.64],
+      [15.81, 59.73, 1.88],
+      [23.97, 56.13, -0.85],
+      [37.43, 32.33, 1.70],
+      [35.01, 29.24, 1.57]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [323.80, 29.71, 0.04],
+      [325.06, 33.70, 0.86],
+      [342.22, 53.11, 2.17],
+      [350.91, 50.21, 0.34],
+      [348.62, 36.98, 0.00],
+      [341.92, 30.47, 0.00],
+      [333.79, 29.32, -0.65]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": false, "points": [
+      [320.73, 27.75, 3.07],
+      [332.35, 25.08, 0.54],
+      [329.74, 24.03, 0.00],
+      [324.72, 23.93, 0.87]
+    ]},
+    {"name": "ind_front_copy", "kind": "ind", "mirror": false, "points": [
+      [324.29, 168.37, 0.00],
+      [338.27, 167.90, 0.74],
+      [336.45, 171.89, 0.00],
+      [327.63, 175.43, 3.70]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "hold": [1], "mirrorDx": -1.0, "points": [
+      [21.41, 34.76, -0.59],
+      [14.81, 48.00, 0.00],
+      [27.57, 48.00, 0.08],
+      [36.89, 33.05, 0.57],
+      [37.75, 28.88, 2.46]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

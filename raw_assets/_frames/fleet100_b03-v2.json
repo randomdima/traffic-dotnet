@@ -1,0 +1,62 @@
+{
+ "id": "fleet100_b03-v2",
+ "ts": "2026-10-22T01:17:37",
+ "op": "edit",
+ "name": "fleet100_b03",
+ "file": ".tmp/gen/frames/fleet100_b03-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.021103,
+ "usage": {
+  "prompt_tokens": 2351,
+  "completion_tokens": 158,
+  "total_tokens": 2509,
+  "cost": 0.021103,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.021103,
+   "upstream_inference_prompt_cost": 0.016363,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Image 1 is a finished sprite sheet of 9 top-down cars for a 2D city game, in a 3×3 grid, nose to the right. Redraw only the five cars named below, each in its own place, as the same kind of car in the same colour; leave everything else exactly as it is.\n\nStyle: match the four cars kept in image 1 (top row, and the middle of the bottom row) exactly — outline weight, shading, highlights, level of detail, pixel size, scale. Straight down from above, no side of the body showing, no shadow. Fully transparent round each car, its edge sharp. Roof on, no tyres or wheels, no text, logos or plates. Two small side mirrors just ahead of the windscreen. Mirror-symmetric about the long centre line.\n\nWhat was wrong, to fix in each:\n- Too wide: draw each car at the width listed, as narrow as that is, with straight flanks; leave spare room in its place empty.\n- Rear lamps drawn as one red cluster: each rear corner must show three separate small lenses side by side, each in its own thin dark frame — red tail and brake lamp outermost, a clearly amber-yellow indicator next (the same amber as the kept cars' indicators, plainly not red or orange-red), a small white reversing lamp innermost — as the four kept cars in image 1 draw them.\n- No front indicator: each front corner must show a headlamp and, beside it at the outer corner, a separate small amber indicator lens.\n- Lamps switched off: unlit glass, no glow.\n\nThe five cars, body length × width without mirrors:\n- Middle row, left: 4.14 × 1.72 m (2.41× longer than wide) — 2000s small leisure van, worn: faded red paint, scuffed black bumpers, short sloping bonnet, a tall boxy body with a flat high roof that is as wide as the bonnet, big square tailgate, roof bars, tall headlamps, tall narrow tail lamps. It was drawn about 13% too wide and looked like an estate car: draw it narrow and boxy, a small van.\n- Middle row, centre: 4.15 × 1.73 m (2.40× longer than wide) — late-1990s German five-door compact hatchback, average condition, black with a few scuffs, rounded level bonnet, long arched roof, upright hatch with wide pillars, smooth teardrop headlamps, round-cornered tail lamps. It was drawn about 10% too wide.\n- Middle row, right: 4.21 × 1.80 m (2.34× longer than wide) — modern small coupe-like crossover, good condition, bright yellow with a black roof, bulging wheel arches with black trim, short high bonnet, sloping roof, small round-edged headlamps on top of the wings, boomerang tail lamps. It was drawn about 11% too wide.\n- Bottom row, centre: 4.24 × 1.68 m (2.52× longer than wide) — 2000s budget compact four-door saloon, average condition, silver, rounded bonnet, rounded roof, short separate boot, oval headlamps, round-cornered tail lamps. It was drawn about 8% too wide.\n- Bottom row, right: 4.24 × 1.68 m (2.52× longer than wide) — 2000s budget compact four-door saloon, worn: faded dark green paint, rust spots on the wheel arches, one rear door in a lighter green, rounded bonnet, rounded roof, short separate boot, oval headlamps, round-cornered tail lamps. It was drawn about 9% too wide.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "73403ea84561ee16",
+   "ext": "png",
+   "frame": "fleet100_b03-v1",
+   "was": ".tmp/gen/frames/fleet100_b03-v1.png"
+  },
+  {
+   "role": "mask",
+   "sha": "568847ad618f6c54",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/fleet100_b03-v1/_mask_kombiold_red-whole_hatch90s_black-whole_smallsuv_yellow-whole_saloon00s_silver-whole_saloon00s_green-whole.png"
+  }
+ ],
+ "cells": [
+  "classic_red",
+  "boxestate_blue",
+  "boxsaloon_beige",
+  "kombiold_red",
+  "hatch90s_black",
+  "smallsuv_yellow",
+  "wedgesaloon_cherry",
+  "saloon00s_silver",
+  "saloon00s_green"
+ ]
+}

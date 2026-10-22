@@ -10,6 +10,8 @@ step with the rest is the asset to look at.
     qq proof                                   every generated look (one with a `.src.json` beside its sprite)
     qq proof --looks=hatch_coral,micro_mint    just those
     qq proof --looks=all                       the whole fleet as Fleet.json lists it
+    qq proof --looks=... --out=.tmp/proof/after.gif --beside=.tmp/proof/before.gif
+                                               the same looks before and after a change to their art, side by side
 """
 
 import argparse
@@ -51,6 +53,12 @@ def main():
         return cli.fail(text.splitlines()[-1] if text else "the proof failed with no output")
 
     print(text.splitlines()[-1])
+    if a.beside:
+        earlier = paths.resolve_in_root(a.beside, base)
+        if not earlier.is_file():
+            cli.fail(f"no earlier proof {_sim.rel(base, earlier)} to lay beside this one")
+        pair = beside(earlier, out)
+        print(f"{_sim.rel(base, pair)}: {_sim.rel(base, earlier)} left, this proof right, frame by frame")
     if a.frames:
         folder, count = write_frames(out)
         print(f"{_sim.rel(base, folder)}: {count} frames")
@@ -93,7 +101,41 @@ def parse_args():
                         help="draw the lit lenses alone, without the light spilling round them")
     parser.add_argument("--frames", action="store_true",
                         help="also write each frame as a PNG, beside the GIF in <stem>_frames/, to be read one by one")
+    parser.add_argument("--beside", default="",
+                        help="an earlier proof GIF of the same looks, laid left of this one frame by frame in "
+                             "<stem>_beside.gif: a change to their art, before and after")
     return parser.parse_args()
+
+
+#: The strip over each half of a `--beside` GIF that names it.
+LABEL_PX, LABEL_FONT_PX, LABEL_BACK, LABEL_INK = 36, 26, (20, 20, 20), (240, 200, 60)
+
+
+def beside(earlier, later):
+    """The two proofs side by side, `earlier` left and `later` right, each under a label, frame for frame at the later's
+    timing: `<later stem>_beside.gif`. Fails where their frame counts differ — not the same looks or states."""
+    from PIL import Image, ImageDraw, ImageFont, ImageSequence
+
+    font = ImageFont.load_default(size=LABEL_FONT_PX)
+    with Image.open(earlier) as a, Image.open(later) as b:
+        left = [f.convert("RGB") for f in ImageSequence.Iterator(a)]
+        right = [f.convert("RGB") for f in ImageSequence.Iterator(b)]
+        timing = [f.info.get("duration", 500) for f in ImageSequence.Iterator(b)]
+    if len(left) != len(right):
+        cli.fail(f"{earlier.name} has {len(left)} frames and {later.name} {len(right)}: not the same looks and states")
+    w, h = left[0].width + right[0].width, max(left[0].height, right[0].height) + LABEL_PX
+    frames = []
+    for l, r in zip(left, right):
+        frame = Image.new("RGB", (w, h), LABEL_BACK)
+        frame.paste(l, (0, LABEL_PX))
+        frame.paste(r, (l.width, LABEL_PX))
+        draw = ImageDraw.Draw(frame)
+        draw.text((8, 4), f"BEFORE  {earlier.stem}", fill=LABEL_INK, font=font)
+        draw.text((l.width + 8, 4), f"AFTER  {later.stem}", fill=LABEL_INK, font=font)
+        frames.append(frame)
+    out = later.with_name(f"{later.stem}_beside.gif")
+    frames[0].save(out, save_all=True, append_images=frames[1:], duration=timing, loop=0)
+    return out
 
 
 def write_frames(gif):

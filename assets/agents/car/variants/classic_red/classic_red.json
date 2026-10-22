@@ -1,0 +1,31 @@
+{
+  "id": "classic_red",
+  "sprite": "classic_red.webp",
+  "zones": "classic_red_zones.png",
+  "wreck": { "sprite": "classic_red_broken.webp" },
+  "describe": "1970s Soviet compact four-door saloon, worn: faded brick red paint, rust spots on the sills and boot lid, one wing in primer grey, long flat bonnet, upright three-box roof, separate flat boot, thin chrome bumpers, two round headlamps each side, vertical tail lamps split into red, amber and white sections",
+  "footprintM": [4.070, 1.996],
+  "collisionM": { "sizeM": [4.070, 1.688], "cornerRadiusM": 0.424 },
+  "massKg": 1035,
+  "frontAxleM": 1.285,
+  "rearAxleM": -1.085,
+  "trackM": 1.757,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.74,
+  "cgHeightM": 0.58,
+  "frontWeightShare": 0.53,
+  "handling": { "maxSpeed": 0.68, "acceleration": 0.65, "braking": 0.78 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.827, -0.582], "sizeM": [0.167, 0.333] },
+    { "fitting": "brake", "atM": [-1.827, 0.53], "sizeM": [0.167, 0.333] },
+    { "fitting": "head", "atM": [1.848, -0.561], "sizeM": [0.083, 0.218] },
+    { "fitting": "head", "atM": [1.858, 0.52], "sizeM": [0.083, 0.218] },
+    { "fitting": "indicator", "atM": [1.764, -0.707], "sizeM": [0.125, 0.104] },
+    { "fitting": "indicator", "atM": [1.775, 0.665], "sizeM": [0.125, 0.104] },
+    { "fitting": "indicator", "atM": [-1.848, -0.603], "sizeM": [0.073, 0.114] },
+    { "fitting": "indicator", "atM": [-1.868, 0.541], "sizeM": [0.073, 0.114] },
+    { "fitting": "reverse", "atM": [-1.868, -0.478], "sizeM": [0.094, 0.114] },
+    { "fitting": "reverse", "atM": [-1.868, 0.416], "sizeM": [0.094, 0.114] }
+  ]
+}

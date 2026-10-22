@@ -19,6 +19,8 @@ const uint FittingIndicator = 1u;
 const uint FittingBeaconRed = 2u;
 const uint FittingBeaconBlue = 3u;
 const uint FittingHead = 5u;
+const uint FittingBrake = 6u;
+const uint FittingReverse = 7u;
 
 // CarLamp, by number.
 const uint LampIndicator = 0u;
@@ -102,6 +104,18 @@ uint lampsLensColour(CarLampMoment moment, uint fitting, vec2 atBodyM, out bool 
     {
         lit = (moment.showing & LampHead) != 0u;
         return LampHeadWhite;
+    }
+
+    if (fitting == FittingBrake)
+    {
+        lit = moment.braking;
+        return LampBrakeRed;
+    }
+
+    if (fitting == FittingReverse)
+    {
+        lit = (moment.showing & LampReverse) != 0u;
+        return LampReverseWhite;
     }
 
     lit = moment.amberOn && moment.firstHalf != onTheRight;

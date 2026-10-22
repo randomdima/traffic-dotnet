@@ -4,14 +4,18 @@ Write civilian car variant files from a fleet plan, and the brief a batch's shee
 A plan is a markdown file of `## batch <N>` sections, each one table whose columns are the class figures a car is
 planned from (length and width without mirrors, overhangs from bumper to wheel centre, mass, drive and the rest).
 
-`scaffold` turns one batch's rows into `assets/agents/car/variants/<id>/<id>.json` and refuses an id already on disk,
-so it never overwrites a car. Its footprint, collision box and track are the plan's, and stand only until the car's
-picture is installed: what the generator drew is the car's geometry (the owner, 2026-10-20), and `qq sprites use`
-writes the measured figures over these. It lays no lamps: installing the car's zone map writes them.
+`scaffold` turns one batch's rows into `assets/agents/car/variants/<id>/<id>.json`. Its footprint, collision box and
+track are the plan's, and stand only until the car's picture is installed: what the generator drew is the car's
+geometry (the owner, 2026-10-20), and `qq sprites use` writes the measured figures over these. It lays no lamps:
+installing the car's zone map writes them. A car already on disk keeps its picture, what was measured off it and its
+lamps; only what the plan authors (AUTHORED) is written over, so the plan stays the one source of those figures.
 
 `brief` writes the sheet's prompt, `.tmp/gen/briefs/<frame>.txt`, and the ids it draws in order,
 `<frame>.cells.json`, which remotegen keeps in the frame's record (`--cells`) so `qq sprites cut` can tell which
-drawing is which. No layout picture is sent: the brief says the grid, each car's size and proportion in words.
+drawing is which. No layout picture is sent: the brief says the grid, each car's size and proportion in words. Every
+car sheet is one base (BASE) and what its kind adds (NEW, or WRECKS with `--wrecks`), then the cars; the one picture
+sent is the style row (`qq sprites template --style=... --style-whole`) for new cars, the batch's own cars for wrecks.
+A re-roll's fault lines go at the top by hand.
 """
 
 from __future__ import annotations
@@ -39,18 +43,17 @@ CORNERS = ((0.25, "nearly square corners"), (0.4, "gently rounded corners"), (0.
 ROW = re.compile(r"^\|(.+)\|\s*$")
 FRAME = re.compile(r"^[a-z0-9_]+$")
 
-
 def main():
     a = parse_args()
     base = paths.project_root()
     rows = batch_rows(paths.resolve_in_root(a.plan, base), a.batch)
     if a.action == "brief":
-        return brief(base, rows, a.frame, a.style)
-    taken = [r["id"] for r in rows if (base / VARIANTS / r["id"]).exists()]
-    if taken:
-        cli.fail(f"already on disk, not overwritten: {', '.join(taken)}")
+        return brief(base, rows, a.frame, a.wrecks)
     for r in rows:
         folder = base / VARIANTS / r["id"]
+        if folder.exists():
+            print(f"{VARIANTS / r['id']}: on disk, {refresh(folder / (r['id'] + '.json'), r)}")
+            continue
         folder.mkdir(parents=True)
         (folder / f"{r['id']}.json").write_text(variant_text(r), encoding="utf-8")
         print(f"{VARIANTS / r['id'] / (r['id'] + '.json')}")
@@ -70,8 +73,8 @@ def parse_args():
     parser.add_argument("--batch", type=cli.counting, default=1, metavar="INT", help="which `## batch <N>` section")
     parser.add_argument("--frame", type=frame_name, default=None,
                         help="brief: the sheet's name, as remotegen's --name (lowercase, digits, underscores)")
-    parser.add_argument("--style", action="store_true",
-                        help="brief: a style picture is sent as image 1, and the brief says to match it")
+    parser.add_argument("--wrecks", action="store_true",
+                        help="brief: the batch's wrecks, drawn from its installed cars, ids <car>_broken")
     return parser.parse_args()
 
 
@@ -111,83 +114,169 @@ def batch_rows(plan: Path, batch: int):
     return rows
 
 
-def brief(base, rows, frame, style):
-    """The sheet's prompt and its id list, beside each other under BRIEFS."""
+#: Every car sheet's prompt opens with this, bodies and wrecks alike: the style, the view, the layout, the shape and the
+#: background. {n} cars, {cols}×{rows} grid.
+BASE = """\
+One image: a sprite sheet of {n} cars for a 2D top-down city game.
+
+Style: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.
+
+View: straight down from above, orthographic. No perspective, no side of the body showing, no ground, no shadow.
+
+Layout: a {cols}×{rows} grid, the cars in the order listed, left to right and top to bottom. Each car lies \
+horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.
+
+Every car:
+- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room \
+empty rather than draw a car wider.
+- Mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen.
+- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.
+
+Background: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply."""
+
+#: What a sheet of new cars adds: the lamps, which the lamp cut (`qq props`) finds by the dark rim drawn round each.
+NEW = """\
+The cars in the picture only show the style: draw the cars listed, in their own colours.
+- Lamps switched off (unlit glass, no glow). Front corner: a headlamp and, beside it, a separate amber indicator. \
+Rear corner: three separate small lenses side by side, each in its own thin dark frame, as distinct as the front's — \
+red tail and brake lamp outermost, amber indicator next, white reversing lamp innermost. The rear indicator is the \
+same amber as the front one and as large, plainly not red. Never one merged red cluster, never a light bar across \
+the car.
+- Condition shows only in the paint (faded colour, rust spots, a panel in another shade); the body outline is whole."""
+
+#: What a new car's own line ends with where its describe does not split its tail lamps already.
+REAR_LENSES = "; each rear lamp with a separate amber indicator lens and a white reversing lens"
+
+#: What a sheet of wrecks adds: the picture is the same cars intact.
+WRECKS = """\
+The picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car \
+(paint, wear, roof, windows, trim):
+- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along \
+one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.
+- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke."""
+
+
+def brief(base, rows, frame, wrecks):
+    """The sheet's prompt and its id list, beside each other under BRIEFS: BASE, then NEW or WRECKS, then the cars."""
     if not frame:
         cli.fail("brief takes --frame, the sheet's name")
     # As `qq sprites` lays a 3:2 sheet: rows from the sheet's proportion, never fewer than three a side.
     rows_of = max(3, math.ceil(math.sqrt(len(rows) / 1.5)))
-    grid = (max(3, math.ceil(len(rows) / rows_of)), rows_of)
-    lines = [
-        f"One image: a sprite sheet of {len(rows)} different cars for a 2D top-down city game, every car seen straight "
-        "down from above (orthographic), on a fully transparent background.",
-    ]
-    if style:
-        lines += ["", "The attached image shows finished cars from the same game. Match its art style exactly — outline "
-                      "weight, shading, highlights, level of detail, pixel size — but not its cars or their colours."]
-    lines += [
-        "",
-        f"Layout: a {grid[0]}×{grid[1]} grid, the cars in the order listed below, left to right and top to bottom. "
-        "Every car lies horizontally with its nose pointing right, centred in its place in the grid, with clear empty "
-        "space between neighbours and round the picture's edge. All cars are drawn on one shared scale: a car listed "
-        "as 4.5 m long is half as long again as one listed as 3 m.",
-        "",
-        "Every car:",
-        "- Its length and width as listed, and exactly the proportion given: how many times longer than wide it is. "
-        "Seen from above its body is a rounded rectangle with straight flanks.",
-        "- Each is a believable everyday car of a real kind, as seen in an Eastern European city today.",
-        "- No tyres or wheels visible: the game draws them under the body. Roof on: no convertible, no open top, no "
-        "seats or people. Mirror-symmetric about its long centre line. Two small side mirrors just ahead of the "
-        "windscreen.",
-        "- Every lamp a real car has, all switched off — unlit glass with one small pale glint, no glow, no light cast: "
-        "a headlamp at each front corner with an amber indicator at its outer end; at each rear corner a rear lamp "
-        "cluster holding a red tail and brake lamp, an amber indicator and a white reversing lamp. Draw them in the "
-        "shapes this kind of car has.",
-        "- Bonnet, roof and boot read as separate panels, divided by the windscreen and the rear window.",
-        "- No text, logos, brand badges, licence plates, numbers or watermark anywhere.",
-        "- Outside the cars the picture is fully transparent: no background colour, no ground, no shadow, nothing "
-        "half-transparent.",
-    ]
-    if not style:
-        lines += ["- Style: pixel art with crisp hard-edged pixels and no blur, a dark near-black outline about 2 pixels "
-                  "thick, flat colour with one highlight and one shadow tone, soft light from the top-left, glass dark "
-                  "slate blue with one pale glint."]
-    lines += ["", "Cars, body length × width (not counting the mirrors):"]
+    cols = max(3, math.ceil(len(rows) / rows_of))
+    text = BASE.format(n=len(rows), cols=cols, rows=rows_of) + "\n\n" + (WRECKS if wrecks else NEW)
+    text += "\n\nCars, body length × width without mirrors, and what each is:\n"
     for n, r in enumerate(rows, 1):
-        h = r["widthM"] / 2
-        corners = next(words for under, words in CORNERS if r["cornerM"] / h < under)
-        lines.append(f"{n}. {r['lengthM']:.2f} × {r['widthM']:.2f} m ({r['lengthM'] / r['widthM']:.2f}× longer than "
-                     f"wide), {corners} — {r['describe']}")
+        length, width = sized(base, r) if wrecks else (r["lengthM"], r["widthM"])
+        corners = next(words for under, words in CORNERS if r["cornerM"] / (width / 2) < under)
+        # The general lamp line alone left six of nine rear clusters one red lamp (fleet100_b02-v1); said again in the
+        # car's own line, most drew the amber lens (v2).
+        own = "" if wrecks or "split into" in r["describe"] else REAR_LENSES
+        text += (f"{n}. {length:.2f} × {width:.2f} m ({length / width:.2f}× longer than wide), {corners} — "
+                 f"{r['describe']}{own}\n")
     out = base / BRIEFS / f"{frame}.txt"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out.write_text(text, encoding="utf-8")
     ids = base / BRIEFS / f"{frame}.cells.json"
-    ids.write_text(json.dumps([r["id"] for r in rows]) + "\n", encoding="utf-8")
-    print(f"{out.relative_to(base)}\n{ids.relative_to(base)}: {len(rows)} cars in a {grid[0]}x{grid[1]} grid")
+    ids.write_text(json.dumps([r["id"] + ("_broken" if wrecks else "") for r in rows]) + "\n", encoding="utf-8")
+    print(f"{out.relative_to(base)}\n{ids.relative_to(base)}: {len(rows)} {'wrecks' if wrecks else 'cars'} in a "
+          f"{cols}x{rows_of} grid")
     return 0
+
+
+def sized(base, r):
+    """A car's length and width as its installed picture measured them, which its wreck is drawn to."""
+    d = json.loads((base / VARIANTS / r["id"] / f"{r['id']}.json").read_text(encoding="utf-8"))
+    if not (base / VARIANTS / r["id"] / d.get("sprite", "")).is_file():
+        cli.fail(f"{r['id']} has no installed picture to draw its wreck from")
+    return tuple(map(float, d["collisionM"]["sizeM"]))
+
+
+def authored(r):
+    """The variant file's lines the plan authors, by key, in the file's layout."""
+    return {
+        "describe": f'"describe": "{r["describe"]}"',
+        "massKg": f'"massKg": {int(r["massKg"])}',
+        "frontAxleM": f'"frontAxleM": {round(r["lengthM"] / 2 - r["frontOverhangM"], 3)}',
+        "rearAxleM": f'"rearAxleM": {round(-(r["lengthM"] / 2 - r["rearOverhangM"]), 3)}',
+        "drivetrain": f'"drivetrain": {DRIVES[r["drive"]]}',
+        "maxSteeringDeg": f'"maxSteeringDeg": {r["steerDeg"]:g}',
+        "tyreFriction": f'"tyreFriction": {r["friction"]:g}',
+        "cgHeightM": f'"cgHeightM": {r["cgM"]:g}',
+        "frontWeightShare": f'"frontWeightShare": {r["frontShare"]:g}',
+        "handling": f'"handling": {{ "maxSpeed": {r["speed"]:g}, "acceleration": {r["accel"]:g}, '
+                    f'"braking": {r["brake"]:g} }}',
+    }
+
+
+#: One authored line of a variant file: its key, then a string, an object or a bare value up to the line's end.
+AUTHORED = re.compile(r'"(\w+)":\s*("(?:[^"\\]|\\.)*"|\{[^}]*\}|[^,\n]+)')
+
+
+def refresh(path: Path, r):
+    """Write the plan's authored lines over a variant file on disk; what the picture measured is kept."""
+    text = path.read_text(encoding="utf-8")
+    lines = authored(r)
+    changed = []
+
+    def put(m):
+        key = m.group(1)
+        if key not in lines or m.group(0) == lines[key]:
+            return m.group(0)
+        changed.append(key)
+        return lines[key]
+
+    text = AUTHORED.sub(put, text)
+    if missing := [k for k in lines if f'"{k}"' not in text]:
+        cli.fail(f"{path.name} has no {', '.join(missing)} line to write the plan's over")
+    d = json.loads(text)
+    if {"frontAxleM", "rearAxleM"} & set(changed) and (path.parent / d.get("sprite", "")).is_file():
+        # CAR-12: the track is the width over the axles, so axles moved on a drawn car are measured over again.
+        track = measured_track(path.parent / d["sprite"], d)
+        if track != d["trackM"]:
+            text = re.sub(r'"trackM":\s*[0-9.]+', f'"trackM": {track}', text, count=1)
+            changed.append(f"trackM {d['trackM']}→{track} (measured)")
+    length = d["collisionM"]["sizeM"][0]
+    if abs(length - r["lengthM"]) > 0.005:
+        # The picture was cut to the file's length: a new one is a new cut, never a figure written here.
+        print(f"  {r['id']}: drawn at {length} m, the plan says {r['lengthM']} m — cut it again to change that")
+    if changed:
+        path.write_text(text, encoding="utf-8")
+    return f"plan's {', '.join(changed)} written over" if changed else "already the plan's"
+
+
+def measured_track(sprite: Path, d):
+    """The track over a drawn car's axles, measured off its installed sprite as `qq sprites use` measures a cut."""
+    import numpy as np
+    from PIL import Image
+
+    import _outline
+
+    solid = np.asarray(Image.open(sprite).convert("RGBA"))[..., 3] >= 128
+    body = _outline.body_in(solid, (0, 0, solid.shape[1], solid.shape[0]))
+    m = _outline.measure(body, float(d["collisionM"]["sizeM"][0]), (float(d["frontAxleM"]), float(d["rearAxleM"])))
+    return round(max(m["axleWidthsM"]) + 2 * TYRE_PROUD_M, 3)
 
 
 def variant_text(r):
     """The variant file, in the hand-written files' layout: one field a line, short arrays inline."""
     length, width = r["lengthM"], r["widthM"]
-    front_axle = round(length / 2 - r["frontOverhangM"], 3)
-    rear_axle = round(-(length / 2 - r["rearOverhangM"]), 3)
+    a = authored(r)
     return f"""{{
   "id": "{r['id']}",
   "sprite": "{r['id']}.webp",
-  "describe": "{r['describe']}",
+  {a['describe']},
   "footprintM": [{length:.2f}, {width + 2 * MIRROR_M:.2f}],
   "collisionM": {{ "sizeM": [{length:.2f}, {width:.2f}], "cornerRadiusM": {r['cornerM']} }},
-  "massKg": {int(r['massKg'])},
-  "frontAxleM": {front_axle},
-  "rearAxleM": {rear_axle},
+  {a['massKg']},
+  {a['frontAxleM']},
+  {a['rearAxleM']},
   "trackM": {round(width + 2 * TYRE_PROUD_M, 3)},
-  "drivetrain": {DRIVES[r['drive']]},
-  "maxSteeringDeg": {r['steerDeg']:g},
-  "tyreFriction": {r['friction']:g},
-  "cgHeightM": {r['cgM']:g},
-  "frontWeightShare": {r['frontShare']:g},
-  "handling": {{ "maxSpeed": {r['speed']:g}, "acceleration": {r['accel']:g}, "braking": {r['brake']:g} }},
+  {a['drivetrain']},
+  {a['maxSteeringDeg']},
+  {a['tyreFriction']},
+  {a['cgHeightM']},
+  {a['frontWeightShare']},
+  {a['handling']},
   "lamps": []
 }}
 """

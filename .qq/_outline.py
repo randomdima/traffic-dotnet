@@ -45,6 +45,21 @@ def drawings(solid, ids, fail):
     return dict(zip(ids, boxes))
 
 
+def flanks(body):
+    """(left, right, top, bottom) of a body mask, nose to the right: its ends where END_MIN_PX deep, and its flanks as
+    the median edge of its middle columns, which a mirror or a rounded corner does not move."""
+    import numpy as np
+
+    deep = np.flatnonzero(body.sum(0) >= END_MIN_PX)
+    left, right = int(deep[0]), int(deep[-1]) + 1
+    skip = round((right - left) * FLANK_SKIP)
+    middle = body[:, left + skip:right - skip]
+    filled = middle.any(0)
+    tops = np.argmax(middle, 0)[filled]
+    bottoms = middle.shape[0] - np.argmax(middle[::-1], 0)[filled]
+    return left, right, int(np.median(tops)), int(np.median(bottoms))
+
+
 def body_in(solid, box):
     """The one drawing in the box: the paint joined to the painted pixel nearest its middle, as a mask the box's size.
     A speck beside it, or a mirror the drawing left unjoined, is not the body."""
@@ -65,14 +80,7 @@ def measure(body, length_m, axles_m):
     length, and in metres the body's width and corner radius, the footprint, and the width over each axle."""
     import numpy as np
 
-    deep = np.flatnonzero(body.sum(0) >= END_MIN_PX)
-    left, right = int(deep[0]), int(deep[-1]) + 1
-    skip = round((right - left) * FLANK_SKIP)
-    middle = body[:, left + skip:right - skip]
-    filled = middle.any(0)
-    tops = np.argmax(middle, 0)[filled]
-    bottoms = middle.shape[0] - np.argmax(middle[::-1], 0)[filled]
-    top, bottom = int(np.median(tops)), int(np.median(bottoms))
+    left, right, top, bottom = flanks(body)
     per_m = (right - left) / length_m
     cx, cy = (left + right) / 2, (top + bottom) / 2
     ys, xs = np.nonzero(body)

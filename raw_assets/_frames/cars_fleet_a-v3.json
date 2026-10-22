@@ -1,0 +1,38 @@
+{
+ "id": "cars_fleet_a-v3",
+ "ts": "2026-10-20T15:26:38",
+ "op": "edit",
+ "name": "cars_fleet_a",
+ "file": ".tmp/gen/frames/cars_fleet_a-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.032281,
+ "prompt": "Two images are attached. The first is a finished sheet of 9 top-down car sprites on flat magenta, every car pointing right (nose at the right). The second is its layout: each car's outline at its true size, with thin coloured frames where its lamps go. Only the masked areas of the first image are to be redrawn; everything else stays exactly as it is. Match the first image's own style, palette and pixel size in everything you draw.\n\n1. Cell 1 (top left) and cell 3 (top right) are redrawn whole, each inside its outline in the layout, nose at the thick right edge:\n- Cell 1: a five-door city car, lime green, 3.60 × 1.60 m, a short rounded bonnet, tall roof with one long glass area, a short hatchback tail. The last two attempts drew it about 12% too wide: its two long sides lie exactly on the outline's top and bottom edges, never wider.\n- Cell 3: a 1980s Eastern European four-door saloon, faded beige, 4.13 × 1.62 m, long and slim, completely boxy with flat panels and nearly square corners, a long flat bonnet, upright three-box roof, separate flat boot, thin chrome bumpers, square headlamps. The last attempt drew it about 8% too long and too wide: it fills its outline exactly, never past it.\n- Both: trace the outline like paint on tracing paper; only two small side mirrors may stand past it. No tyres or wheels. Roof on. Mirror-symmetric. The ten lamp lenses as framed in the layout, all switched off, as described for the tails below and as on the other cars' noses.\n\n2. On the seven other cars only the two rear lamp clusters at the tail (left end) are redrawn. Each rear cluster is one lamp housing laid along the tail edge with three lenses of three different colours of glass, going from the corner towards the middle of the tail: first a red tail and brake lens, then a bright orange-amber indicator lens, then a small clear white reversing lens. The previous attempts drew every cluster as one all-red lamp: that is wrong. Each cluster must clearly show red, then orange, then white. Keep each cluster the size and place of the frames in the layout, the bodywork round it exactly as it is now, and both sides mirror-symmetric.\n\nEvery lamp is switched off: unlit glass with one small pale glint, no glow, no light cast. The layout's frames are guides only; do not draw their lines. No text, logos or licence plates. Outside the cars keep flat pure magenta #FF00FF.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "e0f8f0a84b6b6542",
+   "ext": "png",
+   "frame": "cars_fleet_a-v2",
+   "was": ".tmp/gen/frames/cars_fleet_a-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "e44baa8b8ee1da16",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/cars_fleet_a.png"
+  },
+  {
+   "role": "mask",
+   "sha": "830a0118fc985267",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/cars_fleet_a-v2/_mask_citycar_lime-whole_boxsaloon_beige-whole_supermini_red-tail_hatch_graphite-tail_fleetsaloon_white-tail_kombi_sage-tail_crossover_pearl-tail_estate_steel-tail_midsaloon_black-tail.png"
+  }
+ ]
+}

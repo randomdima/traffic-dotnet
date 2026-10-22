@@ -1,0 +1,37 @@
+{
+  "car": "boxestate_blue",
+  "sprite": {"variant": "raw_assets/agents/car/variants/boxestate_blue/boxestate_blue-v1.png", "sizePx": [396, 183]},
+  "axisY": {"rear": 90.50, "front": 91.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [23.46, 22.36, 0.00],
+      [17.80, 52.68, 1.41],
+      [8.95, 53.02, 1.03],
+      [11.83, 30.32, 3.36]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 89.5, "mirrorDx": 1.0, "points": [
+      [377.82, 31.60, 0.30],
+      [381.83, 31.60, 0.13],
+      [384.33, 48.15, 1.47],
+      [379.37, 47.61, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 90.2, "mirrorDx": 1.0, "points": [
+      [372.16, 25.56, 0.94],
+      [376.89, 31.76, 1.59],
+      [380.58, 25.38, 0.11],
+      [375.36, 22.71, 0.46]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "points": [
+      [10.80, 33.50, 0.00],
+      [20.90, 33.50, 0.00],
+      [19.50, 41.50, 0.00],
+      [9.50, 41.50, 0.25]
+    ]},
+    {"name": "reverse", "kind": "reverse", "mirror": true, "over": ["brake"], "points": [
+      [9.30, 41.50, 0.00],
+      [19.40, 41.50, 0.00],
+      [17.87, 52.68, 1.30],
+      [8.90, 52.90, 0.00]
+    ]}
+  ]
+}

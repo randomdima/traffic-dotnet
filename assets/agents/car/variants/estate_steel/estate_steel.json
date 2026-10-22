@@ -1,0 +1,18 @@
+{
+  "id": "estate_steel",
+  "sprite": "estate_steel.webp",
+  "zones": "estate_steel_zones.png",
+  "describe": "family estate car, steel blue, a level bonnet, a long roof running all the way to a squared-off tail with a tall rear window, two thin silver roof rails along the roof edges",
+  "footprintM": [4.69, 2.03],
+  "collisionM": { "sizeM": [4.69, 1.83], "cornerRadiusM": 0.3 },
+  "massKg": 1400,
+  "frontAxleM": 1.425,
+  "rearAxleM": -1.265,
+  "trackM": 1.89,
+  "drivetrain": 1,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.86,
+  "cgHeightM": 0.56,
+  "frontWeightShare": 0.6,
+  "handling": { "maxSpeed": 0.97, "acceleration": 1.15, "braking": 1 }
+}

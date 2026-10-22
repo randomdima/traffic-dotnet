@@ -1,0 +1,19 @@
+{
+  "id": "citymini_green",
+  "sprite": "citymini_green.webp",
+  "wreck": { "sprite": "citymini_green_broken.webp" },
+  "describe": "late-1990s Korean tiny five-door city car, worn: faded pale green paint, rust spots on the wheel arches, short round bonnet, tall rounded roof, short upright hatchback tail, big round-edged headlamps, small vertical tail lamps",
+  "footprintM": [3.500, 2.026],
+  "collisionM": { "sizeM": [3.500, 1.750], "cornerRadiusM": 0.564 },
+  "massKg": 810,
+  "frontAxleM": 1.09,
+  "rearAxleM": -1.25,
+  "trackM": 1.833,
+  "drivetrain": 1,
+  "maxSteeringDeg": 35,
+  "tyreFriction": 0.76,
+  "cgHeightM": 0.58,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.72, "acceleration": 0.72, "braking": 0.85 },
+  "lamps": []
+}

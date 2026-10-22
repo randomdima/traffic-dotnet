@@ -1,0 +1,31 @@
+{
+  "id": "budgethatch_orange",
+  "sprite": "budgethatch_orange.webp",
+  "zones": "budgethatch_orange_zones.png",
+  "wreck": { "sprite": "budgethatch_orange_broken.webp" },
+  "describe": "modern budget five-door hatchback, good condition, bright orange, rounded bonnet, tall roof with roof rails, upright hatch, black unpainted bumpers, tall headlamps, vertical tail lamps",
+  "footprintM": [4.070, 2.212],
+  "collisionM": { "sizeM": [4.070, 1.911], "cornerRadiusM": 0.664 },
+  "massKg": 1080,
+  "frontAxleM": 1.235,
+  "rearAxleM": -1.375,
+  "trackM": 1.998,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.57,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.86, "acceleration": 0.9, "braking": 0.95 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.806, -0.647], "sizeM": [0.219, 0.386] },
+    { "fitting": "brake", "atM": [-1.806, 0.626], "sizeM": [0.219, 0.386] },
+    { "fitting": "indicator", "atM": [-1.868, -0.563], "sizeM": [0.083, 0.177] },
+    { "fitting": "indicator", "atM": [-1.868, 0.543], "sizeM": [0.083, 0.177] },
+    { "fitting": "head", "atM": [1.702, -0.626], "sizeM": [0.312, 0.303] },
+    { "fitting": "head", "atM": [1.754, 0.595], "sizeM": [0.302, 0.313] },
+    { "fitting": "indicator", "atM": [1.671, -0.71], "sizeM": [0.25, 0.157] },
+    { "fitting": "indicator", "atM": [1.723, 0.668], "sizeM": [0.25, 0.157] },
+    { "fitting": "reverse", "atM": [-1.868, -0.522], "sizeM": [0.104, 0.136] },
+    { "fitting": "reverse", "atM": [-1.868, 0.501], "sizeM": [0.104, 0.136] }
+  ]
+}

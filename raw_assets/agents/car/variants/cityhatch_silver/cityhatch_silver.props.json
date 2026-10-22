@@ -1,0 +1,26 @@
+{
+  "car": "cityhatch_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/cityhatch_silver/cityhatch_silver-v2.png", "sizePx": [352, 197]},
+  "axisY": {"rear": 98.50, "front": 98.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [17.54, 34.77, -0.20],
+      [16.29, 38.05, 1.29],
+      [12.03, 53.65, 0.89],
+      [14.86, 55.18, 0.04],
+      [29.28, 37.34, -0.36],
+      [36.09, 32.33, 1.29],
+      [36.43, 29.00, 5.21]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [304.53, 32.73, 0.27],
+      [329.92, 59.85, 0.00],
+      [334.21, 62.72, 1.04],
+      [334.02, 58.54, 1.43],
+      [315.10, 33.72, 0.69]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5}
+  ]
+}

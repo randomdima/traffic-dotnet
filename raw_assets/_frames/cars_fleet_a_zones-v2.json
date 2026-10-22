@@ -1,0 +1,38 @@
+{
+ "id": "cars_fleet_a_zones-v2",
+ "ts": "2026-10-20T15:29:38",
+ "op": "edit",
+ "name": "cars_fleet_a_zones",
+ "file": ".tmp/gen/frames/cars_fleet_a_zones-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.030656,
+ "prompt": "Two images are attached. The first is a finished zone map of 9 top-down cars pointing right: every part one flat colour on magenta. The second is the car sheet it maps, in full colour. Only the masked areas of the first image, the front corners of seven cars, are to be repainted; everything else stays exactly as it is.\n\nAt each front (right) corner of every car the second image draws one headlamp unit: clear headlamp glass, and a small orange-amber indicator lens at the corner's flank end. In the zone map each headlamp lens is pure blue #0000FF and each indicator lens pure yellow #FFFF00, both flat and hard-edged, the bodywork round them pure white #FFFFFF. The last attempt painted the indicator yellow only at the bottom front corner of each car and left it out at the top front corner: every car has a yellow indicator zone at BOTH front corners, top and bottom, mirror-symmetric, each covering exactly the amber lens the second image draws there.\n\nKeep every car's outline and every other zone exactly as it is. No shading, outline, texture or anti-aliasing, no other colours.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "8c7c6cc8599fd8bd",
+   "ext": "png",
+   "frame": "cars_fleet_a_zones-v1",
+   "was": ".tmp/gen/frames/cars_fleet_a_zones-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "df77c34ca649a087",
+   "ext": "png",
+   "frame": "cars_fleet_a-v3",
+   "was": ".tmp/gen/frames/cars_fleet_a-v3.png"
+  },
+  {
+   "role": "mask",
+   "sha": "dc0cbed85eb2ea95",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/cars_fleet_a_zones-v1/_mask_supermini_red-nose_hatch_graphite-nose_fleetsaloon_white-nose_kombi_sage-nose_crossover_pearl-nose_estate_steel-nose_midsaloon_black-nose.png"
+  }
+ ]
+}

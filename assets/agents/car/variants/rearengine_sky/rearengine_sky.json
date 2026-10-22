@@ -1,0 +1,19 @@
+{
+  "id": "rearengine_sky",
+  "sprite": "rearengine_sky.webp",
+  "wreck": { "sprite": "rearengine_sky_broken.webp" },
+  "describe": "1960s Soviet rear-engined two-door small saloon, worn: faded sky blue paint, rust spots, a rounded humped body, short sloping front lid, rounded roof, long rear deck over the engine with air intake slots on its sides, chrome bumpers, round headlamps, small tail lamps",
+  "footprintM": [3.730, 1.981],
+  "collisionM": { "sizeM": [3.730, 1.691], "cornerRadiusM": 0.551 },
+  "massKg": 840,
+  "frontAxleM": 1.165,
+  "rearAxleM": -0.995,
+  "trackM": 1.809,
+  "drivetrain": 0,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.72,
+  "cgHeightM": 0.6,
+  "frontWeightShare": 0.42,
+  "handling": { "maxSpeed": 0.6, "acceleration": 0.55, "braking": 0.75 },
+  "lamps": []
+}

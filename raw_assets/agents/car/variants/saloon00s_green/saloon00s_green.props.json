@@ -1,0 +1,24 @@
+{
+  "car": "saloon00s_green",
+  "sprite": {"variant": "raw_assets/agents/car/variants/saloon00s_green/saloon00s_green-v1.png", "sizePx": [407, 205]},
+  "axisY": {"rear": 100.50, "front": 101.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [19.73, 39.62, -0.21],
+      [16.29, 58.63, 3.36],
+      [23.89, 58.05, -0.61],
+      [33.68, 34.04, 2.14],
+      [29.95, 27.79, 3.03]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [357.97, 25.76, 1.18],
+      [356.87, 30.40, 0.38],
+      [380.82, 55.88, 0.46],
+      [388.02, 60.27, 1.51],
+      [392.41, 56.75, 9.15]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

@@ -274,13 +274,14 @@ fleck beside the car on screen and a false flank for a track to be authored agai
 picture is what says where the panels end, so a body stretched to another car's size is one whose tyres,
 mirrors and overhangs are all in the wrong place.
 
-**CAR-12b** `P3` A car is **collided as its authored shape** — a rounded box (`collisionM`) centred in its
-footprint — and never as the footprint itself. **The shape comes first and the picture is made to it**: the
-generator is handed the shape as the outline the bodywork fills, so nothing about it is measured off the
-art. A footprint is the rectangle the art is drawn into, and what stands off the panels — mirrors, tyres —
-may reach past the shape into it; collided at the footprint a car is stopped by a car it visibly is not
-touching. A variant that names no shape is collided at its footprint with square corners, and so is the
-nominal car.
+**CAR-12b** `P3` A car is **collided as its bodywork's shape** — a rounded box (`collisionM`) centred in its
+footprint — and never as the footprint itself. **The picture comes first and the shape is read off it** (the
+owner, 2026-10-20): the generator draws the car from a description, and its length is the one figure the file
+gives the picture; the body's width, its corner radius, the footprint holding everything drawn and the track over
+its axles are measured off the drawing at that scale (`qq sprites cut`). A footprint is the rectangle the art is
+drawn into, and what stands off the panels — mirrors, tyres — may reach past the shape into it; collided at the
+footprint a car is stopped by a car it visibly is not touching. A variant that names no shape is collided at its
+footprint with square corners, and so is the nominal car.
 
 **A car is still drawn, driven, parked and measured at its footprint** (CAR-11, CAR-12a). What the shape
 changes is one thing: the shape the solver is handed.
@@ -427,11 +428,12 @@ holds: the pedal, the gear, the line in front of it, the pass it has decided on 
 carries. **No lamp is state of its own** — there is nothing to set, nothing to clear and nothing that can
 disagree with the car it is bolted to.
 
-**CAR-14a** `P6` A lamp is a **section of the car's own picture**, and the variant's file says which one: every
-lens is authored with the car's shape and the art is asked to draw it there, unlit, so a lamp lights the
-panel the art drew a lens on and nothing arithmetic put somewhere near it. **Which texels a lens is, is the
-generator's to say**: each car's sheet is repainted by it as a zone map, every part one flat contrasting colour, and a
-lens is the sprite's texels its zone covers (the owner, 2026-10-18) — the shape and the place the art drew it, not the
+**CAR-14a** `P6` A lamp is a **section of the car's own picture**, and the variant's file says which one: the art
+draws every lens unlit where that kind of car has it, and the file's lens is read off the zone map — its centre
+and its box — so a lamp lights the panel the art drew a lens on and nothing arithmetic put somewhere near it.
+**Which texels a lens is, is its outline's to say**: each lens is cut off the sprite as a polygon on the rim the art
+drew (the owner, 2026-10-21), and the zone map is painted from those outlines, a texel carrying every glass that lies
+over it, so a lens is the sprite's texels its zone covers — the shape and the place the art drew it, not the
 rectangle the file frames. **A lit lamp is those texels driven emissive**, at the resolution the sprite is drawn at, so
 it wears the bezel and the pixel grid the artist gave it; a look with no zone map lights its lens's whole rectangle.
 **An unlit lamp is drawn by nobody**: the dull lens is the car's own picture and is already on screen. A variant that
@@ -457,15 +459,16 @@ with no junction ahead of it at all.
 
 **Which side is read off the geometry**: the side the line bends to over the stretch of it a driver would
 be announcing. A line driven the way the rear axle travels rather than the way the car points — a piece of a
-manoeuvre in reverse — bends the body the other way round, and is read in the body's frame. It is the **front
-corner pair** that flashes.
+manoeuvre in reverse — bends the body the other way round, and is read in the body's frame. **Every indicator
+on that side flashes**, the front corner's and, where the art draws one, the rear cluster's.
 
 **CAR-14.2** `P6` The **brake lamps are the pedal**: what the driver is asking of the brakes, never what the
 tyres are doing about it. A car standing on its handbrake with nobody's foot down shows none.
 
-**CAR-14.3** `P6` The **reversing lamps are the gear**, on the same rear cluster the brake lamps are — which
-is the one lamp the art gives a car back there. **The pedal outranks the gear on it**: a car braking as
-it backs out of a bay shows red, because what the driver behind has to read first is that it is stopping.
+**CAR-14.3** `P6` The **reversing lamps are the gear**. Where the art draws them as lenses of their own in the
+rear cluster, each burns its own fact, and a car braking as it backs out of a bay shows red and white at once.
+Where it draws the cluster as one lens, **the pedal outranks the gear on it**: the car shows red, because what
+the driver behind has to read first is that it is stopping.
 
 **CAR-14.4** `P6` The **coloured beacon is the priority the car is carrying (AMB-4) and never the vehicle** — an
 ambulance not on a call and a police car on its beat (SRV-5) show nothing, and a car that is granted the

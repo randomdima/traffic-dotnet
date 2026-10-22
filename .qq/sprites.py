@@ -176,7 +176,7 @@ def main():
     a = parse_args()
     base = _sim.root()
     return {"template": template, "cut": cut, "keep": keep, "use": use, "trace": trace,
-            "compare": compare, "check": check, "mask": mask}[a.action](base, a)
+            "compare": compare, "check": check, "mask": mask, "drop": drop}[a.action](base, a)
 
 
 def parse_args():
@@ -187,20 +187,27 @@ def parse_args():
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("action", choices=["template", "cut", "mask", "keep", "use", "trace", "compare", "check"],
+    parser.add_argument("action", choices=["template", "cut", "mask", "keep", "use", "drop", "trace", "compare", "check"],
                         help="template IDS | cut FRAME | mask FRAME IDS (an id, id:whole for its grid cell, id:nose "
-                             "or id:tail for one end's lamps) | keep FRAME IDS | use VARIANT | trace ID | compare ID | check")
+                             "or id:tail for one end's lamps) | keep FRAME IDS | use VARIANT | drop VARIANTS | trace ID "
+                             "| compare ID | check")
     parser.add_argument("refs", nargs="*", type=identifier,
                         help="asset ids (house_03), a frame id (roofs_house_a-v1) or a variant (house_03-v2)")
     parser.add_argument("--out", default=".tmp/gen/templates/sheet.png", help="template: where the layout goes")
     parser.add_argument("--style-cols", type=int, choices=[1, 2, 3], default=3,
                         help="template: how many style sprites to a row")
+    parser.add_argument("--style-whole", action="store_true",
+                        help="template: style sprites taken whole from the frames they were drawn on, not clipped at "
+                             "their outlines (mirrors kept)")
     parser.add_argument("--style-width", type=cli.counting, default=0, metavar="PX",
                         help="template: the widest the style picture may be, its sprites shrunk to fit (0 = the sheet's)")
     parser.add_argument("--style", default="",
                         help="template: ids whose in-game sprites make the style picture, beside --out as <stem>_style.png")
     parser.add_argument("--score", type=int, choices=range(6), default=None,
                         help="keep: the variant's score by eye, 0-5")
+    parser.add_argument("--recut", action="store_true",
+                        help="keep: keep a cell already kept from this frame again, as a new version naming the one it "
+                             "re-cuts — after `cut` itself changed")
     parser.add_argument("--full", action="store_true", help="trace: print every prompt whole")
     return parser.parse_args()
 
@@ -238,6 +245,8 @@ def template(base, a):
         slots = [(round((n % cols) * cw), round((n // cols) * ch), round((n % cols + 1) * cw), round((n // cols + 1) * ch))
                  for n in range(len(bodies))]
 
+    # Magenta and not clear: outlines on a clear layout do not hold the model, which lays its own grid
+    # (fleet100_w01-v1, raw_assets/agents/car/prompting.md).
     sheet = Image.new("RGB", SHEET_PX, KEY)
     draw = ImageDraw.Draw(sheet)
     cells = []
@@ -296,7 +305,7 @@ def template(base, a):
     asked = set(a.refs)
     if a.style:
         style(base, found, [s for s in a.style.split(",") if s], asked, out.with_name(out.stem + "_style.png"),
-              a.style_cols, a.style_width)
+              a.style_cols, a.style_width, a.style_whole)
 
     fronts = sorted({family(b["asset"])[1] for b in bodies if b["shape"] in ("box", "walls") and not b["track"]})
     if any(b["track"] for b in bodies):
@@ -379,9 +388,11 @@ def cell_bounds(layout, c):
     return round((n % cols) * cw), round((n // cols) * ch), round((n % cols + 1) * cw), round((n // cols + 1) * ch)
 
 
-def style(base, found, ids, asked, out, columns=3, widest_px=0):
+def style(base, found, ids, asked, out, columns=3, widest_px=0, whole=False):
     """The style picture: the in-game sprites of other assets, laid on a clear background at one scale, as a frame is
-    now asked to come back. It holds none of the assets asked for, so it shows the look and not the answer."""
+    now asked to come back. It holds none of the assets asked for, so it shows the look and not the answer. `whole`
+    takes each from the frame it was drawn on instead, keyed and not clipped at its outline, so a mirror or a bumper
+    drawn past the footprint is shown as drawn."""
     from PIL import Image
 
     if not ids:
@@ -392,28 +403,57 @@ def style(base, found, ids, asked, out, columns=3, widest_px=0):
     for i in ids:
         if i not in found:
             cli.fail(f"no variant file under assets/ has the id {i}")
+        if whole:
+            sprites.append(drawn_whole(base, found, i))
+            continue
         sprite = sprite_of(found[i], i)
         if not sprite or not (found[i].parent / sprite).is_file():
             cli.fail(f"{i} has no sprite to show as style")
-        sprites.append((Image.open(found[i].parent / sprite).convert("RGBA"), body(base, found, i)))
+        b = body(base, found, i)
+        sprites.append((Image.open(found[i].parent / sprite).convert("RGBA"), b["w"], b["d"]))
     # As small as it can be without losing a texel: an input picture is paid for by its area, and the style is in
     # the sprites' own pixels, so they are laid at their own density (the sharpest of them), in rows of three, and
     # shrunk only to fit the sheet's width, or `widest_px`.
     cols = min(columns, len(sprites))
     rows = math.ceil(len(sprites) / cols)
     widest = widest_px or SHEET_PX[0]
-    scale = max(img.width / b["w"] for img, b in sprites)
-    scale = min(scale, min((widest / cols - 2 * GAP_PX) / b["w"] for _, b in sprites))
-    cw = max(b["w"] for _, b in sprites) * scale + 2 * GAP_PX
-    ch = max(b["d"] for _, b in sprites) * scale + 2 * GAP_PX
+    scale = max(img.width / wm for img, wm, _ in sprites)
+    scale = min(scale, min((widest / cols - 2 * GAP_PX) / wm for _, wm, _ in sprites))
+    cw = max(wm for _, wm, _ in sprites) * scale + 2 * GAP_PX
+    ch = max(dm for _, _, dm in sprites) * scale + 2 * GAP_PX
     sheet = Image.new("RGBA", (round(cw * cols), round(ch * rows)), (0, 0, 0, 0))
-    for n, (img, b) in enumerate(sprites):
-        w, h = round(b["w"] * scale), round(b["d"] * scale)
+    for n, (img, wm, dm) in enumerate(sprites):
+        w, h = round(wm * scale), round(dm * scale)
         x, y = round((n % cols) * cw + (cw - w) / 2), round((n // cols) * ch + (ch - h) / 2)
         drawn = img.resize((w, h), Image.LANCZOS)
         sheet.paste(drawn, (x, y), drawn)
     sheet.save(out)
-    print(f"{_sim.rel(base, out)}: style, {', '.join(ids)} at {scale:.1f} px/m")
+    print(f"{_sim.rel(base, out)}: style, {', '.join(ids)} at {scale:.1f} px/m" + (", whole from their frames" if whole else ""))
+
+
+#: How far past its kept box a drawing is taken whole for a style picture, along it and across: the drawing lands up to
+#: 0.3 m off its box (the cut's fit) and a mirror reaches past that, while the next cell along is closer than across.
+WHOLE_MARGIN_M = (0.3, 0.6)
+
+
+def drawn_whole(base, found, i):
+    """The asset as its used variant's frame drew it, (picture, width m, depth m): the cell's box widened by
+    WHOLE_MARGIN_M, keyed, and trimmed to the paint in it."""
+    import numpy as np
+    from PIL import Image
+
+    listing = raw_dir(base, found[i], i) / VARIANTS
+    used = next((r for r in read_jsonl(listing) if r["status"] == "used" and "box" in r), None)
+    if used is None:
+        cli.fail(f"{i} has no used variant cut from a cell of a frame ({_sim.rel(base, listing)})")
+    keyed, solid = frame_pixels(base, used["frame"])
+    mx, my = (round(v * used["pxPerM"]) for v in WHOLE_MARGIN_M)
+    x, y, w, h = used["box"]
+    x0, y0 = max(0, x - mx), max(0, y - my)
+    x1, y1 = min(keyed.shape[1], x + w + mx), min(keyed.shape[0], y + h + my)
+    ys, xs = np.nonzero(solid[y0:y1, x0:x1])
+    crop = keyed[y0 + ys.min():y0 + ys.max() + 1, x0 + xs.min():x0 + xs.max() + 1]
+    return Image.fromarray(crop, "RGBA"), crop.shape[1] / used["pxPerM"], crop.shape[0] / used["pxPerM"]
 
 
 def body(base, found, i):
@@ -711,7 +751,48 @@ def cut_described(base, fid, rec, ids):
         print(f"{n:>2} {name:<26} {shown}  {', '.join(flags) or 'ok'}")
     overlay.save(out / "_overlay.png")
     print(f"{_sim.rel(base, out / '_overlay.png')}: each body's measured box cyan, its footprint white")
+    if not zoning:
+        cuts = [Image.open(out / f"{i}.png").convert("RGBA") for i in wanted_ids]
+        looked_at(cuts, out)
+        print(f"{_sim.rel(base, out / '_cuts.png')}, {_sim.rel(base, out / '_ends.png')}: the cuts in the brief's order, "
+              "and each one's tail and nose magnified, three to a row")
     return 0
+
+
+#: `_ends.png`: the share of a cut's length each end is taken from, and how far it is magnified.
+ENDS_SHARE, ENDS_ZOOM = 0.2, 3
+LOOK_BACKDROP = (40, 40, 40, 255)
+
+
+def looked_at(cuts, out):
+    """The cuts of one frame laid for the eye: `_cuts.png`, three to a row on a dark backdrop, and `_ends.png`, each
+    one's tail and nose magnified side by side — where the lamps are judged."""
+    from PIL import Image
+
+    def backed(img):
+        b = Image.new("RGBA", img.size, LOOK_BACKDROP)
+        b.alpha_composite(img)
+        return b
+
+    cw, ch = max(c.width for c in cuts) + 2 * GAP_PX, max(c.height for c in cuts) + GAP_PX
+    sheet = Image.new("RGBA", (cw * 3, ch * math.ceil(len(cuts) / 3)), LOOK_BACKDROP)
+    for n, c in enumerate(cuts):
+        sheet.alpha_composite(c, ((n % 3) * cw + (cw - c.width) // 2, (n // 3) * ch + (ch - c.height) // 2))
+    sheet.save(out / "_cuts.png")
+    rows = []
+    for c in cuts:
+        e = round(c.width * ENDS_SHARE)
+        rows.append([backed(c.crop(box)).resize((e * ENDS_ZOOM, c.height * ENDS_ZOOM), Image.NEAREST)
+                     for box in ((0, 0, e, c.height), (c.width - e, 0, c.width, c.height))])
+    rw = max(sum(t.width for t in r) for r in rows) + GAP_PX
+    rh = max(t.height for r in rows for t in r) + GAP_PX // 2
+    per_row = 3
+    ends = Image.new("RGBA", (rw * per_row, rh * math.ceil(len(rows) / per_row)), (0, 0, 0, 255))
+    for n, (tail, nose) in enumerate(rows):
+        x, y = (n % per_row) * rw, (n // per_row) * rh
+        ends.paste(tail, (x, y))
+        ends.paste(nose, (x + tail.width, y))
+    ends.save(out / "_ends.png")
 
 
 def write_measured(base, described: Path, m):
@@ -742,7 +823,19 @@ def write_lamps(base, described: Path, rows):
         if depth == 0:
             break
     lines = ",\n".join(f'    {{ "fitting": "{f}", "atM": [{x}, {y}], "sizeM": [{w}, {h}] }}' for f, (x, y), (w, h) in rows)
-    described.write_text(text[:start] + "[\n" + lines + "\n  ]" + text[end + 1:], encoding="utf-8")
+    described.write_text(text[:start] + ("[\n" + lines + "\n  ]" if rows else "[]") + text[end + 1:], encoding="utf-8")
+
+
+def drop_lamps(base, described: Path, zones_name):
+    """A new picture's lamps are not the old one's: its zone map, that map's trace and its `lamps` go, to be cut again
+    by `qq props` and installed."""
+    for gone in (described.parent / zones_name, described.parent / f"{Path(zones_name).stem}{SOURCE}"):
+        gone.unlink(missing_ok=True)
+    text = re.sub(r'\n[ \t]*"zones":\s*"[^"]*",', "", described.read_text(encoding="utf-8"), count=1)
+    described.write_text(text, encoding="utf-8")
+    if '"lamps"' in text:
+        write_lamps(base, described, [])
+    print(f"{_sim.rel(base, described)}: lamps and zone map dropped with the old picture; `qq props seed` it again")
 
 
 def parts_sheet(out, cells, suffix=""):
@@ -1150,20 +1243,81 @@ def keep(base, a):
             cli.fail(f"no variant file under assets/ has the id {i}")
         folder = raw_dir(base, found[i], i)
         folder.mkdir(parents=True, exist_ok=True)
-        if any(r["frame"] == fid for r in read_jsonl(folder / VARIANTS)):
-            cli.fail(f"{i} is already kept from {fid} ({_sim.rel(base, folder / VARIANTS)}): a cell is kept once")
+        records = read_jsonl(folder / VARIANTS)
+        kept = next((r for r in records if r["frame"] == fid), None)
+        if kept and not a.recut:
+            cli.fail(f"{i} is already kept from {fid} ({_sim.rel(base, folder / VARIANTS)}): a cell is kept once — "
+                     "`--recut` keeps the frame's new cut beside it, after `cut` itself changed")
+        if a.recut and not kept:
+            cli.fail(f"{i} is not kept from {fid}: --recut keeps a cell again, and it was never kept")
+        info = json.loads(Image.open(cutting).text["cut"])
         version = 1 + max((int(m.group(2)) for p in folder.glob(f"{i}-v*.png")
                            if (m := VERSIONED.fullmatch(p.stem))), default=0)
         name = f"{i}-v{version}"
-        shutil.copyfile(cutting, folder / f"{name}.png")
-        info = json.loads(Image.open(cutting).text["cut"])
-        append(folder / VARIANTS, {"variant": name, "frame": fid, "cell": info["cell"], "box": info["box"],
+        # A drawing asked without a layout has no template box: its cell is the order it was found in. A cell cut
+        # again is a new version naming the one it re-cuts, which stays as it was kept (raw_assets/index.md, rule 3).
+        recut = [r["variant"] for r in records if r["frame"] == fid and r["cell"] == info["cell"]]
+        append(folder / VARIANTS, {"variant": name, "frame": fid, "cell": info["cell"],
+                                    **({"box": info["box"]} if "box" in info else {}),
+                                    **({"recutOf": recut[-1]} if recut else {}),
                                     "pxPerM": info["pxPerM"], "score": a.score, "status": "candidate",
                                     "ts": time.strftime("%Y-%m-%dT%H:%M:%S")})
-        print(f"kept {name} <- {fid} cell {info['cell']}: {_sim.rel(base, folder / (name + '.png'))}")
+        shutil.copyfile(cutting, folder / f"{name}.png")
+        print(f"kept {name} <- {fid} cell {info['cell']}" + (f", a re-cut of {recut[-1]}" if recut else "")
+              + f": {_sim.rel(base, folder / (name + '.png'))}")
     for kept in keep_lineage(base, fid):
         print(f"  lineage: {kept}")
     return 0
+
+
+def drop(base, a):
+    """Unkeep candidates no sprite is cut from — a trial given up — with their records; then every frame record and
+    input picture under raw_assets/ that no kept variant traces to any more. A variant a sprite uses is never dropped
+    (raw_assets/index.md, rule 3)."""
+    if not a.refs or not all(VERSIONED.fullmatch(r) for r in a.refs):
+        cli.fail("drop takes variants, as <id>-v<N>")
+    found = assets(base)
+    for name in a.refs:
+        i = VERSIONED.fullmatch(name).group(1)
+        if i not in found:
+            cli.fail(f"no variant file under assets/ has the id {i}")
+        folder = raw_dir(base, found[i], i)
+        records = read_jsonl(folder / VARIANTS)
+        record = next((r for r in records if r["variant"] == name), None)
+        if record is None:
+            cli.fail(f"{name} is not kept ({_sim.rel(base, folder / VARIANTS)})")
+        if record["status"] == "used":
+            cli.fail(f"{name} is the sprite's variant: `use` another before dropping it")
+        for r in records:
+            # A re-cut of what is dropped re-cuts nothing kept.
+            if r.get("recutOf") == name:
+                r.pop("recutOf")
+        (folder / VARIANTS).write_text("".join(json.dumps(r) + "\n" for r in records if r is not record), encoding="utf-8")
+        (folder / f"{name}.png").unlink(missing_ok=True)
+        print(f"dropped {_sim.rel(base, folder / (name + '.png'))}")
+    for gone in unkept_lineage(base):
+        gone.unlink()
+        print(f"  lineage no variant traces to: {_sim.rel(base, gone)}")
+    return 0
+
+
+def unkept_lineage(base):
+    """The frame records and input pictures under raw_assets/ no kept variant traces to, through its frame's ancestors."""
+    todo = [r["frame"] for listing in (base / RAW).rglob(VARIANTS) for r in read_jsonl(listing)]
+    frames, inputs = set(), set()
+    while todo:
+        f = todo.pop()
+        kept = base / KEPT_FRAMES / f"{f}.json"
+        if f in frames or not kept.is_file():
+            continue
+        frames.add(f)
+        for inp in json.loads(kept.read_text(encoding="utf-8")).get("inputs", []):
+            if inp.get("frame"):
+                todo.append(inp["frame"])
+            else:
+                inputs.add(f"{inp['sha']}.{inp['ext']}")
+    return sorted([p for p in (base / KEPT_FRAMES).glob("*.json") if p.stem not in frames]
+                  + [p for p in (base / KEPT_INPUTS).iterdir() if p.name not in inputs])
 
 
 def keep_lineage(base, fid):
@@ -1217,16 +1371,25 @@ def use(base, a):
 
     # A drawing asked without a layout is the car's geometry: its file takes what the cut measured before it is sized.
     measured = json.loads(Image.open(variant).text.get("cut", "{}")).get("measured")
-    if measured:
+    # A wreck is drawn to its car's geometry and never writes it: it is shrunk to the car's footprint.
+    if measured and not i.endswith(WRECK):
         write_measured(base, described, measured)
     b = body(base, found, i)
     vw = Image.open(variant).width
-    density = min(vw / b["w"], grid(art.read_figures(base), b["asset"]))
-    wanted = (max(1, round(b["w"] * density)), max(1, round(b["d"] * density)))
     d = json.loads(described.read_text(encoding="utf-8"))
+    density = min(vw / b["w"], grid(art.read_figures(base), b["asset"]))
+    if "collisionM" in d:
+        # A car's lamps are cut and drawn at the art grid (LampAtlas.ArtPxPerM), so its picture is on it even where the
+        # drawing came back coarser.
+        density = grid(art.read_figures(base), b["asset"])
+    wanted = (max(1, round(b["w"] * density)), max(1, round(b["d"] * density)))
     zones = is_zones(d, i)
     if zones:
-        zone_frame = next(r["frame"] for r in read_jsonl(folder / VARIANTS) if r["variant"] == name)
+        # The bake reads a zone texel's channels as glass colours (LampAtlasBake.Holds), which a generated palette map
+        # misreads: yellow is red and amber glass, green amber.
+        cli.fail(f"{name}: a car's lamps are cut with `qq props` and installed by `qq props install {d['id']}`, "
+                 "not from a generated zone map")
+        zone_frame =next(r["frame"] for r in read_jsonl(folder / VARIANTS) if r["variant"] == name)
         if (maps := zoned_sheet(base, zone_frame, frame_record(base, zone_frame))) != (car := sheet_of(base, described, d["id"])):
             cli.fail(f"{name} maps {maps}, and {d['id']}'s sprite is cut from {car}: a zone map is of the sheet its "
                      f"car's sprite came from")
@@ -1263,6 +1426,8 @@ def use(base, a):
         art.name(base, described.parent / was, now)
         (described.parent / was).unlink(missing_ok=True)
     (described.parent / now).write_bytes(data)
+    if not is_wreck(d, i) and not zones and d.get("zones"):
+        drop_lamps(base, described, d["zones"])
     source = described.parent / f"{i}{SOURCE}"
     source.write_text(json.dumps({"variant": _sim.rel(base, variant), "pxPerM": round(density, 2),
                                   "encoding": f"{fmt} {how}"}, indent=1) + "\n", encoding="utf-8")
@@ -1520,9 +1685,15 @@ def audit(base) -> list[str]:
         rel = _sim.rel(base, img)
         source = img.parent / f"{img.stem}{SOURCE}"
         if source.is_file():
-            variant = json.loads(source.read_text(encoding="utf-8"))["variant"]
+            traced = json.loads(source.read_text(encoding="utf-8"))
+            variant = traced["variant"]
             if not (base / variant).is_file():
                 problems.append(f"{rel}: its variant {variant} is gone")
+            # A zone map `qq props install` painted names the picture its lamps were cut on.
+            sprite_src = img.parent / f"{img.stem.removesuffix(ZONES)}{SOURCE}"
+            if "cutOn" in traced and sprite_src.is_file() and \
+                    json.loads(sprite_src.read_text(encoding="utf-8"))["variant"] != traced["cutOn"]:
+                problems.append(f"{rel}: its lamps were cut on {traced['cutOn']}, not the sprite's picture")
             if rel in legacy_set:
                 problems.append(f"{rel}: traced and still on the legacy list")
         elif rel not in legacy_set:

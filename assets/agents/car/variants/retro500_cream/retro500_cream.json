@@ -1,0 +1,19 @@
+{
+  "id": "retro500_cream",
+  "sprite": "retro500_cream.webp",
+  "wreck": { "sprite": "retro500_cream_broken.webp" },
+  "describe": "modern retro two-door small car, good condition, cream with a white roof, domed rounded bonnet, round shoulders all round, short rounded tail, round headlamps, small round-cornered tail lamps",
+  "footprintM": [3.570, 2.076],
+  "collisionM": { "sizeM": [3.570, 1.779], "cornerRadiusM": 0.627 },
+  "massKg": 950,
+  "frontAxleM": 1.055,
+  "rearAxleM": -1.245,
+  "trackM": 1.874,
+  "drivetrain": 1,
+  "maxSteeringDeg": 34,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.58,
+  "frontWeightShare": 0.64,
+  "handling": { "maxSpeed": 0.85, "acceleration": 0.9, "braking": 0.95 },
+  "lamps": []
+}

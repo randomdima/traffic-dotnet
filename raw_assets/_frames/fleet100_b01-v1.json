@@ -1,0 +1,56 @@
+{
+ "id": "fleet100_b01-v1",
+ "ts": "2026-10-21T22:04:39",
+ "op": "edit",
+ "name": "fleet100_b01",
+ "file": ".tmp/gen/frames/fleet100_b01-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.017446,
+ "usage": {
+  "prompt_tokens": 2090,
+  "completion_tokens": 158,
+  "total_tokens": 2248,
+  "cost": 0.017446,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.017446,
+   "upstream_inference_prompt_cost": 0.012706,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 10 different cars for a 2D top-down city game, every car seen straight down from above (orthographic), on a fully transparent background.\n\nThe attached image shows finished cars from the same game. Match its art style exactly — outline weight, shading, highlights, level of detail, pixel size — but not its cars or their colours.\n\nLayout: a 4×3 grid, the cars in the order listed below, left to right and top to bottom. Every car lies horizontally with its nose pointing right, centred in its place in the grid, with clear empty space between neighbours and round the picture's edge. All cars are drawn on one shared scale: a car listed as 4.5 m long is half as long again as one listed as 3 m.\n\nEvery car:\n- Its length and width as listed, and exactly the proportion given: how many times longer than wide it is. Seen from above its body is a rounded rectangle with straight flanks.\n- Each is a believable everyday car of a real kind, as seen in an Eastern European city today.\n- No tyres or wheels visible: the game draws them under the body. Roof on: no convertible, no open top, no seats or people. Mirror-symmetric about its long centre line. Two small side mirrors just ahead of the windscreen.\n- Every lamp a real car has, all switched off — unlit glass with one small pale glint, no glow, no light cast: a headlamp at each front corner with an amber indicator at its outer end; at each rear corner a rear lamp cluster holding a red tail and brake lamp, an amber indicator and a white reversing lamp. Draw them in the shapes this kind of car has.\n- Each lamp's glass is outlined by a thin dark frame, so every lens stands clearly apart from the paint round it. One lamp unit at each corner, never a light bar across the whole nose or tail.\n- Condition shows in the paint only — faded colour, small rust spots, a panel a slightly different shade. The body is whole: no dents big enough to change the outline, no holes, nothing missing.\n- Bonnet, roof and boot read as separate panels, divided by the windscreen and the rear window.\n- No text, logos, brand badges, licence plates, numbers or watermark anywhere.\n- Outside the cars the picture is fully transparent: no background colour, no ground, no shadow, nothing half-transparent.\n\nCars, body length × width (not counting the mirrors):\n1. 2.70 × 1.66 m (1.63× longer than wide), rounded corners — very short but as wide as a normal small car, modern two-seat city microcar, good condition, white with a contrasting black safety-cell frame round the cabin, a very short stubby nose, a big curved windscreen, one rear window, almost no boot, its flanks straight and full width from nose to tail, round-cornered headlamps, small tail lamps\n2. 3.20 × 1.42 m (2.25× longer than wide), gently rounded corners — long and slim, narrower than a modern car, 1990s Russian tiny three-door microcar, worn: faded red paint, rust spots on the sills, short flat bonnet, upright boxy cabin, flat roof, upright hatch, small rectangular headlamps, small square tail lamps\n3. 3.50 × 1.50 m (2.33× longer than wide), gently rounded corners — late-1990s Korean tiny five-door city car, average condition, bright yellow, short round bonnet, tall rounded roof, short upright hatchback tail, big round-edged headlamps, small vertical tail lamps\n4. 3.50 × 1.50 m (2.33× longer than wide), gently rounded corners — late-1990s Korean tiny five-door city car, worn: faded pale green paint, rust spots on the wheel arches, short round bonnet, tall rounded roof, short upright hatchback tail, big round-edged headlamps, small vertical tail lamps\n5. 3.57 × 1.63 m (2.19× longer than wide), rounded corners — modern retro two-door small car, good condition, cream with a white roof, domed rounded bonnet, round shoulders all round, short rounded tail, round headlamps, small round-cornered tail lamps\n6. 3.60 × 1.60 m (2.25× longer than wide), gently rounded corners — modern five-door city car, good condition, lime green, short rounded bonnet, tall roof with one long glass area, short hatchback tail, slim headlamps swept back into the front wings, tall tail lamps\n7. 3.67 × 1.68 m (2.18× longer than wide), gently rounded corners — modern five-door city hatchback, good condition, silver, short sloping bonnet, long roof, upright hatchback tail, swept-back headlamps, tall tail lamps up the rear corners\n8. 3.71 × 1.55 m (2.39× longer than wide), nearly square corners — long and slim, narrower than a modern car, 1990s Ukrainian small three-door hatchback, worn: yellowed white paint, rust along the sills, one front wing in a slightly different white, wedge-shaped flat bonnet, upright cabin, short hatch, plain rectangular headlamps, wide flat tail lamps\n9. 3.73 × 1.49 m (2.50× longer than wide), rounded corners — long and slim, narrower than a modern car, 1960s Soviet rear-engined two-door small saloon, worn: faded sky blue paint, rust spots, a rounded humped body, short sloping front lid, rounded roof, long rear deck over the engine with air intake slots on its sides, chrome bumpers, round headlamps, small tail lamps\n10. 3.74 × 1.68 m (2.23× longer than wide), gently rounded corners — Soviet three-door small 4×4, average condition, olive green, boxy with flat panels, short flat bonnet, upright cab with a flat roof, squared tail, black plastic wheel-arch trims, round headlamps in a flat grille, small square tail lamps",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "536f799e827d5141",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/cars_fleet_b_style.png"
+  }
+ ],
+ "cells": [
+  "microcar_white",
+  "oka_red",
+  "citymini_yellow",
+  "citymini_green",
+  "retro500_cream",
+  "citycar_lime",
+  "cityhatch_silver",
+  "tavria_white",
+  "rearengine_sky",
+  "niva_olive"
+ ]
+}

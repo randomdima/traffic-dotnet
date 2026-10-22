@@ -1,0 +1,31 @@
+{
+  "id": "aveo_blue",
+  "sprite": "aveo_blue.webp",
+  "zones": "aveo_blue_zones.png",
+  "wreck": { "sprite": "aveo_blue_broken.webp" },
+  "describe": "2000s small Korean five-door hatchback, average condition, mid blue, short rounded bonnet, tall roof, upright tail, large teardrop headlamps, tall tail lamps",
+  "footprintM": [3.880, 1.948],
+  "collisionM": { "sizeM": [3.880, 1.664], "cornerRadiusM": 0.619 },
+  "massKg": 1100,
+  "frontAxleM": 1.14,
+  "rearAxleM": -1.34,
+  "trackM": 1.75,
+  "drivetrain": 1,
+  "maxSteeringDeg": 34,
+  "tyreFriction": 0.8,
+  "cgHeightM": 0.57,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.82, "acceleration": 0.82, "braking": 0.9 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.711, -0.536], "sizeM": [0.271, 0.344] },
+    { "fitting": "brake", "atM": [-1.721, 0.547], "sizeM": [0.271, 0.344] },
+    { "fitting": "indicator", "atM": [-1.731, -0.495], "sizeM": [0.115, 0.208] },
+    { "fitting": "indicator", "atM": [-1.752, 0.505], "sizeM": [0.115, 0.208] },
+    { "fitting": "head", "atM": [1.627, -0.536], "sizeM": [0.282, 0.26] },
+    { "fitting": "head", "atM": [1.669, 0.526], "sizeM": [0.282, 0.26] },
+    { "fitting": "indicator", "atM": [1.523, -0.703], "sizeM": [0.167, 0.094] },
+    { "fitting": "indicator", "atM": [1.544, 0.693], "sizeM": [0.167, 0.094] },
+    { "fitting": "reverse", "atM": [-1.773, -0.411], "sizeM": [0.156, 0.115] },
+    { "fitting": "reverse", "atM": [-1.773, 0.422], "sizeM": [0.156, 0.115] }
+  ]
+}

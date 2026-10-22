@@ -1,0 +1,19 @@
+{
+  "id": "niva_olive",
+  "sprite": "niva_olive.webp",
+  "wreck": { "sprite": "niva_olive_broken.webp" },
+  "describe": "Soviet three-door small 4×4, average condition, olive green, boxy with flat panels, short flat bonnet, upright cab with a flat roof, squared tail, black plastic wheel-arch trims, round headlamps in a flat grille, small square tail lamps",
+  "footprintM": [3.740, 2.157],
+  "collisionM": { "sizeM": [3.740, 1.768], "cornerRadiusM": 0.476 },
+  "massKg": 1210,
+  "frontAxleM": 1.17,
+  "rearAxleM": -1.03,
+  "trackM": 1.906,
+  "drivetrain": 2,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.8,
+  "cgHeightM": 0.7,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.72, "acceleration": 0.75, "braking": 0.85 },
+  "lamps": []
+}

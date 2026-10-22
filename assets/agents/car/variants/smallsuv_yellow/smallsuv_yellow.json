@@ -1,0 +1,31 @@
+{
+  "id": "smallsuv_yellow",
+  "sprite": "smallsuv_yellow.webp",
+  "zones": "smallsuv_yellow_zones.png",
+  "wreck": { "sprite": "smallsuv_yellow_broken.webp" },
+  "describe": "modern small coupe-like crossover, good condition, bright yellow with a black roof, bulging wheel arches with black trim, short high bonnet, sloping roof, small round-edged headlamps on top of the wings, boomerang tail lamps",
+  "footprintM": [4.210, 2.169],
+  "collisionM": { "sizeM": [4.210, 1.912], "cornerRadiusM": 0.654 },
+  "massKg": 1300,
+  "frontAxleM": 1.285,
+  "rearAxleM": -1.305,
+  "trackM": 2.002,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.84,
+  "cgHeightM": 0.62,
+  "frontWeightShare": 0.61,
+  "handling": { "maxSpeed": 0.9, "acceleration": 0.95, "braking": 0.95 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.709, -0.688], "sizeM": [0.375, 0.282] },
+    { "fitting": "brake", "atM": [-1.719, 0.667], "sizeM": [0.375, 0.282] },
+    { "fitting": "head", "atM": [1.709, -0.657], "sizeM": [0.375, 0.334] },
+    { "fitting": "head", "atM": [1.709, 0.657], "sizeM": [0.375, 0.334] },
+    { "fitting": "indicator", "atM": [1.688, -0.74], "sizeM": [0.333, 0.167] },
+    { "fitting": "indicator", "atM": [1.688, 0.74], "sizeM": [0.333, 0.167] },
+    { "fitting": "indicator", "atM": [-1.688, -0.761], "sizeM": [0.323, 0.146] },
+    { "fitting": "indicator", "atM": [-1.688, 0.73], "sizeM": [0.323, 0.146] },
+    { "fitting": "reverse", "atM": [-1.834, -0.605], "sizeM": [0.125, 0.094] },
+    { "fitting": "reverse", "atM": [-1.844, 0.563], "sizeM": [0.125, 0.094] }
+  ]
+}

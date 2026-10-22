@@ -1,0 +1,31 @@
+{
+  "id": "minihatch_green",
+  "sprite": "minihatch_green.webp",
+  "zones": "minihatch_green_zones.png",
+  "wreck": { "sprite": "minihatch_green_broken.webp" },
+  "describe": "modern retro three-door premium small car, good condition, dark racing green with a white roof and white mirror caps, short round bonnet, wraparound windscreen, short flat tail, round headlamps, oval tail lamps",
+  "footprintM": [3.820, 2.069],
+  "collisionM": { "sizeM": [3.820, 1.769], "cornerRadiusM": 0.601 },
+  "massKg": 1200,
+  "frontAxleM": 1.19,
+  "rearAxleM": -1.31,
+  "trackM": 1.846,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.88,
+  "cgHeightM": 0.53,
+  "frontWeightShare": 0.63,
+  "handling": { "maxSpeed": 0.95, "acceleration": 1.1, "braking": 1 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.639, -0.577], "sizeM": [0.26, 0.322] },
+    { "fitting": "brake", "atM": [-1.66, 0.567], "sizeM": [0.26, 0.322] },
+    { "fitting": "head", "atM": [1.608, -0.598], "sizeM": [0.281, 0.26] },
+    { "fitting": "head", "atM": [1.608, 0.587], "sizeM": [0.281, 0.26] },
+    { "fitting": "indicator", "atM": [1.483, -0.754], "sizeM": [0.114, 0.062] },
+    { "fitting": "indicator", "atM": [1.525, 0.754], "sizeM": [0.167, 0.083] },
+    { "fitting": "indicator", "atM": [-1.629, -0.639], "sizeM": [0.229, 0.208] },
+    { "fitting": "indicator", "atM": [-1.639, 0.629], "sizeM": [0.229, 0.208] },
+    { "fitting": "reverse", "atM": [-1.702, -0.463], "sizeM": [0.146, 0.104] },
+    { "fitting": "reverse", "atM": [-1.712, 0.452], "sizeM": [0.146, 0.104] }
+  ]
+}

@@ -24,9 +24,9 @@ OFFSET_STEP_PX, REACH_PENALTY, MIN_CONTRAST = 0.25, 0.15, 0.1
 PASSES = (1.0, 0.75, 0.5, 0.35)
 SPLIT_RMS_PX, SPLIT_MIN_CHORD_PX, MAX_POINTS, MIN_CHORD_PX = 1.0, 8.0, 10, 1.5
 #: A lens is smooth and near convex: every corner is rounded off this far along its edges unless a prop says
-#: `"round"`, and an outline that turns more than this in all (a convex one turns 360) is not a lens — a boomerang's
-#: two inner bends are within it, a hook or a spiral is not.
-ROUND_PX, MAX_TURN_DEG = 2.0, 540
+#: `"round"`, and an outline that turns more than this in all (a convex one turns 360, and each degree it bends
+#: back adds two) is not a lens — a crescent's half turn of inner bend is within it, a hook or a spiral is not.
+ROUND_PX, MAX_TURN_DEG = 2.0, 720
 #: A vertex keeps this share of its own move and takes the rest from its neighbours', so an outline moves as a
 #: piece and does not zig-zag; and a bow stays within this share of its chord.
 OWN_MOVE, MAX_BOW_SHARE = 0.6, 0.3
@@ -34,11 +34,17 @@ OWN_MOVE, MAX_BOW_SHARE = 0.6, 0.3
 #: nearer parallel, the vertex takes the mean of their moves.
 MEET_MIN_SIN = 0.35
 #: How far an end's mirror axis is searched either side of where it stands, and how far show looks for a better place
-#: for one prop's copy; the gain in contrast that is worth saying.
-AXIS_SEARCH_PX, COPY_SEARCH_PX, COPY_GAIN = 2.0, 3.0, 0.05
+#: for one prop's copy; the gain in contrast that is worth saying (less is the art's noise, and a copy traced off the
+#: other side's own lens sits within it).
+AXIS_SEARCH_PX, COPY_SEARCH_PX, COPY_GAIN = 2.0, 3.0, 0.1
 #: Two sides' rims this far apart, as the mean of an edge's two ends, are lopsided art rather than noise: no one
 #: symmetric edge sits on both.
 LOPSIDED_PX = 1.0
+#: A vertex is spare where the edge that joins its neighbours without it sits, on both sides, within ON_RIM_PX of its
+#: rim on the mean of its samples (half a texel off is on it) and keeps all but SPARE_CONTRAST_LOSS of the weaker
+#: contrast of the two edges it replaces. Judged on that edge alone: over the whole outline, one edge cutting a
+#: corner is outvoted by the rest.
+ON_RIM_PX, SPARE_CONTRAST_LOSS = 0.5, 0.05
 #: An edge's samples: one every this many texels along it, a few at least.
 SAMPLE_PX = 1.5
 SUPERSAMPLE = 4
@@ -86,6 +92,20 @@ def rings(doc, car, p):
         return [part_of(r, axis, p.get("side", "outboard"), float(p.get("share", 0.5)))
                 for r in rings(doc, car, parent_of(doc, p))]
     return [outline(q, rounding_of(p)) for q in sides_of(doc, car, p)]
+
+
+def prop_coverage(doc, car, p, shape):
+    """How much of each texel a prop covers, both sides, 0 to 1. A part is its share of its main lamp less every
+    section declared over that lamp: a lens of its own drawn in the housing is never under a stand-in."""
+    import numpy as np
+
+    cov = coverage(rings(doc, car, p), shape)
+    if "part" in p:
+        parent = root_of(doc, p)["name"]
+        for q in doc["props"]:
+            if q is not p and parent in q.get("over", []):
+                cov = np.clip(cov - coverage(rings(doc, car, q), shape), 0, 1)
+    return cov
 
 
 def part_of(ring, axis, side, share):
@@ -645,6 +665,42 @@ def better_copy(p, like, at):
     axis, dx, score, here = moves
     return (f'copy sits better at "axisY": {axis:.2f}, "mirrorDx": {dx:.2f} ({here:.2f} -> {score:.2f});'
             f" `axis --prop={p['name']}` sets them")
+
+
+def spare_vertex(doc, car, p, like, reach):
+    """The vertex the prop does best without, where one is spare: taken out, the arc that joins its neighbours lies on
+    the rim on both sides and the outline stays a lens's shape. (vertex, that edge's rim gap a side) or None. A vertex
+    that bounds a held edge is never spare."""
+    import numpy as np
+
+    pts, held, n = p["points"], set(p.get("hold", [])), len(p["points"])
+    if n <= 3:
+        return None
+    at = copy_at(doc, car, p) if p["mirror"] else None
+
+    def both(q):
+        return [q] + ([mirrored(q, at)] if at else [])
+
+    before = [edge_contrasts(side, like) for side in both(pts)]
+    best = None
+    for j in range(n):
+        if {(j - 1) % n, j} & held:
+            continue
+        q = drop_vertex(pts, j)
+        k = (j - 1) % (n - 1)
+        gaps = []
+        for side, was in zip(both(q), before):
+            p0, p1 = edge_ends(side, k)
+            _, offs, score = rim_search(p0, p1, side[k][2], winding(side), like, None, reach)
+            clear = score >= MIN_CONTRAST
+            if clear.sum() < 3 or edge_contrasts(side, like)[k] < min(was[j - 1], was[j]) - SPARE_CONTRAST_LOSS:
+                break
+            gaps.append(float(np.abs(offs[clear]).mean()))
+        if len(gaps) < len(before) or max(gaps) > ON_RIM_PX or smooth_enough(outline(q, rounding_of(p))):
+            continue
+        if best is None or max(gaps) < max(best[1]):
+            best = j, gaps
+    return best
 
 
 def own_copy(doc, car, p):

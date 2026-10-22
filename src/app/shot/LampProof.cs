@@ -44,6 +44,7 @@ internal static class LampProof
         new("turning left", CarLampSet.Head | CarLampSet.TurnLeft, 2f),
         new("turning right", CarLampSet.Head | CarLampSet.TurnRight, 2f),
         new("reversing", CarLampSet.Head | CarLampSet.Reverse, 1f),
+        new("reversing, braking", CarLampSet.Head | CarLampSet.Reverse | CarLampSet.Brake, 1f),
         new("on a call: beacons", CarLampSet.Head | CarLampSet.Beacon, 2f),
         new("at work: amber bar", CarLampSet.Head | CarLampSet.Works, 2f),
         new("wrecked", CarLampSet.None, 1.5f, Wrecked: true),
@@ -72,7 +73,9 @@ internal static class LampProof
     /// Writes the proof of the catalogue's fleet looks — the told ones under <c>--fleet</c>, or every look when the
     /// shipped fleet is read — and returns how many frames it holds.
     /// </summary>
-    public static int Write(string path, SimConfig config)
+    /// <param name="glow">Whether a lit lens is drawn with the light round it, or as the lens alone, which is how the
+    /// texels its zone map cut are judged.</param>
+    public static int Write(string path, SimConfig config, bool glow = true)
     {
         var catalogue = CarCatalog.Shared;
         var looks = FleetList.IsTold ? catalogue.Count : catalogue.SheetCount;
@@ -120,9 +123,12 @@ internal static class LampProof
                 var written = CarSprites.Fill(fleet, drawn, catalogue, 0, scales, viewCentreM, viewSpanM, into);
                 written += CarSprites.FillFrontTyres(
                     fleet, drawn, sheets.Length - 1, 0f, viewCentreM, viewSpanM, into.AsSpan(written));
+                var glowSheet = firstLens + 1;
+                var lampsFrom = written;
                 written += LampSprites.Fill(
-                    fleet, drawn, catalogue, config, firstLens, firstLens + 1, elapsedS, viewCentreM, viewSpanM,
+                    fleet, drawn, catalogue, config, firstLens, glowSheet, elapsedS, viewCentreM, viewSpanM,
                     into.AsSpan(written));
+                if (!glow) written = lampsFrom + WithoutSheet(into.AsSpan(lampsFrom, written - lampsFrom), (uint)glowSheet);
 
                 var key = KeyOf(into.AsSpan(0, written), phase.Name);
                 if (last is not null && key == lastKey)
@@ -260,6 +266,18 @@ internal static class LampProof
                 frame[x, y] = new Rgba32(over);
             }
         }
+    }
+
+    /// <summary>The instances not drawn from <paramref name="sheet"/>, kept in order at the front; how many there are.</summary>
+    static int WithoutSheet(Span<SpriteInstance> instances, uint sheet)
+    {
+        var kept = 0;
+        foreach (var instance in instances)
+        {
+            if (instance.Sheet != sheet) instances[kept++] = instance;
+        }
+
+        return kept;
     }
 
     /// <summary>What a frame shows, as a number: the same instances under the same caption are the same picture.</summary>

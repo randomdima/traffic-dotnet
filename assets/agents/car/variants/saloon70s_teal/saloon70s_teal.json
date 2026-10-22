@@ -1,0 +1,18 @@
+{
+  "id": "saloon70s_teal",
+  "sprite": "saloon70s_teal.webp",
+  "describe": "1970s Soviet small four-door saloon, worn: faded teal paint, rust patches, a straight-edged body, flat bonnet, upright cabin, separate boot, chrome bumpers, rectangular headlamps, vertical tail lamps split into red, amber and white sections",
+  "footprintM": [4.250, 2.100],
+  "collisionM": { "sizeM": [4.250, 1.758], "cornerRadiusM": 0.522 },
+  "massKg": 1045,
+  "frontAxleM": 1.305,
+  "rearAxleM": -1.095,
+  "trackM": 1.848,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.74,
+  "cgHeightM": 0.6,
+  "frontWeightShare": 0.53,
+  "handling": { "maxSpeed": 0.68, "acceleration": 0.65, "braking": 0.78 },
+  "lamps": []
+}

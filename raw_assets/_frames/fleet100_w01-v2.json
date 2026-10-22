@@ -1,0 +1,56 @@
+{
+ "id": "fleet100_w01-v2",
+ "ts": "2026-10-21T22:08:09",
+ "op": "edit",
+ "name": "fleet100_w01",
+ "file": ".tmp/gen/frames/fleet100_w01-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.018754,
+ "usage": {
+  "prompt_tokens": 2054,
+  "completion_tokens": 158,
+  "total_tokens": 2212,
+  "cost": 0.018754,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.018754,
+   "upstream_inference_prompt_cost": 0.014014,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 10 WRECKED cars for a 2D top-down city game, every car seen straight down from above (orthographic), on a fully transparent background.\n\nThe attached image shows the same 10 cars intact, finished, in this order, left to right and top to bottom. Draw each of them as a WRECK after a hard crash: the same car, same size and proportions, same paint colour and wear, same roof, windows, trim and details, so it is plainly that car, but wrecked. Match its art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nLayout: a 4×3 grid — four wrecks in the first row, four in the second, two in the third — in the order listed below, left to right and top to bottom. Every car lies horizontally with its nose pointing right, centred in its place in the grid, with clear empty space between neighbours and round the picture's edge. All cars are drawn on one shared scale, each exactly as long and as wide as it is in the attached image relative to the others.\n\nWhat a wreck looks like:\n- The nose is crumpled and pushed in, the bonnet buckled up into a ridge, one front corner smashed harder than the other.\n- Dents and long scrapes along one flank, with bare grey metal showing through the paint in the scrapes.\n- The windscreen and the side windows are shattered: dark glass covered in white crack lines, one window gone to a dark hole.\n- A door or the boot lid hangs a little open or out of line; a bumper is twisted.\n- The lamps are smashed and dark: broken glass, never lit, no glow.\n- No fire, no flames, no smoke, no burnt black body: it is crashed, not burnt.\n\nShape comes first:\n- Each wreck keeps its car's outline: the same length and width, its flanks straight. The crumpled nose is pushed in, not out. Nothing sticks out except at most one bent side mirror.\n- No debris, glass or parts scattered around the car: everything belongs to the body.\n- No tyres or wheels visible: the game draws them under the body.\n- No text, logos, badges, licence plates, numbers, people or watermark anywhere.\n- Outside the cars the picture is fully transparent: no background colour, no ground, no shadow, nothing half-transparent.\n\nCars, body length × width:\n1. 2.70 × 1.65 m — the white two-seat microcar with the black safety-cell frame, wrecked\n2. 3.20 × 1.50 m — the faded red tiny boxy three-door microcar, wrecked\n3. 3.50 × 1.76 m — the bright yellow tiny rounded five-door city car, wrecked\n4. 3.50 × 1.75 m — the faded pale green tiny rounded five-door city car with rust spots, wrecked\n5. 3.57 × 1.78 m — the cream round retro two-door car with the white roof, wrecked\n6. 3.60 × 1.72 m — the lime green five-door city car with the dark glass roof, wrecked\n7. 3.67 × 1.69 m — the silver five-door city hatchback, wrecked\n8. 3.71 × 1.81 m — the yellowed white boxy three-door hatchback with rust, wrecked\n9. 3.73 × 1.69 m — the faded sky blue rounded rear-engined two-door with chrome bumpers, wrecked\n10. 3.74 × 1.77 m — the olive green boxy three-door 4×4, wrecked",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "4998bb1cbbdf0f1c",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_w01_style.png"
+  }
+ ],
+ "cells": [
+  "microcar_white_broken",
+  "oka_red_broken",
+  "citymini_yellow_broken",
+  "citymini_green_broken",
+  "retro500_cream_broken",
+  "citycar_lime_broken",
+  "cityhatch_silver_broken",
+  "tavria_white_broken",
+  "rearengine_sky_broken",
+  "niva_olive_broken"
+ ]
+}

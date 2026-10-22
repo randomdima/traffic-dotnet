@@ -1,0 +1,30 @@
+{
+  "car": "retro500_cream",
+  "sprite": {"variant": "raw_assets/agents/car/variants/retro500_cream/retro500_cream-v2.png", "sizePx": [343, 197]},
+  "axisY": {"rear": 98.50, "front": 98.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [22.81, 28.57, 1.01],
+      [14.98, 46.69, 0.98],
+      [17.84, 50.84, -0.95],
+      [28.63, 36.33, 0.73],
+      [31.38, 28.65, 2.35]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "points": [
+      [28.45, 26.84, 0.00],
+      [26.63, 33.01, 0.00],
+      [28.89, 36.17, 0.41],
+      [30.17, 34.80, 1.74],
+      [29.14, 26.66, 0.64]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [302.40, 30.74, 0.98],
+      [314.05, 51.60, 3.03],
+      [319.61, 48.62, 2.39],
+      [314.30, 30.27, 0.00],
+      [309.47, 28.95, 1.95]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

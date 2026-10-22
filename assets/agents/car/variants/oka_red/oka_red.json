@@ -1,0 +1,19 @@
+{
+  "id": "oka_red",
+  "sprite": "oka_red.webp",
+  "wreck": { "sprite": "oka_red_broken.webp" },
+  "describe": "1990s Russian tiny three-door microcar, worn: faded red paint, rust spots on the sills, short flat bonnet, upright boxy cabin, flat roof, upright hatch, small rectangular headlamps, small square tail lamps",
+  "footprintM": [3.200, 1.775],
+  "collisionM": { "sizeM": [3.200, 1.499], "cornerRadiusM": 0.415 },
+  "massKg": 650,
+  "frontAxleM": 1.05,
+  "rearAxleM": -1.15,
+  "trackM": 1.58,
+  "drivetrain": 1,
+  "maxSteeringDeg": 35,
+  "tyreFriction": 0.74,
+  "cgHeightM": 0.6,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.62, "acceleration": 0.6, "braking": 0.8 },
+  "lamps": []
+}

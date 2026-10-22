@@ -3,25 +3,42 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
-## 2026-10-18 — a car's shape is authored first, and its picture is drawn to it
+## 2026-10-20 — a civilian car draws its whole lamp set, and the zone map divides a cluster the art drew as one
 
-Art is generated now (raw_assets/index.md), so the flow runs the other way: `collisionM` is the shape the car
-is, and the generator is handed it as the outline the bodywork fills, inside the footprint that holds the mirrors
-and tyres (CAR-12b). Nothing is measured off a picture any more, so the gate that sampled each sprite's silhouette
-against its fit went with it, and `hullM` — a traced outline no code read — is gone from the files. The owner's
-call (2026-10-18). Lamps go the same way: each lens is authored in the file and the picture is asked to draw it
-there switched off, and a lens moved is a car asked for again (raw_assets/index.md, rule 7).
+The fleet is drawn again as real body classes with every lamp a car has (the owner, 2026-10-20): two headlamps, an
+indicator at each corner, and per rear cluster a brake lens and a reversing lens of their own (`brake`, `reverse`
+fittings beside the one-lens `rear` the service vehicles keep). Ten lenses, which is `CarLamps.MostLenses` and the
+emit's one word. Rear indicators needed no code: an indicator flashes by its side, wherever along the body it is.
+**The generator draws a rear cluster as one red lamp whatever the brief says** — three wordings over three
+frames (`cars_fleet_a`, raw_assets/agents/car/prompting.md) — **and its lamp cut divides it**: a lens the art did not
+draw is a share of the cluster (the reverse its inboard third, the indicator its outboard half). That is enough: a
+lit lens burns its lamp's own colour along the art's luminance (`LampAtlasBake`), so a reversing section on red glass
+lights white. What it costs is that the unlit reversing lens reads red, as an all-red cluster does on a real car.
 
-## 2026-10-18 — a lens is what the generator's zone map says it is
+## 2026-10-20 — a car is what its picture draws: described, not templated
 
-The lens rectangle cut from the sprite and driven emissive lit the wrong texels: the model draws a lens a few
-centimetres off its frame and in its own shape, so a lit lamp was a bright square of paint half over the real lens.
-Finding the lens in the art by colour failed where glass and paint are alike — a red lamp on a red body, pale glass on
-a cream one — and a second, lamps-on picture from the generator did not convince the owner. **The owner's call**
-(2026-10-18): the generator repaints each sheet as flat contrasting zones, and Python maps them onto the sprite
-(CAR-14a). A zone map is fitted to the car's outline exactly as the art is, so the two land on one another within a
-texel or two without being an edit of the same pixels; a zone texel belongs to the nearest lens of its fitting. The
-legacy looks keep the rectangle until they are generated again.
+**The owner's call** (2026-10-20), reversing the shape-first one of 2026-10-18: a car's sheet is asked from words
+alone — no layout of outlines and lamp frames — and what comes back is the car's geometry. The model followed the
+layout only roughly (bodies 8–12 % off on a third of the cells, every lamp where real cars have it rather than in its
+frame, `cars_fleet_a`), and every lamp frame laid the same ten rectangles on every kind of car. Now the file gives
+the picture its length; `qq sprites cut` finds each drawing by the brief's order, scales it to that length and
+measures the body's width, corner radius, footprint and the width over each axle (CAR-12, CAR-12b), and the zone
+map's lenses become the file's lamps (CAR-14a). The input pictures were most of a frame's price, too: $0.034 with a
+layout and a style picture, $0.023 with the style picture alone, $0.010 with none. The service vehicles keep their
+authored shapes until they are drawn again.
+
+## 2026-10-21 — a lens is the outline cut off the art, and a zone texel is a set of glasses
+
+The rectangle cut from the sprite lit paint beside the lens; the generator's zone map, an unmasked repaint, landed
+1–8 px off the sprite and blocky (`cars_fleet_a`, `zones_trial`). **The owner's call** (2026-10-21): each lens is cut as
+a mirrored arc polygon on the rim the art drew (`qq props`, an agent driving it a car at a time), and `qq props
+install` paints the zone map from the polygons and writes each lens's box as the file's `lamps` (CAR-14a). The map's
+three channels are three glasses — red, amber, white (`LampAtlasBake.Holds`) — not one palette colour a texel,
+because a lamp the art drew no lens for is a share of the main lamp (an indicator the outboard half of a brake) and a
+section drawn inside a housing lies over it: one colour a texel would leave the brake dark where its indicator is.
+Head and reverse share white, as they share no end of the car. A generated palette map reads wrongly in this
+encoding (yellow is red and amber), so `qq sprites use` refuses one; a new picture drops the car's lamps until they
+are cut again. The legacy looks keep the rectangle until they are generated again.
 
 ## 2026-10-16 — a leg gives its place up once, and a light excuses only a queue that reaches it
 

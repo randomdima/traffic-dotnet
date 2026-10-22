@@ -25,6 +25,9 @@ public class CarLampTests
     /// <summary>How far ahead the junction is staged, which is inside the reach an indicator answers one at.</summary>
     const float JunctionAheadM = 30f;
 
+    /// <summary>How far along the body two lenses may stand and still be one corner's pair: a lamp's own length.</summary>
+    const float CornerM = 0.25f;
+
     /// <summary>
     /// A car with a driver in it, standing on a straight line with its foot off everything, <b>approaching
     /// a junction it turns at</b> — which is the only state an indicator says anything in (CAR-14.1), so it
@@ -132,6 +135,31 @@ public class CarLampTests
         CarLamps.Shown(lenses, driven ? CarLampSet.Head : CarLampSet.None, Config, 0f, 1f, into);
 
         Assert.Equal(new ShownLamp(lenses[0], CarLamp.Head, driven), into[0]);
+    }
+
+    /// <summary>
+    /// CAR-14.3: a cluster drawn as a brake lens and a reversing lens lights each for its own fact, so a car
+    /// braking as it backs out of a bay shows both — the pedal outranks the gear only on a cluster of one lens.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ABrakeLensIsThePedalAndAReversingLensTheGear(bool braking, bool reversing)
+    {
+        ReadOnlySpan<CarLens> lenses =
+        [
+            new CarLens(CarLampFitting.Brake, new Vector2(-2.2f, 0.7f), new Vector2(0.1f, 0.2f)),
+            new CarLens(CarLampFitting.Reverse, new Vector2(-2.2f, 0.5f), new Vector2(0.1f, 0.12f)),
+        ];
+        Span<ShownLamp> into = stackalloc ShownLamp[2];
+        var showing = (braking ? CarLampSet.Brake : CarLampSet.None) | (reversing ? CarLampSet.Reverse : CarLampSet.None);
+
+        CarLamps.Shown(lenses, showing, Config, 0f, 1f, into);
+
+        Assert.Equal(new ShownLamp(lenses[0], CarLamp.Brake, braking), into[0]);
+        Assert.Equal(new ShownLamp(lenses[1], CarLamp.Reverse, reversing), into[1]);
     }
 
     /// <summary>
@@ -618,13 +646,17 @@ public class CarLampTests
             var lenses = Catalogue.LensesOf(variant);
             var halfM = car.FootprintM * 0.5f;
             var rears = 0;
-            var indicators = 0;
+            var brakesApart = 0;
+            var reverses = 0;
+            var frontIndicators = 0;
 
             Assert.InRange(lenses.Length, 1, CarLamps.MostLenses);
             foreach (var lens in lenses)
             {
-                if (lens.Fitting == CarLampFitting.Rear) rears++;
-                if (lens.Fitting == CarLampFitting.Indicator) indicators++;
+                if (lens.Fitting is CarLampFitting.Rear or CarLampFitting.Brake) rears++;
+                if (lens.Fitting == CarLampFitting.Brake) brakesApart++;
+                if (lens.Fitting == CarLampFitting.Reverse) reverses++;
+                if (lens.Fitting == CarLampFitting.Indicator && lens.AtBodyM.X > 0f) frontIndicators++;
 
                 var reach = lens.AtBodyM + (lens.SizeM * 0.5f);
                 Assert.InRange(MathF.Abs(reach.X), 0f, halfM.X);
@@ -635,16 +667,20 @@ public class CarLampTests
             }
 
             Assert.Equal(2, rears);
-            Assert.Equal(2, indicators);
+            Assert.Equal(2, frontIndicators);
+
+            // A cluster whose brake lamp is its own lens has its reversing lamp as one too, or the car backs up dark.
+            Assert.Equal(brakesApart, reverses);
         }
     }
 
     /// <summary>
-    /// The rear pair is at the tail and the front pair at the nose, and each pair is a mirrored pair:
-    /// a variant whose file has a sign wrong is a car indicating out of the boot.
+    /// The rear cluster is at the tail, and every lens is one of a mirrored pair: a variant whose file has a
+    /// sign wrong is a car braking out of its bonnet. Indicators stand at either end, the front pair being
+    /// the first test's.
     /// </summary>
     [Fact]
-    public void TheRearPairIsBehindTheMiddleAndTheIndicatorsAreAheadOfIt()
+    public void TheRearClusterIsBehindTheMiddleAndEveryLensIsAPair()
     {
         for (var variant = 0; variant < Catalogue.SheetCount; variant++)
         {
@@ -653,20 +689,25 @@ public class CarLampTests
             foreach (var lens in lenses)
             {
                 var ahead = lens.AtBodyM.X > 0f;
-                if (lens.Fitting == CarLampFitting.Rear) Assert.False(ahead, $"{car.Id} brakes from its nose");
-                if (lens.Fitting == CarLampFitting.Indicator) Assert.True(ahead, $"{car.Id} indicates from its tail");
+                if (lens.Fitting is CarLampFitting.Rear or CarLampFitting.Brake or CarLampFitting.Reverse)
+                {
+                    Assert.False(ahead, $"{car.Id} draws a {lens.Fitting} lens on its nose");
+                }
 
                 var twin = Mirrored(lenses, lens);
                 Assert.True(twin, $"{car.Id} draws a {lens.Fitting} lens with nothing on its other flank");
             }
         }
 
+        // A twin is the same fitting at the same corner of the other flank, and not its exact mirror image: a lens is
+        // boxed off the art, which draws the two sides up to a decimetre apart, and in two shapes where it is lopsided.
         static bool Mirrored(ReadOnlySpan<CarLens> lenses, CarLens lens)
         {
             foreach (var other in lenses)
             {
-                if (MathF.Abs(other.AtBodyM.X - lens.AtBodyM.X) < 0.05f
-                    && MathF.Abs(other.AtBodyM.Y + lens.AtBodyM.Y) < 0.05f)
+                if ((other.Fitting == lens.Fitting || (IsBeacon(other.Fitting) && IsBeacon(lens.Fitting)))
+                    && MathF.Abs(other.AtBodyM.X - lens.AtBodyM.X) < CornerM
+                    && MathF.Sign(other.AtBodyM.Y) == -MathF.Sign(lens.AtBodyM.Y))
                 {
                     return true;
                 }
@@ -674,5 +715,9 @@ public class CarLampTests
 
             return false;
         }
+
+        // A bar's ends are its two colours, crossed on a second bar (CAR-14.4).
+        static bool IsBeacon(CarLampFitting fitting) =>
+            fitting is CarLampFitting.BeaconRed or CarLampFitting.BeaconBlue or CarLampFitting.BeaconAmber;
     }
 }

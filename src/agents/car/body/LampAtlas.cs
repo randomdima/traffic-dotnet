@@ -78,15 +78,17 @@ internal static class LampAtlas
         CarLampFitting.BeaconRed => state == 0 ? CarLamp.BeaconRed : CarLamp.BeaconBlue,
         CarLampFitting.BeaconAmber => CarLamp.BeaconAmber,
         CarLampFitting.Head => CarLamp.Head,
+        CarLampFitting.Brake => CarLamp.Brake,
+        CarLampFitting.Reverse => CarLamp.Reverse,
         _ => state == 0 ? CarLamp.BeaconBlue : CarLamp.BeaconRed,
     };
 
     /// <summary>
-    /// How many cells a fitting owns. An indicator, an amber beacon and a headlamp burn one colour each and
+    /// How many cells a fitting owns. Only a one-lens rear cluster and a beacon end burn two colours; the rest
     /// leave their second column empty.
     /// </summary>
     public static int StatesOf(CarLampFitting fitting) =>
-        fitting is CarLampFitting.Indicator or CarLampFitting.BeaconAmber or CarLampFitting.Head ? 1 : StatesPerLens;
+        fitting is CarLampFitting.Rear or CarLampFitting.BeaconRed or CarLampFitting.BeaconBlue ? StatesPerLens : 1;
 
     /// <summary>Which of a lens's cells is the one showing this colour, read off <see cref="ColourAt"/> so the two cannot drift.</summary>
     public static int StateOf(CarLampFitting fitting, CarLamp colour) => ColourAt(fitting, 0) == colour ? 0 : 1;

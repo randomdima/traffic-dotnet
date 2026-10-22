@@ -12,6 +12,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (2026-10-19). Not the railway loop's: it fails as well with the suite's line laid straight, the old train and rail
   figures and the ballast answered over the walk. Not traced; which of `WalkingGround.StateIntents`' two pieces comes
   back empty for walker 29, and why, closes it.
+- **`PlansInATownTests.APlanNothingCutNeverDrawsBack(map: "Laid")`** (town) fails: "tick 2764, car 42 drew its plan
+  back 4.77 m with nothing cutting it, doing 0.1 m/s" (2026-10-22). No code moved it: it passes with batch 1's ten
+  cars in `Fleet.json` and fails with them out (below), so the fleet's mix hands car 42 a look whose size reaches a
+  plan bug the old mix did not. Tracing why that plan draws back closes it; batch 1 back in the fleet only hides it.
 - **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
   the leg it had before the hand" (2026-10-19, the hand's change in hand). Closed by that change.
 - **Four tests fail since the town's arithmetic left libm** (2026-10-20, core log); all four pass on 79dddfaf:
@@ -63,13 +67,38 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   traffic, CAR-53). They come back with the entry below.
 - **`BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark`** (town, GEN-55) has failed since the world's trigonometry
   became `Trig` (2026-10-15, core log; it passes on 5a973d8): `Heading.Unit` lays the town as well as turning it, so the
-  suite's town stands a float off where it stood, and building 28 stands 1.3 m off the middle of a rank reaching 9.0 m
-  with 7.8 m of frontage either side — 0.1 m onto the rounding. Traced to the margin the generator keeps (or does not),
-  it closes; it is not the trigonometry's.
+  suite's town stands a float off where it stood. Since the buildings grew (2026-10-20) building 163 stands 10.4 m off
+  the middle of a rank reaching 10.8 m with 2.6 m of frontage either side — 2.2 m onto the rounding, where it was 0.1 m.
+  Not traced: `ZoneBuildings.Stand` asks `Yards.Allows` of the place before `Face.Seat` moves the building to the
+  face's true nearest (GEN-15), which may be the whole of it; asking it of the seated wall closes it if so.
 - **The kernels have not been held to `Trig` on a GPU** (2026-10-15): `TrigKernelTests` and `RoundedKernelTests` pass
   on lavapipe, which the suite runs. The device tier pointed at the RX 9070 XT by hand closes it.
 
 ## Regressions and figures not taken
+
+- **Five cars stand outside the fleet on a magenta-cut picture** (`assets/agents/car/variants/`: `crossover_pearl`,
+  `estate_steel`, `fleetsaloon_white`, `kombi_sage`, `midsaloon_black`; 2026-10-21): cut from the magenta
+  `cars_fleet_a-v3`, their edges carry a faint magenta fringe, and all but `fleetsaloon_white` show no lamps. Each is
+  asked again on a transparent sheet in its `fleet100` batch (`.tmp/gen/fleet_plan.md`: batches 5, 6, 7, 10), which
+  closes it.
+- **Batch 1's ten cars have no lamps** (`assets/agents/car/variants/`: `microcar_white` … `niva_olive`, 2026-10-22):
+  their lamps were cut again on mirrored pictures, which the owner then dropped; the original pictures are back
+  (`<id>-v1`), and the lamps cut on them first were overwritten by that re-cut and kept nowhere. They are out of
+  `Fleet.json` until they have lamps (`CarLampTests.EveryVariantDrawsItsLampsOnTheBodyTheyAreMeasuredOff` refuses a
+  fleet car with none). Cutting their lamps again with `qq props` and listing them again closes it.
+- **Nine earlier looks are on disk and in no fleet** (`assets/agents/car/variants/`: `citybox_sky`, `estate_navy`,
+  `hatch_coral`, `micro_mint`, `minivan_wine`, `panelvan_forest`, `retro_cream`, `saloon_beige`, `suv_graphite`;
+  2026-10-22): trial cars the hundred-car plan does not ask again, so nothing draws them and their raw_assets
+  lineage is kept for nothing. _owner_: deleting them with the legacy looks below closes it.
+- **A variant's `handling.braking` moves nothing but the pedal's ramp** (`CarBuild.Resolve`, 2026-10-22): the brake
+  is `CarBrakingMps2` (three of the road's grips) times it, and every planned stop is the lesser of that and the
+  car's own grip, so across the fleet's 0.72–1.2 the tyre always decides and the figure reaches only
+  `PedalRateMps3`. The plan's worn cars author weaker brakes that stop as short as new ones. Dropping the figure, or
+  a brake authored as a raw term that can bind, closes it.
+- **Sixteen legacy looks still stand in `Fleet.json`** (2026-10-21) beside the new fleet's first batch, so a town is
+  not all small cars while the hundred are drawn: `muscle_orange` … `pickup_maroon`, art on the legacy list, lamps
+  by rectangle. Dropping them once the new fleet spans every size closes it, and with it the entries below on the
+  legacy looks.
 
 - **The `debug-collision` scenario frames bare grass** (`tests/e2e/scenarios/InterfaceScenarios.cs`, `Test` at 270, 60):
   its subject is "a lit T junction at close range", and the frame holds scenery and no body at all, so the picture says
@@ -530,6 +559,17 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 
 ## Inconsistencies
 
+- **A district may stand no depot** (2026-10-20, GEN-55, GEN-56; accepted by the owner): a yard is as wide as its
+  building's frontage (`CarParks.YardBays`), eight bays for the 23.4 m civic roofs, and one district of `Odesa` finds no
+  kerb straight for that long (depots 7 of 8 in `--bench census`). A site search that holds a long yard on a curving
+  kerb, or a shallower yard, closes it.
+- **`qq doclint` finds `FNV-1a` cited by code and stated nowhere** (found 2026-10-20, `src/citygen/CityPlan.cs:152` and
+  one more): an ID-shaped name in a doc comment, not a rule. Rewording it so it does not read as a citation, or the
+  lint knowing an algorithm's name, closes it.
+- **`TurnAtALotWithinM` is read off the widest lot and not the widest yard** (2026-10-20, `SimConfig.Derived`): it takes
+  `BaysPerLotMost`, six bays, and a service's yard is now up to eight, so a bay at a yard's far end may stand past where
+  a leg may turn at it. Nothing has been seen to fail by it; the figure taking the widest rank a town lays closes it.
+
 - **The ground answers the ballast over the decks, the water and the shore** (2026-10-19, `GroundShapes.At`, RAIL-3,
   TER-7): the mesh lays the track at grade under all of them and a bridged track over everything, and the answer is
   meant to be that order walked back. Only the walk is asked first now. One ring set (`RailArrays.Ballast`) holds both
@@ -594,34 +634,94 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   Nothing permitted on a walk is placed at a crossing, so no prop or route reads the difference yet. Answering the walk
   over the ballast inside a crossing's stretch closes it.
 
-- **Building roofs are drawn under the art grid, and nothing in the tree can remake them** (2026-10-18): of the 272
-  prefab sprites under `assets/world/building/prefabs/`, 182 are under 25 px/m against `ArtPixelsPerMetre` 31.5, the
-  median 18 and the coarsest 6.3 (`apartments_deep_20`); `qq art` reports only sheets over their grid. 83 prefabs have
-  no sprite. `qq sprites` now lays, cuts and installs them at the grid; regenerating the set closes it, and `qq art`
-  saying which sheets are under would keep it closed. A 3×3 sheet at 1536×1024 holds the grid only for roofs up to
-  ~13 m, so whether the rest may stay under is _owner_.
-- **A lamp's glow is laid at its frame, not at the lens the art drew** (2026-10-18): `LampSprites` centres the glow
-  under a lit lens on `atM`, and the generator draws lenses a few centimetres off their frames — `micro_mint`'s
-  and `retro_cream`'s tail lamps and indicators most (`cars_civil_c-v3`). The lit lens itself is where its zone map
-  says (CAR-14a); its spill is off by that much. Centring the glow on the texels the bake lit for it closes it.
-- **The first batch's lamps burn misplaced and clipped** (2026-10-20, `cars_fleet_a`): the bake looks for a lens's zone
-  only within a window about its authored rectangle (`LampAtlasBake.RectOf`, `Zoned`), the rectangles were laid by the
-  template rather than read off the art, and the zone maps were unmasked repaints drawn 1–8 px off the sprite. A lens
-  the art drew elsewhere is cut short or missed. `qq props` now cuts a car's lamps as mirrored arc polygons in a
-  place–look–snap loop an agent drives (`raw_assets/agents/car/prompting.md`, zones_trial), and the eight trial cars
-  are cut with it, four of them by agents working from its help alone; the props files and per-kind masks are scratch
-  (`.tmp/props/`) and nothing reads them. Keeping the props files beside each variant under `raw_assets/` and the bake
-  lighting a lamp's whole prop in place of a rectangle window closes this, and `ZONE_REACH_M`, the zone maps and the
-  blob trial (`.tmp/zone_tool.py`, superseded) go with it.
-- **`qq props` snap has little to go on where a lens has no frame and no colour of its own** (2026-10-20,
-  `.qq/props.py`): `supermini_red`'s rear lamp scores 0.12, its brake found no frame rim on four of six edges under
-  `--pull=frame`, and which part of it is the brake is a reading, not a finding. A lens drawn wider on one side than
-  the other (`panelvan_forest`'s head, sides 1.4–3.6 texels apart on four edges) can sit on neither side's rim in a
-  symmetric shape; snap now settles halfway, so each side is off by about a texel, one over its frame and one short. Off a texel on one side only, with no better
-  place for the copy: `hatch_coral`'s front indicator (an orange lens drawn on one side alone) and `midsaloon_black`'s
-  rear indicator.
-  A third term — a lens's highlights, or the zones the model's map gives as a
-  prior — closes the first; the second is the art's, and closes with a redraw.
+- **A third of the building roofs are drawn under the art grid** (2026-10-20): all 376 were drawn again, as few as
+  two to a frame where the owner allowed it, and 133 are still under 25 px/m against `ArtPixelsPerMetre` 31.5 — the
+  median 28.7, the coarsest 8.5 (`industrial_deep_11`, `industrial_26`, `school_13`, each some 60 m across). One frame
+  at 1536×1024 holds no roof past ~47 m at the grid, so only a roof drawn in pieces would close it; `qq art` saying
+  which sheets are under would keep the rest from slipping.
+- **120 of the 376 roofs are kept at score 3** (2026-10-20, `raw_assets/world/building/prompting.md`): AC units and
+  chimneys 1.5–2× their true size, stair and lift boxes showing a thin front face, `house_deep_19`'s porch leaving 2.8 %
+  holes at its bottom corners. No wording cured the first two; a frame asked again with a better cure closes each.
+- **Thirty prefab describes contradict their roofs** (2026-10-20): sixteen flat-roofed blocks of flats ask for "1 lift
+  machine rooms", fourteen ask for hatches "evenly along the ridge line" of a flat roof (`apartments_*`, `tower_*`), and
+  "stairwell exit hatches" are meant as boxes. The art is drawn and kept; the next brief of any of them repeats the
+  slip until the describe is reworded.
+- **`qq sprites mask` cannot mend a cell drawn the wrong size** (2026-10-20): the mask is the outline's box, so paint
+  past it or short of it comes back byte for byte and a redo of a size fault is a whole re-roll. A mask padded to the
+  cut's drawn extent closes it.
+- **`apartments_17-v2` and `apartments_deep_08-v2` are duplicates** of their `-v1` (2026-10-20): one frame's cells
+  kept twice, before `keep` refused a cell kept once. Unused candidates; deleting the two records closes it.
+- **Without its glow a lit brake, indicator or reversing lens barely differs from its dull glass** (2026-10-20,
+  `qq proof --no-glow`, `cars_fleet_a`): the bake carries a lens up its colour's ramp by the art's own luminance
+  (`LampAtlasBake.Lit`), and the generator's bright red and orange glass is already near the top of it, so braking
+  moves a texel by at most 125 of 255 and reversing by 74; only the headlamp reads lit. The glow is what says it in
+  the game. A ramp whose floor stands clear of the dull glass, or a check of the lit lens against the dull one,
+  closes it.
+- **`qq sprites` still carries the generated zone-map path** (2026-10-21, `.qq/sprites.py`): `ZONE_PARTS`,
+  `ZONE_COLOURS`, `LENS_ZONES`, `ZONE_REACH_M`, `zoned_sheet`, `cut_described`'s zoning branch and `use`'s, which now
+  refuses to install one (lamps are `qq props install`'s, CAR-14a). Dead code that misleads a reader; deleting it, and
+  the blob trial `.tmp/zone_tool.py`, closes it.
+- **What the batch 1 lamp cuts found wrong in `qq props`** (2026-10-21, ten agents, `.tmp/fleet/props_notes.md`): seed
+  takes paint for lenses (a chrome bumper or pale bumper strip as a reverse, the orange fringe between a red lens and
+  lime paint as an indicator, a one-sided highlight of the brake's own hue as a lens); `axis --prop` stops at the
+  copy it starts from ("already where it fits best") on four cars, and finds a far better axis once moved by hand,
+  which agents did by writing `axisY`/`mirrorDx` themselves; `snap` adds and removes vertices though the manual says
+  it only moves them; `undo` is one step and a second redoes; SPARE is offered for a tip and again after its drop made
+  the copy worse; `trace` on an unmirrored prop writes `"mirror": true`, `show --prop` calls a copy-side prop
+  "authored", and `cut`'s lit picture never burns an authored-side part; red on red runs on past 30 texels in every
+  `--lens`; a brown lens frame is not frame to `dark`. Each cost an agent a retrace or a hand edit; fixing them in
+  that order closes it.
+- **What the batch 3 lamp cuts added** (2026-10-22, nine agents, `.tmp/fleet/props_notes.md`): no step before
+  `install` warns that a lens passes the lamp cell, and `install` rounds a lens exactly the cell's 40 texels up to
+0.417 m, which `LampAtlasTests.EveryLensFitsTheCellItIsCutInto` refuses (`hatch90s_black`'s head trimmed to 39); the
+overlap hint puts
+  `"over"` on the bigger prop, the manual on the section (two cars); `find` lists one side's patches only; `trace`
+  reads grey glass as no lamp; seed's amber class merges amber with orange-red. Each cost an agent a hand placement;
+  fixing them in that order closes it.
+- **What a lamp re-cut of batch 1 found in `qq props`** (2026-10-22, ten agents, on pictures since dropped):
+  `trace --prop=ind_rear --at=14,36` on `tavria_white` crashed (`ValueError: zero-size array to reduction operation
+  minimum`, `_props_trace.py:320`); `snap` takes a vertex out (6 → 5, 4 → 3) though the manual says it never does,
+  and grew a section 17 px past the lamp it is declared over (`retro500_cream`); `undo` is one step, a second redoes;
+  `trace --lens=frame` and `--lens=shade` ran on past 30 texels inside framed pale headlamps on four cars, which were
+  placed by hand; seed took body paint for a reverse (`microcar_white`, `cityhatch_silver`) and an orange fringe for
+  an indicator (`citycar_lime`). Fixing each closes its part.
+- **A car may cut five lamps, its tail one housing** (2026-10-21, `cityhatch_silver`): `install` writes a lens a side
+  of every prop and part, and `CarLamps.MostLenses` is ten, so the red arm the art draws along the tailgate beside the
+  corner lamp stays unlit. Widening the emit's word (below) closes it.
+- **The eight trial cars' polygon cuts predate seed's tracing and two misread a lens** (2026-10-21, `.tmp/props/`):
+  they were placed by hand before seed traced lenses off the art, before it named every lamp and before a part left
+  out the sections over its lamp; turned into texels for the pixel trials they read `supermini_red`'s brake 32 % red
+  and `hatch_coral`'s front indicator 0 % amber. Seed alone, on those eight and the isolated trial's three, is drawn
+  beside the agents' cuts in `.tmp/trace_dev/sheet*.png`. Their pixel cuts are kept apart (`.tmp/props_px/`, `qq
+  props-px`), as are the trials' (`.tmp/props_text/`, `.tmp/props_vis/`, `.tmp/iso/`, `.tmp/iso2/`). Recutting the
+  eight by the loop closes it.
+- **What the polygon loop still gets wrong** (2026-10-21, `.qq/props.py`, `.qq/_props_fit.py`): `axis --prop`
+  searches only near the copy it has, and called one three texels off "already where it fits best"; snap never turns
+  a bow concave that was not, so a hand-placed crescent keeps its inner arc bowed out (a traced one is bowed right);
+  the framed figure cannot tell a frame from dark paint (`estate_navy`) and flags a lens framed on part of its rim;
+  snap stops short where it is run once and goes further run again; `axis --prop` reports the copy's gain and not the
+  authored side's loss; the edge table gives one rim figure an edge for both sides once they are under
+  `LOPSIDED_PX` apart, so a copy-only miss has no edge named; a lamp on the centreline (a high-mounted brake) cannot
+  be authored unmirrored by trace, which then places a copy on bare paint and reports it on its rim.
+- **What trace misreads** (2026-10-21, `.qq/_props_trace.py`, seed in `.qq/props.py`): a red-orange lens reads as
+  amber, so `supermini_red`'s brake is traced off an amber patch and its indicator left a part; a pale lens's glass
+  is grown from the texels just round its highlight, and is lost where they are partly paint; a frame open on one
+  side lets `--lens=frame` run on; seed takes a pale patch touching the brake's housing for a
+  reverse and the biggest amber patch for an indicator, which on `supermini_red` is a 44 px patch at the nose that
+  its copy side does not draw.
+  Each is the agent's to judge on the seed picture and retrace; a class read off the lamp's own colours rather than
+  fixed hue bounds closes the first.
+- **Trace still spends two vertices on a rounded corner** (2026-10-21, `arcs_of` in `.qq/_props_trace.py`): its arcs
+  are fitted to the contour as if every vertex were sharp, but the prop is drawn with each corner rounded `ROUND_PX`,
+  so a lens's rounded corner fails as one vertex and keeps a pair a texel or two apart (`fleetsaloon_white`'s brake,
+  bottom outboard). `MAX_POINTS` and the `SPARE` hint bound it rather than close it; fitting the arcs against the
+  outline as `fit.outline` rounds it closes it.
+- **`qq props-px` has no keep-or-revert check on `smooth`, and figures that mislead** (2026-10-21,
+  `.qq/props-px.py`, `.qq/_props_px.py`): `smooth` lowered edge agreement on four props of three cars and puts back
+  texels a prop's `"not"` holds; a snap refused still writes its `--pull`; a part's texels leave its parent's colour
+  figure; the copy-placement suggestion was wrong in four of six runs; tinted head glass and pale paint misread as
+  classes; its reverse part is a straight slice of the brake. It is the tool for the rare lens a polygon cannot
+  follow, and none has needed it yet.
 - **remotegen's `video` command is documented nowhere and its `--last-image` has never run** _owner_ (2026-10-20,
   `.claude/skills/remotegen/remotegen.py`): added for the lamp trials, which the owner set aside (no clip lit a lamp).
   Whether it stays is the owner's. If it stays, a SKILL.md section and one `--last-image` run close it; if not,
@@ -630,14 +730,12 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   bodies and all nine wrecks leave 1–3 % of their outline bare at the corners (`qq sprites cut`, holes), so a car
   is struck a few centimetres outside its paint there. Barely visible; a brief naming the corner radius in words,
   or `collisionM.cornerRadiusM` authored rounder for those bodies, closes it.
-- **No shipped car draws a headlamp** (2026-10-18): CAR-14.8 shows on no look in `Fleet.json` or `Service.json`, whose
-  art is on the legacy list and authors no `head` lens; the ambulance's ten lenses are also the most a car may draw
-  (`CarLamps.MostLenses`, three bits a lens in one word of the sprite emit), so it cannot take a pair until that word is
-  two. Regenerating the fleet with head frames closes the first; widening the word, the second.
+- **The ambulance cannot take a pair of headlamps** (2026-10-18): its ten lenses are the most a car may draw
+  (`CarLamps.MostLenses`, three bits a lens in one word of the sprite emit). Widening the word to two closes it.
 - **A generated car's mirrors are clipped flat at its footprint** (2026-10-18): the model draws them about 0.05 m past
   the 0.1 m a side the nine civilian cars' footprints allow (`qq sprites cut`'s overlay, cyan), and the cut keeps the
-  footprint. Barely visible at game zoom; a brief asking for smaller mirrors, or footprints authored to the mirrors a
-  body has, closes it.
+  footprint; `cars_fleet_a` drew them about twice the size asked even when told "no longer than the headlamp".
+  Barely visible at game zoom; footprints authored to the mirrors a body has closes it.
 - **Sixteen of the nineteen cars author lenses past their own shape** (2026-10-18): the `lamps` were measured off the
   old art, whose bodywork overhung `collisionM`, so rear lamps sit on the rounded corners and indicators past the nose;
   `qq sprites template` warns of each (ambulance 4, evacuator 4, the muscles, pickups, police and sedan_rust 4, the
@@ -651,9 +749,10 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **`qq proof --looks=all` peaks at 1.2 GB** (`LampProof`, 2026-10-18): ImageSharp holds every distinct frame as full
   RGBA until the GIF is written — 39 frames of 1728×3874 for the 28 looks; nine looks are a fifth of it. Writing
   frames to the encoder as they are made, or a frame a tile row, closes it.
-- **The zone palette is written twice** (2026-10-18): `qq sprites`' `ZONE_PARTS` and `LampAtlasBake.ZoneOf`, and the zone
-  brief a third time. `AZonedLampBurnsOnlyItsZone` fails if a lamp's colour drifts between them; the rest of the
-  palette nothing in C# reads. One reading the other closes it.
+- **The zone map's glass channels are written twice** (2026-10-21): `LampAtlasBake.Holds` and `qq props`'
+  `INSTALL_GLASS`, with `INSTALL_CELL_PX` and `INSTALL_MOST_LENSES` copying `LampAtlas.CellPx` and
+  `CarLamps.MostLenses`. `AZonedLampBurnsOnlyItsZone` fails if a fitting's channel drifts; the two figures nothing
+  checks. One reading the other closes it.
 - **Signal heads stand in the middle of a junction cluster** whose boxes are 27–34 m apart, each road between them
   long enough to be a street once both mouths are taken (OdesaOsm 2830,13491, survey junctions 617, 651, 3040 and
   6255), so nothing gathers them (`TracedStreets.Squeezed`) and the short streets hold at bars inside what reads as one

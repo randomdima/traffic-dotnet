@@ -72,15 +72,35 @@ internal static class LampAtlasBake
     const float CommonShare = 0.02f;
 
     /// <summary>
-    /// The colour a zone map paints a fitting's lens in — the zone brief's, and <c>qq sprites</c>' <c>ZONE_PARTS</c> —
-    /// or none for a fitting no zone map marks yet: a beacon, which only the legacy looks carry.
+    /// Whether a zone map marks a fitting at all: a beacon, which only the legacy looks carry, has no glass of its own
+    /// there yet.
     /// </summary>
-    public static Rgba32? ZoneOf(CarLampFitting fitting) => fitting switch
+    public static bool IsZoned(CarLampFitting fitting) => GlassOf(fitting) >= 0;
+
+    /// <summary>
+    /// Whether a zone map's texel lies under a lens of this fitting. <b>Each channel is a colour of glass</b> — red the
+    /// tail and brake, green the amber indicator, blue the white head and reversing lamps — so a texel two lenses share
+    /// (an indicator section drawn inside a brake cluster) carries both and burns for each. <c>qq props install</c>
+    /// writes it from the lens outlines.
+    /// </summary>
+    /// <remarks>
+    /// Head and reverse share blue: they stand at opposite ends, and a lens finds its texels only within a cell of its
+    /// own centre (<see cref="Zoned"/>).
+    /// </remarks>
+    public static bool Holds(Rgba32 zone, CarLampFitting fitting) => GlassOf(fitting) switch
     {
-        CarLampFitting.Rear => new Rgba32(255, 0, 0),
-        CarLampFitting.Indicator => new Rgba32(255, 255, 0),
-        CarLampFitting.Head => new Rgba32(0, 0, 255),
-        _ => null,
+        0 => zone.R >= 128,
+        1 => zone.G >= 128,
+        2 => zone.B >= 128,
+        _ => false,
+    };
+
+    static int GlassOf(CarLampFitting fitting) => fitting switch
+    {
+        CarLampFitting.Rear or CarLampFitting.Brake => 0,
+        CarLampFitting.Indicator => 1,
+        CarLampFitting.Head or CarLampFitting.Reverse => 2,
+        _ => -1,
     };
 
     /// <summary>
@@ -213,7 +233,8 @@ internal static class LampAtlasBake
     /// </summary>
     static ZoneWindow? Zoned(Image<Rgba32> zones, ReadOnlySpan<CarLens> lenses, Rectangle[] rects, Vector2 centrePx, int lens)
     {
-        if (ZoneOf(lenses[lens].Fitting) is not { } zone) return null;
+        var fitting = lenses[lens].Fitting;
+        if (!IsZoned(fitting)) return null;
 
         var origin = new Point(
             (int)MathF.Round(centrePx.X) - (LampAtlas.CellPx / 2), (int)MathF.Round(centrePx.Y) - (LampAtlas.CellPx / 2));
@@ -222,8 +243,8 @@ internal static class LampAtlasBake
         for (var texel = 0; texel < window.Lens.Length; texel++)
         {
             var at = window.At(texel);
-            if (at.X < 0 || at.Y < 0 || at.X >= zones.Width || at.Y >= zones.Height || zones[at.X, at.Y] != zone) continue;
-            if (Nearest(rects, lenses, lenses[lens].Fitting, new Vector2(at.X + 0.5f, at.Y + 0.5f)) != lens) continue;
+            if (at.X < 0 || at.Y < 0 || at.X >= zones.Width || at.Y >= zones.Height || !Holds(zones[at.X, at.Y], fitting)) continue;
+            if (Nearest(rects, lenses, fitting, new Vector2(at.X + 0.5f, at.Y + 0.5f)) != lens) continue;
 
             any = window.Lens[texel] = true;
         }

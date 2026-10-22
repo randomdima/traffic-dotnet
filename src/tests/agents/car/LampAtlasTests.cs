@@ -166,7 +166,7 @@ public class LampAtlasTests
             for (var lens = 0; lens < variant.Lenses.Length; lens++)
             {
                 var fitting = variant.Lenses[lens].Fitting;
-                if (LampAtlasBake.ZoneOf(fitting) is not { } zone) continue;
+                if (!LampAtlasBake.IsZoned(fitting)) continue;
 
                 var centrePx = ((variant.FootprintM * 0.5f) + variant.Lenses[lens].AtBodyM) * perM;
                 var originX = (int)MathF.Round(centrePx.X) - (LampAtlas.CellPx / 2);
@@ -183,7 +183,7 @@ public class LampAtlasTests
 
                             burnt++;
                             Assert.True(
-                                zones[originX + x, originY + y] == zone,
+                                LampAtlasBake.Holds(zones[originX + x, originY + y], fitting),
                                 $"{variant.Id}'s {fitting} lens {lens} burns {x},{y} of its cell, off its zone.");
                         }
                     }

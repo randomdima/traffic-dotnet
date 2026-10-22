@@ -1,0 +1,2 @@
+{"variant": "hatch_graphite-v1", "frame": "cars_fleet_a-v3", "cell": 4, "box": [52, 418, 407, 189], "pxPerM": 95.082, "score": 3, "status": "candidate", "ts": "2026-10-20T15:27:28"}
+{"variant": "hatch_graphite-v4", "frame": "fleet100_b04-v1", "cell": 4, "pxPerM": 103.972, "score": 4, "status": "used", "ts": "2026-10-22T03:11:17"}

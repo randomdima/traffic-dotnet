@@ -1,0 +1,19 @@
+{
+  "id": "cityhatch_silver",
+  "sprite": "cityhatch_silver.webp",
+  "wreck": { "sprite": "cityhatch_silver_broken.webp" },
+  "describe": "modern five-door city hatchback, good condition, silver, short sloping bonnet, long roof, upright hatchback tail, swept-back headlamps, tall tail lamps up the rear corners",
+  "footprintM": [3.670, 1.947],
+  "collisionM": { "sizeM": [3.670, 1.691], "cornerRadiusM": 0.596 },
+  "massKg": 1000,
+  "frontAxleM": 1.135,
+  "rearAxleM": -1.295,
+  "trackM": 1.762,
+  "drivetrain": 1,
+  "maxSteeringDeg": 34,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.57,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.86, "acceleration": 0.92, "braking": 0.95 },
+  "lamps": []
+}

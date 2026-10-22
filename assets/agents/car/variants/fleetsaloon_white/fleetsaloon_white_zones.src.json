@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/fleetsaloon_white/fleetsaloon_white.props.json",
+ "cutOn": "raw_assets/agents/car/variants/fleetsaloon_white/fleetsaloon_white-v1.png",
+ "pxPerM": 95.17,
+ "encoding": "png lossless"
+}

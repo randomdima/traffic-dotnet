@@ -1,0 +1,18 @@
+{
+  "id": "hatch_white",
+  "sprite": "hatch_white.webp",
+  "describe": "modern five-door family hatchback, average condition, white, level bonnet with a crease down each side, long flat roof, near-vertical hatchback tail, narrow headlamps, wide tail lamps",
+  "footprintM": [4.280, 2.183],
+  "collisionM": { "sizeM": [4.280, 1.841], "cornerRadiusM": 0.626 },
+  "massKg": 1300,
+  "frontAxleM": 1.26,
+  "rearAxleM": -1.37,
+  "trackM": 1.93,
+  "drivetrain": 1,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.86,
+  "cgHeightM": 0.55,
+  "frontWeightShare": 0.61,
+  "handling": { "maxSpeed": 0.95, "acceleration": 1.1, "braking": 1 },
+  "lamps": []
+}

@@ -1,0 +1,19 @@
+{
+  "id": "tavria_white",
+  "sprite": "tavria_white.webp",
+  "wreck": { "sprite": "tavria_white_broken.webp" },
+  "describe": "1990s Ukrainian small three-door hatchback, worn: yellowed white paint, rust along the sills, one front wing in a slightly different white, wedge-shaped flat bonnet, upright cabin, short hatch, plain rectangular headlamps, wide flat tail lamps",
+  "footprintM": [3.710, 2.108],
+  "collisionM": { "sizeM": [3.710, 1.809], "cornerRadiusM": 0.484 },
+  "massKg": 745,
+  "frontAxleM": 1.135,
+  "rearAxleM": -1.185,
+  "trackM": 1.903,
+  "drivetrain": 1,
+  "maxSteeringDeg": 34,
+  "tyreFriction": 0.74,
+  "cgHeightM": 0.58,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.66, "acceleration": 0.62, "braking": 0.8 },
+  "lamps": []
+}
