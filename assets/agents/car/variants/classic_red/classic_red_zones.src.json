@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/classic_red/classic_red-v3.props.json",
- "cutOn": "raw_assets/agents/car/variants/classic_red/classic_red-v3.png",
+ "variant": "raw_assets/agents/car/variants/classic_red/classic_red-v8.props.json",
+ "cutOn": "raw_assets/agents/car/variants/classic_red/classic_red-v8.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

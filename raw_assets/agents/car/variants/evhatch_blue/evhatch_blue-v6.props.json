@@ -1,0 +1,37 @@
+{
+  "car": "evhatch_blue",
+  "sprite": {"variant": "raw_assets/agents/car/variants/evhatch_blue/evhatch_blue-v6.png", "sizePx": [409, 205]},
+  "axisY": {"rear": 102.50, "front": 103.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 103.0, "mirrorDx": 0.0, "points": [
+      [29.06, 31.21, 0.84],
+      [24.35, 37.26, 1.54],
+      [15.95, 47.81, 0.58],
+      [13.85, 63.10, 2.31],
+      [22.80, 64.18, -0.66],
+      [32.25, 39.50, -0.34],
+      [41.31, 31.13, 0.87]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 103.0, "mirrorDx": 0.0, "points": [
+      [19.58, 40.75, 0.89],
+      [16.14, 49.20, 1.22],
+      [21.03, 52.01, 0.22],
+      [25.68, 47.10, 2.64]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "hold": [4], "points": [
+      [374.09, 37.10, 0.00],
+      [389.58, 60.83, 0.00],
+      [394.21, 62.13, 2.38],
+      [386.11, 39.01, 0.00],
+      [383.92, 36.97, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "hold": [1], "axisY": 102.0, "mirrorDx": 2.0, "points": [
+      [362.57, 28.73, 0.15],
+      [372.17, 36.20, 0.00],
+      [380.70, 36.20, 0.82],
+      [381.06, 33.49, 0.00],
+      [373.71, 29.35, 1.86]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

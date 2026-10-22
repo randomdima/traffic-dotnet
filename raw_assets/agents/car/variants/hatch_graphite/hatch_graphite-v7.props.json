@@ -1,0 +1,31 @@
+{
+  "car": "hatch_graphite",
+  "sprite": {"variant": "raw_assets/agents/car/variants/hatch_graphite/hatch_graphite-v7.png", "sizePx": [411, 212]},
+  "axisY": {"rear": 106.00, "front": 106.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 106.5, "mirrorDx": 0.0, "points": [
+      [18.51, 42.70, 0.75],
+      [12.06, 61.16, 0.33],
+      [12.53, 67.87, 1.15],
+      [21.84, 66.62, -0.50],
+      [32.62, 39.85, 0.10],
+      [39.79, 33.63, 0.72],
+      [39.11, 30.85, 4.20]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 106.0, "mirrorDx": -1.0, "points": [
+      [17.21, 52.05, 1.24],
+      [21.87, 54.24, 1.58],
+      [26.44, 44.85, 0.72],
+      [23.29, 41.72, 2.52]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [378.70, 40.56, 0.08],
+      [379.06, 42.94, 0.07],
+      [390.88, 60.53, 0.87],
+      [393.15, 58.69, 0.97],
+      [389.13, 42.87, 3.21]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

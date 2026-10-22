@@ -1,6 +1,8 @@
 {
   "id": "evhatch_blue",
   "sprite": "evhatch_blue.webp",
+  "wreck": { "sprite": "evhatch_blue_broken.webp" },
+  "zones": "evhatch_blue_zones.png",
   "describe": "new electric family hatchback, glossy light blue with a black roof and glass sunroof panel, very short smooth bonnet with no grille, long cabin, short tail, thin slit headlamps, slim separate tail lamps at each rear corner",
   "footprintM": [4.260, 2.140],
   "collisionM": { "sizeM": [4.260, 1.797], "cornerRadiusM": 0.609 },
@@ -14,5 +16,16 @@
   "cgHeightM": 0.52,
   "frontWeightShare": 0.45,
   "handling": { "maxSpeed": 0.95, "acceleration": 1.25, "braking": 1.05 },
-  "lamps": []
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.849, -0.569], "sizeM": [0.271, 0.376] },
+    { "fitting": "brake", "atM": [-1.849, 0.579], "sizeM": [0.271, 0.376] },
+    { "fitting": "indicator", "atM": [-1.911, -0.59], "sizeM": [0.104, 0.125] },
+    { "fitting": "indicator", "atM": [-1.911, 0.6], "sizeM": [0.104, 0.125] },
+    { "fitting": "head", "atM": [1.87, -0.548], "sizeM": [0.198, 0.261] },
+    { "fitting": "head", "atM": [1.87, 0.558], "sizeM": [0.198, 0.261] },
+    { "fitting": "indicator", "atM": [1.745, -0.736], "sizeM": [0.198, 0.094] },
+    { "fitting": "indicator", "atM": [1.765, 0.726], "sizeM": [0.198, 0.094] },
+    { "fitting": "reverse", "atM": [-1.922, -0.444], "sizeM": [0.125, 0.125] },
+    { "fitting": "reverse", "atM": [-1.922, 0.454], "sizeM": [0.125, 0.125] }
+  ]
 }

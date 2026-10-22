@@ -1,6 +1,7 @@
 {
   "id": "microcar_white",
   "sprite": "microcar_white.webp",
+  "zones": "microcar_white_zones.png",
   "wreck": { "sprite": "microcar_white_broken.webp" },
   "describe": "modern two-seat city microcar, good condition, white with a contrasting black safety-cell frame round the cabin, a very short stubby nose, a big curved windscreen, one rear window, almost no boot, its flanks straight and full width from nose to tail, round-cornered headlamps, small tail lamps",
   "footprintM": [2.700, 1.936],
@@ -15,5 +16,16 @@
   "cgHeightM": 0.62,
   "frontWeightShare": 0.4,
   "handling": { "maxSpeed": 0.78, "acceleration": 0.9, "braking": 0.95 },
-  "lamps": []
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.152, -0.604], "sizeM": [0.146, 0.25] },
+    { "fitting": "brake", "atM": [-1.162, 0.583], "sizeM": [0.146, 0.25] },
+    { "fitting": "reverse", "atM": [-1.183, -0.52], "sizeM": [0.073, 0.083] },
+    { "fitting": "reverse", "atM": [-1.204, 0.5], "sizeM": [0.073, 0.083] },
+    { "fitting": "head", "atM": [1.089, -0.562], "sizeM": [0.208, 0.208] },
+    { "fitting": "head", "atM": [1.11, 0.541], "sizeM": [0.208, 0.208] },
+    { "fitting": "indicator", "atM": [1.006, -0.697], "sizeM": [0.094, 0.073] },
+    { "fitting": "indicator", "atM": [0.985, 0.697], "sizeM": [0.094, 0.073] },
+    { "fitting": "indicator", "atM": [-1.142, -0.656], "sizeM": [0.136, 0.135] },
+    { "fitting": "indicator", "atM": [-1.162, 0.635], "sizeM": [0.136, 0.135] }
+  ]
 }

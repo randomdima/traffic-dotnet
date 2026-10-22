@@ -1,6 +1,7 @@
 {
   "id": "tavria_white",
   "sprite": "tavria_white.webp",
+  "zones": "tavria_white_zones.png",
   "wreck": { "sprite": "tavria_white_broken.webp" },
   "describe": "1990s Ukrainian small three-door hatchback, worn: yellowed white paint, rust along the sills, one front wing in a slightly different white, wedge-shaped flat bonnet, upright cabin, short hatch, plain rectangular headlamps, wide flat tail lamps",
   "footprintM": [3.710, 2.108],
@@ -15,5 +16,16 @@
   "cgHeightM": 0.58,
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.66, "acceleration": 0.62, "braking": 0.8 },
-  "lamps": []
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.709, -0.637], "sizeM": [0.115, 0.324] },
+    { "fitting": "brake", "atM": [-1.709, 0.553], "sizeM": [0.115, 0.324] },
+    { "fitting": "head", "atM": [1.626, -0.605], "sizeM": [0.073, 0.188] },
+    { "fitting": "head", "atM": [1.667, 0.553], "sizeM": [0.073, 0.188] },
+    { "fitting": "indicator", "atM": [1.605, -0.741], "sizeM": [0.104, 0.073] },
+    { "fitting": "indicator", "atM": [1.626, 0.72], "sizeM": [0.104, 0.073] },
+    { "fitting": "indicator", "atM": [-1.73, -0.657], "sizeM": [0.052, 0.115] },
+    { "fitting": "indicator", "atM": [-1.73, 0.511], "sizeM": [0.052, 0.115] },
+    { "fitting": "reverse", "atM": [-1.74, -0.532], "sizeM": [0.063, 0.115] },
+    { "fitting": "reverse", "atM": [-1.74, 0.428], "sizeM": [0.063, 0.063] }
+  ]
 }

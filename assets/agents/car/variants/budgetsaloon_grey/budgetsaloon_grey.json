@@ -1,6 +1,8 @@
 {
   "id": "budgetsaloon_grey",
   "sprite": "budgetsaloon_grey.webp",
+  "wreck": { "sprite": "budgetsaloon_grey_broken.webp" },
+  "zones": "budgetsaloon_grey_zones.png",
   "describe": "modern budget four-door saloon, average condition, dark grey, rounded bonnet, tall roof, short separate boot, large angular headlamps, round-cornered tail lamps",
   "footprintM": [4.260, 2.159],
   "collisionM": { "sizeM": [4.260, 1.828], "cornerRadiusM": 0.642 },
@@ -14,5 +16,16 @@
   "cgHeightM": 0.56,
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.82, "acceleration": 0.82, "braking": 0.9 },
-  "lamps": []
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.849, -0.579], "sizeM": [0.312, 0.355] },
+    { "fitting": "brake", "atM": [-1.849, 0.589], "sizeM": [0.312, 0.355] },
+    { "fitting": "indicator", "atM": [-1.922, -0.558], "sizeM": [0.115, 0.146] },
+    { "fitting": "indicator", "atM": [-1.922, 0.589], "sizeM": [0.115, 0.146] },
+    { "fitting": "head", "atM": [1.807, -0.621], "sizeM": [0.333, 0.365] },
+    { "fitting": "head", "atM": [1.818, 0.61], "sizeM": [0.333, 0.365] },
+    { "fitting": "indicator", "atM": [1.786, -0.704], "sizeM": [0.281, 0.188] },
+    { "fitting": "indicator", "atM": [1.786, 0.694], "sizeM": [0.281, 0.188] },
+    { "fitting": "reverse", "atM": [-1.943, -0.454], "sizeM": [0.135, 0.115] },
+    { "fitting": "reverse", "atM": [-1.943, 0.464], "sizeM": [0.135, 0.115] }
+  ]
 }

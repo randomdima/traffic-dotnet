@@ -1,6 +1,7 @@
 {
   "id": "cityhatch_silver",
   "sprite": "cityhatch_silver.webp",
+  "zones": "cityhatch_silver_zones.png",
   "wreck": { "sprite": "cityhatch_silver_broken.webp" },
   "describe": "modern five-door city hatchback, good condition, silver, short sloping bonnet, long roof, upright hatchback tail, swept-back headlamps, tall tail lamps up the rear corners",
   "footprintM": [3.670, 1.947],
@@ -15,5 +16,16 @@
   "cgHeightM": 0.57,
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.86, "acceleration": 0.92, "braking": 0.95 },
-  "lamps": []
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.522, -0.588], "sizeM": [0.396, 0.25] },
+    { "fitting": "brake", "atM": [-1.543, 0.422], "sizeM": [0.396, 0.25] },
+    { "fitting": "reverse", "atM": [-1.616, -0.505], "sizeM": [0.209, 0.083] },
+    { "fitting": "reverse", "atM": [-1.637, 0.338], "sizeM": [0.209, 0.083] },
+    { "fitting": "head", "atM": [1.501, -0.578], "sizeM": [0.261, 0.239] },
+    { "fitting": "head", "atM": [1.501, 0.526], "sizeM": [0.261, 0.239] },
+    { "fitting": "indicator", "atM": [1.47, -0.64], "sizeM": [0.209, 0.125] },
+    { "fitting": "indicator", "atM": [1.481, 0.588], "sizeM": [0.209, 0.125] },
+    { "fitting": "indicator", "atM": [-1.512, -0.64], "sizeM": [0.375, 0.135] },
+    { "fitting": "indicator", "atM": [-1.533, 0.484], "sizeM": [0.375, 0.135] }
+  ]
 }

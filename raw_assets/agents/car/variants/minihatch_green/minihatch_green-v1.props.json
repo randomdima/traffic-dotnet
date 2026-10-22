@@ -3,7 +3,7 @@
   "sprite": {"variant": "raw_assets/agents/car/variants/minihatch_green/minihatch_green-v1.png", "sizePx": [367, 199]},
   "axisY": {"rear": 99.00, "front": 98.50},
   "props": [
-    {"name": "brake", "kind": "brake", "mirror": true, "mirrorDx": -1.0, "points": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 99.5, "mirrorDx": 0.0, "points": [
       [21.45, 34.16, 1.87],
       [13.44, 56.23, 0.64],
       [15.81, 59.73, 1.88],
@@ -11,7 +11,7 @@
       [37.43, 32.33, 1.70],
       [35.01, 29.24, 1.57]
     ]},
-    {"name": "head", "kind": "head", "mirror": true, "points": [
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 98.5, "mirrorDx": 1.0, "points": [
       [323.80, 29.71, 0.04],
       [325.06, 33.70, 0.86],
       [342.22, 53.11, 2.17],
@@ -32,7 +32,7 @@
       [336.45, 171.89, 0.00],
       [327.63, 175.43, 3.70]
     ]},
-    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "hold": [1], "mirrorDx": -1.0, "points": [
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "hold": [1], "axisY": 99.0, "mirrorDx": -1.0, "points": [
       [21.41, 34.76, -0.59],
       [14.81, 48.00, 0.00],
       [27.57, 48.00, 0.08],

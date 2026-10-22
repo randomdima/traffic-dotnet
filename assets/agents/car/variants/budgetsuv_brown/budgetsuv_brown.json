@@ -1,6 +1,8 @@
 {
   "id": "budgetsuv_brown",
   "sprite": "budgetsuv_brown.webp",
+  "wreck": { "sprite": "budgetsuv_brown_broken.webp" },
+  "zones": "budgetsuv_brown_zones.png",
   "describe": "modern budget compact SUV, average condition, metallic brown, tall squared bonnet, black plastic wheel-arch trim, roof rails, upright tailgate, square headlamps, tall tail lamps",
   "footprintM": [4.340, 2.379],
   "collisionM": { "sizeM": [4.340, 1.971], "cornerRadiusM": 0.621 },
@@ -14,5 +16,16 @@
   "cgHeightM": 0.66,
   "frontWeightShare": 0.6,
   "handling": { "maxSpeed": 0.82, "acceleration": 0.85, "braking": 0.9 },
-  "lamps": []
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.879, -0.647], "sizeM": [0.302, 0.407] },
+    { "fitting": "brake", "atM": [-1.899, 0.605], "sizeM": [0.302, 0.407] },
+    { "fitting": "indicator", "atM": [-1.951, -0.647], "sizeM": [0.104, 0.136] },
+    { "fitting": "indicator", "atM": [-1.962, 0.605], "sizeM": [0.104, 0.136] },
+    { "fitting": "head", "atM": [1.858, -0.647], "sizeM": [0.354, 0.386] },
+    { "fitting": "head", "atM": [1.868, 0.626], "sizeM": [0.354, 0.386] },
+    { "fitting": "indicator", "atM": [1.795, -0.793], "sizeM": [0.125, 0.104] },
+    { "fitting": "indicator", "atM": [1.816, 0.751], "sizeM": [0.125, 0.104] },
+    { "fitting": "reverse", "atM": [-1.962, -0.522], "sizeM": [0.135, 0.136] },
+    { "fitting": "reverse", "atM": [-1.983, 0.459], "sizeM": [0.135, 0.136] }
+  ]
 }

@@ -1,0 +1,39 @@
+{
+  "car": "niva_olive",
+  "sprite": {"variant": "raw_assets/agents/car/variants/niva_olive/niva_olive-v4.png", "sizePx": [359, 207]},
+  "axisY": {"rear": 99.50, "front": 100.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 99.0, "mirrorDx": -1.0, "points": [
+      [14.60, 28.96, 3.16],
+      [7.28, 52.43, 0.41],
+      [5.98, 57.62, 0.51],
+      [11.19, 61.40, 1.60],
+      [14.12, 45.74, -0.36],
+      [18.62, 33.08, 0.20],
+      [22.46, 30.19, 1.31],
+      [22.67, 25.85, 1.54]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 99.0, "mirrorDx": -2.0, "points": [
+      [12.74, 30.10, 1.30],
+      [15.25, 33.42, 1.92],
+      [19.77, 29.06, 1.08],
+      [15.76, 26.99, 0.28]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 99.0, "mirrorDx": 2.0, "points": [
+      [335.06, 38.04, 0.30],
+      [333.49, 40.11, 0.46],
+      [339.89, 58.48, 1.02],
+      [344.02, 57.44, 2.02],
+      [342.06, 39.53, 0.95],
+      [339.62, 37.16, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 100.0, "mirrorDx": 1.0, "points": [
+      [326.33, 30.60, 0.03],
+      [331.25, 35.45, 0.79],
+      [337.06, 34.51, 1.15],
+      [336.20, 30.13, 1.05],
+      [326.70, 28.21, 0.72]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

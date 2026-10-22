@@ -1,6 +1,7 @@
 {
   "id": "citycar_lime",
   "sprite": "citycar_lime.webp",
+  "zones": "citycar_lime_zones.png",
   "wreck": { "sprite": "citycar_lime_broken.webp" },
   "describe": "modern five-door city car, good condition, lime green, short rounded bonnet, tall roof with one long glass area, short hatchback tail, slim headlamps swept back into the front wings, tall tail lamps",
   "footprintM": [3.600, 2.033],
@@ -15,5 +16,16 @@
   "cgHeightM": 0.56,
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.85, "acceleration": 0.95, "braking": 0.95 },
-  "lamps": []
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.477, -0.62], "sizeM": [0.375, 0.209] },
+    { "fitting": "brake", "atM": [-1.529, 0.391], "sizeM": [0.375, 0.209] },
+    { "fitting": "indicator", "atM": [-1.467, -0.672], "sizeM": [0.364, 0.104] },
+    { "fitting": "indicator", "atM": [-1.529, 0.443], "sizeM": [0.364, 0.104] },
+    { "fitting": "head", "atM": [1.384, -0.61], "sizeM": [0.323, 0.292] },
+    { "fitting": "head", "atM": [1.405, 0.537], "sizeM": [0.323, 0.292] },
+    { "fitting": "indicator", "atM": [1.363, -0.683], "sizeM": [0.271, 0.146] },
+    { "fitting": "indicator", "atM": [1.373, 0.61], "sizeM": [0.271, 0.146] },
+    { "fitting": "reverse", "atM": [-1.613, -0.558], "sizeM": [0.114, 0.073] },
+    { "fitting": "reverse", "atM": [-1.654, 0.318], "sizeM": [0.114, 0.073] }
+  ]
 }

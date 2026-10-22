@@ -1,1 +1,2 @@
-{"variant": "estate90s_red-v3", "frame": "fleet100_b04-v1", "cell": 7, "pxPerM": 101.869, "score": 3, "status": "used", "ts": "2026-10-22T03:11:17"}
+{"variant": "estate90s_red-v3", "frame": "fleet100_b04-v1", "cell": 7, "pxPerM": 101.869, "score": 3, "status": "candidate", "ts": "2026-10-22T03:11:17"}
+{"variant": "estate90s_red-v6", "frame": "fleet100_b04-v1", "cell": 7, "pxPerM": 101.869, "score": 3, "lampsMirroredFrom": "estate90s_red-v3", "props": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v3.props.json", "status": "used", "ts": "2026-10-22T04:32:51"}

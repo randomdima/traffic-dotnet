@@ -1,0 +1,39 @@
+{
+  "car": "saloon70s_teal",
+  "sprite": {"variant": "raw_assets/agents/car/variants/saloon70s_teal/saloon70s_teal-v3.png", "sizePx": [408, 202]},
+  "axisY": {"rear": 100.50, "front": 100.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 101.0, "mirrorDx": 0.0, "points": [
+      [20.36, 32.72, -1.71],
+      [12.86, 42.46, -0.94],
+      [10.88, 54.95, 0.22],
+      [10.03, 60.86, 0.81],
+      [11.81, 64.53, 0.22],
+      [20.48, 63.65, -3.01],
+      [35.95, 29.76, 0.52]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 102.5, "mirrorDx": 1.0, "points": [
+      [13.10, 43.00, 0.00],
+      [13.00, 50.80, 1.50],
+      [27.19, 43.64, 0.00],
+      [27.30, 38.00, 0.00],
+      [16.80, 39.80, 0.40]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 100.5, "mirrorDx": 1.0, "points": [
+      [379.70, 41.19, 0.13],
+      [389.19, 58.12, 0.87],
+      [392.37, 56.26, 1.14],
+      [388.87, 38.79, 0.33],
+      [386.62, 36.99, 0.61],
+      [380.56, 38.05, 0.77]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 101.0, "mirrorDx": 1.0, "points": [
+      [369.31, 31.50, -0.06],
+      [373.50, 35.30, 0.30],
+      [382.51, 35.60, 0.80],
+      [383.00, 30.84, 0.60],
+      [369.50, 29.80, 0.62]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

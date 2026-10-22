@@ -1,0 +1,29 @@
+{
+  "car": "microcar_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/microcar_white/microcar_white-v1.png", "sizePx": [259, 186]},
+  "axisY": {"rear": 91.00, "front": 92.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 92.0, "mirrorDx": -1.0, "points": [
+      [14.50, 30.27, 0.26],
+      [11.92, 45.60, 1.14],
+      [13.64, 46.85, 0.00],
+      [24.83, 30.58, 0.23],
+      [25.94, 24.92, 0.12],
+      [23.88, 23.84, 2.46]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 92.0, "mirrorDx": 2.0, "points": [
+      [224.50, 29.40, 0.64],
+      [224.39, 31.92, 0.00],
+      [239.43, 49.44, 1.78],
+      [243.20, 44.88, 0.79],
+      [239.22, 36.11, 3.11]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 93.5, "mirrorDx": -1.0, "points": [
+      [221.57, 25.90, 3.69],
+      [229.84, 26.05, 0.74],
+      [223.55, 23.30, 0.86]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5}
+  ]
+}

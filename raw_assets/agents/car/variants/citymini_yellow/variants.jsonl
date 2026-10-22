@@ -1,1 +1,2 @@
-{"variant": "citymini_yellow-v1", "frame": "fleet100_b01-v2", "cell": 3, "pxPerM": 85.429, "score": 3, "status": "used", "ts": "2026-10-21T22:05:59"}
+{"variant": "citymini_yellow-v1", "frame": "fleet100_b01-v2", "cell": 3, "pxPerM": 85.429, "score": 3, "status": "candidate", "ts": "2026-10-21T22:05:59"}
+{"variant": "citymini_yellow-v4", "frame": "fleet100_b01-v2", "cell": 3, "pxPerM": 85.429, "score": 3, "lampsMirroredFrom": "citymini_yellow-v1", "props": "raw_assets/agents/car/variants/citymini_yellow/citymini_yellow-v1.props.json", "status": "used", "ts": "2026-10-22T04:31:40"}

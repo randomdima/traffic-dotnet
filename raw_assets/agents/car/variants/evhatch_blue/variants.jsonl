@@ -1,1 +1,2 @@
-{"variant": "evhatch_blue-v3", "frame": "fleet100_b04-v1", "cell": 2, "pxPerM": 105.164, "score": 4, "status": "used", "ts": "2026-10-22T03:11:17"}
+{"variant": "evhatch_blue-v3", "frame": "fleet100_b04-v1", "cell": 2, "pxPerM": 105.164, "score": 4, "status": "candidate", "ts": "2026-10-22T03:11:17"}
+{"variant": "evhatch_blue-v6", "frame": "fleet100_b04-v1", "cell": 2, "pxPerM": 105.164, "score": 4, "lampsMirroredFrom": "evhatch_blue-v3", "props": "raw_assets/agents/car/variants/evhatch_blue/evhatch_blue-v3.props.json", "status": "used", "ts": "2026-10-22T04:32:38"}

@@ -1,1 +1,2 @@
-{"variant": "rearengine_sky-v1", "frame": "fleet100_b01-v1", "cell": 9, "pxPerM": 103.485, "score": 3, "status": "used", "ts": "2026-10-21T22:05:59"}
+{"variant": "rearengine_sky-v1", "frame": "fleet100_b01-v1", "cell": 9, "pxPerM": 103.485, "score": 3, "status": "candidate", "ts": "2026-10-21T22:05:59"}
+{"variant": "rearengine_sky-v4", "frame": "fleet100_b01-v1", "cell": 9, "pxPerM": 103.485, "score": 3, "lampsMirroredFrom": "rearengine_sky-v1", "props": "raw_assets/agents/car/variants/rearengine_sky/rearengine_sky-v1.props.json", "status": "used", "ts": "2026-10-22T04:31:49"}

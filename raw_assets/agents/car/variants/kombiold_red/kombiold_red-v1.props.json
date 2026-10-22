@@ -3,7 +3,7 @@
   "sprite": {"variant": "raw_assets/agents/car/variants/kombiold_red/kombiold_red-v1.png", "sizePx": [397, 206]},
   "axisY": {"rear": 99.50, "front": 101.00},
   "props": [
-    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 100.0, "mirrorDx": 4.0, "points": [
       [23.87, 23.97, 0.67],
       [34.38, 25.23, 0.00],
       [34.51, 29.55, 0.00],
@@ -12,13 +12,13 @@
       [19.64, 39.97, 1.75],
       [20.14, 29.19, 0.05]
     ]},
-    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "mirrorDx": 1.5, "points": [
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 99.5, "mirrorDx": 3.0, "points": [
       [20.00, 34.50, 0.30],
       [26.50, 35.00, 0.30],
       [28.00, 32.50, 0.30],
       [25.00, 28.30, 2.93]
     ]},
-    {"name": "head", "kind": "head", "mirror": true, "points": [
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 100.5, "mirrorDx": 1.0, "points": [
       [345.87, 25.21, 0.36],
       [359.98, 27.70, 3.03],
       [376.64, 42.97, 0.89],

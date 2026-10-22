@@ -20,11 +20,11 @@
     { "fitting": "brake", "atM": [-1.827, -0.582], "sizeM": [0.167, 0.333] },
     { "fitting": "brake", "atM": [-1.827, 0.53], "sizeM": [0.167, 0.333] },
     { "fitting": "head", "atM": [1.848, -0.561], "sizeM": [0.083, 0.218] },
-    { "fitting": "head", "atM": [1.858, 0.52], "sizeM": [0.083, 0.218] },
+    { "fitting": "head", "atM": [1.858, 0.499], "sizeM": [0.083, 0.218] },
     { "fitting": "indicator", "atM": [1.764, -0.707], "sizeM": [0.125, 0.104] },
-    { "fitting": "indicator", "atM": [1.775, 0.665], "sizeM": [0.125, 0.104] },
+    { "fitting": "indicator", "atM": [1.775, 0.645], "sizeM": [0.125, 0.104] },
     { "fitting": "indicator", "atM": [-1.848, -0.603], "sizeM": [0.073, 0.114] },
-    { "fitting": "indicator", "atM": [-1.868, 0.541], "sizeM": [0.073, 0.114] },
+    { "fitting": "indicator", "atM": [-1.848, 0.561], "sizeM": [0.073, 0.114] },
     { "fitting": "reverse", "atM": [-1.868, -0.478], "sizeM": [0.094, 0.114] },
     { "fitting": "reverse", "atM": [-1.868, 0.416], "sizeM": [0.094, 0.114] }
   ]

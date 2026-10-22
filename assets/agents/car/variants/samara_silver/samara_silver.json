@@ -18,14 +18,14 @@
   "handling": { "maxSpeed": 0.8, "acceleration": 0.78, "braking": 0.85 },
   "lamps": [
     { "fitting": "brake", "atM": [-1.828, -0.583], "sizeM": [0.229, 0.385] },
-    { "fitting": "brake", "atM": [-1.828, 0.583], "sizeM": [0.229, 0.385] },
+    { "fitting": "brake", "atM": [-1.828, 0.562], "sizeM": [0.229, 0.385] },
     { "fitting": "indicator", "atM": [-1.849, -0.541], "sizeM": [0.104, 0.271] },
-    { "fitting": "indicator", "atM": [-1.849, 0.541], "sizeM": [0.104, 0.271] },
+    { "fitting": "indicator", "atM": [-1.849, 0.52], "sizeM": [0.104, 0.271] },
     { "fitting": "head", "atM": [1.776, -0.541], "sizeM": [0.146, 0.26] },
-    { "fitting": "head", "atM": [1.776, 0.541], "sizeM": [0.146, 0.26] },
+    { "fitting": "head", "atM": [1.786, 0.52], "sizeM": [0.146, 0.26] },
     { "fitting": "indicator", "atM": [1.724, -0.728], "sizeM": [0.135, 0.083] },
-    { "fitting": "indicator", "atM": [1.724, 0.718], "sizeM": [0.135, 0.083] },
+    { "fitting": "indicator", "atM": [1.724, 0.708], "sizeM": [0.135, 0.083] },
     { "fitting": "reverse", "atM": [-1.859, -0.458], "sizeM": [0.156, 0.125] },
-    { "fitting": "reverse", "atM": [-1.859, 0.458], "sizeM": [0.156, 0.125] }
+    { "fitting": "reverse", "atM": [-1.859, 0.437], "sizeM": [0.156, 0.125] }
   ]
 }

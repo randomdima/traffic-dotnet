@@ -5,7 +5,8 @@ Cut a car's props (its lamps) out of its sprite as arc polygons, traced off the 
 nothing else: a brake lights red over its lens, an indicator blinks amber over its own. Every prop is:
 
 - **symmetric**: drawn once and mirrored (`"mirror": true`), never authored twice. A car is symmetric about its
-  centreline and so are its lamps; where the art is not, the shape settles between the two sides.
+  centreline and so are its lamps. The shape is the authored side's (the upper half), and `snap` fits it there
+  alone; `mirror` then places each copy over the copy side's own lamp and paints that lamp from the authored one.
 - **smooth**: a few arcs, near convex, its corners rounded; show flags and snap refuses anything else.
 - **simple**: as few points as the lens's shape takes — a rounded rectangle or a wedge 4–6, a crescent 5–7, since
   every corner is rounded ROUND_PX anyway. A vertex is a corner or a change of curve the lens has, never a texel's
@@ -44,9 +45,9 @@ nothing else: a brake lights red over its lens, an indicator blinks amber over i
 
 **What seed and trace give is a first probe, not a cut.** They read colour classes, so they start you near each
 lens rather than from nothing; they also take a highlight for a lens, miss a tinted glass, run a lens on into a
-neighbour, stop short of a frame, or settle a lopsided pair halfway. Outlining each lamp correctly is your work:
-every prop is checked against the art on both sides and corrected until it is the lens the art drew, whatever the
-tool said of it.
+neighbour, or stop short of a frame. Outlining each lamp correctly is your work: every prop is checked against the
+art on the authored side and corrected until it is the lens the art drew, whatever the tool said of it. The copy side
+is `mirror`'s (7): its lamps are painted from these.
 
 1. `seed CAR` lays a first outline of every lamp it can find: the main lamp from the end's biggest patch of its
    colour with the patches of its housing, an indicator from the biggest amber patch, a reverse from a pale patch on
@@ -61,8 +62,8 @@ tool said of it.
    tinted glass (and `+` one of its highlight) where only the highlight was traced. A lamp the art draws no lens for
    is a part: write it as one in the file. A lens trace cannot read at all (no patch of its colour) is placed by
    hand: points from the rulers, a little inside the lens and over all of it, 4–8 of them, bows 0, then `snap --prop`.
-3. Check every prop with points, one look each: `show CAR --prop=P --bare`, both sides with the art unmarked beside
-   them. Ask of each side: does the paint fill the lens to its frame (or, with none, to the edge of its colour) and
+3. Check every prop with points, one look each: `show CAR --prop=P --bare`, with the art unmarked beside it. Ask of
+   the authored side: does the paint fill the lens to its frame (or, with none, to the edge of its colour) and
    stop there, along every edge, tips and corners included? And is every vertex one the lens has: a corner, a tip, a
    change of curve — or a kink on a run the art draws straight or evenly bent? Read the report beside it — **off its
    rim** over 0.5 on a side, edge contrast (the prop's) under 0.1, **framed** under 30 % on a lamp the `dark` panel
@@ -70,14 +71,14 @@ tool said of it.
    the edges and how far their rim is. Correct by the cheapest move that answers what you saw: `snap --prop`
    (`--edges` for the edges named; run again, it goes on from where it stopped), `move --grow` by the rim the table
    gives, `move --vertex` or `bow` for a tip or a corner short of the lens, `drop --vertex` and a snap of the edge
-   that spans it for a spare vertex or a kink, `axis --prop` where the copy alone is off, `"over"` or a move apart
+   that spans it for a spare vertex or a kink, `"over"` or a move apart
    for an overlap, a retrace from better texels. Snap moves vertices and never takes one out: a kink it leaves is
    yours to drop. Check a fix with `--text`, and look again once the numbers say it is done, to see that it is.
-4. A prop is done when you have seen it on the lens on both sides, the report names no SPARE vertex and you see no
-   kink on a run the art draws smooth, and it is off its rim by at most 0.5 there,
-   whatever framed says (a tinted band between a glass and its frame keeps framed low); or by about a texel on one
-   side where the sides draw the lens differently (lopsided art: the shape settles between them); or where its table
-   finds no rim on most edges (art with nothing to fit: say so rather than try again). A done prop takes no hint:
+4. A prop is done when you have seen it on the lens on the authored side, the report names no SPARE vertex and you
+   see no kink on a run the art draws smooth, and it is off its rim by at most 0.5 there, whatever framed says (a
+   tinted band between a glass and its frame keeps framed low); or where its table finds no rim on most edges (art
+   with nothing to fit: say so rather than try again). The copy side's numbers say only how differently that side is
+   drawn, which `mirror` paints over. A done prop takes no hint:
    snap's dropped passes are snap refusing a worse shape.
 5. `cut CAR`, and look at `<car>_lit.png` once: each lamp lit over its lens, the size the art drew it. Every lamp is
    on; a part burns on its copy side only, so the authored side shows its main lamp whole.
@@ -150,7 +151,8 @@ rather than following its rim), `"lock": true` (out of snap).
     bow CAR --prop=P --edge=2 --bow=1.5        e2's bow set
     split CAR --prop=P --edge=2   e2 halved on its arc, a new v3 at its middle (later parts renumber)
     drop CAR --prop=P --vertex=3  v3 taken out, the edge joining its neighbours bowed through where it was
-    undo CAR                      back one seed, trace, snap, axis or edit (again to redo)
+    undo CAR                      back one seed, trace, snap, axis, edit or restore; again for the one before, up
+                                  to UNDO_STEPS
     cut CAR                       a coverage PNG a kind, clipped to the body, and the car lit, prop by prop, a
                                   smaller one burning over a bigger
     install CAR                   the zone map and `lamps` written from the props, the props kept under raw_assets/
@@ -241,7 +243,7 @@ def main():
     doc_path = folder / f"{a.car}.json"
     if a.action == "seed":
         if doc_path.exists() and not a.force:
-            cli.fail(f"{_sim.rel(base, doc_path)} exists: `--force` to seed over it (undo keeps one step)")
+            cli.fail(f"{_sim.rel(base, doc_path)} exists: `--force` to seed over it (`undo` steps back)")
         doc, notes = seeded(car)
         save(doc_path, doc, backup=doc_path.exists())
         print(f"{_sim.rel(base, doc_path)}: seeded, a first outline of each lamp traced off the art where a patch of its "
@@ -254,19 +256,16 @@ def main():
         if not kept.is_file():
             cli.fail(f"no lamps were kept for {car['variant']} ({_sim.rel(base, kept)}): `seed` it")
         if doc_path.exists():
-            shutil.copy(doc_path, doc_path.with_suffix(".prev.json"))
+            remember(doc_path)
         shutil.copy(kept, doc_path)
         print(f"{_sim.rel(base, doc_path)}: the lamps kept for {Path(car['variant']).name}, as installed")
         a.action = "show"
     if a.action == "undo":
-        prev = doc_path.with_suffix(".prev.json")
-        if not prev.exists():
-            cli.fail(f"nothing to undo: no {_sim.rel(base, prev)}")
-        swap = doc_path.with_suffix(".swap.json")
-        shutil.move(doc_path, swap)
-        shutil.move(prev, doc_path)
-        shutil.move(swap, prev)
-        print(f"{_sim.rel(base, doc_path)}: back one step (undo again to redo)")
+        _, kept = history(doc_path)
+        if not kept:
+            cli.fail(f"nothing to undo: {_sim.rel(base, doc_path)} has no earlier state")
+        shutil.move(kept[-1], doc_path)
+        print(f"{_sim.rel(base, doc_path)}: back one step, {len(kept) - 1} more to undo")
         a.action = "show"
     if not doc_path.exists():
         cli.fail(f"no {_sim.rel(base, doc_path)}: `qq props seed {a.car}` first")
@@ -638,7 +637,8 @@ def trace_prop(doc, car, name, seeds, by):
                 if q["kind"] in ("brake", "head") and p["kind"] not in ("brake", "head")), default=(0.0, None))
     if host[0] < SECTION_SHARE and (away := np.any(list(cover.values()), 0) if cover else None) is not None \
             and (away & t["mask"]).any():
-        t, _ = trace.traced(car, seeds, axis, by, away=away)
+        # Kept off what it touches; where that leaves nothing, the lens as traced, its overlap for the report to name.
+        t = trace.traced(car, seeds, axis, by, away=away)[0] or t
     for key in ("part", "side", "share", "hold", "lock", "pull", "round", "axisY", "mirrorDx"):
         p.pop(key, None)
     p["mirror"] = True
@@ -830,10 +830,30 @@ def load(path):
     return doc
 
 
+#: How many earlier states of a props file `undo` can step back through.
+UNDO_STEPS = 30
+
+
+def history(path):
+    """The earlier states of a props file, oldest first, kept beside it for `undo`."""
+    folder = path.with_suffix(".history")
+    return folder, sorted(folder.glob("*.json")) if folder.is_dir() else []
+
+
+def remember(path):
+    """The props file as it stands, pushed onto its history before it is written over."""
+    folder, kept = history(path)
+    folder.mkdir(exist_ok=True)
+    number = int(kept[-1].stem) + 1 if kept else 0
+    shutil.copy(path, folder / f"{number:05d}.json")
+    for old in kept[:max(0, len(kept) + 1 - UNDO_STEPS)]:
+        old.unlink()
+
+
 def save(path, doc, backup):
     """One point a line, so a hand edit is one line."""
     if backup and path.exists():
-        shutil.copy(path, path.with_suffix(".prev.json"))
+        remember(path)
     lines = ["{", f'  "car": "{doc["car"]}",'] + ([f'  "sprite": {json.dumps(doc["sprite"])},'] if "sprite" in doc else []) + [
              '  "axisY": {' + ", ".join(f'"{e}": {v:.2f}' for e, v in doc["axisY"].items()) + "},", '  "props": [']
     for i, p in enumerate(doc["props"]):
@@ -863,11 +883,10 @@ def report(doc, car, props, reach):
                 print(f"  {p['name']:<12} the {p.get('side', 'outboard')} {float(p.get('share', 0.5)):.2f} of "
                       f"{p['part']}  {area:.0f} px")
                 continue
-            # The part as snap judges it, learnt off both sides; where the copy would sit better, off the authored
-            # side alone, so the copy's own placement does not teach the answer.
+            # The part as snap judges it, learnt off both sides.
             at = fit.copy_at(doc, car, p)
             pull = fit.pull_of(car, p)
-            like, own = fit.likeness(car, sides, pull), fit.likeness(car, sides[:1], pull)
+            like = fit.likeness(car, sides, pull)
             held = set(p.get("hold", []))
             per = fit.edge_contrasts(p["points"], like)
             free = [i for i in range(len(per)) if i not in held] or list(range(len(per)))
@@ -884,8 +903,6 @@ def report(doc, car, props, reach):
                   + (f"  held {fit.edge_list(held)}" if held else "") + (" locked" if p.get("lock") else "")
                   + (f"  own axisY {at[0]:.2f} mirrorDx {at[1]:+.2f}" if "axisY" in p or "mirrorDx" in p else "")
                   + f"  {area:.0f} px" + (f"  NOT A LENS: {wrong}" if wrong else ""))
-            if p["mirror"] and (hint := fit.better_copy(p, own, at)):
-                print(f"      {hint}")
             if spare := fit.spare_vertex(doc, car, p, like, reach):
                 j, sides = spare
                 print(f"      SPARE v{j}: the edge joining its neighbours off its rim "
@@ -915,21 +932,23 @@ def overlaps(doc, car, end, names):
         why = ("a part of it" if a.get("part") == b["name"] or b.get("part") == a["name"]
                else "declared" if b["name"] in a.get("over", []) or a["name"] in b.get("over", []) else None)
         part = next((q for q in (a, b) if "part" in q), None)
+        # The smaller is the section and names the housing it lies over (the manual).
+        small, big = sorted((a, b), key=lambda q: float(cover[q["name"]].sum()))
         fix = (f'a part never lies over a lens: `"over": ["{part["part"]}"]` on {(b if part is a else a)["name"]} if '
                f"it is a section of {part['part']}'s housing (the part then leaves it out), else a smaller `share` or "
                f"the other `side` for {part['name']}" if part else
-               f'`"over": ["{b["name"]}"]` on {a["name"]} if the art draws one lens inside the other\'s housing, else '
-               f"pull them apart")
+               f'`"over": ["{big["name"]}"]` on {small["name"]} if the art draws one lens inside the other\'s '
+               f"housing, else pull them apart")
         lines.append(f"  overlap {a['name']} / {b['name']}: {shared:.0f} px, " + (why or f"NOT DECLARED — {fix}"))
     return lines
 
 
 def edge_table(doc, car, p, reach):
-    """Every edge of one prop: its ends, chord and bow, its contrast on each side, and where the rim search snap and
-    the unrolled strips make, within `reach`, finds its rim at each end — positive out — with the bow that would follow
-    it: both sides together, which is what snap moves by, and each side alone where they disagree."""
+    """Every edge of one prop: its ends, chord and bow, its contrast, and where the rim search snap and the unrolled
+    strips make, within `reach`, finds its rim at each end — positive out — with the bow that would follow it: on the
+    authored side, which snap fits (`mirror` paints the copy side from it)."""
     pts = p["points"]
-    at = fit.copy_at(doc, car, p) if p["mirror"] else None
+    at = None
     like = fit.likeness(car, fit.rings(doc, car, p), fit.pull_of(car, p))
     own = fit.edge_contrasts(pts, like)
     copy = fit.mirrored(pts, at) if at else None
@@ -985,12 +1004,47 @@ def cut(base, folder, doc, car):
 
 #: How far past a copy's outline `mirror` paints the authored side's art over the copy side, and over how many texels
 #: more it fades into the copy side's own: the frame round a lens and the paint just off it come with the lens. And how
-#: far past the outline a texel of a lens's colour is the copy side's own lens drawn larger, painted over as well.
-MIRROR_GROW_PX, MIRROR_FEATHER_PX, MIRROR_REACH_PX = 3, 2, 6
+#: far from the outline the copy side's own lamp is followed — its lens texels joined to the copy — and painted over
+#: as well: a lamp drawn in another shape there left its arm showing at 6 (`citycar_lime`). Erasing every lamp-like
+#: texel across the end instead took windows and a red car's paint for lamps.
+MIRROR_GROW_PX, MIRROR_FEATHER_PX, MIRROR_REACH_PX = 3, 2, 12
 #: The ring round a lamp, on each side, whose median is that side's paint there; and how near it (channel distance,
 #: 0-255) a texel is paint. Paint is never painted over paint, so a wing in primer or a rust spot on the copy side
 #: stays (`classic_red`); paint over a copy lens drawn larger is recoloured to the copy side's.
 MIRROR_PAINT_RING_PX, MIRROR_PAINT_NEAR = (4, 8), 40
+
+
+#: How far `mirror` looks for where a lamp's reflection lies best over the copy side's own lamp: an axis this many
+#: texels either way of the prop's copy, in half texels, and a shift this many whole texels along the car.
+MIRROR_SEEK_AXIS_PX, MIRROR_SEEK_DX_PX = 4, 4
+
+
+def aligned_copy(doc, car, p):
+    """Where the authored side's lamp, reflected, lies best over the copy side's own drawing of it — (axisY,
+    mirrorDx), by the least colour difference over the lamp and its frame. The copy side's lamp is drawn a few texels
+    off the plain reflection often enough (`citycar_lime`, `cityhatch_silver`), and painted there the reflection
+    would leave the drawn lamp showing beside it."""
+    import numpy as np
+
+    h, w = car["rgba"].shape[:2]
+    own = fit.coverage(fit.rings(doc, car, p)[:1], (h, w)) > 0.5
+    for _ in range(2):
+        own = trace.dilate4(own)
+    ys, xs = np.nonzero(own)
+    colour = car["colour"]
+    axis0, dx0 = fit.copy_at(doc, car, p)
+    best, best_error = (axis0, dx0), np.inf
+    for axis in np.arange(axis0 - MIRROR_SEEK_AXIS_PX, axis0 + MIRROR_SEEK_AXIS_PX + 1e-6, 0.5):
+        y2 = np.round(2 * axis - (ys + 0.5) - 0.5).astype(int)
+        for dx in range(-MIRROR_SEEK_DX_PX, MIRROR_SEEK_DX_PX + 1):
+            x2 = xs + round(dx0) + dx
+            ok = (y2 >= 0) & (y2 < h) & (x2 >= 0) & (x2 < w)
+            if ok.mean() < 0.9:
+                continue
+            error = float(np.abs(colour[y2[ok], x2[ok]] - colour[ys[ok], xs[ok]]).sum(-1).mean())
+            if error < best_error:
+                best, best_error = (float(axis), float(round(dx0) + dx)), error
+    return best
 
 
 def mirror(base, doc_path, doc, car):
@@ -1010,6 +1064,14 @@ def mirror(base, doc_path, doc, car):
     mirrored = [p for p in doc["props"] if "points" in p and p["mirror"]]
     if not mirrored:
         cli.fail("no mirrored prop with an outline: nothing to paint the copy side from")
+    for p in mirrored:
+        # Each copy put over the copy side's own lamp first: the reflection is painted there and the lamp lit there.
+        axis, dx = aligned_copy(doc, car, p)
+        end_axis = doc["axisY"][fit.end_of(doc, car, p)]
+        p.pop("axisY", None), p.pop("mirrorDx", None)
+        if (axis, dx) != (end_axis, 0.0):
+            p["axisY"], p["mirrorDx"] = axis, dx
+    save(doc_path, doc, backup=True)
     shutil.copy(doc_path, kept_props(base, car))
 
     source = base / car["variant"]
@@ -1019,7 +1081,12 @@ def mirror(base, doc_path, doc, car):
     big_h, big_w = pixels.shape[:2]
     h, w = car["rgba"].shape[:2]
     kx, ky = big_w / w, big_h / h
-    lens_colour = np.isin(car["classes"], list("raw"))
+    lens_coloured = np.isin(car["classes"], list("raw"))
+    sprite_rgb = car["colour"] * 255
+
+    def upsampled_paint_like(paint):
+        """The sprite's texels within MIRROR_PAINT_NEAR of a paint colour."""
+        return np.abs(sprite_rgb - paint).max(-1) <= MIRROR_PAINT_NEAR
     solid = car["rgba"][..., 3] > 0.5
     best = np.zeros((big_h, big_w), np.float32)
     painted = pixels.copy()
@@ -1036,13 +1103,29 @@ def mirror(base, doc_path, doc, car):
         ring = np.asarray(Image.fromarray(((far & ~near & solid) * 255).astype(np.uint8)).resize((big_w, big_h)))
         return np.median(pixels[ring > 127][:, :3], axis=0)
 
+    def reflected(at, axis, dx):
+        """The authored side's texels each picture texel in `at` reflects onto, about `axis` and shifted `dx`."""
+        sx = (xs[at] + 0.5) / kx - dx
+        sy = 2 * axis - (ys[at] + 0.5) / ky
+        return np.stack([fit.sample(pixels[..., c], np.stack([sx * kx, sy * ky], -1).astype(np.float32))
+                         for c in range(4)], -1)
+
     for p in mirrored:
         axis, dx = fit.copy_at(doc, car, p)
         rings = fit.rings(doc, car, p)
         copy = fit.coverage(rings[1:2], (h, w)) > 0.5
         own_paint, copy_paint = paint_round(fit.coverage(rings[:1], (h, w)) > 0.5), paint_round(copy)
-        core = copy | (grown(copy, MIRROR_REACH_PX) & lens_colour)
-        core = grown(core, MIRROR_GROW_PX)
+        # The copy side's own lamp, however it is drawn: its lens texels joined to the copy within reach — a lens's
+        # colour, and not the paint's there, so neither a window nor a red car's own body is taken for it.
+        # Followed across the dark line between two lenses of one lamp (a texel or two), and taken with its frame.
+        lens = lens_coloured & ~upsampled_paint_like(copy_paint)
+        within = grown(lens, 1) & grown(copy, MIRROR_REACH_PX)
+        own_lamp = grown(copy, 1) & within
+        while (more := grown(own_lamp, 1) & within & ~own_lamp).any():
+            own_lamp |= more
+        own_lamp &= lens
+        frame = grown(own_lamp, 2) & (car["dark"] > trace.FRAME)
+        core = grown(copy | own_lamp | frame, MIRROR_GROW_PX)
         # Fully painted in the core, fading over the feather: a texel's weight on the sprite's grid, then the picture's.
         weight, ring = core.astype(np.float32), core
         for k in range(1, MIRROR_FEATHER_PX + 1):
@@ -1053,18 +1136,14 @@ def mirror(base, doc_path, doc, car):
         at = big > best
         if not at.any():
             continue
-        # A texel's centre on the sprite's grid, reflected about the copy's axis and shifted back, read off the picture.
-        sx = (xs[at] + 0.5) / kx - dx
-        sy = 2 * axis - (ys[at] + 0.5) / ky
-        xy = np.stack([sx * kx, sy * ky], -1).astype(np.float32)
-        took = np.stack([fit.sample(pixels[..., c], xy) for c in range(4)], -1)
+        took = reflected(at, axis, dx)
         took_paint = np.abs(took[:, :3] - own_paint).max(-1) <= MIRROR_PAINT_NEAR
-        here_paint = np.abs(pixels[at, :3] - copy_paint).max(-1) <= MIRROR_PAINT_NEAR
-        # The authored side's paint, where it lands on the copy side's lens, in the copy side's paint and its shading.
+        here_paint = np.abs(painted[at, :3] - copy_paint).max(-1) <= MIRROR_PAINT_NEAR
+        # The authored side's paint, where it lands on what was the copy side's lens, in the copy side's paint.
         colour = np.where(took_paint[:, None], took[:, :3] * copy_paint / np.maximum(own_paint, 1), took[:, :3])
         # Paint off the authored side's body is no lens: weighed by its alpha, so the copy side keeps its own there.
         wt = np.where(took_paint & here_paint, 0.0, big[at] * took[:, 3] / 255)
-        painted[at, :3] = pixels[at, :3] * (1 - wt[:, None]) + colour * wt[:, None]
+        painted[at, :3] = painted[at, :3] * (1 - wt[:, None]) + colour * wt[:, None]
         best[at] = big[at]
 
     folder, name_was = source.parent, source.stem
@@ -1133,9 +1212,11 @@ def install(base, doc_path, doc, car):
             cx, cy = round((x0 + x1) / 2), round((y0 + y1) / 2)
             # The bake finds a lens's texels only within a cell centred on it.
             reach = max(cx - x0, x1 - cx, cy - y0, y1 - cy)
-            if reach > INSTALL_CELL_PX // 2:
-                problems.append(f"{p['name']} ({side}): reaches {reach} px from its centre, past the lamp sheet's "
-                                f"{INSTALL_CELL_PX // 2}")
+            if reach > INSTALL_CELL_PX // 2 or max(x1 - x0, y1 - y0) >= INSTALL_CELL_PX:
+                # A lens the cell's whole 40 texels long is written 0.417 m, past the cell's 0.4167, which
+                # `LampAtlasTests.EveryLensFitsTheCellItIsCutInto` refuses (`hatch90s_black`, `budgetsuv_brown`).
+                problems.append(f"{p['name']} ({side}): {x1 - x0}x{y1 - y0} px reaching {reach} from its centre; the lamp "
+                                f"sheet's cell takes at most {INSTALL_CELL_PX - 1} a side, {INSTALL_CELL_PX // 2} from it")
             rows.append((INSTALL_FITTING[p["kind"]], (round(cx / per_m[0] - foot[0] / 2, 3), round(cy / per_m[1] - foot[1] / 2, 3)),
                          (round((x1 - x0) / per_m[0], 3), round((y1 - y0) / per_m[1], 3))))
     if len(rows) > INSTALL_MOST_LENSES:

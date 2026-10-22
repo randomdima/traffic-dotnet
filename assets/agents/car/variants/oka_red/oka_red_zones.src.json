@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/oka_red/oka_red-v4.props.json",
+ "cutOn": "raw_assets/agents/car/variants/oka_red/oka_red-v4.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

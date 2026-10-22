@@ -12,10 +12,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (2026-10-19). Not the railway loop's: it fails as well with the suite's line laid straight, the old train and rail
   figures and the ballast answered over the walk. Not traced; which of `WalkingGround.StateIntents`' two pieces comes
   back empty for walker 29, and why, closes it.
-- **`PlansInATownTests.APlanNothingCutNeverDrawsBack(map: "Laid")`** (town) fails: "tick 2764, car 42 drew its plan
-  back 4.77 m with nothing cutting it, doing 0.1 m/s" (2026-10-22). No code moved it: it passes with batch 1's ten
-  cars in `Fleet.json` and fails with them out (below), so the fleet's mix hands car 42 a look whose size reaches a
-  plan bug the old mix did not. Tracing why that plan draws back closes it; batch 1 back in the fleet only hides it.
+- **A plan draws back with nothing cutting it, under one fleet** (`PlansInATownTests.APlanNothingCutNeverDrawsBack`,
+  map "Laid", 2026-10-22): with batch 1's ten cars out of `Fleet.json` it failed, "tick 2764, car 42 drew its plan back
+  4.77 m with nothing cutting it, doing 0.1 m/s"; with them in, as now, it passes. No code moved it: the fleet's mix
+  hands car 42 a look whose size reaches a plan bug the present mix does not. Tracing why that plan draws back closes
+  it; the fleet as it is only hides it.
 - **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
   the leg it had before the hand" (2026-10-19, the hand's change in hand). Closed by that change.
 - **Four tests fail since the town's arithmetic left libm** (2026-10-20, core log); all four pass on 79dddfaf:
@@ -81,11 +82,15 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `cars_fleet_a-v3`, their edges carry a faint magenta fringe, and all but `fleetsaloon_white` show no lamps. Each is
   asked again on a transparent sheet in its `fleet100` batch (`.tmp/gen/fleet_plan.md`: batches 5, 6, 7, 10), which
   closes it.
-- **Batch 1's ten cars have no lamps** (`assets/agents/car/variants/`: `microcar_white` … `niva_olive`, 2026-10-22):
-  their lamps were cut again on mirrored pictures, which the owner then dropped; the original pictures are back
-  (`<id>-v1`), and the lamps cut on them first were overwritten by that re-cut and kept nowhere. They are out of
-  `Fleet.json` until they have lamps (`CarLampTests.EveryVariantDrawsItsLampsOnTheBodyTheyAreMeasuredOff` refuses a
-  fleet car with none). Cutting their lamps again with `qq props` and listing them again closes it.
+- **Two cars keep their far side's lamps as drawn** (`citycar_lime`, `cityhatch_silver`, 2026-10-22): their lower
+  tail lamp is drawn as another lamp than the upper (a longer arm, elsewhere), and `qq props mirror` left a second red
+  shape beside the reflection however far it followed the drawn lamp, so both stay on their unmirrored pictures with
+  the lamps cut on them. Painting the copy side's lamp out before the reflection goes on — an in-paint of the body
+  there, not a recolour of lamp-like texels, which took windows and red paint (tried) — closes it.
+- **`mirror` always paints the lower side from the upper** (`qq props`, 2026-10-22): the authored side is the upper
+  half, and where the lower draws a lamp better — `retro500_cream`'s rear indicator, orange below and dark red above —
+  the better one is painted over. An authored side chosen per car (`"authored": "lower"` in the props file, the
+  reflection the other way) closes it.
 - **Nine earlier looks are on disk and in no fleet** (`assets/agents/car/variants/`: `citybox_sky`, `estate_navy`,
   `hatch_coral`, `micro_mint`, `minivan_wine`, `panelvan_forest`, `retro_cream`, `saloon_beige`, `suv_graphite`;
   2026-10-22): trial cars the hundred-car plan does not ask again, so nothing draws them and their raw_assets
@@ -678,13 +683,15 @@ overlap hint puts
   `"over"` on the bigger prop, the manual on the section (two cars); `find` lists one side's patches only; `trace`
   reads grey glass as no lamp; seed's amber class merges amber with orange-red. Each cost an agent a hand placement;
   fixing them in that order closes it.
-- **What a lamp re-cut of batch 1 found in `qq props`** (2026-10-22, ten agents, on pictures since dropped):
-  `trace --prop=ind_rear --at=14,36` on `tavria_white` crashed (`ValueError: zero-size array to reduction operation
-  minimum`, `_props_trace.py:320`); `snap` takes a vertex out (6 → 5, 4 → 3) though the manual says it never does,
-  and grew a section 17 px past the lamp it is declared over (`retro500_cream`); `undo` is one step, a second redoes;
-  `trace --lens=frame` and `--lens=shade` ran on past 30 texels inside framed pale headlamps on four cars, which were
-  placed by hand; seed took body paint for a reverse (`microcar_white`, `cityhatch_silver`) and an orange fringe for
-  an indicator (`citycar_lime`). Fixing each closes its part.
+- **What the lamp cuts of batches 1 and 4 found in `qq props`** (2026-10-22, 29 agents): seed takes body paint for a
+  reverse (`microcar_white`, `cityhatch_silver`), an orange fringe or a paint patch for an indicator (`citycar_lime`,
+  `citymini_green`), a bumper edge for a brake (`estate90s_red`), and stops a headlamp 4–6 texels short of its tip
+  without saying so (`hatch_blue`, `budgetsaloon_grey`); `find` lists a pale pink highlight as amber
+  (`citymini_yellow`) and misses an amber front lens the hue panel shows (`hatch_white`); `--lens=frame` cannot read a
+  pale headlamp drawn with no rim (`tavria_white`, `retro500_cream`, `cityhatch_silver`, `saloon90s_white`: placed by
+  hand); `move --edge --grow` slides the edge's ends along their neighbours (a tip 4 texels past the lens on
+  `citycar_lime`); `hold` has no command; snap grew a section 17 px past the lamp it is declared over
+  (`retro500_cream`). Fixing each closes its part.
 - **A car may cut five lamps, its tail one housing** (2026-10-21, `cityhatch_silver`): `install` writes a lens a side
   of every prop and part, and `CarLamps.MostLenses` is ten, so the red arm the art draws along the tailgate beside the
   corner lamp stays unlit. Widening the emit's word (below) closes it.

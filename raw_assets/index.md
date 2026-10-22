@@ -12,7 +12,8 @@ to a frame, and cut, kept and installed with `qq sprites`.
 ```
 .tmp/gen/                          scratch, never committed
   templates/<sheet>.png            the layout a frame is asked from: outlines and their parts' marks on
-                                   #FF00FF, cells in the PNG; <sheet>_style.png, the style picture
+                                   #FF00FF, cells in the PNG; <sheet>_style.png, the style picture (a car's
+                                   sheet sends only that: its ids are briefs/<sheet>.cells.json)
   briefs/<sheet>[-vN].txt          the prompt a frame was asked with (its record holds the copy sent)
   frames/<name>-vN.png             every frame (a whole sheet), and its record in index.jsonl
   inputs/<sha>.<ext>               every picture a frame was sent, by content
@@ -48,16 +49,21 @@ A sprite traces through its `.src.json` to its variant, through `variants.jsonl`
    kept with `qq sprites keep`, which brings the frame's record and its inputs along; a parent frame (a
    masked redo's) keeps its record only, never its image.
 3. **What is kept is never edited or renamed.** A new attempt is a new version; a variant named by a
-   `.src.json` is never deleted.
-4. **Every frame is asked from a `qq sprites template` layout** on flat `#FF00FF`, so a cut is a crop and a
-   key and nothing else. A frame asked without one cannot be cut.
+   `.src.json` is never deleted. A candidate no sprite uses — a trial given up — is unkept with `qq sprites drop`,
+   which takes its record, its lamp cut and any lineage no other variant traces to.
+4. **Every frame says which asset each drawing is.** A building's or a train's is asked from a `qq sprites
+   template` layout, so a cut is a crop and a key. A car's is asked from words alone (the owner, 2026-10-20): its
+   record lists the ids in the brief's order (remotegen `--cells`), `cut` finds the drawings in that order on the
+   transparent frame, and what it measures of each is the car's geometry (CAR-12b). A frame with neither cannot be
+   cut.
 5. **Each kept variant gets its score when it is judged**, and the lesson of a set goes into its family's
    `prompting.md` in the same change, citing the variants it is drawn from. That file is read before the
    family's next brief is written.
 6. **A cut is reproducible**: the same frame and template give the same variant, and `qq sprites use`
    gives the same sprite from the same variant.
 7. **Every part an asset switches is in its picture, switched off.** A lamp, a beacon, anything the game
-   later lights is drawn where its variant file authors it, at rest — unlit glass, no glow, no light cast —
+   later lights is drawn at rest — unlit glass, no glow, no light cast — where its variant file authors it, or for
+   a car described in words where that kind of car has it, its file's lens then read off the zone map;
    and which of its texels each part is, is the generator's too: the same frame repainted as a zone map, every part
    one flat colour (kept as `<id>_zones`), and the active state is those texels lit, never painted over by hand
    (CAR-14a). The template frames the

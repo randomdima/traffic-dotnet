@@ -1,0 +1,37 @@
+{
+  "car": "rearengine_sky",
+  "sprite": {"variant": "raw_assets/agents/car/variants/rearengine_sky/rearengine_sky-v4.png", "sizePx": [358, 190]},
+  "axisY": {"rear": 93.50, "front": 91.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 94.5, "mirrorDx": 0.0, "points": [
+      [28.95, 29.11, 1.04],
+      [24.14, 36.89, 1.18],
+      [27.41, 39.68, 1.56],
+      [34.04, 31.66, 1.68]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 90.5, "mirrorDx": 4.0, "points": [
+      [325.25, 23.48, 0.00],
+      [325.86, 29.02, 0.23],
+      [329.40, 33.67, 0.94],
+      [337.42, 45.40, 1.16],
+      [341.19, 46.27, 1.51],
+      [343.25, 41.04, 1.50],
+      [336.37, 26.40, 2.79],
+      [327.47, 23.73, -0.39]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "over": ["head"], "axisY": 93.5, "mirrorDx": 0.0, "points": [
+      [324.60, 25.12, 0.43],
+      [329.97, 27.37, 0.00],
+      [333.90, 26.33, 0.98],
+      [330.76, 23.82, 0.30],
+      [326.64, 23.06, 0.87]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "axisY": 91.5, "mirrorDx": -3.0, "points": [
+      [19.89, 53.78, 1.09],
+      [23.60, 55.48, 1.38],
+      [25.07, 49.35, 0.55],
+      [22.33, 48.65, 0.88]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

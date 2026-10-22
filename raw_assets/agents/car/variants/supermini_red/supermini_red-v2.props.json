@@ -3,7 +3,7 @@
   "sprite": {"variant": "raw_assets/agents/car/variants/supermini_red/supermini_red-v2.png", "sizePx": [389, 211]},
   "axisY": {"rear": 105.50, "front": 104.50},
   "props": [
-    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 100.5, "mirrorDx": -4.0, "points": [
       [28.15, 33.57, 0.17],
       [24.45, 36.93, 0.00],
       [21.37, 40.95, 0.00],
@@ -12,7 +12,7 @@
       [27.50, 49.33, 2.14],
       [35.32, 33.26, 0.28]
     ]},
-    {"name": "head", "kind": "head", "mirror": true, "mirrorDx": 1.0, "points": [
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 104.5, "mirrorDx": 1.0, "points": [
       [337.95, 28.98, 0.74],
       [337.40, 31.73, 0.26],
       [360.44, 56.02, 0.28],
@@ -22,12 +22,12 @@
       [350.87, 30.52, -0.92],
       [342.29, 29.86, 0.30]
     ]},
-    {"name": "ind_front", "kind": "ind", "mirror": true, "points": [
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 104.5, "mirrorDx": -1.0, "points": [
       [336.27, 25.34, 1.56],
       [347.17, 31.11, 0.83],
       [348.55, 28.69, 2.24]
     ]},
-    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "points": [
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 101.5, "mirrorDx": -1.0, "points": [
       [28.50, 33.00, 0.00],
       [22.50, 41.00, 0.00],
       [19.00, 50.00, 0.00],

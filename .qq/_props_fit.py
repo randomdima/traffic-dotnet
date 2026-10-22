@@ -45,6 +45,9 @@ LOPSIDED_PX = 1.0
 #: contrast of the two edges it replaces. Judged on that edge alone: over the whole outline, one edge cutting a
 #: corner is outvoted by the rest.
 ON_RIM_PX, SPARE_CONTRAST_LOSS = 0.5, 0.05
+#: No vertex is spare on a prop this few points or fewer: SPARE named one after each drop and took an indicator to
+#: three (`microcar_white`, 2026-10-22).
+MIN_LENS_POINTS = 4
 #: An edge's samples: one every this many texels along it, a few at least.
 SAMPLE_PX = 1.5
 SUPERSAMPLE = 4
@@ -503,7 +506,9 @@ def snap(doc, car, p, reach0, only=None):
         return f"  {p['name']}: a part of {p['part']}, follows it"
     if p.get("lock"):
         return f"  {p['name']}: locked"
-    at = copy_at(doc, car, p) if p["mirror"] else None
+    # The authored side alone: `qq props mirror` paints the copy side's lamp from it, so a copy side drawn otherwise
+    # would only pull the outline off the lens it is cut for (`oka_red`, `cityhatch_silver`, 2026-10-22).
+    at = None
     rounding, kept, why = rounding_of(p), 0, set()
     # Each edge carries a tag through the splits, so a hold — the file's, or every edge but `only` — follows its edge.
     tags = list(range(len(p["points"])))
@@ -545,10 +550,13 @@ def snap(doc, car, p, reach0, only=None):
                 moves[j] -= (moves[j] @ lines[0]) * lines[0]
         moved = pts + moves
         points, now_tags = [], []
+        # Snap never takes a vertex out (the manual): a pass that shrinks an edge to under a chord is refused, and the
+        # vertex left spare is `drop`'s to take, which the report's SPARE names.
+        if any(math.hypot(*(moved[(i + 1) % n] - moved[i])) < MIN_CHORD_PX for i in range(n)):
+            why.add("an edge shrank under a chord")
+            continue
         for i in range(n):
             chord = math.hypot(*(moved[(i + 1) % n] - moved[i]))
-            if chord < MIN_CHORD_PX:
-                continue
             bow = float(np.clip(bows[i] + fits[i][2], -MAX_BOW_SHARE * chord, MAX_BOW_SHARE * chord))
             bow = bows[i] if i in held else max(bow, 0.0) if bows[i] >= 0 else bow
             points.append([float(moved[i][0]), float(moved[i][1]), bow])
@@ -560,9 +568,6 @@ def snap(doc, car, p, reach0, only=None):
                 points.append([float(mid[0]), float(mid[1]), bow / 4])
                 now_tags.append(tags[i])
         points = rounded(points)
-        if len(points) < 3:
-            why.add("an edge shrank to nothing")
-            continue
         if wrong := smooth_enough(outline(points, rounding)):
             why.add(wrong)
             continue
@@ -658,14 +663,6 @@ def copy_moves(p, like, at):
     return at[0] + dy / 2, at[1] + dx, score, here
 
 
-def better_copy(p, like, at):
-    moves = copy_moves(p, like, at)
-    if moves is None:
-        return None
-    axis, dx, score, here = moves
-    return (f'copy sits better at "axisY": {axis:.2f}, "mirrorDx": {dx:.2f} ({here:.2f} -> {score:.2f});'
-            f" `axis --prop={p['name']}` sets them")
-
 
 def spare_vertex(doc, car, p, like, reach):
     """The vertex the prop does best without, where one is spare: taken out, the arc that joins its neighbours lies on
@@ -674,7 +671,8 @@ def spare_vertex(doc, car, p, like, reach):
     import numpy as np
 
     pts, held, n = p["points"], set(p.get("hold", [])), len(p["points"])
-    if n <= 3:
+    # The fewest a lens takes (the manual: a rounded rectangle or a wedge 4–6): none is spare below it.
+    if n <= MIN_LENS_POINTS:
         return None
     at = copy_at(doc, car, p) if p["mirror"] else None
 

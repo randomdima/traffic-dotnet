@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/budgetsuv_brown/budgetsuv_brown-v6.props.json",
+ "cutOn": "raw_assets/agents/car/variants/budgetsuv_brown/budgetsuv_brown-v6.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

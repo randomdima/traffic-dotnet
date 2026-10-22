@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/wedgesaloon_cherry/wedgesaloon_cherry-v3.props.json",
- "cutOn": "raw_assets/agents/car/variants/wedgesaloon_cherry/wedgesaloon_cherry-v3.png",
+ "variant": "raw_assets/agents/car/variants/wedgesaloon_cherry/wedgesaloon_cherry-v5.props.json",
+ "cutOn": "raw_assets/agents/car/variants/wedgesaloon_cherry/wedgesaloon_cherry-v5.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

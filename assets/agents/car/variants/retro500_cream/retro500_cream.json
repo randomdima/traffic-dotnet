@@ -1,6 +1,7 @@
 {
   "id": "retro500_cream",
   "sprite": "retro500_cream.webp",
+  "zones": "retro500_cream_zones.png",
   "wreck": { "sprite": "retro500_cream_broken.webp" },
   "describe": "modern retro two-door small car, good condition, cream with a white roof, domed rounded bonnet, round shoulders all round, short rounded tail, round headlamps, small round-cornered tail lamps",
   "footprintM": [3.570, 2.076],
@@ -15,5 +16,16 @@
   "cgHeightM": 0.58,
   "frontWeightShare": 0.64,
   "handling": { "maxSpeed": 0.85, "acceleration": 0.9, "braking": 0.95 },
-  "lamps": []
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.535, -0.683], "sizeM": [0.114, 0.156] },
+    { "fitting": "brake", "atM": [-1.514, 0.631], "sizeM": [0.114, 0.156] },
+    { "fitting": "reverse", "atM": [-1.535, -0.621], "sizeM": [0.094, 0.052] },
+    { "fitting": "reverse", "atM": [-1.514, 0.589], "sizeM": [0.094, 0.052] },
+    { "fitting": "head", "atM": [1.462, -0.631], "sizeM": [0.177, 0.25] },
+    { "fitting": "head", "atM": [1.462, 0.558], "sizeM": [0.177, 0.25] },
+    { "fitting": "indicator", "atM": [1.462, -0.694], "sizeM": [0.167, 0.125] },
+    { "fitting": "indicator", "atM": [1.462, 0.621], "sizeM": [0.167, 0.125] },
+    { "fitting": "indicator", "atM": [-1.608, -0.516], "sizeM": [0.062, 0.073] },
+    { "fitting": "indicator", "atM": [-1.618, 0.443], "sizeM": [0.062, 0.073] }
+  ]
 }

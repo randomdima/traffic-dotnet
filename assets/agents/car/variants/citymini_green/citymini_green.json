@@ -1,6 +1,7 @@
 {
   "id": "citymini_green",
   "sprite": "citymini_green.webp",
+  "zones": "citymini_green_zones.png",
   "wreck": { "sprite": "citymini_green_broken.webp" },
   "describe": "late-1990s Korean tiny five-door city car, worn: faded pale green paint, rust spots on the wheel arches, short round bonnet, tall rounded roof, short upright hatchback tail, big round-edged headlamps, small vertical tail lamps",
   "footprintM": [3.500, 2.026],
@@ -15,5 +16,16 @@
   "cgHeightM": 0.58,
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.72, "acceleration": 0.72, "braking": 0.85 },
-  "lamps": []
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.531, -0.637], "sizeM": [0.188, 0.272] },
+    { "fitting": "brake", "atM": [-1.531, 0.522], "sizeM": [0.188, 0.272] },
+    { "fitting": "indicator", "atM": [-1.521, -0.7], "sizeM": [0.177, 0.136] },
+    { "fitting": "indicator", "atM": [-1.521, 0.595], "sizeM": [0.177, 0.136] },
+    { "fitting": "head", "atM": [1.479, -0.553], "sizeM": [0.135, 0.23] },
+    { "fitting": "head", "atM": [1.479, 0.512], "sizeM": [0.135, 0.23] },
+    { "fitting": "indicator", "atM": [1.396, -0.731], "sizeM": [0.177, 0.104] },
+    { "fitting": "indicator", "atM": [1.396, 0.689], "sizeM": [0.177, 0.104] },
+    { "fitting": "reverse", "atM": [-1.573, -0.553], "sizeM": [0.104, 0.094] },
+    { "fitting": "reverse", "atM": [-1.573, 0.428], "sizeM": [0.104, 0.094] }
+  ]
 }

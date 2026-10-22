@@ -1,2 +1,2 @@
 {"variant": "smallsuv_yellow-v1", "frame": "fleet100_b03-v2", "cell": 6, "pxPerM": 100.95, "score": 4, "status": "candidate", "ts": "2026-10-22T01:18:01"}
-{"variant": "smallsuv_yellow-v3", "frame": "fleet100_b03-v2", "cell": 6, "pxPerM": 100.95, "score": 4, "lampsMirroredFrom": "smallsuv_yellow-v1", "props": "raw_assets/agents/car/variants/smallsuv_yellow/smallsuv_yellow-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:39"}
+{"variant": "smallsuv_yellow-v5", "frame": "fleet100_b03-v2", "cell": 6, "pxPerM": 100.95, "score": 4, "lampsMirroredFrom": "smallsuv_yellow-v1", "props": "raw_assets/agents/car/variants/smallsuv_yellow/smallsuv_yellow-v1.props.json", "status": "used", "ts": "2026-10-22T04:32:26"}

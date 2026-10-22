@@ -22,7 +22,7 @@
     { "fitting": "indicator", "atM": [-1.731, -0.495], "sizeM": [0.115, 0.208] },
     { "fitting": "indicator", "atM": [-1.752, 0.505], "sizeM": [0.115, 0.208] },
     { "fitting": "head", "atM": [1.627, -0.536], "sizeM": [0.282, 0.26] },
-    { "fitting": "head", "atM": [1.669, 0.526], "sizeM": [0.282, 0.26] },
+    { "fitting": "head", "atM": [1.648, 0.526], "sizeM": [0.282, 0.26] },
     { "fitting": "indicator", "atM": [1.523, -0.703], "sizeM": [0.167, 0.094] },
     { "fitting": "indicator", "atM": [1.544, 0.693], "sizeM": [0.167, 0.094] },
     { "fitting": "reverse", "atM": [-1.773, -0.411], "sizeM": [0.156, 0.115] },

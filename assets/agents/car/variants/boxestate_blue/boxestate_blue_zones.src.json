@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/boxestate_blue/boxestate_blue-v3.props.json",
- "cutOn": "raw_assets/agents/car/variants/boxestate_blue/boxestate_blue-v3.png",
+ "variant": "raw_assets/agents/car/variants/boxestate_blue/boxestate_blue-v5.props.json",
+ "cutOn": "raw_assets/agents/car/variants/boxestate_blue/boxestate_blue-v5.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

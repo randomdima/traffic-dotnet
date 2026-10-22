@@ -1,1 +1,2 @@
-{"variant": "microcar_white-v1", "frame": "fleet100_b01-v1", "cell": 1, "pxPerM": 98.148, "score": 4, "status": "used", "ts": "2026-10-21T22:05:59"}
+{"variant": "microcar_white-v1", "frame": "fleet100_b01-v1", "cell": 1, "pxPerM": 98.148, "score": 4, "status": "candidate", "ts": "2026-10-21T22:05:59"}
+{"variant": "microcar_white-v4", "frame": "fleet100_b01-v1", "cell": 1, "pxPerM": 98.148, "score": 4, "lampsMirroredFrom": "microcar_white-v1", "props": "raw_assets/agents/car/variants/microcar_white/microcar_white-v1.props.json", "status": "used", "ts": "2026-10-22T04:31:36"}

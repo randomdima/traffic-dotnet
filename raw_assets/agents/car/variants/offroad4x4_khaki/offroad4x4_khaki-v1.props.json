@@ -3,21 +3,21 @@
   "sprite": {"variant": "raw_assets/agents/car/variants/offroad4x4_khaki/offroad4x4_khaki-v1.png", "sizePx": [387, 207]},
   "axisY": {"rear": 100.50, "front": 103.50},
   "props": [
-    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 102.0, "mirrorDx": 0.0, "points": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 101.5, "mirrorDx": 0.0, "points": [
       [25.61, 38.85, -0.09],
       [26.73, 58.13, 1.20],
       [30.05, 61.62, 0.99],
       [32.34, 57.42, 0.00],
       [33.14, 39.57, 2.27]
     ]},
-    {"name": "head", "kind": "head", "mirror": true, "points": [
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 104.0, "mirrorDx": 0.0, "points": [
       [362.65, 38.32, 0.23],
       [368.20, 56.03, 0.03],
       [370.36, 60.03, 0.00],
       [372.69, 56.16, 1.78],
       [367.37, 38.51, 0.57]
     ]},
-    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 104.0, "mirrorDx": 0.0, "points": [
+    {"name": "ind_front", "kind": "ind", "mirror": true, "points": [
       [353.82, 30.48, 0.00],
       [356.77, 33.25, 1.63],
       [365.83, 35.02, 1.60],

@@ -1,1 +1,2 @@
-{"variant": "hatch_blue-v3", "frame": "fleet100_b04-v1", "cell": 6, "pxPerM": 103.738, "score": 4, "status": "used", "ts": "2026-10-22T03:11:17"}
+{"variant": "hatch_blue-v3", "frame": "fleet100_b04-v1", "cell": 6, "pxPerM": 103.738, "score": 4, "status": "candidate", "ts": "2026-10-22T03:11:17"}
+{"variant": "hatch_blue-v6", "frame": "fleet100_b04-v1", "cell": 6, "pxPerM": 103.738, "score": 4, "lampsMirroredFrom": "hatch_blue-v3", "props": "raw_assets/agents/car/variants/hatch_blue/hatch_blue-v3.props.json", "status": "used", "ts": "2026-10-22T04:32:48"}

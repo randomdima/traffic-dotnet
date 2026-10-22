@@ -16,6 +16,16 @@
     "../coupe_black/coupe_black.json",
     "../sedan_silver/sedan_silver.json",
     "../pickup_maroon/pickup_maroon.json",
+    "../microcar_white/microcar_white.json",
+    "../oka_red/oka_red.json",
+    "../citymini_yellow/citymini_yellow.json",
+    "../citymini_green/citymini_green.json",
+    "../retro500_cream/retro500_cream.json",
+    "../citycar_lime/citycar_lime.json",
+    "../cityhatch_silver/cityhatch_silver.json",
+    "../tavria_white/tavria_white.json",
+    "../rearengine_sky/rearengine_sky.json",
+    "../niva_olive/niva_olive.json",
     "../minihatch_green/minihatch_green.json",
     "../aveo_blue/aveo_blue.json",
     "../samara_silver/samara_silver.json",
@@ -33,6 +43,15 @@
     "../smallsuv_yellow/smallsuv_yellow.json",
     "../wedgesaloon_cherry/wedgesaloon_cherry.json",
     "../saloon00s_silver/saloon00s_silver.json",
-    "../saloon00s_green/saloon00s_green.json"
+    "../saloon00s_green/saloon00s_green.json",
+    "../saloon70s_teal/saloon70s_teal.json",
+    "../evhatch_blue/evhatch_blue.json",
+    "../budgetsaloon_grey/budgetsaloon_grey.json",
+    "../hatch_graphite/hatch_graphite.json",
+    "../hatch_white/hatch_white.json",
+    "../hatch_blue/hatch_blue.json",
+    "../estate90s_red/estate90s_red.json",
+    "../saloon90s_white/saloon90s_white.json",
+    "../budgetsuv_brown/budgetsuv_brown.json"
   ]
 }

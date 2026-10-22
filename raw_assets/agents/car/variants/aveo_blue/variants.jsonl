@@ -1,2 +1,2 @@
 {"variant": "aveo_blue-v1", "frame": "fleet100_b02-v2", "cell": 2, "pxPerM": 119.588, "score": 4, "status": "candidate", "ts": "2026-10-22T00:04:45"}
-{"variant": "aveo_blue-v3", "frame": "fleet100_b02-v2", "cell": 2, "pxPerM": 119.588, "score": 4, "lampsMirroredFrom": "aveo_blue-v1", "props": "raw_assets/agents/car/variants/aveo_blue/aveo_blue-v1.props.json", "status": "used", "ts": "2026-10-22T04:13:08"}
+{"variant": "aveo_blue-v5", "frame": "fleet100_b02-v2", "cell": 2, "pxPerM": 119.588, "score": 4, "lampsMirroredFrom": "aveo_blue-v1", "props": "raw_assets/agents/car/variants/aveo_blue/aveo_blue-v1.props.json", "status": "used", "ts": "2026-10-22T04:31:56"}

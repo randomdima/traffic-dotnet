@@ -1,0 +1,33 @@
+{
+  "car": "budgetsaloon_grey",
+  "sprite": {"variant": "raw_assets/agents/car/variants/budgetsaloon_grey/budgetsaloon_grey-v3.png", "sizePx": [409, 207]},
+  "axisY": {"rear": 103.50, "front": 103.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 104.0, "mirrorDx": 0.0, "points": [
+      [23.21, 37.50, 2.61],
+      [11.90, 62.42, 0.45],
+      [12.73, 64.16, 2.80],
+      [23.24, 59.75, -0.52],
+      [28.95, 46.45, -0.99],
+      [36.17, 36.51, 0.10],
+      [42.59, 31.24, 2.64]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 105.0, "mirrorDx": 0.0, "points": [
+      [16.60, 45.20, 0.20],
+      [15.10, 50.00, 0.30],
+      [15.60, 55.60, 3.74],
+      [26.30, 48.77, 0.20],
+      [24.62, 43.91, 0.00],
+      [18.80, 43.40, 0.30]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 103.0, "mirrorDx": 1.0, "points": [
+      [360.98, 28.24, -1.23],
+      [387.92, 61.57, 0.30],
+      [393.79, 61.43, 0.40],
+      [389.09, 44.62, 1.00],
+      [376.93, 29.95, 1.40]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

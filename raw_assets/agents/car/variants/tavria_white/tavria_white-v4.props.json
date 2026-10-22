@@ -1,0 +1,37 @@
+{
+  "car": "tavria_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/tavria_white/tavria_white-v4.png", "sizePx": [356, 202]},
+  "axisY": {"rear": 97.00, "front": 100.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [16.50, 23.43, 1.93],
+      [11.12, 32.30, -0.14],
+      [10.73, 37.67, 0.25],
+      [9.05, 48.05, 0.55],
+      [8.28, 54.66, 0.39],
+      [12.78, 54.10, 0.00],
+      [14.94, 37.31, -0.88],
+      [18.35, 26.90, 1.09]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 98.5, "mirrorDx": 3.0, "points": [
+      [331.29, 33.45, 0.59],
+      [330.94, 36.04, 0.00],
+      [333.34, 48.86, 0.93],
+      [336.52, 52.23, 2.99],
+      [333.41, 35.38, 0.27]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 99.5, "mirrorDx": 2.0, "points": [
+      [327.77, 29.20, 0.95],
+      [334.51, 33.66, 0.50],
+      [337.06, 29.99, 1.62],
+      [329.03, 26.27, 1.46]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 94.0, "mirrorDx": -1.0, "points": [
+      [11.00, 33.50, 0.00],
+      [10.00, 43.50, 0.00],
+      [14.40, 43.50, 0.00],
+      [15.10, 33.50, 0.00]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

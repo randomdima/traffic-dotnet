@@ -1,0 +1,38 @@
+{
+  "car": "golf3_red",
+  "sprite": {"variant": "raw_assets/agents/car/variants/golf3_red/golf3_red-v8.png", "sizePx": [386, 210]},
+  "axisY": {"rear": 105.00, "front": 104.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 104.5, "mirrorDx": 0.0, "points": [
+      [22.06, 34.12, 0.15],
+      [14.67, 53.40, 0.00],
+      [16.12, 63.61, 1.39],
+      [22.96, 59.79, -2.50],
+      [42.19, 41.46, 0.30],
+      [40.85, 34.04, 1.88]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 104.5, "mirrorDx": 1.0, "points": [
+      [343.28, 31.80, 1.64],
+      [342.83, 37.26, 0.51],
+      [362.60, 57.10, 1.65],
+      [367.88, 55.33, 3.19],
+      [354.81, 31.18, 0.00],
+      [351.41, 30.61, 0.19],
+      [347.33, 31.15, 0.24]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 104.0, "mirrorDx": 2.0, "points": [
+      [334.13, 28.25, 1.59],
+      [348.26, 30.50, 0.00],
+      [347.02, 26.41, 0.00],
+      [338.12, 24.88, 1.22]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 107.5, "mirrorDx": 3.0, "points": [
+      [20.95, 37.54, 0.03],
+      [16.07, 54.55, 1.44],
+      [18.24, 60.48, 0.19],
+      [21.12, 52.55, 2.43],
+      [23.76, 41.87, 1.00]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/hatch90s_black/hatch90s_black-v3.props.json",
- "cutOn": "raw_assets/agents/car/variants/hatch90s_black/hatch90s_black-v3.png",
+ "variant": "raw_assets/agents/car/variants/hatch90s_black/hatch90s_black-v5.props.json",
+ "cutOn": "raw_assets/agents/car/variants/hatch90s_black/hatch90s_black-v5.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

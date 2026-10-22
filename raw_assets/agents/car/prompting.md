@@ -61,6 +61,12 @@ same three cars taken whole from their frame (`--style-whole`), mirrors not clip
   px off every half (4 left a line on a white roof). But the model drew every half about the same 105–110 px thick
   whatever width was asked: with the 6 px gone, six of nine whole cars still 9–22 % wide (three in band). Front corners all split headlamp and amber indicator;
   every tail still one red cluster with an orange core, a pale lens beside it towards the slice.
+- **The bumper indicator does not carry over to a whole car** (`fleet100_b04-v2`, 2026-10-22, $0.018): the wording
+  that split every tail of the halves trial (H, below) — "the rear indicator is not part of it at all: a small yellow
+  lens of its own set into the rear bumper near the corner, apart from the red lamp" — in the general lines and each
+  car's own drew no yellow lens on any of nine whole cars: every tail the red lamp with an orange core, as v1. Widths
+  within a point of v1's. Taken back out of `qq fleet brief`; the rear indicator stays a share of the brake, cut by
+  `qq props`, and its far side is painted from its near side's by `qq props mirror`.
 - **Halves given up, and a whole car mirrored at the cut too** (the owner, 2026-10-22: symmetry of the whole car is
   not viable; the original pictures are kept). Tried on batches 1 and 4: each drawing split at its long centre line
   and the upper half mirrored (`.tmp/proof/b01_after_beside.gif`, batch 1 before and after). The model draws every
