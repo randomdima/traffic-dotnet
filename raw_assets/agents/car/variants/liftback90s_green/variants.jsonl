@@ -1,0 +1,2 @@
+{"variant": "liftback90s_green-v1", "frame": "fleet100_b05-v2", "cell": 5, "pxPerM": 94.713, "score": 4, "status": "candidate", "ts": "2026-10-22T04:49:30"}
+{"variant": "liftback90s_green-v2", "frame": "fleet100_b05-v2", "cell": 5, "pxPerM": 94.713, "score": 4, "lampsMirroredFrom": "liftback90s_green-v1", "props": "raw_assets/agents/car/variants/liftback90s_green/liftback90s_green-v1.props.json", "status": "used", "ts": "2026-10-22T04:52:46"}

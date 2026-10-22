@@ -1,0 +1,36 @@
+{
+  "car": "budgetsuv_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/budgetsuv_white/budgetsuv_white-v2.png", "sizePx": [417, 206]},
+  "axisY": {"rear": 102.00, "front": 102.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 101.5, "mirrorDx": -1.0, "points": [
+      [13.11, 47.06, 0.00],
+      [10.14, 59.46, 3.58],
+      [21.53, 63.05, -4.23],
+      [40.51, 28.23, 6.78]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 103.0, "mirrorDx": 0.0, "points": [
+      [13.29, 44.97, 0.62],
+      [14.28, 50.18, 1.03],
+      [19.00, 50.66, 1.25],
+      [22.32, 41.65, 1.79],
+      [16.61, 39.45, 0.45]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "pull": "frame", "axisY": 103.0, "mirrorDx": 0.0, "points": [
+      [390.18, 39.51, 0.15],
+      [382.78, 40.18, 0.20],
+      [395.09, 62.29, 1.31],
+      [401.75, 60.76, 0.00],
+      [400.03, 54.12, 0.00],
+      [394.98, 41.15, 0.05]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 102.5, "mirrorDx": -1.0, "points": [
+      [372.16, 27.70, 0.87],
+      [370.75, 30.13, -0.15],
+      [378.18, 37.47, 0.76],
+      [383.61, 39.25, 2.83],
+      [390.15, 33.91, 1.80]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

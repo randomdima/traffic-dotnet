@@ -1,0 +1,2 @@
+{"variant": "smoothsaloon_white-v1", "frame": "fleet100_b06-v1", "cell": 8, "pxPerM": 97.155, "score": 4, "status": "candidate", "ts": "2026-10-22T11:11:58"}
+{"variant": "smoothsaloon_white-v2", "frame": "fleet100_b06-v1", "cell": 8, "pxPerM": 97.155, "score": 4, "lampsMirroredFrom": "smoothsaloon_white-v1", "props": "raw_assets/agents/car/variants/smoothsaloon_white/smoothsaloon_white-v1.props.json", "status": "used", "ts": "2026-10-22T11:15:29"}

@@ -1,0 +1,31 @@
+{
+  "id": "bigsaloon90s_white",
+  "sprite": "bigsaloon90s_white.webp",
+  "wreck": { "sprite": "bigsaloon90s_white_broken.webp" },
+  "zones": "bigsaloon90s_white_zones.png",
+  "describe": "1990s Soviet large boxy four-door saloon, worn: dull white paint, rust on the sills and boot edge, long flat bonnet, upright roof, long flat boot, black bumpers, rectangular headlamps, wide flat tail lamps split into red, amber and white sections",
+  "footprintM": [4.880, 2.396],
+  "collisionM": { "sizeM": [4.880, 1.959], "cornerRadiusM": 0.460 },
+  "massKg": 1400,
+  "frontAxleM": 1.56,
+  "rearAxleM": -1.24,
+  "trackM": 2.051,
+  "drivetrain": 0,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.76,
+  "cgHeightM": 0.62,
+  "frontWeightShare": 0.53,
+  "handling": { "maxSpeed": 0.75, "acceleration": 0.7, "braking": 0.8 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.169, -0.708], "sizeM": [0.146, 0.333] },
+    { "fitting": "brake", "atM": [-2.179, 0.635], "sizeM": [0.146, 0.333] },
+    { "fitting": "indicator", "atM": [-2.19, -0.76], "sizeM": [0.073, 0.073] },
+    { "fitting": "indicator", "atM": [-2.211, 0.698], "sizeM": [0.073, 0.073] },
+    { "fitting": "head", "atM": [2.211, -0.615], "sizeM": [0.115, 0.292] },
+    { "fitting": "head", "atM": [2.211, 0.615], "sizeM": [0.115, 0.292] },
+    { "fitting": "indicator", "atM": [2.106, -0.802], "sizeM": [0.146, 0.115] },
+    { "fitting": "indicator", "atM": [2.117, 0.781], "sizeM": [0.146, 0.115] },
+    { "fitting": "reverse", "atM": [-2.19, -0.594], "sizeM": [0.115, 0.115] },
+    { "fitting": "reverse", "atM": [-2.19, 0.531], "sizeM": [0.115, 0.115] }
+  ]
+}

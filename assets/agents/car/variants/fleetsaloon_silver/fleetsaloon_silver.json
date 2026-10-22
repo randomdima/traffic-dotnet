@@ -1,0 +1,31 @@
+{
+  "id": "fleetsaloon_silver",
+  "sprite": "fleetsaloon_silver.webp",
+  "wreck": { "sprite": "fleetsaloon_silver_broken.webp" },
+  "zones": "fleetsaloon_silver_zones.png",
+  "describe": "plain modern budget four-door saloon, worn: dull silver paint, one rear wing a slightly darker grey, simple rounded bonnet, tall roof, short separate boot lid, black unpainted bumpers, large headlamps, round-cornered tail lamps",
+  "footprintM": [4.350, 2.012],
+  "collisionM": { "sizeM": [4.350, 1.705], "cornerRadiusM": 0.602 },
+  "massKg": 1100,
+  "frontAxleM": 1.355,
+  "rearAxleM": -1.275,
+  "trackM": 1.775,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.8,
+  "cgHeightM": 0.56,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.85, "acceleration": 0.9, "braking": 0.92 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.925, -0.547], "sizeM": [0.239, 0.365] },
+    { "fitting": "brake", "atM": [-1.925, 0.537], "sizeM": [0.239, 0.365] },
+    { "fitting": "indicator", "atM": [-1.988, -0.547], "sizeM": [0.073, 0.094] },
+    { "fitting": "indicator", "atM": [-1.988, 0.558], "sizeM": [0.073, 0.094] },
+    { "fitting": "head", "atM": [1.915, -0.516], "sizeM": [0.146, 0.25] },
+    { "fitting": "head", "atM": [1.925, 0.495], "sizeM": [0.146, 0.25] },
+    { "fitting": "indicator", "atM": [1.811, -0.683], "sizeM": [0.187, 0.104] },
+    { "fitting": "indicator", "atM": [1.8, 0.672], "sizeM": [0.187, 0.104] },
+    { "fitting": "reverse", "atM": [-1.988, -0.422], "sizeM": [0.114, 0.125] },
+    { "fitting": "reverse", "atM": [-1.988, 0.412], "sizeM": [0.114, 0.125] }
+  ]
+}

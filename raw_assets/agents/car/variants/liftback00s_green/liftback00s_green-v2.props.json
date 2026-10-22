@@ -1,0 +1,35 @@
+{
+  "car": "liftback00s_green",
+  "sprite": {"variant": "raw_assets/agents/car/variants/liftback00s_green/liftback00s_green-v2.png", "sizePx": [433, 205]},
+  "axisY": {"rear": 101.50, "front": 102.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 101.0, "mirrorDx": -1.0, "points": [
+      [21.20, 30.06, -2.72],
+      [13.64, 38.22, 1.98],
+      [8.92, 59.11, 1.90],
+      [12.22, 64.52, 0.00],
+      [19.36, 63.78, -0.82],
+      [25.40, 43.51, -2.48],
+      [36.39, 27.05, 1.12]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 101.5, "mirrorDx": 2.0, "points": [
+      [397.99, 35.85, 0.87],
+      [396.70, 38.50, 0.34],
+      [408.12, 56.59, 0.24],
+      [410.98, 58.43, 1.95],
+      [415.62, 54.78, 0.51],
+      [408.31, 37.24, 0.84],
+      [404.77, 34.88, 0.14]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 102.0, "mirrorDx": 2.0, "points": [
+      [386.47, 29.89, 0.25],
+      [392.35, 35.28, 1.07],
+      [402.89, 35.03, 0.55],
+      [404.26, 32.83, 0.14],
+      [402.72, 30.90, 1.56],
+      [387.90, 25.98, 1.22]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "panelvan_white",
+  "sprite": "panelvan_white.webp",
+  "wreck": { "sprite": "panelvan_white_broken.webp" },
+  "zones": "panelvan_white_zones.png",
+  "describe": "modern small panel van, average condition, white with scuffs on the black bumpers, short sloping bonnet, tall flat roof, two square rear doors, large headlamps, tall tail lamps",
+  "footprintM": [4.410, 2.296],
+  "collisionM": { "sizeM": [4.410, 1.910], "cornerRadiusM": 0.633 },
+  "massKg": 1400,
+  "frontAxleM": 1.345,
+  "rearAxleM": -1.335,
+  "trackM": 1.991,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.8,
+  "cgHeightM": 0.7,
+  "frontWeightShare": 0.6,
+  "handling": { "maxSpeed": 0.8, "acceleration": 0.82, "braking": 0.88 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.934, -0.678], "sizeM": [0.219, 0.313] },
+    { "fitting": "brake", "atM": [-1.913, 0.637], "sizeM": [0.219, 0.313] },
+    { "fitting": "indicator", "atM": [-1.996, -0.647], "sizeM": [0.073, 0.094] },
+    { "fitting": "indicator", "atM": [-1.976, 0.626], "sizeM": [0.073, 0.094] },
+    { "fitting": "head", "atM": [1.934, -0.584], "sizeM": [0.167, 0.261] },
+    { "fitting": "head", "atM": [1.944, 0.564], "sizeM": [0.167, 0.261] },
+    { "fitting": "indicator", "atM": [1.83, -0.772], "sizeM": [0.188, 0.115] },
+    { "fitting": "indicator", "atM": [1.83, 0.751], "sizeM": [0.188, 0.115] },
+    { "fitting": "reverse", "atM": [-1.976, -0.574], "sizeM": [0.115, 0.104] },
+    { "fitting": "reverse", "atM": [-1.976, 0.532], "sizeM": [0.115, 0.104] }
+  ]
+}

@@ -517,7 +517,7 @@ def snap(doc, car, p, reach0, only=None):
     # placement first showed it, so the numbers compare.
     pull = pull_of(car, p)
     judge = likeness(car, rings(doc, car, p), pull)
-    start = fit_of(p["points"], judge, at, frozen)
+    start = own = fit_of(p["points"], judge, at, frozen)
     for share in PASSES:
         reach = reach0 * share
         like = likeness(car, rings(doc, car, p), pull)
@@ -571,18 +571,28 @@ def snap(doc, car, p, reach0, only=None):
         if wrong := smooth_enough(outline(points, rounding)):
             why.add(wrong)
             continue
-        if fit_of(points, judge, at, {i for i, tag in enumerate(now_tags) if tag in frozen}) <= was:
+        now_held = {i for i, tag in enumerate(now_tags) if tag in frozen}
+        if fit_of(points, judge, at, now_held) <= was:
             why.add("the fit fell")
             continue
-        p["points"], tags, kept = points, now_tags, kept + 1
+        # The first placement's part alone rewards a shrink onto a lens's bright core, which the part learnt where the
+        # outline lands then scores lower — the figure the report prints (three agents, 2026-10-22).
+        if (relearnt := own_fit(doc, car, p, points, pull, at, now_held)) < own:
+            why.add("the part learnt where it landed fits it worse")
+            continue
+        p["points"], tags, kept, own = points, now_tags, kept + 1, relearnt
     if "hold" in p:
         p["hold"] = [i for i, tag in enumerate(tags) if tag in set(p["hold"])]
-    end = fit_of(p["points"], judge, at, {i for i, tag in enumerate(tags) if tag in frozen})
     return (f"  {p['name']}: {kept} of {len(PASSES)} passes kept, edge contrast"
             f"{' (both sides)' if at else ''}{' over ' + edge_list(only) if only is not None else ''}"
-            f" {start:.2f} -> {end:.2f}" + (f"; dropped where {', '.join(sorted(why))}" if why else "")
+            f" {start:.2f} -> {own:.2f}" + (f"; dropped where {', '.join(sorted(why))}" if why else "")
             + (f"; {edge_list(blind)} found no rim, and moved only with the edges beside {'it' if len(blind) == 1 else 'them'}"
                " (`--edges` to leave them be)" if blind else ""))
+
+
+def own_fit(doc, car, p, points, pull, at, held):
+    """The fit of `points` judged by the part learnt where they lie, as the report judges a prop."""
+    return fit_of(points, likeness(car, rings(doc, car, dict(p, points=points)), pull), at, held)
 
 
 def edge_list(edges):

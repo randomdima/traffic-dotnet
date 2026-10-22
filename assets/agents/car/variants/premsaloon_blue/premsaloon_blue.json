@@ -1,0 +1,31 @@
+{
+  "id": "premsaloon_blue",
+  "sprite": "premsaloon_blue.webp",
+  "wreck": { "sprite": "premsaloon_blue_broken.webp" },
+  "zones": "premsaloon_blue_zones.png",
+  "describe": "modern premium compact saloon, good condition, deep metallic blue, long bonnet, cab-rearward roof, short boot, slim angular headlamps, L-shaped tail lamps",
+  "footprintM": [4.710, 2.167],
+  "collisionM": { "sizeM": [4.710, 1.832], "cornerRadiusM": 0.638 },
+  "massKg": 1550,
+  "frontAxleM": 1.555,
+  "rearAxleM": -1.295,
+  "trackM": 1.913,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.9,
+  "cgHeightM": 0.52,
+  "frontWeightShare": 0.52,
+  "handling": { "maxSpeed": 1.05, "acceleration": 1.25, "braking": 1.05 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.074, -0.573], "sizeM": [0.333, 0.396] },
+    { "fitting": "brake", "atM": [-2.074, 0.573], "sizeM": [0.333, 0.396] },
+    { "fitting": "indicator", "atM": [-2.167, -0.333], "sizeM": [0.083, 0.073] },
+    { "fitting": "indicator", "atM": [-2.157, 0.333], "sizeM": [0.083, 0.073] },
+    { "fitting": "head", "atM": [2.042, -0.615], "sizeM": [0.198, 0.313] },
+    { "fitting": "head", "atM": [2.042, 0.615], "sizeM": [0.198, 0.313] },
+    { "fitting": "indicator", "atM": [1.917, -0.781], "sizeM": [0.135, 0.063] },
+    { "fitting": "indicator", "atM": [1.938, 0.771], "sizeM": [0.135, 0.063] },
+    { "fitting": "reverse", "atM": [-2.167, -0.417], "sizeM": [0.073, 0.094] },
+    { "fitting": "reverse", "atM": [-2.167, 0.438], "sizeM": [0.073, 0.094] }
+  ]
+}

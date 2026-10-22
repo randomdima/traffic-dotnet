@@ -1,18 +1,31 @@
 {
   "id": "estate_steel",
   "sprite": "estate_steel.webp",
+  "wreck": { "sprite": "estate_steel_broken.webp" },
   "zones": "estate_steel_zones.png",
-  "describe": "family estate car, steel blue, a level bonnet, a long roof running all the way to a squared-off tail with a tall rear window, two thin silver roof rails along the roof edges",
-  "footprintM": [4.69, 2.03],
-  "collisionM": { "sizeM": [4.69, 1.83], "cornerRadiusM": 0.3 },
+  "describe": "modern family estate car, good condition, steel blue, level bonnet, long roof running all the way to a squared-off tail with a tall rear window, two thin silver roof rails along the roof edges",
+  "footprintM": [4.690, 2.224],
+  "collisionM": { "sizeM": [4.690, 1.952], "cornerRadiusM": 0.661 },
   "massKg": 1400,
   "frontAxleM": 1.425,
   "rearAxleM": -1.265,
-  "trackM": 1.89,
+  "trackM": 2.022,
   "drivetrain": 1,
   "maxSteeringDeg": 32,
   "tyreFriction": 0.86,
   "cgHeightM": 0.56,
   "frontWeightShare": 0.6,
-  "handling": { "maxSpeed": 0.97, "acceleration": 1.15, "braking": 1 }
+  "handling": { "maxSpeed": 0.97, "acceleration": 1.15, "braking": 1 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.157, -0.551], "sizeM": [0.208, 0.322] },
+    { "fitting": "brake", "atM": [-2.157, 0.551], "sizeM": [0.208, 0.322] },
+    { "fitting": "head", "atM": [2.095, -0.592], "sizeM": [0.115, 0.229] },
+    { "fitting": "head", "atM": [2.095, 0.624], "sizeM": [0.115, 0.229] },
+    { "fitting": "indicator", "atM": [2.011, -0.769], "sizeM": [0.177, 0.125] },
+    { "fitting": "indicator", "atM": [2.011, 0.79], "sizeM": [0.177, 0.125] },
+    { "fitting": "indicator", "atM": [-2.032, -0.779], "sizeM": [0.208, 0.125] },
+    { "fitting": "indicator", "atM": [-2.032, 0.779], "sizeM": [0.208, 0.125] },
+    { "fitting": "reverse", "atM": [-2.199, -0.447], "sizeM": [0.135, 0.114] },
+    { "fitting": "reverse", "atM": [-2.199, 0.447], "sizeM": [0.135, 0.114] }
+  ]
 }

@@ -1,0 +1,2 @@
+{"variant": "crossover_red-v1", "frame": "fleet100_b05-v2", "cell": 9, "pxPerM": 92.411, "score": 4, "status": "candidate", "ts": "2026-10-22T04:49:30"}
+{"variant": "crossover_red-v2", "frame": "fleet100_b05-v2", "cell": 9, "pxPerM": 92.411, "score": 4, "lampsMirroredFrom": "crossover_red-v1", "props": "raw_assets/agents/car/variants/crossover_red/crossover_red-v1.props.json", "status": "used", "ts": "2026-10-22T04:54:04"}

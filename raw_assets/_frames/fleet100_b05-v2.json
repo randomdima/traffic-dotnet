@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_b05-v2",
+ "ts": "2026-10-22T04:48:26",
+ "op": "edit",
+ "name": "fleet100_b05",
+ "file": ".tmp/gen/frames/fleet100_b05-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.017638,
+ "usage": {
+  "prompt_tokens": 2138,
+  "completion_tokens": 158,
+  "total_tokens": 2296,
+  "cost": 0.017638,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.017638,
+   "upstream_inference_prompt_cost": 0.012898,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nTHE BODIES MUST BE SLIMMER. A previous attempt drew several of these cars too wide for their length. Measured against the sizes listed: car 5 about 11% too wide, car 7 16%, car 8 12%, car 9 11%. Draw every body to its listed proportion, its flanks straight and close together; leave the extra room in each grid place empty rather than filling it with a wider car.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from above, orthographic. No perspective, no side of the body showing, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe cars in the picture only show the style: draw the cars listed, in their own colours.\n- Lamps switched off (unlit glass, no glow). Front corner: a headlamp and, beside it, a separate amber indicator. Rear corner: three separate small lenses side by side, each in its own thin dark frame, as distinct as the front's — red tail and brake lamp outermost, amber indicator next, white reversing lamp innermost. The rear indicator is the same amber as the front one and as large, plainly not red. Never one merged red cluster, never a light bar across the car.\n- Condition shows only in the paint (faded colour, rust spots, a panel in another shade); the body outline is whole.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.34 × 1.80 m (2.41× longer than wide), gently rounded corners — modern budget compact SUV, good condition, white, tall squared bonnet, black plastic wheel-arch trim, roof rails, upright tailgate, square headlamps, tall tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n2. 4.35 × 1.73 m (2.51× longer than wide), gently rounded corners — plain modern budget four-door saloon, average condition, white, simple rounded bonnet, tall roof, short separate boot lid, black unpainted bumpers and mirrors, large headlamps, round-cornered tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n3. 4.35 × 1.73 m (2.51× longer than wide), gently rounded corners — plain modern budget four-door saloon, worn: dull silver paint, one rear wing a slightly darker grey, simple rounded bonnet, tall roof, short separate boot lid, black unpainted bumpers, large headlamps, round-cornered tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n4. 4.35 × 1.73 m (2.51× longer than wide), gently rounded corners — modern budget four-door saloon taxi, average condition, white with a thin black-and-yellow chequer strip along each flank and a small plain yellow roof sign, simple rounded bonnet, tall roof, short separate boot, large headlamps, round-cornered tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n5. 4.35 × 1.69 m (2.57× longer than wide), nearly square corners — 1990s Soviet five-door liftback, worn: faded dark green paint, rust along the sills, long flat bonnet, long sloping rear window to a short tail, black plastic bumpers, rectangular headlamps, wide flat tail lamps split into red, amber and white sections. About 11% too wide last time: draw it narrow.\n6. 4.36 × 1.94 m (2.25× longer than wide), rounded corners — Soviet forward-control 4×4 minibus, worn: faded grey paint with rust at the corners. It has no bonnet at all: the windscreen is right at the front edge of the body, the flat front face holds two round headlamps. The roof is one smooth dome, curving down on every side like a loaf of bread, with no ribs, rails or panels on it; a short row of small side windows. Small tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens. Last time it was drawn as a modern van with a ribbed flat roof and a short bonnet: it is old, rounded and has no bonnet.\n7. 4.41 × 1.79 m (2.46× longer than wide), gently rounded corners — modern small panel van, average condition, white with scuffs on the black bumpers, short sloping bonnet, tall flat roof, two square rear doors, large headlamps, tall tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens. About 16% too wide last time: draw it narrow.\n8. 4.48 × 1.71 m (2.62× longer than wide), gently rounded corners — 1990s German family four-door saloon, average condition, silver, smooth rounded wedge bonnet, rounded roof, short high boot, slim headlamps, wide tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens. About 12% too wide last time: draw it narrow.\n9. 4.48 × 1.85 m (2.42× longer than wide), gently rounded corners — modern compact crossover, good condition, deep red, tall bonnet with creases, black plastic wheel-arch trim, roof rails, sloping tailgate, slim swept headlamps, slim tail lamps at the corners; each rear lamp with a separate amber indicator lens and a white reversing lens. About 11% too wide last time: draw it narrow.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "5b710d0458948e6d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_b05_style.png"
+  }
+ ],
+ "cells": [
+  "budgetsuv_white",
+  "fleetsaloon_white",
+  "fleetsaloon_silver",
+  "cab_white",
+  "liftback90s_green",
+  "loafvan_grey",
+  "panelvan_white",
+  "family90s_silver",
+  "crossover_red"
+ ]
+}

@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/liftback90s_green/liftback90s_green-v2.props.json",
+ "cutOn": "raw_assets/agents/car/variants/liftback90s_green/liftback90s_green-v2.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

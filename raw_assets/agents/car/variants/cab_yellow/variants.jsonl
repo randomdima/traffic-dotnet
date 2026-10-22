@@ -1,0 +1,2 @@
+{"variant": "cab_yellow-v1", "frame": "fleet100_b10-v1", "cell": 4, "pxPerM": 93.852, "score": 4, "status": "candidate", "ts": "2026-10-22T14:02:40"}
+{"variant": "cab_yellow-v2", "frame": "fleet100_b10-v1", "cell": 4, "pxPerM": 93.852, "score": 4, "lampsMirroredFrom": "cab_yellow-v1", "props": "raw_assets/agents/car/variants/cab_yellow/cab_yellow-v1.props.json", "status": "used", "ts": "2026-10-22T14:06:10"}

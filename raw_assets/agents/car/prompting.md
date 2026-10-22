@@ -61,6 +61,29 @@ same three cars taken whole from their frame (`--style-whole`), mirrors not clip
   px off every half (4 left a line on a white roof). But the model drew every half about the same 105–110 px thick
   whatever width was asked: with the 6 px gone, six of nine whole cars still 9–22 % wide (three in band). Front corners all split headlamp and amber indicator;
   every tail still one red cluster with an orange core, a pale lens beside it towards the slice.
+- **A whole re-roll naming each car's width fault fitted the batch** (`fleet100_b05`, 2026-10-22, $0.053 for three
+  frames). v1 drew four of nine 11–16 % wide at about 103 px/m. v2, the same brief opening on "THE BODIES MUST BE
+  SLIMMER" with each wide car's measured fault, and the fault repeated at the end of that car's line: all four in band
+  and the whole sheet drawn smaller, 89–98 px/m against the art grid's 96. Eight kept from v2.
+- **Batch 6 came in one roll** (`fleet100_b06-v1`, 2026-10-22, $0.017): b05's style picture and the plain brief; 8 of
+  9 in band at 97–100 px/m, `hybrid_white` +10 % kept at score 3. Tails split amber from red on most cars unasked
+  beyond the brief's lamp lines; the hybrids and the people carrier drew a black glass tail panel with the lamps on it.
+- **Batch 7 came in one roll too** (`fleet100_b07-v1`, 2026-10-22): SUVs, saloons and estates of 4.60–4.69 m, 8 of 9
+  in band (most +5–6 %), `longestate_green` +12 % at score 3. The estates' "tall tail lamps" drew red, amber and white
+  sections stacked down each corner — the clearest split tails yet. Black cars came out with readable lamps.
+- **Batch 8, the best roll yet** (`fleet100_b08-v1`, 2026-10-22): nine 4.69–4.76 m saloons, liftbacks and an EV SUV,
+  all in band at 94–96 px/m, every tail split red, amber and white. "Electric" drew a dark glass roof on each EV; the
+  1970s saloon came out chrome-trimmed and square. From 4.6 m up the tail housings run 40+ texels tall at 96 px/m,
+  past the lamp cell, and are cut in two by `qq props divide`.
+- **Batch 9 needed the width re-roll again; batch 10 did not** (2026-10-22). `fleet100_b09-v1` drew six of nine
+  4.77–4.82 m cars 9–14 % wide; v2, opening on the measured faults and repeating each in the car's line, fitted eight
+  (at 85–93 px/m, the sheet drawn smaller). v2's coupe drew its "three-bar tail lamps" as glyph-like marks, so it was
+  kept from v1. "Covered spare wheel on the tailgate" draws a black wheel standing proud of the tail.
+  `fleet100_b10-v1` fitted seven of nine (two at +9–10 %, score 3) in one roll.
+- **"Forward-control loaf minibus" is not drawn from words** (`fleet100_b05`, `loafvan_grey`). v1 drew a modern
+  minivan with a ribbed roof and a short bonnet; v2, told "no bonnet at all … one smooth dome … like a loaf of bread",
+  drew the loaf, but tilted with a row of side windows showing and 13 % wide; a mask redo of its cell (v3) drew only a
+  sliver of nose. None kept: the car waits for a later sheet (docs/tech-debt.md).
 - **The bumper indicator does not carry over to a whole car** (`fleet100_b04-v2`, 2026-10-22, $0.018): the wording
   that split every tail of the halves trial (H, below) — "the rear indicator is not part of it at all: a small yellow
   lens of its own set into the rear bumper near the corner, apart from the red lamp" — in the general lines and each
@@ -93,7 +116,7 @@ same three cars taken whole from their frame (`--style-whole`), mirrors not clip
   (G), all nine drew it apart — at the slice, so mirrored the two met as one lens in the middle. "Near the outer
   corner, closer to the flank than the slice … an indicator at the slice would merge with its twin" (H): red, yellow
   and white separate on all nine, the yellow still nearer the middle than the corner, and four fronts lost their
-  amber. `qq fleet brief --half` opens on the height and on H's lamps, and ends each car's line with H's corners.
+  amber.
 - **A clear layout is ignored** (`fleet100_w01-v1`, a template laid on transparent, since taken out): outlines in pale grey on transparent
   did not hold the model, which drew its own three-column grid at its own scale. **Wrecks asked described** —
   the intact cars as the only image, `--cells` with the `_broken` ids, cut by order like the bodies — came back all ten

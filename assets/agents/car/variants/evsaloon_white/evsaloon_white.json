@@ -1,0 +1,31 @@
+{
+  "id": "evsaloon_white",
+  "sprite": "evsaloon_white.webp",
+  "wreck": { "sprite": "evsaloon_white_broken.webp" },
+  "zones": "evsaloon_white_zones.png",
+  "describe": "new electric four-door saloon, glossy white with an all-glass roof, very short smooth bonnet with no grille, long cabin, short boot, slim headlamps, slim separate tail lamps at each rear corner",
+  "footprintM": [4.690, 2.162],
+  "collisionM": { "sizeM": [4.690, 1.807], "cornerRadiusM": 0.637 },
+  "massKg": 1800,
+  "frontAxleM": 1.495,
+  "rearAxleM": -1.345,
+  "trackM": 1.909,
+  "drivetrain": 0,
+  "maxSteeringDeg": 34,
+  "tyreFriction": 0.9,
+  "cgHeightM": 0.48,
+  "frontWeightShare": 0.47,
+  "handling": { "maxSpeed": 1.1, "acceleration": 1.4, "braking": 1.1 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.084, -0.572], "sizeM": [0.271, 0.374] },
+    { "fitting": "brake", "atM": [-2.084, 0.561], "sizeM": [0.271, 0.374] },
+    { "fitting": "indicator", "atM": [-2.157, -0.603], "sizeM": [0.063, 0.094] },
+    { "fitting": "indicator", "atM": [-2.157, 0.603], "sizeM": [0.063, 0.094] },
+    { "fitting": "head", "atM": [2.053, -0.592], "sizeM": [0.177, 0.249] },
+    { "fitting": "head", "atM": [2.074, 0.592], "sizeM": [0.177, 0.249] },
+    { "fitting": "indicator", "atM": [1.907, -0.769], "sizeM": [0.104, 0.073] },
+    { "fitting": "indicator", "atM": [1.886, 0.79], "sizeM": [0.104, 0.073] },
+    { "fitting": "reverse", "atM": [-2.157, -0.447], "sizeM": [0.115, 0.125] },
+    { "fitting": "reverse", "atM": [-2.157, 0.437], "sizeM": [0.115, 0.125] }
+  ]
+}

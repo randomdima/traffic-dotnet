@@ -1,0 +1,31 @@
+{
+  "id": "smoothsaloon_white",
+  "sprite": "smoothsaloon_white.webp",
+  "wreck": { "sprite": "smoothsaloon_white_broken.webp" },
+  "zones": "smoothsaloon_white_zones.png",
+  "describe": "early-1990s German family four-door saloon, worn: dull white paint, rust spots, one front wing a slightly different white, smooth bonnet with no grille, flat roof, long separate boot, wide flat headlamps, wide tail lamps",
+  "footprintM": [4.570, 2.151],
+  "collisionM": { "sizeM": [4.570, 1.822], "cornerRadiusM": 0.628 },
+  "massKg": 1250,
+  "frontAxleM": 1.405,
+  "rearAxleM": -1.235,
+  "trackM": 1.892,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.78,
+  "cgHeightM": 0.56,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.8, "acceleration": 0.8, "braking": 0.85 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.035, -0.606], "sizeM": [0.291, 0.397] },
+    { "fitting": "brake", "atM": [-2.035, 0.574], "sizeM": [0.291, 0.397] },
+    { "fitting": "indicator", "atM": [-2.098, -0.616], "sizeM": [0.115, 0.146] },
+    { "fitting": "indicator", "atM": [-2.098, 0.616], "sizeM": [0.115, 0.146] },
+    { "fitting": "head", "atM": [2.004, -0.574], "sizeM": [0.177, 0.251] },
+    { "fitting": "head", "atM": [2.025, 0.564], "sizeM": [0.177, 0.251] },
+    { "fitting": "indicator", "atM": [1.879, -0.762], "sizeM": [0.208, 0.094] },
+    { "fitting": "indicator", "atM": [1.9, 0.741], "sizeM": [0.208, 0.094] },
+    { "fitting": "reverse", "atM": [-2.118, -0.47], "sizeM": [0.135, 0.136] },
+    { "fitting": "reverse", "atM": [-2.118, 0.449], "sizeM": [0.135, 0.136] }
+  ]
+}

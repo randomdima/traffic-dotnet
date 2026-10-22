@@ -1,0 +1,39 @@
+{
+  "car": "bigsaloon70s_black",
+  "sprite": {"variant": "raw_assets/agents/car/variants/bigsaloon70s_black/bigsaloon70s_black-v1.png", "sizePx": [454, 211]},
+  "axisY": {"rear": 104.50, "front": 104.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 104.0, "mirrorDx": 0.0, "points": [
+      [16.66, 32.89, 0.94],
+      [13.91, 56.50, 0.00],
+      [23.51, 56.50, -0.43],
+      [29.33, 33.18, 1.53],
+      [28.18, 29.52, 1.98]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 102.0, "mirrorDx": -1.0, "points": [
+      [15.30, 41.50, 0.00],
+      [15.30, 49.50, 0.00],
+      [20.40, 49.50, 0.00],
+      [20.40, 41.50, 0.00]
+    ]},
+    {"name": "reverse", "kind": "reverse", "mirror": true, "axisY": 108.5, "mirrorDx": 1.0, "points": [
+      [13.04, 56.60, 1.31],
+      [13.76, 66.34, 0.00],
+      [22.08, 66.25, 0.02],
+      [24.44, 56.60, 0.00]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 105.0, "mirrorDx": 0.0, "points": [
+      [434.30, 38.50, 0.00],
+      [436.80, 54.50, 0.00],
+      [440.20, 54.50, 0.00],
+      [440.30, 37.80, 0.00],
+      [436.50, 37.20, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "points": [
+      [428.35, 32.37, 0.92],
+      [431.70, 36.15, 1.32],
+      [438.63, 32.36, 1.59],
+      [433.37, 26.94, 1.61]
+    ]}
+  ]
+}

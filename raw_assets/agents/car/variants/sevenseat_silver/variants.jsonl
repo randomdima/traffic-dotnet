@@ -1,0 +1,2 @@
+{"variant": "sevenseat_silver-v1", "frame": "fleet100_b09-v2", "cell": 6, "pxPerM": 88.309, "score": 4, "status": "candidate", "ts": "2026-10-22T14:01:32"}
+{"variant": "sevenseat_silver-v2", "frame": "fleet100_b09-v2", "cell": 6, "pxPerM": 88.309, "score": 4, "lampsMirroredFrom": "sevenseat_silver-v1", "props": "raw_assets/agents/car/variants/sevenseat_silver/sevenseat_silver-v1.props.json", "status": "used", "ts": "2026-10-22T14:05:38"}

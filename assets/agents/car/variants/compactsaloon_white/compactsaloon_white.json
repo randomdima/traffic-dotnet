@@ -1,0 +1,31 @@
+{
+  "id": "compactsaloon_white",
+  "sprite": "compactsaloon_white.webp",
+  "wreck": { "sprite": "compactsaloon_white_broken.webp" },
+  "zones": "compactsaloon_white_zones.png",
+  "describe": "modern compact four-door saloon, good condition, white, long low bonnet, sleek roof, short boot, swept headlamps, tail lamps wrapping onto the boot lid",
+  "footprintM": [4.630, 2.161],
+  "collisionM": { "sizeM": [4.630, 1.875], "cornerRadiusM": 0.707 },
+  "massKg": 1300,
+  "frontAxleM": 1.395,
+  "rearAxleM": -1.315,
+  "trackM": 1.976,
+  "drivetrain": 1,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.86,
+  "cgHeightM": 0.54,
+  "frontWeightShare": 0.61,
+  "handling": { "maxSpeed": 0.95, "acceleration": 1.05, "braking": 1 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.981, -0.59], "sizeM": [0.365, 0.397] },
+    { "fitting": "brake", "atM": [-1.981, 0.579], "sizeM": [0.365, 0.397] },
+    { "fitting": "indicator", "atM": [-2.117, -0.548], "sizeM": [0.083, 0.146] },
+    { "fitting": "indicator", "atM": [-2.117, 0.527], "sizeM": [0.083, 0.146] },
+    { "fitting": "head", "atM": [2.002, -0.6], "sizeM": [0.198, 0.23] },
+    { "fitting": "head", "atM": [1.981, 0.632], "sizeM": [0.198, 0.23] },
+    { "fitting": "indicator", "atM": [1.908, -0.767], "sizeM": [0.083, 0.052] },
+    { "fitting": "indicator", "atM": [1.908, 0.757], "sizeM": [0.083, 0.052] },
+    { "fitting": "reverse", "atM": [-2.086, -0.454], "sizeM": [0.136, 0.136] },
+    { "fitting": "reverse", "atM": [-2.086, 0.444], "sizeM": [0.136, 0.136] }
+  ]
+}

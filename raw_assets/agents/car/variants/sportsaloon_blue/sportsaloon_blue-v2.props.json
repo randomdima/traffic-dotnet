@@ -1,0 +1,29 @@
+{
+  "car": "sportsaloon_blue",
+  "sprite": {"variant": "raw_assets/agents/car/variants/sportsaloon_blue/sportsaloon_blue-v2.png", "sizePx": [459, 215]},
+  "axisY": {"rear": 109.50, "front": 106.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 108.5, "mirrorDx": 0.0, "points": [
+      [21.28, 39.56, 4.19],
+      [10.26, 64.48, 0.49],
+      [7.70, 73.14, 1.40],
+      [20.48, 72.15, -1.54],
+      [31.00, 38.38, 1.43]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 109.0, "mirrorDx": 0.0, "points": [
+      [13.78, 62.85, 2.06],
+      [11.93, 69.42, 1.62],
+      [16.60, 66.69, 0.33],
+      [15.84, 63.82, 0.68]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 107.0, "mirrorDx": 2.0, "points": [
+      [419.46, 31.74, 0.41],
+      [416.41, 33.17, 0.00],
+      [432.56, 59.48, 2.11],
+      [439.89, 59.19, 1.68],
+      [433.59, 39.69, 1.62]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

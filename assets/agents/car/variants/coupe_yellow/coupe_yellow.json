@@ -1,0 +1,31 @@
+{
+  "id": "coupe_yellow",
+  "sprite": "coupe_yellow.webp",
+  "wreck": { "sprite": "coupe_yellow_broken.webp" },
+  "zones": "coupe_yellow_zones.png",
+  "describe": "modern two-door muscle coupe, good condition, bright yellow with two black stripes over the bonnet and roof, long bonnet, short fastback roof, short tail, slim headlamps, three-bar tail lamps at each rear corner",
+  "footprintM": [4.780, 2.300],
+  "collisionM": { "sizeM": [4.780, 1.963], "cornerRadiusM": 0.675 },
+  "massKg": 1700,
+  "frontAxleM": 1.44,
+  "rearAxleM": -1.34,
+  "trackM": 2.086,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.9,
+  "cgHeightM": 0.52,
+  "frontWeightShare": 0.54,
+  "handling": { "maxSpeed": 1.2, "acceleration": 1.35, "braking": 1.05 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.088, -0.692], "sizeM": [0.25, 0.239] },
+    { "fitting": "brake", "atM": [-2.109, 0.619], "sizeM": [0.25, 0.239] },
+    { "fitting": "indicator", "atM": [-2.182, -0.526], "sizeM": [0.115, 0.052] },
+    { "fitting": "indicator", "atM": [-2.161, 0.578], "sizeM": [0.115, 0.052] },
+    { "fitting": "head", "atM": [2.088, -0.609], "sizeM": [0.177, 0.26] },
+    { "fitting": "head", "atM": [2.088, 0.598], "sizeM": [0.177, 0.26] },
+    { "fitting": "indicator", "atM": [2.088, -0.671], "sizeM": [0.156, 0.135] },
+    { "fitting": "indicator", "atM": [2.088, 0.661], "sizeM": [0.156, 0.135] },
+    { "fitting": "reverse", "atM": [-2.203, -0.442], "sizeM": [0.135, 0.125] },
+    { "fitting": "reverse", "atM": [-2.182, 0.442], "sizeM": [0.135, 0.125] }
+  ]
+}

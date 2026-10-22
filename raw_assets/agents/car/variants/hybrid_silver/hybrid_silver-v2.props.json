@@ -1,0 +1,41 @@
+{
+  "car": "hybrid_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/hybrid_silver/hybrid_silver-v2.png", "sizePx": [436, 212]},
+  "axisY": {"rear": 103.50, "front": 106.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 103.5, "mirrorDx": -1.0, "points": [
+      [21.37, 69.45, 0.00],
+      [37.49, 55.50, 0.30],
+      [42.80, 45.00, 0.00],
+      [46.00, 38.00, 0.00],
+      [57.00, 37.08, 0.00],
+      [57.00, 31.98, 0.00],
+      [33.00, 31.50, 1.50],
+      [24.30, 47.00, 0.50]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 103.5, "mirrorDx": -1.0, "points": [
+      [23.73, 58.24, 0.00],
+      [22.16, 63.38, 2.74],
+      [29.99, 55.58, 0.16],
+      [36.03, 50.61, 0.51],
+      [42.66, 41.95, 0.27],
+      [42.94, 37.78, 2.73],
+      [33.08, 41.11, 2.52]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 106.0, "mirrorDx": 1.0, "points": [
+      [400.63, 38.78, 1.34],
+      [396.08, 40.01, 0.00],
+      [408.91, 59.71, 0.00],
+      [412.05, 57.58, 2.25],
+      [404.54, 37.95, 0.22]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 106.5, "mirrorDx": 0.0, "points": [
+      [386.72, 30.37, 0.48],
+      [390.32, 33.03, -0.22],
+      [396.22, 35.30, 2.49],
+      [401.09, 32.36, 1.10],
+      [388.00, 27.99, 0.81]
+    ]}
+  ]
+}

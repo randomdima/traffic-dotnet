@@ -1,0 +1,36 @@
+{
+  "car": "evsaloon_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/evsaloon_white/evsaloon_white-v1.png", "sizePx": [450, 208]},
+  "axisY": {"rear": 103.50, "front": 103.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [26.79, 31.81, -1.00],
+      [14.36, 45.80, 0.25],
+      [12.15, 61.69, 0.54],
+      [12.93, 66.93, 0.00],
+      [19.88, 66.87, -0.40],
+      [26.06, 48.30, -2.89],
+      [38.46, 33.36, 0.90]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 104.5, "mirrorDx": 0.0, "points": [
+      [16.95, 42.70, 2.05],
+      [16.81, 50.19, 0.57],
+      [19.43, 50.03, 0.65],
+      [21.38, 44.04, 1.24]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 104.0, "mirrorDx": 1.0, "points": [
+      [422.90, 36.06, 0.11],
+      [413.68, 35.43, 0.00],
+      [424.45, 56.22, 0.27],
+      [428.23, 59.39, 1.53],
+      [429.92, 53.45, 0.32]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 104.5, "mirrorDx": -2.0, "points": [
+      [403.69, 30.76, 0.63],
+      [411.29, 32.41, 1.10],
+      [412.74, 28.58, 1.21],
+      [404.00, 26.84, 1.10]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

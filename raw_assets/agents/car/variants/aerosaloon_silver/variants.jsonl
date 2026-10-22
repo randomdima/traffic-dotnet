@@ -1,0 +1,2 @@
+{"variant": "aerosaloon_silver-v1", "frame": "fleet100_b09-v2", "cell": 4, "pxPerM": 88.1, "score": 4, "status": "candidate", "ts": "2026-10-22T14:01:32"}
+{"variant": "aerosaloon_silver-v2", "frame": "fleet100_b09-v2", "cell": 4, "pxPerM": 88.1, "score": 4, "lampsMirroredFrom": "aerosaloon_silver-v1", "props": "raw_assets/agents/car/variants/aerosaloon_silver/aerosaloon_silver-v1.props.json", "status": "used", "ts": "2026-10-22T14:03:48"}

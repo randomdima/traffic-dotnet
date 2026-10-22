@@ -151,6 +151,12 @@ rather than following its rim), `"lock": true` (out of snap).
     bow CAR --prop=P --edge=2 --bow=1.5        e2's bow set
     split CAR --prop=P --edge=2   e2 halved on its arc, a new v3 at its middle (later parts renumber)
     drop CAR --prop=P --vertex=3  v3 taken out, the edge joining its neighbours bowed through where it was
+    divide CAR --prop=P --at=X,Y+X,Y --into=Q   P cut along the line through the two texels: P keeps the larger
+                                  half, Q (a new prop, or a part of that name replaced) the smaller, the cut held on
+                                  both — for a housing past the cell, or a red and an amber section drawn as one.
+                                  Into a lamp that is a part (ind_rear, reverse), so the car stays at ten lenses
+    remove CAR --prop=P           P taken out: ind_front, ind_rear or reverse becomes its main lamp's part again (its
+                                  fallback), anything else (a seeded brake2) goes
     undo CAR                      back one seed, trace, snap, axis, edit or restore; again for the one before, up
                                   to UNDO_STEPS
     cut CAR                       a coverage PNG a kind, clipped to the body, and the car lit, prop by prop, a
@@ -159,8 +165,8 @@ rather than following its rim), `"lock": true` (out of snap).
     restore CAR                   the props kept for the sprite's picture back as the working file
     mirror CAR                    the copy side's lamp art painted from the authored side's, kept as a new picture,
                                   installed with these props
-    show CAR [--end=rear]         both ends; or one end, a view a side
-    show CAR --prop=P             one prop, a view a side, its parts named
+    show CAR [--end=rear]         both ends; or one end, the authored side (`--copy`: the copy side's view too)
+    show CAR --prop=P             one prop, the authored side, its parts named
     show CAR --prop=P --vertex=N  round one vertex
     show CAR --prop=P --edge=N    the edge turned flat, outside up, and under it unrolled into a strip: rows texels
                                   out from it, the edge at 0, a dot where each sample finds that side's rim (a grey
@@ -178,8 +184,10 @@ outline settles halfway where they differ, as a few arcs, smoothed until it is a
 
 **How snap works.** It learns the part from the placement (the colours two texels in against a ring three to seven
 out) and moves each edge, within `--reach`, to where that likeness falls and the frame rises; a pass that lowers the
-fit or leaves no lens's shape is dropped, which snap says. Hence a hand placement goes a little inside and over all
-of the lens. `--pull=frame` goes by the dark frame alone, for a pale lens on pale paint, and stays on the prop.
+fit or leaves no lens's shape is dropped, which snap says, and so is one the part learnt where it lands scores lower
+(a shrink onto a soft lens's bright core); the figures it prints are the report's. Hence a hand placement goes a
+little inside and over all of the lens. `--pull=frame` goes by the dark frame alone, for a pale lens on pale paint,
+and stays on the prop: `undo`, or a snap with `--pull=part`, takes it off.
 """
 
 import argparse
@@ -286,9 +294,9 @@ def main():
         print(line)
         save(doc_path, doc, backup=True)
         a.at = None
-    elif a.at is not None:
+    elif a.at is not None and a.action != "divide":
         if len(a.at) > 1:
-            cli.fail("--at frames one texel; several are for trace")
+            cli.fail("--at frames one texel; several are for trace and divide")
         a.at = a.at[0]
     names = {p["name"] for p in doc["props"]}
     for p in doc["props"]:
@@ -316,6 +324,11 @@ def main():
             for p in chosen:
                 print(fit.own_copy(doc, car, p))
         save(doc_path, doc, backup=True)
+    if a.action in ("divide", "remove"):
+        end = fit.end_of(doc, car, one)
+        print(divide(doc, one, a.at, a.into, a.force) if a.action == "divide" else remove(doc, one))
+        save(doc_path, doc, backup=True)
+        a.end, a.at, a.prop, one = end, None, None, None
     if a.action in EDITS:
         was = [q[:2] for q in one["points"]]
         print(edit(a, one))
@@ -341,8 +354,8 @@ def main():
                                      f"at{a.at[0]:g}_{a.at[1]:g}" if a.at else None,
                                      a.end if a.end != "both" and not a.prop and not a.at else None) if t)
     out = folder / (f"{a.car}_{tag}_show.png" if tag else f"{a.car}_show.png")
-    report(doc, car, [one] if one else [p for p in doc["props"] if a.end in ("both", fit.end_of(doc, car, p))],
-           a.reach)
+    report(doc, car, [one] if one else near(doc, car, a.at, a.pad + AT_NEAR_PX) if a.at else
+           [p for p in doc["props"] if a.end in ("both", fit.end_of(doc, car, p))], a.reach)
     if one is not None and "points" in one and a.action != "trace":
         edge_table(doc, car, one, a.reach)
     if a.text:
@@ -364,13 +377,16 @@ def parse_args():
         formatter_class=Help,
     )
     parser.add_argument("action", choices=["seed", "find", "trace", "show", "snap", "axis", "move", "bow", "split", "drop",
-                                           "undo", "cut", "install", "restore", "mirror"],
+                                           "divide", "remove", "undo", "cut", "install", "restore", "mirror"],
                         help="seed and trace every lamp it can, list each end's lens patches, trace one prop off the "
-                             "art, look, pull onto the part, refit the axes, edit a part, step back, cut, install "
+                             "art, look, pull onto the part, refit the axes, edit a part, divide a housing in two, "
+                             "step back, cut, install "
                              "into the game, restore the lamps kept for the sprite's picture, or mirror the authored "
                              "side's lamp art onto the copy side")
     parser.add_argument("car", help="the car's id, a folder under assets/agents/car/variants/")
     parser.add_argument("--prop", default=None, help="the prop of this name: shown close up, snapped, or edited")
+    parser.add_argument("--into", default=None, metavar="NAME",
+                        help="divide: the new prop the smaller half becomes (a part of that name is replaced)")
     parser.add_argument("--vertex", type=cli.counting, default=None, metavar="N",
                         help="the prop's vertex vN: shown close up, moved or dropped")
     parser.add_argument("--edge", type=cli.counting, default=None, metavar="N",
@@ -396,6 +412,8 @@ def parse_args():
                         help="what is drawn over the image: each prop's coverage painted its outline's colour, with "
                              "outlines, dots and part names; no paint; no names either; nothing")
     parser.add_argument("--bare", action="store_true", help="every panel again beside it with no marks")
+    parser.add_argument("--copy", action="store_true",
+                        help="show: draw the copy side's view as well as the authored side's (mirror paints it over)")
     parser.add_argument("--text", action="store_true",
                         help="print the text only and draw no picture: for a check the numbers answer")
     parser.add_argument("--zoom", type=cli.counting, default=0, metavar="INT",
@@ -482,6 +500,16 @@ def check_parts(a, p):
         cli.fail("--vertex or --edge, not both")
     if a.angle is not None and a.vertex is None and a.at is None:
         cli.fail("a view turns only to lie along a part: --edge turns itself, and --angle goes with --vertex or --at")
+    if a.action == "remove":
+        if p is None:
+            cli.fail("remove needs --prop")
+        return
+    if a.action == "divide":
+        if p is None or "points" not in p:
+            cli.fail("divide needs --prop, a prop with its own outline")
+        if a.at is None or len(a.at) != 2 or not a.into:
+            cli.fail("divide needs --at=X,Y+X,Y, two texels on the cutting line, and --into, the new prop's name")
+        return
     if a.at is not None and p is not None:
         cli.fail("--at frames a texel, --prop a prop: one of them")
     need = {"move": a.by is not None or a.grow is not None, "bow": a.edge is not None and a.bow is not None,
@@ -533,6 +561,105 @@ def edit(a, p):
     # eN and eN-1 become one edge, eN-1's place: it is held where eN-1 was.
     renumber(p, lambda i: [] if i == a.vertex else [i] if i < a.vertex else [i - 1])
     return f"  {name}: v{a.vertex} dropped; later parts are one down"
+
+
+def divide(doc, p, line, into, force):
+    """P cut along the line through `line`'s two texels, which must cross its outline twice: P keeps the larger half,
+    `into` the smaller, each with the cut as its last edge, held. A crossed edge's bow is shared out as a parabola's
+    sagitta (the share of the chord squared). What it did, as a line."""
+    (ax, ay), (bx, by) = line
+    pts = p["points"]
+    n = len(pts)
+    side = [(bx - ax) * (y - ay) - (by - ay) * (x - ax) for x, y, _ in pts]
+    crossed = [i for i in range(n) if (side[i] > 0) != (side[(i + 1) % n] > 0)]
+    if len(crossed) != 2:
+        cli.fail(f"the line {ax:g},{ay:g} - {bx:g},{by:g} crosses {p['name']}'s outline {len(crossed)} times: it must "
+                 "cross it twice")
+    at = {}
+    for i in crossed:
+        t = side[i] / (side[i] - side[(i + 1) % n])
+        (x0, y0, bow), (x1, y1, _) = pts[i], pts[(i + 1) % n]
+        at[i] = (t, [x0 + t * (x1 - x0), y0 + t * (y1 - y0)], bow)
+
+    def half(i, j):
+        """From edge i's crossing round the outline to edge j's, then the cut back."""
+        ti, xi, bi = at[i]
+        tj, xj, bj = at[j]
+        out = [[*xi, bi * (1 - ti) ** 2]]
+        k = (i + 1) % n
+        while True:
+            out.append([pts[k][0], pts[k][1], bj * tj ** 2 if k == j else pts[k][2]])
+            if k == j:
+                break
+            k = (k + 1) % n
+        out += [[*xj, 0.0]]
+        # A cut beside a vertex would leave an edge under a chord, which snap then refuses to move: the vertex goes,
+        # and the cut stays where it was asked.
+        if len(out) > 3 and math.dist(out[0][:2], out[1][:2]) < fit.MIN_CHORD_PX:
+            out[0][2] = out.pop(1)[2]
+        if len(out) > 3 and math.dist(out[-2][:2], out[-1][:2]) < fit.MIN_CHORD_PX:
+            out.pop(-2)
+        return out
+
+    halves = sorted((half(*crossed), half(*crossed[::-1])), key=lambda h: -abs(polygon_area(h)))
+    if min(map(len, halves)) < 3:
+        cli.fail(f"a half of {p['name']} would have under 3 vertices: move the line further in")
+    other = next((q for q in doc["props"] if q["name"] == into), None)
+    if other is not None and "points" in other and not force:
+        cli.fail(f"{into} is a prop with its own outline: `--force` to replace it")
+    if other is None and (lenses := lens_count(doc) + (2 if p["mirror"] else 1)) > INSTALL_MOST_LENSES:
+        parts = [q["name"] for q in doc["props"] if "part" in q]
+        cli.fail(f"a new prop {into} makes {lenses} lenses, and a car draws {INSTALL_MOST_LENSES}: divide into "
+                 + (f"a part ({', '.join(parts)}), which it replaces" if parts else "a prop `remove` has freed"))
+    new = {"name": into, "kind": kind_of(into), "mirror": p["mirror"],
+           **{k: p[k] for k in ("axisY", "mirrorDx", "pull") if k in p}}
+    p["points"], new["points"] = fit.rounded(halves[0]), fit.rounded(halves[1])
+    p["hold"], new["hold"] = [len(halves[0]) - 1], [len(halves[1]) - 1]
+    p.pop("lock", None)
+    if other is not None:
+        doc["props"][doc["props"].index(other)] = new
+    else:
+        doc["props"].insert(doc["props"].index(p) + 1, new)
+    return (f"  {p['name']}: divided along {ax:g},{ay:g} - {bx:g},{by:g}; keeps {len(halves[0])} points, "
+            f"{into} takes {len(halves[1])}{' (the part it was replaced)' if other is not None else ''}, the cut "
+            "held on both")
+
+
+def near(doc, car, at, reach_px):
+    """The props with an outline on either side within `reach_px` of the texel `at`: what `show --at` reports."""
+    return [p for p in doc["props"]
+            if any(len(r) and min(math.dist(at, q) for q in r) <= reach_px for r in fit.rings(doc, car, p))]
+
+
+def lens_count(doc):
+    """The lenses install writes: a prop or part a side it is drawn on."""
+    return sum(2 if fit.root_of(doc, p)["mirror"] else 1 for p in doc["props"])
+
+
+def remove(doc, p):
+    """P taken out: a lamp every car carries becomes its main lamp's part again (FALLBACKS), any other goes. What it
+    did, as a line."""
+    name = p["name"]
+    if leaning := [q["name"] for q in doc["props"] if q.get("part") == name]:
+        cli.fail(f"{', '.join(leaning)} {'is a part' if len(leaning) == 1 else 'are parts'} of {name}: remove "
+                 f"{'it' if len(leaning) == 1 else 'them'} first")
+    for q in doc["props"]:
+        if name in q.get("over", []):
+            q["over"] = [o for o in q["over"] if o != name]
+            if not q["over"]:
+                del q["over"]
+    fallback = next((f for f in FALLBACKS if f[0] == name), None)
+    i = doc["props"].index(p)
+    if fallback is not None and any(q["name"] == fallback[2] for q in doc["props"]):
+        _, kind, parent, side, share = fallback
+        doc["props"][i] = {"name": name, "kind": kind, "part": parent, "side": side, "share": share}
+        return f"  {name}: the {side} {share:.2f} of {parent} again"
+    del doc["props"][i]
+    return f"  {name}: removed"
+
+
+def polygon_area(points):
+    return 0.5 * sum(x0 * y1 - x1 * y0 for (x0, y0, _), (x1, y1, _) in zip(points, points[1:] + points[:1]))
 
 
 def renumber(p, to):
@@ -830,8 +957,11 @@ def load(path):
     return doc
 
 
-#: How many earlier states of a props file `undo` can step back through.
-UNDO_STEPS = 30
+#: How many earlier states of a props file `undo` can step back through: 30 fell short of a divide two agents wanted
+#: back (batches 9 and 10).
+UNDO_STEPS = 60
+#: How far past `--pad` from the texel `show --at` reports a prop.
+AT_NEAR_PX = 8
 
 
 def history(path):
@@ -851,10 +981,9 @@ def remember(path):
 
 
 def save(path, doc, backup):
-    """One point a line, so a hand edit is one line."""
-    if backup and path.exists():
-        remember(path)
-    lines = ["{", f'  "car": "{doc["car"]}",'] + ([f'  "sprite": {json.dumps(doc["sprite"])},'] if "sprite" in doc else []) + [
+    """One point a line, so a hand edit is one line. A save that changes nothing (a snap that kept no pass) is no
+    step for `undo`."""
+    lines =["{", f'  "car": "{doc["car"]}",'] + ([f'  "sprite": {json.dumps(doc["sprite"])},'] if "sprite" in doc else []) + [
              '  "axisY": {' + ", ".join(f'"{e}": {v:.2f}' for e, v in doc["axisY"].items()) + "},", '  "props": [']
     for i, p in enumerate(doc["props"]):
         head = ", ".join(f'"{k}": {json.dumps(v)}' for k, v in p.items() if k != "points")
@@ -865,12 +994,23 @@ def save(path, doc, backup):
         pts = ",\n".join(f"      [{x:.2f}, {y:.2f}, {b:.2f}]" for x, y, b in p["points"])
         lines.append(f'    {{{head}, "points": [\n{pts}\n    ]}}{comma}')
     lines += ["  ]", "}", ""]
-    path.write_text("\n".join(lines), encoding="utf-8")
+    text = "\n".join(lines)
+    if path.exists():
+        if path.read_text(encoding="utf-8") == text:
+            return
+        if backup:
+            remember(path)
+    path.write_text(text, encoding="utf-8")
 
 
 def report(doc, car, props, reach):
     """A line a prop: its contrast, its weakest edge, how far each side sits off the rim the search finds within
     `reach` (the median over the samples clear enough to count; - where none is), and what is wrong with it."""
+    import numpy as np
+
+    if (lenses := lens_count(doc)) > INSTALL_MOST_LENSES:
+        print(f"TOO MANY LENSES (install refuses): {lenses}, a car draws {INSTALL_MOST_LENSES} — `remove` a prop, "
+              "which makes a lamp every car carries its main lamp's part again")
     for end in ("rear", "front"):
         mine = [p for p in props if fit.end_of(doc, car, p) == end]
         if not mine:
@@ -896,13 +1036,16 @@ def report(doc, car, props, reach):
             gaps = [fit.rim_gap(q, like, reach) for q in fit.sides_of(doc, car, p)]
             gap = "/".join("-" if g is None else f"{g:.2f}" for g in gaps)
             frame = "/".join(f"{fit.framed(car, r):.0%}" for r in sides)
+            ys, xs = np.nonzero(fit.coverage(sides[:1], car["rgba"].shape[:2]) > 0.5)
+            past = cell_overrun(xs, ys) if len(xs) else None
             print(f"  {p['name']:<12} {len(per):>2} pts  edge contrast{' by frame' if pull == 'frame' else ''} "
                   f"{sum(per[i] for i in free) / len(free):.2f}"
                   + (f", copy {twin:.2f}" if twin is not None else "")
                   + f"  weakest e{worst} {per[worst]:.2f}  off its rim {gap} px  framed {frame}"
                   + (f"  held {fit.edge_list(held)}" if held else "") + (" locked" if p.get("lock") else "")
                   + (f"  own axisY {at[0]:.2f} mirrorDx {at[1]:+.2f}" if "axisY" in p or "mirrorDx" in p else "")
-                  + f"  {area:.0f} px" + (f"  NOT A LENS: {wrong}" if wrong else ""))
+                  + f"  {area:.0f} px" + (f"  NOT A LENS: {wrong}" if wrong else "")
+                  + (f"  PAST THE CELL (install refuses): {past}" if past else ""))
             if spare := fit.spare_vertex(doc, car, p, like, reach):
                 j, sides = spare
                 print(f"      SPARE v{j}: the edge joining its neighbours off its rim "
@@ -1165,7 +1308,7 @@ def mirror(base, doc_path, doc, car):
     print(f"kept {name}: {name_was} with its copy side's lamps painted from the authored side's "
           f"({len(mirrored)} props), {_sim.rel(base, folder / (name + '.png'))}")
 
-    sprites.use(base, ap.Namespace(refs=[name]))
+    sprites.use(base, ap.Namespace(refs=[name], lamps_then="the same props are installed on it next"))
     now = load_car(base, i)
     now["pull"] = car["pull"]
     doc["sprite"] = sprite_cut_on(now)
@@ -1210,13 +1353,8 @@ def install(base, doc_path, doc, car):
             ys = ys + rows_of.start
             x0, x1, y0, y1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
             cx, cy = round((x0 + x1) / 2), round((y0 + y1) / 2)
-            # The bake finds a lens's texels only within a cell centred on it.
-            reach = max(cx - x0, x1 - cx, cy - y0, y1 - cy)
-            if reach > INSTALL_CELL_PX // 2 or max(x1 - x0, y1 - y0) >= INSTALL_CELL_PX:
-                # A lens the cell's whole 40 texels long is written 0.417 m, past the cell's 0.4167, which
-                # `LampAtlasTests.EveryLensFitsTheCellItIsCutInto` refuses (`hatch90s_black`, `budgetsuv_brown`).
-                problems.append(f"{p['name']} ({side}): {x1 - x0}x{y1 - y0} px reaching {reach} from its centre; the lamp "
-                                f"sheet's cell takes at most {INSTALL_CELL_PX - 1} a side, {INSTALL_CELL_PX // 2} from it")
+            if fault := cell_overrun(xs, ys):
+                problems.append(f"{p['name']} ({side}): {fault}")
             rows.append((INSTALL_FITTING[p["kind"]], (round(cx / per_m[0] - foot[0] / 2, 3), round(cy / per_m[1] - foot[1] / 2, 3)),
                          (round((x1 - x0) / per_m[0], 3), round((y1 - y0) / per_m[1], 3))))
     if len(rows) > INSTALL_MOST_LENSES:
@@ -1266,6 +1404,19 @@ INSTALL_GLASS = {"brake": 0, "ind": 1, "head": 2, "reverse": 2}
 INSTALL_FITTING = {"brake": "brake", "ind": "indicator", "head": "head", "reverse": "reverse"}
 #: LampAtlas.CellPx and CarLamps.MostLenses.
 INSTALL_CELL_PX, INSTALL_MOST_LENSES = 40, 10
+
+
+def cell_overrun(xs, ys):
+    """Why the lamp sheet's cell cannot hold a lens of these texels, or None. The bake finds a lens's texels only
+    within a cell centred on it, and a lens the cell's whole 40 texels long is written 0.417 m, past the cell's
+    0.4167, which `LampAtlasTests.EveryLensFitsTheCellItIsCutInto` refuses (`hatch90s_black`, `budgetsuv_brown`)."""
+    x0, x1, y0, y1 = int(xs.min()), int(xs.max()) + 1, int(ys.min()), int(ys.max()) + 1
+    cx, cy = round((x0 + x1) / 2), round((y0 + y1) / 2)
+    reach = max(cx - x0, x1 - cx, cy - y0, y1 - cy)
+    faults = [f"its box is {side} texels {axis}, the cell takes {INSTALL_CELL_PX - 1}"
+              for side, axis in ((x1 - x0, "along the car (x)"), (y1 - y0, "across it (y)")) if side >= INSTALL_CELL_PX] + \
+             ([f"{reach} from its centre, the cell takes {INSTALL_CELL_PX // 2}"] if reach > INSTALL_CELL_PX // 2 else [])
+    return "; ".join(faults) + " — trim a tip, or `divide` the housing" if faults else None
 
 
 if __name__ == "__main__":

@@ -1,0 +1,2 @@
+{"variant": "fleetsaloon_silver-v1", "frame": "fleet100_b05-v2", "cell": 3, "pxPerM": 97.931, "score": 4, "status": "candidate", "ts": "2026-10-22T04:49:30"}
+{"variant": "fleetsaloon_silver-v2", "frame": "fleet100_b05-v2", "cell": 3, "pxPerM": 97.931, "score": 4, "lampsMirroredFrom": "fleetsaloon_silver-v1", "props": "raw_assets/agents/car/variants/fleetsaloon_silver/fleetsaloon_silver-v1.props.json", "status": "used", "ts": "2026-10-22T04:51:45"}

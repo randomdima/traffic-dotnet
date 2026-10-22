@@ -1,0 +1,41 @@
+{
+  "car": "panelvan90s_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/panelvan90s_white/panelvan90s_white-v1.png", "sizePx": [464, 218]},
+  "axisY": {"rear": 108.00, "front": 109.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [25.71, 38.96, 0.00],
+      [18.07, 42.03, 2.43],
+      [13.09, 68.80, 0.32],
+      [24.11, 68.57, -1.32],
+      [34.60, 40.10, -0.21],
+      [43.09, 33.14, 0.31],
+      [44.11, 30.65, 3.67]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 109.0, "mirrorDx": 0.0, "points": [
+      [24.03, 41.89, 2.31],
+      [16.24, 45.20, 0.00],
+      [18.46, 55.24, 0.00],
+      [21.71, 54.67, 0.00],
+      [24.93, 50.00, 0.64]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "pull": "frame", "axisY": 108.5, "mirrorDx": 0.0, "points": [
+      [437.00, 39.47, 0.09],
+      [433.00, 42.98, 0.00],
+      [434.00, 54.40, 0.15],
+      [443.47, 66.88, 1.25],
+      [447.25, 65.17, 1.33],
+      [445.68, 55.62, -0.31],
+      [445.21, 50.19, 0.00],
+      [441.99, 42.18, 0.26]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 108.5, "mirrorDx": 0.0, "points": [
+      [415.69, 29.10, 1.25],
+      [416.05, 32.54, 4.23],
+      [436.41, 39.03, 0.65],
+      [432.45, 32.55, 0.96],
+      [417.80, 28.83, 0.10]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

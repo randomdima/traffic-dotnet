@@ -1,0 +1,2 @@
+{"variant": "execestate90s_silver-v1", "frame": "fleet100_b09-v2", "cell": 1, "pxPerM": 88.679, "score": 3, "status": "candidate", "ts": "2026-10-22T14:01:32"}
+{"variant": "execestate90s_silver-v2", "frame": "fleet100_b09-v2", "cell": 1, "pxPerM": 88.679, "score": 3, "lampsMirroredFrom": "execestate90s_silver-v1", "props": "raw_assets/agents/car/variants/execestate90s_silver/execestate90s_silver-v1.props.json", "status": "used", "ts": "2026-10-22T14:05:23"}

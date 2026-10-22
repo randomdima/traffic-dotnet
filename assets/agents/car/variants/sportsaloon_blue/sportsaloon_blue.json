@@ -1,0 +1,31 @@
+{
+  "id": "sportsaloon_blue",
+  "sprite": "sportsaloon_blue.webp",
+  "wreck": { "sprite": "sportsaloon_blue_broken.webp" },
+  "zones": "sportsaloon_blue_zones.png",
+  "describe": "late-1990s German sports saloon, average condition, dark metallic blue, long bonnet, cab-rearward roof, short boot, twin round headlamps under a glass cover, wide tail lamps",
+  "footprintM": [4.780, 2.236],
+  "collisionM": { "sizeM": [4.780, 1.861], "cornerRadiusM": 0.650 },
+  "massKg": 1550,
+  "frontAxleM": 1.56,
+  "rearAxleM": -1.29,
+  "trackM": 1.943,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.84,
+  "cgHeightM": 0.54,
+  "frontWeightShare": 0.52,
+  "handling": { "maxSpeed": 0.95, "acceleration": 1, "braking": 0.95 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.192, -0.536], "sizeM": [0.229, 0.385] },
+    { "fitting": "brake", "atM": [-2.192, 0.567], "sizeM": [0.229, 0.385] },
+    { "fitting": "indicator", "atM": [-2.244, -0.432], "sizeM": [0.062, 0.073] },
+    { "fitting": "indicator", "atM": [-2.244, 0.463], "sizeM": [0.062, 0.073] },
+    { "fitting": "head", "atM": [2.067, -0.629], "sizeM": [0.24, 0.312] },
+    { "fitting": "head", "atM": [2.088, 0.619], "sizeM": [0.24, 0.312] },
+    { "fitting": "indicator", "atM": [2.057, -0.702], "sizeM": [0.208, 0.156] },
+    { "fitting": "indicator", "atM": [2.078, 0.692], "sizeM": [0.208, 0.156] },
+    { "fitting": "reverse", "atM": [-2.234, -0.411], "sizeM": [0.146, 0.125] },
+    { "fitting": "reverse", "atM": [-2.234, 0.432], "sizeM": [0.146, 0.125] }
+  ]
+}

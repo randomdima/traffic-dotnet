@@ -1,0 +1,39 @@
+{
+  "car": "execsaloon90s_beige",
+  "sprite": {"variant": "raw_assets/agents/car/variants/execsaloon90s_beige/execsaloon90s_beige-v1.png", "sizePx": [457, 211]},
+  "axisY": {"rear": 105.00, "front": 105.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 102.5, "mirrorDx": -1.0, "points": [
+      [20.71, 31.89, 0.64],
+      [15.58, 38.31, 0.00],
+      [13.19, 63.85, 0.00],
+      [15.32, 65.35, 1.17],
+      [24.44, 64.28, 0.36],
+      [29.86, 30.02, 0.40]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "hold": [0], "axisY": 102.0, "mirrorDx": 0.0, "points": [
+      [25.60, 57.30, 0.00],
+      [13.80, 57.30, 0.00],
+      [13.19, 63.85, 0.00],
+      [15.32, 65.35, 1.17],
+      [24.44, 64.28, 0.00]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 105.0, "mirrorDx": 0.0, "points": [
+      [425.35, 36.34, 0.39],
+      [425.92, 40.63, 0.33],
+      [432.80, 63.59, 0.57],
+      [439.43, 63.95, 2.64],
+      [437.83, 40.38, 0.11],
+      [436.05, 35.93, 0.18]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 105.0, "mirrorDx": 0.0, "points": [
+      [420.07, 27.76, 0.29],
+      [419.15, 28.42, 1.32],
+      [421.64, 32.04, 0.89],
+      [427.84, 34.26, 0.82],
+      [434.55, 32.81, 1.39],
+      [429.45, 27.85, 0.00]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

@@ -1,18 +1,31 @@
 {
   "id": "kombi_sage",
   "sprite": "kombi_sage.webp",
+  "wreck": { "sprite": "kombi_sage_broken.webp" },
   "zones": "kombi_sage_zones.png",
-  "describe": "tall boxy leisure van with seats, sage green, a short sloping bonnet, a long flat high roof, sliding side doors with their rails showing, a big square tailgate, black bumpers",
-  "footprintM": [4.50, 2.02],
-  "collisionM": { "sizeM": [4.50, 1.82], "cornerRadiusM": 0.24 },
+  "describe": "modern tall boxy leisure van with seats, good condition, sage green, short sloping bonnet, long flat high roof, big square tailgate, black bumpers",
+  "footprintM": [4.500, 2.175],
+  "collisionM": { "sizeM": [4.500, 1.856], "cornerRadiusM": 0.589 },
   "massKg": 1450,
   "frontAxleM": 1.37,
   "rearAxleM": -1.38,
-  "trackM": 1.88,
+  "trackM": 1.916,
   "drivetrain": 1,
   "maxSteeringDeg": 32,
   "tyreFriction": 0.84,
   "cgHeightM": 0.7,
   "frontWeightShare": 0.6,
-  "handling": { "maxSpeed": 0.88, "acceleration": 0.95, "braking": 0.95 }
+  "handling": { "maxSpeed": 0.88, "acceleration": 0.95, "braking": 0.95 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.146, -0.536], "sizeM": [0.125, 0.291] },
+    { "fitting": "brake", "atM": [-2.146, 0.546], "sizeM": [0.125, 0.291] },
+    { "fitting": "indicator", "atM": [-2.146, -0.526], "sizeM": [0.115, 0.073] },
+    { "fitting": "indicator", "atM": [-2.146, 0.557], "sizeM": [0.115, 0.073] },
+    { "fitting": "head", "atM": [1.958, -0.578], "sizeM": [0.219, 0.291] },
+    { "fitting": "head", "atM": [1.958, 0.567], "sizeM": [0.219, 0.291] },
+    { "fitting": "indicator", "atM": [1.854, -0.775], "sizeM": [0.208, 0.104] },
+    { "fitting": "indicator", "atM": [1.854, 0.765], "sizeM": [0.208, 0.104] },
+    { "fitting": "reverse", "atM": [-2.146, -0.442], "sizeM": [0.125, 0.094] },
+    { "fitting": "reverse", "atM": [-2.146, 0.453], "sizeM": [0.125, 0.094] }
+  ]
 }

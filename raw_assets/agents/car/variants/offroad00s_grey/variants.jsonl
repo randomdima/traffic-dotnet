@@ -1,0 +1,2 @@
+{"variant": "offroad00s_grey-v1", "frame": "fleet100_b09-v2", "cell": 7, "pxPerM": 87.708, "score": 4, "status": "candidate", "ts": "2026-10-22T14:01:32"}
+{"variant": "offroad00s_grey-v2", "frame": "fleet100_b09-v2", "cell": 7, "pxPerM": 87.708, "score": 4, "lampsMirroredFrom": "offroad00s_grey-v1", "props": "raw_assets/agents/car/variants/offroad00s_grey/offroad00s_grey-v1.props.json", "status": "used", "ts": "2026-10-22T14:04:47"}

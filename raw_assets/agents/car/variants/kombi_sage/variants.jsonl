@@ -1,1 +1,3 @@
-{"variant": "kombi_sage-v1", "frame": "cars_fleet_a-v3", "cell": 6, "box": [1066, 416, 428, 192], "pxPerM": 95.082, "score": 3, "status": "used", "ts": "2026-10-20T15:27:28"}
+{"variant": "kombi_sage-v1", "frame": "cars_fleet_a-v3", "cell": 6, "box": [1066, 416, 428, 192], "pxPerM": 95.082, "score": 3, "status": "candidate", "ts": "2026-10-20T15:27:28"}
+{"variant": "kombi_sage-v2", "frame": "fleet100_b06-v1", "cell": 1, "pxPerM": 100.222, "score": 4, "status": "candidate", "ts": "2026-10-22T11:11:58"}
+{"variant": "kombi_sage-v3", "frame": "fleet100_b06-v1", "cell": 1, "pxPerM": 100.222, "score": 4, "lampsMirroredFrom": "kombi_sage-v2", "props": "raw_assets/agents/car/variants/kombi_sage/kombi_sage-v2.props.json", "status": "used", "ts": "2026-10-22T11:14:19"}

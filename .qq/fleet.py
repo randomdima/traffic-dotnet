@@ -15,7 +15,8 @@ lamps; only what the plan authors (AUTHORED) is written over, so the plan stays 
 drawing is which. No layout picture is sent: the brief says the grid, each car's size and proportion in words. Every
 car sheet is one base (BASE) and what its kind adds (NEW, or WRECKS with `--wrecks`), then the cars; the one picture
 sent is the style row (`qq sprites template --style=... --style-whole`) for new cars, the batch's own cars for wrecks.
-A re-roll's fault lines go at the top by hand.
+A re-roll's fault lines go at the top by hand. A wreck sheet draws only the batch's cars with a picture installed, and
+`--also` fills it to remotegen's nine with installed cars of other batches, read from their variant files.
 
 `status` lists each car of a batch against the steps to the fleet (STEPS) and names the first it is missing.
 """
@@ -35,6 +36,8 @@ BRIEFS = Path(".tmp/gen/briefs")
 COLUMNS = ("id", "describe", "lengthM", "widthM", "cornerM", "massKg", "frontOverhangM", "rearOverhangM", "drive",
            "steerDeg", "friction", "cgM", "frontShare", "speed", "accel", "brake")
 DRIVES = {"R": 0, "F": 1, "A": 2}
+#: The fewest assets remotegen asks a sheet for (.claude/skills/remotegen/SKILL.md).
+SHEET_LEAST = 9
 #: What the plan's footprint adds to the body each side, for the mirrors, until the picture's own is measured.
 MIRROR_M = 0.1
 #: How far each wheel centre stands outside the flank: CAR-12 owes a share of every tyre past the bodywork.
@@ -50,6 +53,10 @@ def main():
     base = paths.project_root()
     rows = batch_rows(paths.resolve_in_root(a.plan, base), a.batch)
     if a.action == "brief":
+        if a.also and not a.wrecks:
+            cli.fail("--also is for a wreck sheet (--wrecks)")
+        if a.wrecks:
+            rows = wreckable(base, rows) + [installed_row(base, i) for i in a.also]
         return brief(base, rows, a.frame, a.wrecks)
     if a.action == "status":
         return status(base, rows)
@@ -80,6 +87,9 @@ def parse_args():
                         help="brief: the sheet's name, as remotegen's --name (lowercase, digits, underscores)")
     parser.add_argument("--wrecks", action="store_true",
                         help="brief: the batch's wrecks, drawn from its installed cars, ids <car>_broken")
+    parser.add_argument("--also", type=lambda s: [i for i in s.split(",") if i], default=[], metavar="IDS",
+                        help="brief --wrecks: installed cars of other batches, comma-separated, after the batch's own "
+                             "(to fill a short sheet to nine)")
     return parser.parse_args()
 
 
@@ -185,6 +195,8 @@ def brief(base, rows, frame, wrecks):
     ids.write_text(json.dumps([r["id"] + ("_broken" if wrecks else "") for r in rows]) + "\n", encoding="utf-8")
     print(f"{out.relative_to(base)}\n{ids.relative_to(base)}: {len(rows)} {'wrecks' if wrecks else 'cars'} in a "
           f"{cols}x{rows_of} grid")
+    if len(rows) < SHEET_LEAST:
+        print(f"under remotegen's {SHEET_LEAST} a sheet: fill it with --also (wrecks) or merge it with a like set")
     return 0
 
 
@@ -225,6 +237,28 @@ def status(base, rows):
               + (f" {nxt[0]}: {nxt[1]}" if nxt else " done"))
     print(f"{len(rows) - waiting} of {len(rows)} done")
     return 0
+
+
+def wreckable(base, rows):
+    """The batch's rows whose car has a picture installed; the rest are named and left out."""
+    kept = []
+    for r in rows:
+        d = base / VARIANTS / r["id"] / f"{r['id']}.json"
+        sprite = json.loads(d.read_text(encoding="utf-8")).get("sprite", "") if d.is_file() else ""
+        if sprite and (d.parent / sprite).is_file():
+            kept.append(r)
+        else:
+            print(f"{r['id']}: no picture installed, no wreck asked")
+    return kept
+
+
+def installed_row(base, car):
+    """An installed car of any batch as a plan row, as far as a wreck's line needs one (`--also`)."""
+    d = base / VARIANTS / car / f"{car}.json"
+    if not d.is_file():
+        cli.fail(f"--also {car}: no {d.relative_to(base)}")
+    v = json.loads(d.read_text(encoding="utf-8"))
+    return {"id": car, "describe": v["describe"], "cornerM": v["collisionM"]["cornerRadiusM"]}
 
 
 def sized(base, r):

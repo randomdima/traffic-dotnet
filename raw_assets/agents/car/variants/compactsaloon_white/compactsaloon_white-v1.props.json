@@ -1,0 +1,37 @@
+{
+  "car": "compactsaloon_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/compactsaloon_white/compactsaloon_white-v1.png", "sizePx": [444, 207]},
+  "axisY": {"rear": 103.00, "front": 104.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "hold": [5], "points": [
+      [50.75, 29.90, 2.72],
+      [27.95, 31.84, 0.00],
+      [20.77, 50.82, 0.30],
+      [20.50, 58.06, 0.37],
+      [15.07, 60.36, 0.10],
+      [14.85, 65.50, 0.00],
+      [21.70, 65.50, -3.65]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "axisY": 102.5, "mirrorDx": 0.0, "points": [
+      [23.33, 43.73, 0.99],
+      [19.39, 46.01, 2.47],
+      [15.98, 57.56, 0.00],
+      [19.31, 58.65, 0.00],
+      [22.18, 48.48, 0.00]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 105.0, "mirrorDx": -1.0, "points": [
+      [403.03, 36.89, -1.26],
+      [421.31, 57.78, 1.31],
+      [422.68, 53.61, 0.00],
+      [421.64, 44.50, 0.00],
+      [414.74, 35.65, 1.30]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 103.0, "mirrorDx": 0.0, "points": [
+      [400.49, 27.86, 0.53],
+      [409.00, 30.68, 0.00],
+      [408.51, 32.77, 0.03],
+      [402.53, 31.76, 0.00]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

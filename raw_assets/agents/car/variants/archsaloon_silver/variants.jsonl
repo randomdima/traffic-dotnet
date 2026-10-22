@@ -1,0 +1,2 @@
+{"variant": "archsaloon_silver-v1", "frame": "fleet100_b06-v1", "cell": 9, "pxPerM": 98.249, "score": 4, "status": "candidate", "ts": "2026-10-22T11:11:58"}
+{"variant": "archsaloon_silver-v2", "frame": "fleet100_b06-v1", "cell": 9, "pxPerM": 98.249, "score": 4, "lampsMirroredFrom": "archsaloon_silver-v1", "props": "raw_assets/agents/car/variants/archsaloon_silver/archsaloon_silver-v1.props.json", "status": "used", "ts": "2026-10-22T11:15:21"}

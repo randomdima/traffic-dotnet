@@ -17,6 +17,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   4.77 m with nothing cutting it, doing 0.1 m/s"; with them in, as now, it passes. No code moved it: the fleet's mix
   hands car 42 a look whose size reaches a plan bug the present mix does not. Tracing why that plan draws back closes
   it; the fleet as it is only hides it.
+- **`SheetAtlasTests.TheShippedArtPacksIntoAHandfulOfPages`** (unit) fails: 6 pages against 5 (2026-10-22). Fleet
+  batch 5's eight cars, their wrecks and zone maps tipped it (without them in `Fleet.json` it packs into five), and
+  batch 6 still fits the sixth. Each page is 64 MB of sprite memory, and batches 7–11 add about forty more cars. _owner_: paying for a sixth page (and
+  later a seventh), dropping the sixteen legacy looks and nine earlier ones (below) to make room, or holding the fleet
+  at what five pages take closes it.
 - **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
   the leg it had before the hand" (2026-10-19, the hand's change in hand). Closed by that change.
 - **Four tests fail since the town's arithmetic left libm** (2026-10-20, core log); all four pass on 79dddfaf:
@@ -77,11 +82,13 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Regressions and figures not taken
 
-- **Five cars stand outside the fleet on a magenta-cut picture** (`assets/agents/car/variants/`: `crossover_pearl`,
-  `estate_steel`, `fleetsaloon_white`, `kombi_sage`, `midsaloon_black`; 2026-10-21): cut from the magenta
-  `cars_fleet_a-v3`, their edges carry a faint magenta fringe, and all but `fleetsaloon_white` show no lamps. Each is
-  asked again on a transparent sheet in its `fleet100` batch (`.tmp/gen/fleet_plan.md`: batches 5, 6, 7, 10), which
-  closes it.
+- **The fleet plan's last batch is longer than a bay** (`.tmp/gen/fleet_plan.md`, 2026-10-22): batches 5 to 10
+  raised `CarFigures.LongestLengthM` to 4.95 m inside the 5 m bay (`CityGenFigures.BayLengthM`, GEN-53), but batch 11
+  plans cars of 4.94 to 5.91 m, which `SimConfigTests` refuses until the bay outgrows them, and a longer bay changes
+  every town's car parks. Lengthening the bay before batch 11 is scaffolded, or capping the plan under it, closes it.
+- **`loafvan_grey` has no picture** (batch 5, 2026-10-22): `fleet100_b05`'s three attempts drew a modern minivan, a
+  loaf tilted side-on and 13 % wide, and a sliver (raw_assets/agents/car/prompting.md), so the car has no variant
+  file and batch 5 is eight cars. Asking it again on a later batch's sheet closes it.
 - **Two cars keep their far side's lamps as drawn** (`citycar_lime`, `cityhatch_silver`, 2026-10-22): their lower
   tail lamp is drawn as another lamp than the upper (a longer arm, elsewhere), and `qq props mirror` left a second red
   shape beside the reflection however far it followed the drawn lamp, so both stay on their unmirrored pictures with
@@ -670,19 +677,40 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   takes paint for lenses (a chrome bumper or pale bumper strip as a reverse, the orange fringe between a red lens and
   lime paint as an indicator, a one-sided highlight of the brake's own hue as a lens); `axis --prop` stops at the
   copy it starts from ("already where it fits best") on four cars, and finds a far better axis once moved by hand,
-  which agents did by writing `axisY`/`mirrorDx` themselves; `snap` adds and removes vertices though the manual says
-  it only moves them; `undo` is one step and a second redoes; SPARE is offered for a tip and again after its drop made
+  which agents did by writing `axisY`/`mirrorDx` themselves; SPARE is offered for a tip and again after its drop made
   the copy worse; `trace` on an unmirrored prop writes `"mirror": true`, `show --prop` calls a copy-side prop
   "authored", and `cut`'s lit picture never burns an authored-side part; red on red runs on past 30 texels in every
   `--lens`; a brown lens frame is not frame to `dark`. Each cost an agent a retrace or a hand edit; fixing them in
   that order closes it.
 - **What the batch 3 lamp cuts added** (2026-10-22, nine agents, `.tmp/fleet/props_notes.md`): no step before
-  `install` warns that a lens passes the lamp cell, and `install` rounds a lens exactly the cell's 40 texels up to
-0.417 m, which `LampAtlasTests.EveryLensFitsTheCellItIsCutInto` refuses (`hatch90s_black`'s head trimmed to 39); the
-overlap hint puts
-  `"over"` on the bigger prop, the manual on the section (two cars); `find` lists one side's patches only; `trace`
-  reads grey glass as no lamp; seed's amber class merges amber with orange-red. Each cost an agent a hand placement;
-  fixing them in that order closes it.
+  `install` warns that a lens passes the lamp cell (`install` refuses it); `find` lists one side's patches only;
+  `trace` reads grey glass as no lamp; seed's amber class merges amber with orange-red. Each cost an agent a hand
+  placement; fixing them in that order closes it.
+- **What the batch 5 lamp cuts added** (2026-10-22, eight agents): seed takes a taxi's yellow chequer strip for the
+  rear indicator (`cab_white`) and, on a red body, outlines only the amber patch as the brake (`crossover_red`); it
+  reports a headlamp traced to its bright strip as 0.50 off its rim, 3 texels short of the frame
+  (`family90s_silver`); `drop --vertex` bows the joining edge out over paint (`budgetsuv_white`, 437 → 539 px);
+  `snap --pull=frame` drags an edge that found no rim into the next lamp; `trace` says "the copy side draws no such
+  lens" where it does (`crossover_red`'s, `kombi_sage`'s). Fixing each closes its part.
+- **What the batch 6 lamp cuts added** (2026-10-22, nine agents): a SPARE drop made the rim worse both times it was
+  taken (`hybrid_white`, `archsaloon_silver`: predicted 0.00/0.40, got 0.75); `hold` keeps an edge out of the fit but
+  snap still moves its ends, so two split edges drifted into an undeclared overlap (`mpv_silver`); snap stretched a
+  brake tail onto a dim trim strip and added a spike vertex outside a headlamp the report did not flag
+  (`hybrid_silver`); `trace --at=A+B` ignores the second texel (`sportscar_red`); "off its rim" is a median and hides
+  a corner 2–3 texels onto the frame (`smoothsaloon_white`). Fixing each
+  closes its part.
+- **What the batch 9 and 10 lamp cuts added** (2026-10-22, eighteen agents): `snap` grows a lens past the lamp cell
+  without refusing (`offroader_black`, `midsaloon_black`); seed adds a `brake2` that takes the car to 12 lenses
+  (`coupe_yellow`); a reverse share mostly under an `over` indicator lights a sliver (`premsuv_white`, 49 px) and
+  nothing warns; after a snap the two sides of a `divide` drift a sub-texel apart (`premsuv_black`); snap still made a
+  hooked notch twice though the manual says it refuses one. Fixing each closes its part.
+- **What the batch 7 and 8 lamp cuts added** (2026-10-22, eighteen agents): seed traces a tall tail housing as one
+  brake past the cell on most 4.6 m cars and never offers `divide`; seed takes a beige bumper (`execsaloon90s_beige`)
+  or a pale bumper strip (`premsaloon_white`) for a lamp, puts a prop's authored outline below the axis, and overlaps
+  `head` with `ind_front` where the art draws two lenses; on black paint the `dark` panel counts the body as frame
+  (`bigsaloon70s_black`); `trace --lens=frame` on a framed headlamp runs on past 30 texels on four cars, and a glass
+  trace swallows the bumper; `move --edge --grow` slides the edge's ends (seen again, 1.9 and 3.3 texels); the report
+  does not flag a lens declared `over` another that sticks out of it. Fixing each closes its part.
 - **What the lamp cuts of batches 1 and 4 found in `qq props`** (2026-10-22, 29 agents): seed takes body paint for a
   reverse (`microcar_white`, `cityhatch_silver`), an orange fringe or a paint patch for an indicator (`citycar_lime`,
   `citymini_green`), a bumper edge for a brake (`estate90s_red`), and stops a headlamp 4–6 texels short of its tip

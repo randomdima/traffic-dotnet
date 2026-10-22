@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_w07-v1",
+ "ts": "2026-10-22T13:54:48",
+ "op": "edit",
+ "name": "fleet100_w07",
+ "file": ".tmp/gen/frames/fleet100_w07-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.018865,
+ "usage": {
+  "prompt_tokens": 2120,
+  "completion_tokens": 158,
+  "total_tokens": 2278,
+  "cost": 0.018865,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.018865,
+   "upstream_inference_prompt_cost": 0.014125,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from above, orthographic. No perspective, no side of the body showing, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car (paint, wear, roof, windows, trim):\n- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.\n- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.60 × 1.98 m (2.33× longer than wide), gently rounded corners — modern compact SUV crossover, good condition, pearl white with a black roof, tall squared bonnet, black plastic wheel-arch trim at all four corners, black roof rails, near-vertical tailgate\n2. 4.60 × 1.97 m (2.34× longer than wide), gently rounded corners — modern compact SUV, good condition, gloss black, tall squared bonnet, black wheel-arch trim, roof rails, near-vertical tailgate, slim angular headlamps, slim tail lamps\n3. 4.60 × 1.88 m (2.44× longer than wide), gently rounded corners — modern compact SUV, average condition, dark khaki green, tall squared bonnet, black wheel-arch trim, roof rails, near-vertical tailgate, slim angular headlamps, slim tail lamps\n4. 4.63 × 1.88 m (2.47× longer than wide), gently rounded corners — modern compact four-door saloon, good condition, white, long low bonnet, sleek roof, short boot, swept headlamps, tail lamps wrapping onto the boot lid\n5. 4.63 × 1.89 m (2.45× longer than wide), gently rounded corners — modern compact four-door saloon, average condition, mid grey, long low bonnet, sleek roof, short boot, swept headlamps, tail lamps wrapping onto the boot lid\n6. 4.67 × 1.93 m (2.42× longer than wide), gently rounded corners — early-2000s premium SUV, average condition, black with dull scuffed bumpers, long bonnet, rounded roof, upright tailgate, large teardrop headlamps, wide tail lamps\n7. 4.68 × 1.95 m (2.40× longer than wide), gently rounded corners — late-1990s German family estate car, average condition, dark green, level bonnet, long roof with silver roof rails to a sloping tailgate, smooth headlamps, tall tail lamps\n8. 4.69 × 1.95 m (2.40× longer than wide), gently rounded corners — modern family estate car, good condition, steel blue, level bonnet, long roof running all the way to a squared-off tail with a tall rear window, two thin silver roof rails along the roof edges\n9. 4.69 × 1.87 m (2.50× longer than wide), gently rounded corners — modern family estate car, good condition, black, level bonnet, long roof to a squared-off tail, two thin silver roof rails, slim headlamps, slim tail lamps",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "c0796f543dfddaef",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_w07_style.png"
+  }
+ ],
+ "cells": [
+  "crossover_pearl_broken",
+  "compactsuv_black_broken",
+  "compactsuv_green_broken",
+  "compactsaloon_white_broken",
+  "compactsaloon_grey_broken",
+  "premsuv00s_black_broken",
+  "longestate_green_broken",
+  "estate_steel_broken",
+  "estate_black_broken"
+ ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "hybrid_white",
+  "sprite": "hybrid_white.webp",
+  "wreck": { "sprite": "hybrid_white_broken.webp" },
+  "zones": "hybrid_white_zones.png",
+  "describe": "modern hybrid five-door liftback, good condition, white, low sloping bonnet, arched roof sloping to a high split tail, sharp angular headlamps, angular tail lamps at the corners",
+  "footprintM": [4.540, 2.265],
+  "collisionM": { "sizeM": [4.540, 1.938], "cornerRadiusM": 0.755 },
+  "massKg": 1380,
+  "frontAxleM": 1.39,
+  "rearAxleM": -1.3,
+  "trackM": 1.988,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.84,
+  "cgHeightM": 0.53,
+  "frontWeightShare": 0.61,
+  "handling": { "maxSpeed": 0.9, "acceleration": 0.92, "braking": 0.98 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.843, -0.59], "sizeM": [0.375, 0.386] },
+    { "fitting": "brake", "atM": [-1.864, 0.538], "sizeM": [0.375, 0.386] },
+    { "fitting": "indicator", "atM": [-1.853, -0.642], "sizeM": [0.177, 0.167] },
+    { "fitting": "indicator", "atM": [-1.874, 0.59], "sizeM": [0.177, 0.167] },
+    { "fitting": "head", "atM": [1.874, -0.642], "sizeM": [0.156, 0.23] },
+    { "fitting": "head", "atM": [1.874, 0.642], "sizeM": [0.156, 0.23] },
+    { "fitting": "indicator", "atM": [1.853, -0.778], "sizeM": [0.198, 0.115] },
+    { "fitting": "indicator", "atM": [1.853, 0.788], "sizeM": [0.198, 0.115] },
+    { "fitting": "reverse", "atM": [-1.968, -0.464], "sizeM": [0.125, 0.136] },
+    { "fitting": "reverse", "atM": [-1.989, 0.412], "sizeM": [0.125, 0.136] }
+  ]
+}

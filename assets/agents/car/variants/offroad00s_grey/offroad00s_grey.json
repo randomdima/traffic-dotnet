@@ -1,0 +1,31 @@
+{
+  "id": "offroad00s_grey",
+  "sprite": "offroad00s_grey.webp",
+  "wreck": { "sprite": "offroad00s_grey_broken.webp" },
+  "zones": "offroad00s_grey_zones.png",
+  "describe": "2000s Japanese off-road SUV, average condition, grey, flat bonnet, upright cab, flat roof, square tail with a covered spare wheel on the tailgate, large headlamps, tall tail lamps",
+  "footprintM": [4.800, 2.280],
+  "collisionM": { "sizeM": [4.800, 1.893], "cornerRadiusM": 0.798 },
+  "massKg": 2100,
+  "frontAxleM": 1.52,
+  "rearAxleM": -1.35,
+  "trackM": 1.975,
+  "drivetrain": 2,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.8,
+  "cgHeightM": 0.78,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.85, "acceleration": 0.85, "braking": 0.88 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.869, -0.619], "sizeM": [0.229, 0.406] },
+    { "fitting": "brake", "atM": [-1.869, 0.609], "sizeM": [0.229, 0.406] },
+    { "fitting": "indicator", "atM": [-1.931, -0.619], "sizeM": [0.083, 0.156] },
+    { "fitting": "indicator", "atM": [-1.931, 0.63], "sizeM": [0.083, 0.156] },
+    { "fitting": "head", "atM": [2.161, -0.588], "sizeM": [0.177, 0.229] },
+    { "fitting": "head", "atM": [2.161, 0.588], "sizeM": [0.177, 0.229] },
+    { "fitting": "indicator", "atM": [2.056, -0.765], "sizeM": [0.187, 0.115] },
+    { "fitting": "indicator", "atM": [2.067, 0.755], "sizeM": [0.187, 0.115] },
+    { "fitting": "reverse", "atM": [-1.921, -0.474], "sizeM": [0.125, 0.135] },
+    { "fitting": "reverse", "atM": [-1.921, 0.484], "sizeM": [0.125, 0.135] }
+  ]
+}

@@ -1,1 +1,3 @@
-{"variant": "fleetsaloon_white-v1", "frame": "cars_fleet_a-v3", "cell": 5, "box": [561, 420, 414, 184], "pxPerM": 95.082, "score": 3, "status": "used", "ts": "2026-10-20T15:27:28"}
+{"variant": "fleetsaloon_white-v1", "frame": "cars_fleet_a-v3", "cell": 5, "box": [561, 420, 414, 184], "pxPerM": 95.082, "score": 3, "status": "candidate", "ts": "2026-10-20T15:27:28"}
+{"variant": "fleetsaloon_white-v2", "frame": "fleet100_b05-v2", "cell": 2, "pxPerM": 95.632, "score": 4, "status": "candidate", "ts": "2026-10-22T04:49:30"}
+{"variant": "fleetsaloon_white-v3", "frame": "fleet100_b05-v2", "cell": 2, "pxPerM": 95.632, "score": 4, "lampsMirroredFrom": "fleetsaloon_white-v2", "props": "raw_assets/agents/car/variants/fleetsaloon_white/fleetsaloon_white-v2.props.json", "status": "used", "ts": "2026-10-22T04:51:21"}

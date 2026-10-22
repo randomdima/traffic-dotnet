@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/coupe_yellow/coupe_yellow-v2.props.json",
+ "cutOn": "raw_assets/agents/car/variants/coupe_yellow/coupe_yellow-v2.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

@@ -1,0 +1,2 @@
+{"variant": "compactsuv_green-v1", "frame": "fleet100_b07-v1", "cell": 3, "pxPerM": 101.957, "score": 4, "status": "candidate", "ts": "2026-10-22T13:49:27"}
+{"variant": "compactsuv_green-v2", "frame": "fleet100_b07-v1", "cell": 3, "pxPerM": 101.957, "score": 4, "lampsMirroredFrom": "compactsuv_green-v1", "props": "raw_assets/agents/car/variants/compactsuv_green/compactsuv_green-v1.props.json", "status": "used", "ts": "2026-10-22T13:52:02"}

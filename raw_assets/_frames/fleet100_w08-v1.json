@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_w08-v1",
+ "ts": "2026-10-22T13:55:37",
+ "op": "edit",
+ "name": "fleet100_w08",
+ "file": ".tmp/gen/frames/fleet100_w08-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.019205,
+ "usage": {
+  "prompt_tokens": 2173,
+  "completion_tokens": 158,
+  "total_tokens": 2331,
+  "cost": 0.019205,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.019205,
+   "upstream_inference_prompt_cost": 0.014465,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from above, orthographic. No perspective, no side of the body showing, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car (paint, wear, roof, windows, trim):\n- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.\n- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.69 × 1.84 m (2.55× longer than wide), gently rounded corners — modern family five-door liftback, good condition, black, level bonnet, long roof sloping to a short tail, split headlamps, angular tail lamps\n2. 4.69 × 1.84 m (2.54× longer than wide), gently rounded corners — modern family five-door liftback, average condition, grey, level bonnet, long roof sloping to a short tail, split headlamps, angular tail lamps\n3. 4.69 × 1.81 m (2.60× longer than wide), gently rounded corners — new electric four-door saloon, glossy white with an all-glass roof, very short smooth bonnet with no grille, long cabin, short boot, slim headlamps, slim separate tail lamps at each rear corner\n4. 4.69 × 1.85 m (2.53× longer than wide), gently rounded corners — new electric four-door saloon, glossy deep red with an all-glass roof, very short smooth bonnet with no grille, long cabin, short boot, slim headlamps, slim separate tail lamps at each rear corner\n5. 4.71 × 1.83 m (2.57× longer than wide), gently rounded corners — modern premium compact saloon, good condition, deep metallic blue, long bonnet, cab-rearward roof, short boot, slim angular headlamps, L-shaped tail lamps\n6. 4.71 × 1.81 m (2.60× longer than wide), gently rounded corners — modern premium compact saloon, good condition, white, long bonnet, cab-rearward roof, short boot, slim angular headlamps, L-shaped tail lamps\n7. 4.73 × 1.85 m (2.56× longer than wide), nearly square corners — 1970s Soviet large four-door saloon, good condition kept as a classic, gloss black, long flat bonnet, upright roof, long flat boot, chrome bumpers and trim strips, round headlamps in a wide chrome grille, vertical tail lamps split into red, amber and white sections\n8. 4.75 × 1.93 m (2.47× longer than wide), gently rounded corners — new electric crossover, glossy mid grey with an all-glass roof, short smooth bonnet with no grille, tall rounded cabin, short tail, slim headlamps, slim separate tail lamps at each rear corner\n9. 4.76 × 1.85 m (2.58× longer than wide), nearly square corners — 1990s German boxy executive four-door saloon, average condition, beige, long flat bonnet, upright glasshouse, long flat boot, wide rectangular headlamps, wide ribbed tail lamps split into red, amber and white sections",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "3dfc61fc7da12fa2",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_w08_style.png"
+  }
+ ],
+ "cells": [
+  "liftback_black_broken",
+  "liftback_grey_broken",
+  "evsaloon_white_broken",
+  "evsaloon_red_broken",
+  "premsaloon_blue_broken",
+  "premsaloon_white_broken",
+  "bigsaloon70s_black_broken",
+  "evsuv_grey_broken",
+  "execsaloon90s_beige_broken"
+ ]
+}

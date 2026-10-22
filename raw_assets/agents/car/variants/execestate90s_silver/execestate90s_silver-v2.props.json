@@ -1,0 +1,35 @@
+{
+  "car": "execestate90s_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/execestate90s_silver/execestate90s_silver-v2.png", "sizePx": [458, 223]},
+  "axisY": {"rear": 112.00, "front": 112.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 111.5, "mirrorDx": 0.0, "points": [
+      [24.85, 34.75, 0.97],
+      [14.80, 44.32, 1.18],
+      [7.40, 71.73, 1.49],
+      [20.42, 71.72, -2.30],
+      [33.07, 38.29, 0.80]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "points": [
+      [18.46, 42.67, 1.90],
+      [12.01, 49.70, -0.10],
+      [10.80, 54.20, 1.77],
+      [14.84, 57.77, 4.66]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [426.57, 43.55, 1.46],
+      [426.05, 47.82, 0.00],
+      [442.42, 70.65, 0.00],
+      [442.95, 65.83, 0.00],
+      [437.67, 44.68, 1.18]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "points": [
+      [411.21, 33.42, 0.00],
+      [418.45, 39.66, 1.96],
+      [430.29, 40.73, 1.58],
+      [429.24, 35.57, 1.30],
+      [410.75, 30.42, 0.88]
+    ]}
+  ]
+}

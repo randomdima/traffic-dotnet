@@ -1,0 +1,2 @@
+{"variant": "premestate_grey-v1", "frame": "fleet100_b10-v1", "cell": 9, "pxPerM": 91.886, "score": 4, "status": "candidate", "ts": "2026-10-22T14:02:40"}
+{"variant": "premestate_grey-v2", "frame": "fleet100_b10-v1", "cell": 9, "pxPerM": 91.886, "score": 4, "lampsMirroredFrom": "premestate_grey-v1", "props": "raw_assets/agents/car/variants/premestate_grey/premestate_grey-v1.props.json", "status": "used", "ts": "2026-10-22T14:05:04"}

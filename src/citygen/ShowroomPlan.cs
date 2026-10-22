@@ -37,8 +37,11 @@ internal static class ShowroomPlan
     /// <summary>The map's catalogue name.</summary>
     public const string Name = "Showroom";
 
-    /// <summary>How many bays a rank holds, end to end from the node at the middle of its side to the corner.</summary>
-    const int BaysARank = 8;
+    /// <summary>
+    /// How many bays a rank holds, end to end from the node at the middle of its side to the corner: the hundred-car
+    /// fleet plan with the legacy and service looks beside it fits.
+    /// </summary>
+    const int BaysARank = 16;
 
     /// <summary>
     /// How many ranks there are: both kerbs of each half of the two long sides, which the loop's nodes cut at their

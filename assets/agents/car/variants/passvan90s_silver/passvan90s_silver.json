@@ -1,0 +1,31 @@
+{
+  "id": "passvan90s_silver",
+  "sprite": "passvan90s_silver.webp",
+  "wreck": { "sprite": "passvan90s_silver_broken.webp" },
+  "zones": "passvan90s_silver_zones.png",
+  "describe": "1990s passenger van, average condition, silver, a short sloping nose, long tall body with a flat roof, big square tailgate, rectangular headlamps, tall tail lamps",
+  "footprintM": [4.790, 2.323],
+  "collisionM": { "sizeM": [4.790, 1.923], "cornerRadiusM": 0.578 },
+  "massKg": 1750,
+  "frontAxleM": 1.475,
+  "rearAxleM": -1.445,
+  "trackM": 1.994,
+  "drivetrain": 1,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.78,
+  "cgHeightM": 0.78,
+  "frontWeightShare": 0.6,
+  "handling": { "maxSpeed": 0.78, "acceleration": 0.72, "braking": 0.82 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.197, -0.62], "sizeM": [0.229, 0.406] },
+    { "fitting": "brake", "atM": [-2.187, 0.63], "sizeM": [0.229, 0.406] },
+    { "fitting": "indicator", "atM": [-2.228, -0.599], "sizeM": [0.083, 0.219] },
+    { "fitting": "indicator", "atM": [-2.218, 0.568], "sizeM": [0.083, 0.219] },
+    { "fitting": "head", "atM": [2.145, -0.63], "sizeM": [0.125, 0.229] },
+    { "fitting": "head", "atM": [2.156, 0.62], "sizeM": [0.125, 0.229] },
+    { "fitting": "indicator", "atM": [2.051, -0.807], "sizeM": [0.125, 0.094] },
+    { "fitting": "indicator", "atM": [2.051, 0.797], "sizeM": [0.125, 0.094] },
+    { "fitting": "reverse", "atM": [-2.239, -0.495], "sizeM": [0.146, 0.135] },
+    { "fitting": "reverse", "atM": [-2.228, 0.484], "sizeM": [0.146, 0.135] }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "car": "archsaloon_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/archsaloon_silver/archsaloon_silver-v1.png", "sizePx": [439, 211]},
+  "axisY": {"rear": 105.00, "front": 105.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 104.5, "mirrorDx": 0.0, "points": [
+      [20.45, 39.33, 2.02],
+      [13.38, 51.48, 1.17],
+      [11.23, 66.38, 0.08],
+      [13.27, 67.89, 2.85],
+      [23.29, 61.24, -0.40],
+      [34.49, 34.15, 0.88],
+      [34.64, 31.06, 2.02]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "points": [
+      [17.76, 48.43, 1.47],
+      [22.64, 48.12, 1.02],
+      [22.57, 41.94, 0.06],
+      [18.55, 41.53, 1.31]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 105.5, "mirrorDx": 1.0, "points": [
+      [407.09, 38.84, 0.10],
+      [404.23, 39.18, 0.87],
+      [403.22, 41.90, 0.00],
+      [412.57, 57.49, 3.32],
+      [419.31, 55.66, 0.00],
+      [416.14, 47.20, 0.74],
+      [413.08, 42.42, 1.94]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 105.0, "mirrorDx": 1.0, "points": [
+      [392.29, 29.43, 4.38],
+      [409.01, 36.25, 1.30],
+      [408.93, 32.46, 0.91],
+      [393.39, 27.94, 0.56]
+    ]},
+    {"name": "reverse", "kind": "reverse", "mirror": true, "over": ["brake"], "axisY": 104.0, "mirrorDx": 1.0, "points": [
+      [14.33, 61.05, 1.01],
+      [17.70, 63.06, 0.24],
+      [19.20, 58.80, 0.31],
+      [16.08, 58.68, 0.41]
+    ]}
+  ]
+}

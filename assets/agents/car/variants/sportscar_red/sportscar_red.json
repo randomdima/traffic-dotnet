@@ -1,0 +1,31 @@
+{
+  "id": "sportscar_red",
+  "sprite": "sportscar_red.webp",
+  "wreck": { "sprite": "sportscar_red_broken.webp" },
+  "zones": "sportscar_red_zones.png",
+  "describe": "new rear-engined sports coupe, glossy red, low wide body, long sloping front lid between raised front wings, rounded fastback roof, short rear deck with a slim spoiler, round headlamps on top of the wings, slim tail lamps",
+  "footprintM": [4.520, 2.200],
+  "collisionM": { "sizeM": [4.520, 1.840], "cornerRadiusM": 0.710 },
+  "massKg": 1500,
+  "frontAxleM": 1.31,
+  "rearAxleM": -1.16,
+  "trackM": 1.96,
+  "drivetrain": 0,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.96,
+  "cgHeightM": 0.46,
+  "frontWeightShare": 0.38,
+  "handling": { "maxSpeed": 1.3, "acceleration": 1.5, "braking": 1.2 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-1.906, -0.704], "sizeM": [0.187, 0.188] },
+    { "fitting": "brake", "atM": [-1.916, 0.641], "sizeM": [0.187, 0.188] },
+    { "fitting": "head", "atM": [1.843, -0.673], "sizeM": [0.26, 0.292] },
+    { "fitting": "head", "atM": [1.843, 0.662], "sizeM": [0.26, 0.292] },
+    { "fitting": "indicator", "atM": [1.833, -0.745], "sizeM": [0.25, 0.146] },
+    { "fitting": "indicator", "atM": [1.833, 0.735], "sizeM": [0.25, 0.146] },
+    { "fitting": "indicator", "atM": [-1.948, -0.673], "sizeM": [0.115, 0.104] },
+    { "fitting": "indicator", "atM": [-1.948, 0.62], "sizeM": [0.115, 0.104] },
+    { "fitting": "reverse", "atM": [-1.885, -0.766], "sizeM": [0.135, 0.073] },
+    { "fitting": "reverse", "atM": [-1.885, 0.693], "sizeM": [0.135, 0.073] }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "compactsuv_green",
+  "sprite": "compactsuv_green.webp",
+  "wreck": { "sprite": "compactsuv_green_broken.webp" },
+  "zones": "compactsuv_green_zones.png",
+  "describe": "modern compact SUV, average condition, dark khaki green, tall squared bonnet, black wheel-arch trim, roof rails, near-vertical tailgate, slim angular headlamps, slim tail lamps",
+  "footprintM": [4.600, 2.158],
+  "collisionM": { "sizeM": [4.600, 1.883], "cornerRadiusM": 0.657 },
+  "massKg": 1650,
+  "frontAxleM": 1.35,
+  "rearAxleM": -1.34,
+  "trackM": 1.982,
+  "drivetrain": 2,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.86,
+  "cgHeightM": 0.66,
+  "frontWeightShare": 0.58,
+  "handling": { "maxSpeed": 0.93, "acceleration": 1.05, "braking": 0.98 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.071, -0.579], "sizeM": [0.291, 0.407] },
+    { "fitting": "brake", "atM": [-2.071, 0.61], "sizeM": [0.291, 0.407] },
+    { "fitting": "indicator", "atM": [-2.113, -0.599], "sizeM": [0.083, 0.125] },
+    { "fitting": "indicator", "atM": [-2.113, 0.641], "sizeM": [0.083, 0.125] },
+    { "fitting": "head", "atM": [1.988, -0.568], "sizeM": [0.26, 0.292] },
+    { "fitting": "head", "atM": [2.009, 0.589], "sizeM": [0.26, 0.292] },
+    { "fitting": "indicator", "atM": [1.873, -0.756], "sizeM": [0.208, 0.104] },
+    { "fitting": "indicator", "atM": [1.884, 0.766], "sizeM": [0.208, 0.104] },
+    { "fitting": "reverse", "atM": [-2.133, -0.453], "sizeM": [0.156, 0.136] },
+    { "fitting": "reverse", "atM": [-2.133, 0.485], "sizeM": [0.156, 0.136] }
+  ]
+}

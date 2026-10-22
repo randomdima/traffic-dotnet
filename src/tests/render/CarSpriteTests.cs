@@ -43,7 +43,7 @@ public class CarSpriteTests
         var into = new SpriteInstance[fleet.Count];
         var written = CarSprites.Fill(
             fleet, Every(fleet), catalogue, firstSheet, scales ?? Unscaled(catalogue), new Vector2(fleet.Count * 5f, 0f),
-            new Vector2(1_000f, 1_000f), into);
+            new Vector2((fleet.Count * 10f) + 100f, 1_000f), into);
 
         Assert.Equal(fleet.Count, written);
         return into;

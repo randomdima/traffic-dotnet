@@ -1,0 +1,38 @@
+{
+  "car": "evsuv_grey",
+  "sprite": {"variant": "raw_assets/agents/car/variants/evsuv_grey/evsuv_grey-v1.png", "sizePx": [456, 217]},
+  "axisY": {"rear": 108.00, "front": 109.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 108.0, "mirrorDx": 1.0, "points": [
+      [17.91, 42.95, 0.00],
+      [31.10, 42.63, -0.66],
+      [24.93, 69.28, 0.75],
+      [14.12, 69.34, 0.06],
+      [15.27, 54.65, 0.00]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "axisY": 107.5, "mirrorDx": -1.0, "points": [
+      [26.88, 34.13, 0.27],
+      [34.53, 31.46, 0.06],
+      [44.65, 30.76, 0.73],
+      [42.92, 33.17, 0.53],
+      [36.16, 37.80, 0.00],
+      [28.00, 38.43, 1.09]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 108.0, "mirrorDx": 1.0, "points": [
+      [421.37, 39.61, 0.00],
+      [424.64, 38.02, 0.00],
+      [429.56, 40.68, 0.00],
+      [432.20, 46.48, 0.62],
+      [433.22, 55.30, 0.00],
+      [432.49, 57.89, 0.24]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 109.0, "mirrorDx": -1.0, "points": [
+      [410.26, 29.97, 0.00],
+      [418.02, 32.22, 0.00],
+      [425.39, 34.41, 0.00],
+      [424.66, 36.03, 1.08],
+      [416.63, 35.04, 0.52]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

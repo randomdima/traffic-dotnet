@@ -1,0 +1,31 @@
+{
+  "id": "midsaloon_silver",
+  "sprite": "midsaloon_silver.webp",
+  "wreck": { "sprite": "midsaloon_silver_broken.webp" },
+  "zones": "midsaloon_silver_zones.png",
+  "describe": "modern mid-size four-door saloon, average condition, silver, long low bonnet, sleek roof sloping into a short boot, slim headlamps, wide tail lamps",
+  "footprintM": [4.880, 2.257],
+  "collisionM": { "sizeM": [4.880, 1.892], "cornerRadiusM": 0.656 },
+  "massKg": 1550,
+  "frontAxleM": 1.46,
+  "rearAxleM": -1.36,
+  "trackM": 1.984,
+  "drivetrain": 1,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.88,
+  "cgHeightM": 0.54,
+  "frontWeightShare": 0.61,
+  "handling": { "maxSpeed": 0.98, "acceleration": 1.15, "braking": 1.05 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.158, -0.608], "sizeM": [0.292, 0.395] },
+    { "fitting": "brake", "atM": [-2.158, 0.588], "sizeM": [0.292, 0.395] },
+    { "fitting": "indicator", "atM": [-2.211, -0.629], "sizeM": [0.094, 0.114] },
+    { "fitting": "indicator", "atM": [-2.211, 0.598], "sizeM": [0.094, 0.114] },
+    { "fitting": "head", "atM": [2.127, -0.608], "sizeM": [0.156, 0.239] },
+    { "fitting": "head", "atM": [2.148, 0.577], "sizeM": [0.156, 0.239] },
+    { "fitting": "indicator", "atM": [2.002, -0.785], "sizeM": [0.209, 0.104] },
+    { "fitting": "indicator", "atM": [2.002, 0.764], "sizeM": [0.209, 0.104] },
+    { "fitting": "reverse", "atM": [-2.231, -0.484], "sizeM": [0.136, 0.135] },
+    { "fitting": "reverse", "atM": [-2.231, 0.452], "sizeM": [0.136, 0.135] }
+  ]
+}

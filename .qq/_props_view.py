@@ -38,6 +38,8 @@ STRIP_SHARE = 0.4
 #: long side or area is past these down to fit — which loses the detail a high zoom was for.
 PX_PER_TOKEN, READER_LONG_PX, READER_AREA_PX = 750, 1568, 1_150_000
 MAX_ZOOM, PANELS_A_ROW = 24, 4
+#: Under this zoom a rim half a texel off is not seen (agents on batch 5, 2026-10-22), and show says how to get closer.
+RIM_ZOOM = 5
 #: How far out from its part a name is set, nearest first, in screen pixels.
 LABEL_OUT_PX = (11, 18, 25, 32)
 #: A grid line a texel apart is drawn from this zoom, and blended this far toward black or white, whichever the texel
@@ -231,6 +233,8 @@ def scene(doc, car, a, chosen):
     marked on them."""
     h, w = car["rgba"].shape[:2]
     bounds, angle = (w, h), a.angle or 0.0
+    # The copy side is painted from the authored one by `mirror`, so a fit looks at it only when asked (`--copy`).
+    shown = 2 if a.copy else 1
     if chosen is None and a.at is None:
         if a.end == "both":
             spans = {"rear": (0, car["end"]), "front": (w - car["end"], w)}
@@ -241,14 +245,14 @@ def scene(doc, car, a, chosen):
             return [([framed([(0, 0), (w, h)], angle, 0, bounds, label="whole car")], 1.0)], doc["props"], []
         sides = [fit.rings(doc, car, p) for p in mine]
         views = [framed([pt for s in sides if len(s) > k for pt in s[k]], angle, a.pad, bounds,
-                        label=f"{a.end} {('authored', 'copy')[k]}") for k in range(max(map(len, sides)))]
+                        label=f"{a.end} {('authored', 'copy')[k]}") for k in range(min(shown, max(map(len, sides))))]
         return [(views, 1.0)], mine, []
     if chosen is None:
         at = framed([a.at], angle, a.pad, bounds, label=f"at {a.at[0]:g},{a.at[1]:g}", origin=a.at,
                     origin_name=f"{a.at[0]:g},{a.at[1]:g}")
         return [([at], 1.0)], doc["props"], []
     p = chosen
-    sides = fit.sides_of(doc, car, p)
+    sides = fit.sides_of(doc, car, p)[:shown]
     names = ("authored", "copy")
     if a.edge is not None:
         maps, strips = [], []
@@ -264,7 +268,7 @@ def scene(doc, car, a, chosen):
         views = [framed([pts[a.vertex][:2]], angle, a.pad, bounds, label=f"{p['name']} v{a.vertex} {names[k]}",
                         origin=pts[a.vertex][:2], origin_name=f"v{a.vertex}") for k, pts in enumerate(sides)]
         return [(views, 1.0)], [p], [("vertex", a.vertex)]
-    rs = fit.rings(doc, car, p)
+    rs = fit.rings(doc, car, p)[:shown]
     views = [framed(r, angle, a.pad, bounds, label=f"{p['name']} {names[k]}") for k, r in enumerate(rs) if len(r)]
     return [(views, 1.0)], [p], []
 
@@ -275,14 +279,16 @@ def show(doc, car, a, chosen, out):
 
     groups, props, focus = scene(doc, car, a, chosen)
     panels = [(f, True) for f in a.filter] + ([(f, False) for f in a.filter if f != "lit"] if a.bare else [])
-    cache, tiles, zooms = {}, [], []
+    cache, tiles, zooms, least = {}, [], [], MAX_ZOOM
     for views, share in groups:
-        # One panel a view: the views side by side; several: a row a view, its panels across, a few a row.
-        grid = []
-        for row in ([[(v, f, m) for v in views for f, m in panels]] if len(panels) == 1 else
-                    [[(v, f, m) for f, m in panels] for v in views]):
-            grid += [row[i:i + PANELS_A_ROW] for i in range(0, len(row), PANELS_A_ROW)]
-        zoom = a.zoom or best_zoom(grid, a.max_px, share * a.max_px)
+        # One panel a view: the views side by side; several: a row a view, its panels across — as many a row as
+        # draws them largest (four in a row of two filters and --bare fell to x3, agents on batch 7).
+        rows = ([[(v, f, m) for v in views for f, m in panels]] if len(panels) == 1 else
+                [[(v, f, m) for f, m in panels] for v in views])
+        grids = [[row[i:i + k] for row in rows for i in range(0, len(row), k)] for k in range(1, PANELS_A_ROW + 1)]
+        zoom, grid = max(((a.zoom or best_zoom(g, a.max_px, share * a.max_px, share), g) for g in grids),
+                         key=lambda zg: (zg[0], -len(zg[1])))
+        least = min(least, zoom)
         zooms.append(f"{views[0].kind}s x{zoom}" if len(groups) > 1 else f"x{zoom}")
         for row in grid:
             tiles.append([panel(v, zoom, field(f, car, doc, props, cache), f, doc, car, props, focus,
@@ -295,13 +301,17 @@ def show(doc, car, a, chosen, out):
     if scale < 1:
         lines.append(f"  past a reader's {READER_LONG_PX} px or {READER_AREA_PX / 1e6:.2f} MP: it is shrunk to "
                      f"{scale:.2f} before it is seen; a lower --zoom or --pad, or fewer filters, keep every pixel")
+    elif least < RIM_ZOOM and not a.zoom:
+        lines.append(f"  x{least} is too small to judge a rim by: one --prop, fewer filters (no --bare), or "
+                     "--zoom=6 and read it in two looks")
     return lines
 
 
-def best_zoom(grid, max_w, max_h):
+def best_zoom(grid, max_w, max_h, share=1.0):
+    """The largest zoom that fits the box and, its share of the sheet, a reader's area unshrunk."""
     for zoom in range(MAX_ZOOM, 0, -1):
         w, h = sheet_size(grid, zoom)
-        if w <= max_w and h <= max_h:
+        if w <= max_w and h <= max_h and w * h <= READER_AREA_PX * share:
             return zoom
     return 1
 

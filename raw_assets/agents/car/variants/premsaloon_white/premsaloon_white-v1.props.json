@@ -1,0 +1,39 @@
+{
+  "car": "premsaloon_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/premsaloon_white/premsaloon_white-v1.png", "sizePx": [452, 208]},
+  "axisY": {"rear": 103.50, "front": 103.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [25.78, 32.38, 0.00],
+      [16.48, 42.89, 0.00],
+      [12.83, 58.84, 0.00],
+      [13.25, 65.62, 1.35],
+      [22.45, 65.83, -5.19],
+      [41.12, 31.77, 0.10],
+      [39.28, 29.91, -0.65]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 105.0, "mirrorDx": 0.0, "points": [
+      [19.43, 43.35, 0.81],
+      [16.94, 49.79, 0.14],
+      [17.74, 52.14, 0.76],
+      [20.98, 52.49, 2.78]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "pull": "frame", "axisY": 104.5, "mirrorDx": -1.0, "points": [
+      [415.07, 30.71, 1.75],
+      [415.82, 36.49, -0.64],
+      [429.63, 58.15, 0.00],
+      [432.46, 60.99, 1.26],
+      [433.03, 55.44, 0.74],
+      [427.06, 40.17, 0.05],
+      [425.31, 37.72, 0.19],
+      [421.36, 33.76, 0.68]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 104.5, "mirrorDx": -3.0, "points": [
+      [407.00, 26.44, 0.40],
+      [405.92, 28.98, 0.98],
+      [410.20, 33.28, 1.52],
+      [411.56, 27.01, 0.92]
+    ]}
+  ]
+}

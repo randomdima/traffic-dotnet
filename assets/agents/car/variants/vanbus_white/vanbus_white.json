@@ -1,0 +1,31 @@
+{
+  "id": "vanbus_white",
+  "sprite": "vanbus_white.webp",
+  "wreck": { "sprite": "vanbus_white_broken.webp" },
+  "zones": "vanbus_white_zones.png",
+  "describe": "modern mid-size passenger van, good condition, white, short sloping bonnet, long tall body with a flat roof, big square tailgate, large headlamps, tall tail lamps",
+  "footprintM": [4.900, 2.450],
+  "collisionM": { "sizeM": [4.900, 2.092], "cornerRadiusM": 0.662 },
+  "massKg": 2000,
+  "frontAxleM": 1.65,
+  "rearAxleM": -1.5,
+  "trackM": 2.174,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.78,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.88, "acceleration": 0.88, "braking": 0.9 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.158, -0.787], "sizeM": [0.219, 0.323] },
+    { "fitting": "brake", "atM": [-2.158, 0.735], "sizeM": [0.219, 0.323] },
+    { "fitting": "indicator", "atM": [-2.158, -0.766], "sizeM": [0.156, 0.125] },
+    { "fitting": "indicator", "atM": [-2.158, 0.704], "sizeM": [0.156, 0.125] },
+    { "fitting": "head", "atM": [2.179, -0.631], "sizeM": [0.24, 0.334] },
+    { "fitting": "head", "atM": [2.179, 0.652], "sizeM": [0.24, 0.334] },
+    { "fitting": "indicator", "atM": [2.054, -0.85], "sizeM": [0.198, 0.104] },
+    { "fitting": "indicator", "atM": [2.033, 0.871], "sizeM": [0.198, 0.104] },
+    { "fitting": "reverse", "atM": [-2.179, -0.683], "sizeM": [0.177, 0.115] },
+    { "fitting": "reverse", "atM": [-2.179, 0.631], "sizeM": [0.177, 0.115] }
+  ]
+}

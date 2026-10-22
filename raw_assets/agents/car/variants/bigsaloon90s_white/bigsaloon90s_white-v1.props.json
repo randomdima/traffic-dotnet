@@ -1,0 +1,39 @@
+{
+  "car": "bigsaloon90s_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/bigsaloon90s_white/bigsaloon90s_white-v1.png", "sizePx": [468, 230]},
+  "axisY": {"rear": 112.50, "front": 113.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 111.5, "mirrorDx": -1.0, "points": [
+      [21.46, 33.29, 0.10],
+      [18.93, 57.80, 0.00],
+      [20.22, 62.86, 0.60],
+      [30.28, 62.34, -1.28],
+      [32.54, 40.18, -0.58],
+      [32.69, 36.07, 0.30],
+      [32.55, 31.94, 1.62]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 111.5, "mirrorDx": -2.0, "points": [
+      [20.74, 39.18, 1.03],
+      [22.10, 45.61, 2.19],
+      [25.88, 39.22, 0.32],
+      [23.45, 37.63, 0.54]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 115.0, "mirrorDx": 0.0, "points": [
+      [440.22, 46.86, 0.03],
+      [441.47, 57.46, 0.00],
+      [446.35, 69.93, 1.06],
+      [450.75, 66.76, 0.29],
+      [450.53, 62.06, 0.46],
+      [447.31, 43.10, 3.01]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 113.5, "mirrorDx": 1.0, "points": [
+      [429.12, 35.36, -0.86],
+      [436.26, 41.68, 0.68],
+      [439.85, 42.83, -0.14],
+      [442.06, 40.57, 2.78],
+      [438.70, 31.92, 0.00],
+      [429.12, 31.93, 0.36]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

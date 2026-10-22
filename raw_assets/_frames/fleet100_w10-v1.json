@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_w10-v1",
+ "ts": "2026-10-22T14:07:51",
+ "op": "edit",
+ "name": "fleet100_w10",
+ "file": ".tmp/gen/frames/fleet100_w10-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.020003,
+ "usage": {
+  "prompt_tokens": 2275,
+  "completion_tokens": 158,
+  "total_tokens": 2433,
+  "cost": 0.020003,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.020003,
+   "upstream_inference_prompt_cost": 0.015263,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from above, orthographic. No perspective, no side of the body showing, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car (paint, wear, roof, windows, trim):\n- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.\n- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.83 × 1.90 m (2.54× longer than wide), nearly square corners — 1990s panel van, worn: dull white paint, rust spots on the doors and roof edges, a short sloping bonnet, tall body with a flat roof, two square rear doors, rectangular headlamps, tall narrow tail lamps\n2. 4.88 × 1.91 m (2.55× longer than wide), gently rounded corners — modern mid-size four-door saloon, good condition, gloss black, long low bonnet, sleek roof sloping into a short boot, thin chrome strip round the side windows, slim headlamps, wide tail lamps\n3. 4.88 × 1.89 m (2.58× longer than wide), gently rounded corners — modern mid-size four-door saloon, average condition, silver, long low bonnet, sleek roof sloping into a short boot, slim headlamps, wide tail lamps\n4. 4.88 × 1.96 m (2.49× longer than wide), gently rounded corners — modern mid-size four-door saloon taxi, average condition, bright yellow with a small plain white roof sign, long low bonnet, sleek roof, short boot, slim headlamps, wide tail lamps\n5. 4.88 × 1.96 m (2.49× longer than wide), nearly square corners — 1990s Soviet large boxy four-door saloon, worn: dull white paint, rust on the sills and boot edge, long flat bonnet, upright roof, long flat boot, black bumpers, rectangular headlamps, wide flat tail lamps split into red, amber and white sections\n6. 4.90 × 2.09 m (2.34× longer than wide), nearly square corners — modern mid-size passenger van, good condition, white, short sloping bonnet, long tall body with a flat roof, big square tailgate, large headlamps, tall tail lamps\n7. 4.92 × 2.07 m (2.38× longer than wide), gently rounded corners — new premium large SUV, glossy white, long tall bonnet with a big grille, long roof with roof rails, sloping tailgate, slim headlamps, slim tail lamps at each rear corner\n8. 4.92 × 2.10 m (2.35× longer than wide), gently rounded corners — new premium large SUV, gloss black, long tall bonnet with a big grille, long roof with roof rails, sloping tailgate, slim headlamps, slim tail lamps at each rear corner\n9. 4.93 × 1.97 m (2.50× longer than wide), gently rounded corners — modern premium estate car, good condition, dark grey, long bonnet, long roof with roof rails to a sloping tailgate, slim headlamps, slim tail lamps",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "f5afc484d636ec9a",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_w10_style.png"
+  }
+ ],
+ "cells": [
+  "panelvan90s_white_broken",
+  "midsaloon_black_broken",
+  "midsaloon_silver_broken",
+  "cab_yellow_broken",
+  "bigsaloon90s_white_broken",
+  "vanbus_white_broken",
+  "premsuv_white_broken",
+  "premsuv_black_broken",
+  "premestate_grey_broken"
+ ]
+}

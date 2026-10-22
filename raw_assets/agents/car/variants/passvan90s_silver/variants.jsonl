@@ -1,0 +1,2 @@
+{"variant": "passvan90s_silver-v1", "frame": "fleet100_b09-v2", "cell": 5, "pxPerM": 89.979, "score": 4, "status": "candidate", "ts": "2026-10-22T14:01:32"}
+{"variant": "passvan90s_silver-v2", "frame": "fleet100_b09-v2", "cell": 5, "pxPerM": 89.979, "score": 4, "lampsMirroredFrom": "passvan90s_silver-v1", "props": "raw_assets/agents/car/variants/passvan90s_silver/passvan90s_silver-v1.props.json", "status": "used", "ts": "2026-10-22T14:06:28"}

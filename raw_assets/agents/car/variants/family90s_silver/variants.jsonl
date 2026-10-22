@@ -1,0 +1,2 @@
+{"variant": "family90s_silver-v1", "frame": "fleet100_b05-v2", "cell": 8, "pxPerM": 95.089, "score": 4, "status": "candidate", "ts": "2026-10-22T04:49:30"}
+{"variant": "family90s_silver-v2", "frame": "fleet100_b05-v2", "cell": 8, "pxPerM": 95.089, "score": 4, "lampsMirroredFrom": "family90s_silver-v1", "props": "raw_assets/agents/car/variants/family90s_silver/family90s_silver-v1.props.json", "status": "used", "ts": "2026-10-22T04:52:14"}

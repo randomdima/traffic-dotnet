@@ -1,0 +1,2 @@
+{"variant": "mpv_silver-v1", "frame": "fleet100_b06-v1", "cell": 5, "pxPerM": 97.13, "score": 4, "status": "candidate", "ts": "2026-10-22T11:11:58"}
+{"variant": "mpv_silver-v2", "frame": "fleet100_b06-v1", "cell": 5, "pxPerM": 97.13, "score": 4, "lampsMirroredFrom": "mpv_silver-v1", "props": "raw_assets/agents/car/variants/mpv_silver/mpv_silver-v1.props.json", "status": "used", "ts": "2026-10-22T11:15:06"}

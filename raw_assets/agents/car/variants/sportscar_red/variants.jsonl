@@ -1,0 +1,2 @@
+{"variant": "sportscar_red-v1", "frame": "fleet100_b06-v1", "cell": 4, "pxPerM": 100.0, "score": 4, "status": "candidate", "ts": "2026-10-22T11:11:58"}
+{"variant": "sportscar_red-v2", "frame": "fleet100_b06-v1", "cell": 4, "pxPerM": 100.0, "score": 4, "lampsMirroredFrom": "sportscar_red-v1", "props": "raw_assets/agents/car/variants/sportscar_red/sportscar_red-v1.props.json", "status": "used", "ts": "2026-10-22T11:16:24"}

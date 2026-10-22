@@ -1,0 +1,2 @@
+{"variant": "premsuv_white-v1", "frame": "fleet100_b10-v1", "cell": 7, "pxPerM": 94.715, "score": 4, "status": "candidate", "ts": "2026-10-22T14:02:40"}
+{"variant": "premsuv_white-v2", "frame": "fleet100_b10-v1", "cell": 7, "pxPerM": 94.715, "score": 4, "lampsMirroredFrom": "premsuv_white-v1", "props": "raw_assets/agents/car/variants/premsuv_white/premsuv_white-v1.props.json", "status": "used", "ts": "2026-10-22T14:04:41"}

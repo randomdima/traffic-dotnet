@@ -1,0 +1,31 @@
+{
+  "id": "premsuv_white",
+  "sprite": "premsuv_white.webp",
+  "wreck": { "sprite": "premsuv_white_broken.webp" },
+  "zones": "premsuv_white_zones.png",
+  "describe": "new premium large SUV, glossy white, long tall bonnet with a big grille, long roof with roof rails, sloping tailgate, slim headlamps, slim tail lamps at each rear corner",
+  "footprintM": [4.920, 2.407],
+  "collisionM": { "sizeM": [4.920, 2.069], "cornerRadiusM": 0.676 },
+  "massKg": 2200,
+  "frontAxleM": 1.51,
+  "rearAxleM": -1.41,
+  "trackM": 2.172,
+  "drivetrain": 2,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.88,
+  "cgHeightM": 0.68,
+  "frontWeightShare": 0.52,
+  "handling": { "maxSpeed": 1.05, "acceleration": 1.2, "braking": 1 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.147, -0.703], "sizeM": [0.323, 0.386] },
+    { "fitting": "brake", "atM": [-2.168, 0.672], "sizeM": [0.323, 0.386] },
+    { "fitting": "indicator", "atM": [-2.252, -0.683], "sizeM": [0.136, 0.323] },
+    { "fitting": "indicator", "atM": [-2.252, 0.693], "sizeM": [0.136, 0.323] },
+    { "fitting": "head", "atM": [2.189, -0.62], "sizeM": [0.208, 0.302] },
+    { "fitting": "head", "atM": [2.189, 0.61], "sizeM": [0.208, 0.302] },
+    { "fitting": "indicator", "atM": [2.043, -0.839], "sizeM": [0.24, 0.146] },
+    { "fitting": "indicator", "atM": [2.022, 0.828], "sizeM": [0.24, 0.146] },
+    { "fitting": "reverse", "atM": [-2.22, -0.599], "sizeM": [0.042, 0.073] },
+    { "fitting": "reverse", "atM": [-2.272, 0.537], "sizeM": [0.115, 0.125] }
+  ]
+}

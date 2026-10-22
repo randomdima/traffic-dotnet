@@ -1,0 +1,2 @@
+{"variant": "sportsaloon_blue-v1", "frame": "fleet100_b09-v2", "cell": 2, "pxPerM": 90.795, "score": 4, "status": "candidate", "ts": "2026-10-22T14:01:32"}
+{"variant": "sportsaloon_blue-v2", "frame": "fleet100_b09-v2", "cell": 2, "pxPerM": 90.795, "score": 4, "lampsMirroredFrom": "sportsaloon_blue-v1", "props": "raw_assets/agents/car/variants/sportsaloon_blue/sportsaloon_blue-v1.props.json", "status": "used", "ts": "2026-10-22T14:03:45"}

@@ -1,0 +1,42 @@
+{
+  "car": "fleetsaloon_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/fleetsaloon_silver/fleetsaloon_silver-v2.png", "sizePx": [418, 193]},
+  "axisY": {"rear": 96.00, "front": 95.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [22.91, 31.53, 0.40],
+      [16.70, 37.03, 1.63],
+      [11.90, 58.65, 4.77],
+      [21.99, 56.16, -0.60],
+      [25.99, 44.43, -1.22],
+      [34.53, 30.19, 0.86],
+      [33.02, 27.21, 1.77]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 96.5, "mirrorDx": 0.0, "points": [
+      [15.01, 41.21, 0.38],
+      [15.06, 46.17, 1.05],
+      [18.88, 47.30, 0.53],
+      [21.50, 42.60, 0.87],
+      [18.88, 38.89, 0.90]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 95.5, "mirrorDx": 1.0, "points": [
+      [387.14, 34.90, 2.12],
+      [389.25, 47.50, 0.00],
+      [393.58, 56.50, 1.43],
+      [398.68, 57.77, 0.00],
+      [399.43, 46.31, 0.45],
+      [397.71, 41.05, 0.00],
+      [394.43, 36.04, 0.35]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 96.0, "mirrorDx": -1.0, "points": [
+      [374.27, 27.73, 0.14],
+      [375.55, 29.85, 0.19],
+      [380.44, 34.11, 1.48],
+      [390.20, 34.36, 0.93],
+      [391.22, 30.87, 0.16],
+      [389.04, 28.84, 1.26],
+      [375.70, 26.03, 0.43]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

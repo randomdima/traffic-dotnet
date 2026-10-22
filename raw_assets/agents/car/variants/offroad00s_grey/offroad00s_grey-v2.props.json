@@ -1,0 +1,38 @@
+{
+  "car": "offroad00s_grey",
+  "sprite": {"variant": "raw_assets/agents/car/variants/offroad00s_grey/offroad00s_grey-v2.png", "sizePx": [461, 219]},
+  "axisY": {"rear": 109.50, "front": 109.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [46.91, 32.41, 0.00],
+      [40.50, 45.28, -0.92],
+      [39.54, 69.25, 1.13],
+      [49.37, 68.61, 0.00],
+      [56.41, 39.49, 0.00],
+      [61.55, 33.87, 0.53],
+      [60.11, 31.18, 0.72]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "points": [
+      [44.51, 43.14, 2.30],
+      [42.30, 54.26, 0.07],
+      [42.29, 55.78, 0.86],
+      [45.15, 55.68, 2.30],
+      [47.42, 42.90, 0.88]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 109.5, "mirrorDx": 1.0, "points": [
+      [437.93, 41.49, -0.14],
+      [427.96, 42.10, 0.00],
+      [439.28, 62.23, 0.80],
+      [442.08, 63.36, 1.57],
+      [445.11, 55.74, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 109.5, "mirrorDx": 1.0, "points": [
+      [419.66, 34.19, 0.05],
+      [424.84, 39.61, 0.77],
+      [430.17, 41.22, 2.08],
+      [437.36, 36.89, 1.93],
+      [420.36, 31.20, 0.83]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

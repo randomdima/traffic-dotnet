@@ -1,18 +1,31 @@
 {
   "id": "crossover_pearl",
   "sprite": "crossover_pearl.webp",
+  "wreck": { "sprite": "crossover_pearl_broken.webp" },
   "zones": "crossover_pearl_zones.png",
-  "describe": "compact SUV crossover, pearl white with a black roof, a tall squared bonnet, black plastic wheel-arch trim at all four corners, black roof rails, a near-vertical tailgate",
-  "footprintM": [4.60, 2.06],
-  "collisionM": { "sizeM": [4.60, 1.86], "cornerRadiusM": 0.34 },
+  "describe": "modern compact SUV crossover, good condition, pearl white with a black roof, tall squared bonnet, black plastic wheel-arch trim at all four corners, black roof rails, near-vertical tailgate",
+  "footprintM": [4.600, 2.264],
+  "collisionM": { "sizeM": [4.600, 1.976], "cornerRadiusM": 0.679 },
   "massKg": 1600,
   "frontAxleM": 1.35,
   "rearAxleM": -1.34,
-  "trackM": 1.92,
+  "trackM": 2.077,
   "drivetrain": 2,
   "maxSteeringDeg": 31,
   "tyreFriction": 0.86,
   "cgHeightM": 0.66,
   "frontWeightShare": 0.58,
-  "handling": { "maxSpeed": 0.95, "acceleration": 1.1, "braking": 0.98 }
+  "handling": { "maxSpeed": 0.95, "acceleration": 1.1, "braking": 0.98 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.029, -0.61], "sizeM": [0.323, 0.407] },
+    { "fitting": "brake", "atM": [-2.05, 0.621], "sizeM": [0.323, 0.407] },
+    { "fitting": "indicator", "atM": [-2.092, -0.621], "sizeM": [0.125, 0.146] },
+    { "fitting": "indicator", "atM": [-2.092, 0.652], "sizeM": [0.125, 0.146] },
+    { "fitting": "reverse", "atM": [-2.113, -0.485], "sizeM": [0.167, 0.136] },
+    { "fitting": "reverse", "atM": [-2.123, 0.475], "sizeM": [0.167, 0.136] },
+    { "fitting": "head", "atM": [2.009, -0.569], "sizeM": [0.198, 0.282] },
+    { "fitting": "head", "atM": [2.009, 0.579], "sizeM": [0.198, 0.282] },
+    { "fitting": "indicator", "atM": [1.863, -0.777], "sizeM": [0.239, 0.146] },
+    { "fitting": "indicator", "atM": [1.884, 0.788], "sizeM": [0.239, 0.146] }
+  ]
 }

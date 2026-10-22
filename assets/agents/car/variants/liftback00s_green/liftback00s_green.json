@@ -1,0 +1,31 @@
+{
+  "id": "liftback00s_green",
+  "sprite": "liftback00s_green.webp",
+  "wreck": { "sprite": "liftback00s_green_broken.webp" },
+  "zones": "liftback00s_green_zones.png",
+  "describe": "2000s Czech compact five-door liftback, average condition, dark green, level bonnet, long roof sloping to a short tail, twin-lens headlamps, tall tail lamps",
+  "footprintM": [4.510, 2.134],
+  "collisionM": { "sizeM": [4.510, 1.792], "cornerRadiusM": 0.634 },
+  "massKg": 1250,
+  "frontAxleM": 1.355,
+  "rearAxleM": -1.155,
+  "trackM": 1.852,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.56,
+  "frontWeightShare": 0.62,
+  "handling": { "maxSpeed": 0.88, "acceleration": 0.88, "braking": 0.92 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.026, -0.588], "sizeM": [0.281, 0.396] },
+    { "fitting": "brake", "atM": [-2.047, 0.557], "sizeM": [0.281, 0.396] },
+    { "fitting": "head", "atM": [1.974, -0.578], "sizeM": [0.208, 0.25] },
+    { "fitting": "head", "atM": [1.995, 0.557], "sizeM": [0.208, 0.25] },
+    { "fitting": "indicator", "atM": [1.859, -0.744], "sizeM": [0.187, 0.104] },
+    { "fitting": "indicator", "atM": [1.88, 0.734], "sizeM": [0.187, 0.104] },
+    { "fitting": "indicator", "atM": [-2.026, -0.692], "sizeM": [0.26, 0.198] },
+    { "fitting": "indicator", "atM": [-2.026, 0.661], "sizeM": [0.26, 0.198] },
+    { "fitting": "reverse", "atM": [-2.099, -0.463], "sizeM": [0.146, 0.135] },
+    { "fitting": "reverse", "atM": [-2.109, 0.432], "sizeM": [0.146, 0.135] }
+  ]
+}

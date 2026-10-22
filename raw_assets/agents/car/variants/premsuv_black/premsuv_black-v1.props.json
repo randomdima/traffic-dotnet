@@ -1,0 +1,42 @@
+{
+  "car": "premsuv_black",
+  "sprite": {"variant": "raw_assets/agents/car/variants/premsuv_black/premsuv_black-v1.png", "sizePx": [472, 236]},
+  "axisY": {"rear": 116.00, "front": 117.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "hold": [4], "axisY": 115.5, "mirrorDx": -1.0, "points": [
+      [24.95, 59.67, -3.72],
+      [45.05, 30.35, 0.89],
+      [44.70, 29.28, 5.71],
+      [19.64, 43.57, 1.03],
+      [14.90, 56.58, 0.00]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 115.5, "mirrorDx": -1.0, "points": [
+      [17.61, 52.87, 0.37],
+      [21.34, 54.13, 1.81],
+      [23.74, 47.11, 0.96],
+      [19.45, 46.01, 2.13]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 117.5, "mirrorDx": 1.0, "points": [
+      [437.60, 42.40, 1.44],
+      [436.85, 47.13, 0.00],
+      [446.10, 63.46, 3.70],
+      [457.79, 62.48, 0.00],
+      [453.65, 48.91, 2.99],
+      [442.90, 41.42, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 117.5, "mirrorDx": 1.0, "points": [
+      [423.35, 32.59, 0.34],
+      [431.67, 40.47, 1.63],
+      [441.78, 41.09, 1.06],
+      [442.68, 37.17, 2.03],
+      [426.42, 29.91, 0.09],
+      [423.95, 30.20, 0.56]
+    ]},
+    {"name": "reverse", "kind": "reverse", "mirror": true, "hold": [3], "axisY": 115.0, "mirrorDx": 0.0, "points": [
+      [13.41, 56.12, 0.00],
+      [11.61, 72.23, 0.50],
+      [19.58, 72.06, 0.12],
+      [24.95, 59.67, 0.00]
+    ]}
+  ]
+}

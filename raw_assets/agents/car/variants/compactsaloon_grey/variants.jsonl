@@ -1,0 +1,2 @@
+{"variant": "compactsaloon_grey-v1", "frame": "fleet100_b07-v1", "cell": 5, "pxPerM": 95.464, "score": 4, "status": "candidate", "ts": "2026-10-22T13:49:27"}
+{"variant": "compactsaloon_grey-v2", "frame": "fleet100_b07-v1", "cell": 5, "pxPerM": 95.464, "score": 4, "lampsMirroredFrom": "compactsaloon_grey-v1", "props": "raw_assets/agents/car/variants/compactsaloon_grey/compactsaloon_grey-v1.props.json", "status": "used", "ts": "2026-10-22T13:52:27"}

@@ -1,0 +1,38 @@
+{
+  "car": "estate_steel",
+  "sprite": {"variant": "raw_assets/agents/car/variants/estate_steel/estate_steel-v2.png", "sizePx": [450, 214]},
+  "axisY": {"rear": 107.00, "front": 109.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "hold": [5], "points": [
+      [21.34, 38.20, 0.90],
+      [10.70, 41.89, 0.76],
+      [8.15, 61.98, 0.90],
+      [9.39, 68.54, 0.00],
+      [19.43, 68.19, -0.75],
+      [28.04, 38.20, 0.00]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 108.5, "mirrorDx": 0.0, "points": [
+      [421.07, 39.56, 0.59],
+      [419.72, 42.91, 0.03],
+      [428.34, 59.24, 0.71],
+      [431.07, 60.44, 0.82],
+      [427.97, 41.98, 0.43],
+      [424.60, 39.22, 0.31]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 108.0, "mirrorDx": 0.0, "points": [
+      [411.07, 27.33, 0.84],
+      [409.48, 30.01, 0.67],
+      [416.68, 37.53, 1.13],
+      [424.78, 37.66, 0.84],
+      [425.45, 34.37, 1.74]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "hold": [1], "points": [
+      [19.80, 33.90, 0.00],
+      [20.50, 38.20, 0.00],
+      [26.30, 38.20, -0.50],
+      [38.70, 28.80, 0.60],
+      [39.10, 26.40, 2.50]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

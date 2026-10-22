@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_w09-v1",
+ "ts": "2026-10-22T14:10:20",
+ "op": "edit",
+ "name": "fleet100_w09",
+ "file": ".tmp/gen/frames/fleet100_w09-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.019704,
+ "usage": {
+  "prompt_tokens": 2244,
+  "completion_tokens": 158,
+  "total_tokens": 2402,
+  "cost": 0.019704,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.019704,
+   "upstream_inference_prompt_cost": 0.014964,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from above, orthographic. No perspective, no side of the body showing, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car (paint, wear, roof, windows, trim):\n- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.\n- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.77 × 1.94 m (2.46× longer than wide), nearly square corners — 1990s German boxy executive estate car, worn: dull silver paint, rust spots on the tailgate, long flat bonnet, long roof with roof rails to an upright tailgate, wide rectangular headlamps, tall tail lamps split into red, amber and white sections\n2. 4.78 × 1.86 m (2.57× longer than wide), gently rounded corners — late-1990s German sports saloon, average condition, dark metallic blue, long bonnet, cab-rearward roof, short boot, twin round headlamps under a glass cover, wide tail lamps\n3. 4.78 × 1.96 m (2.44× longer than wide), gently rounded corners — modern two-door muscle coupe, good condition, bright yellow with two black stripes over the bonnet and roof, long bonnet, short fastback roof, short tail, slim headlamps, three-bar tail lamps at each rear corner\n4. 4.79 × 1.78 m (2.69× longer than wide), gently rounded corners — early-1990s German aerodynamic four-door saloon, worn: dull silver paint, rust spots on the sills, smooth sloping bonnet, flush windows, long boot, wide flat headlamps, a wide tail lamp at each rear corner\n5. 4.79 × 1.92 m (2.49× longer than wide), nearly square corners — 1990s passenger van, average condition, silver, a short sloping nose, long tall body with a flat roof, big square tailgate, rectangular headlamps, tall tail lamps\n6. 4.79 × 1.95 m (2.46× longer than wide), gently rounded corners — modern seven-seat SUV, good condition, silver, tall long bonnet, long roof with roof rails, upright tailgate, large angular headlamps, tall tail lamps\n7. 4.80 × 1.89 m (2.54× longer than wide), gently rounded corners — 2000s Japanese off-road SUV, average condition, grey, flat bonnet, upright cab, flat roof, square tail with a covered spare wheel on the tailgate, large headlamps, tall tail lamps\n8. 4.82 × 1.97 m (2.44× longer than wide), nearly square corners — modern boxy luxury off-roader, good condition, gloss black, flat square bonnet with indicators on top of the wings, upright square cab, flat roof, square tail with a covered spare wheel, round headlamps, square tail lamps\n9. 4.82 × 1.85 m (2.60× longer than wide), gently rounded corners — 2000s Japanese mid-size four-door saloon, average condition, white, long rounded bonnet, rounded roof, short high boot, large headlamps, wide tail lamps",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "049125109c189bc6",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_w09_style.png"
+  }
+ ],
+ "cells": [
+  "execestate90s_silver_broken",
+  "sportsaloon_blue_broken",
+  "coupe_yellow_broken",
+  "aerosaloon_silver_broken",
+  "passvan90s_silver_broken",
+  "sevenseat_silver_broken",
+  "offroad00s_grey_broken",
+  "offroader_black_broken",
+  "midsaloon00s_white_broken"
+ ]
+}

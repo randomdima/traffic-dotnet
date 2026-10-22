@@ -1,0 +1,2 @@
+{"variant": "bigsaloon90s_white-v1", "frame": "fleet100_b10-v1", "cell": 5, "pxPerM": 91.393, "score": 3, "status": "candidate", "ts": "2026-10-22T14:02:40"}
+{"variant": "bigsaloon90s_white-v2", "frame": "fleet100_b10-v1", "cell": 5, "pxPerM": 91.393, "score": 3, "lampsMirroredFrom": "bigsaloon90s_white-v1", "props": "raw_assets/agents/car/variants/bigsaloon90s_white/bigsaloon90s_white-v1.props.json", "status": "used", "ts": "2026-10-22T14:05:32"}

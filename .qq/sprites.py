@@ -826,16 +826,16 @@ def write_lamps(base, described: Path, rows):
     described.write_text(text[:start] + ("[\n" + lines + "\n  ]" if rows else "[]") + text[end + 1:], encoding="utf-8")
 
 
-def drop_lamps(base, described: Path, zones_name):
+def drop_lamps(base, described: Path, zones_name, then="`qq props seed` it again"):
     """A new picture's lamps are not the old one's: its zone map, that map's trace and its `lamps` go, to be cut again
-    by `qq props` and installed."""
+    by `qq props` and installed — `then` says how."""
     for gone in (described.parent / zones_name, described.parent / f"{Path(zones_name).stem}{SOURCE}"):
         gone.unlink(missing_ok=True)
     text = re.sub(r'\n[ \t]*"zones":\s*"[^"]*",', "", described.read_text(encoding="utf-8"), count=1)
     described.write_text(text, encoding="utf-8")
     if '"lamps"' in text:
         write_lamps(base, described, [])
-    print(f"{_sim.rel(base, described)}: lamps and zone map dropped with the old picture; `qq props seed` it again")
+    print(f"{_sim.rel(base, described)}: lamps and zone map dropped with the old picture; {then}")
 
 
 def parts_sheet(out, cells, suffix=""):
@@ -1429,7 +1429,7 @@ def use(base, a):
         (described.parent / was).unlink(missing_ok=True)
     (described.parent / now).write_bytes(data)
     if not is_wreck(d, i) and not zones and d.get("zones"):
-        drop_lamps(base, described, d["zones"])
+        drop_lamps(base, described, d["zones"], *([a.lamps_then] if getattr(a, "lamps_then", None) else []))
     if not is_wreck(d, i) and (kept := variant.with_name(f"{name}.props.json")).is_file():
         print(f"{_sim.rel(base, kept)}: lamps were cut on this picture — `qq props restore {i}` and "
               f"`qq props install {i}` put them back")

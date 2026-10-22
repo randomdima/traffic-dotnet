@@ -1,0 +1,31 @@
+{
+  "car": "aerosaloon_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/aerosaloon_silver/aerosaloon_silver-v1.png", "sizePx": [460, 208]},
+  "axisY": {"rear": 104.50, "front": 104.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 104.0, "mirrorDx": 1.0, "points": [
+      [16.98, 40.25, 2.74],
+      [8.65, 69.90, 0.47],
+      [10.54, 72.64, 4.25],
+      [21.38, 63.54, -1.42],
+      [31.87, 38.74, 0.79],
+      [30.96, 34.66, 1.27],
+      [21.71, 35.82, 0.21]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [426.51, 42.11, 0.10],
+      [439.49, 61.91, 0.00],
+      [441.39, 59.82, 0.00],
+      [438.29, 46.78, 0.41],
+      [434.26, 42.09, 0.29]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 104.0, "mirrorDx": -1.0, "points": [
+      [432.25, 41.43, 1.96],
+      [430.71, 34.81, 0.32],
+      [424.45, 31.26, 0.12],
+      [415.47, 29.90, 2.67]
+    ]}
+  ]
+}

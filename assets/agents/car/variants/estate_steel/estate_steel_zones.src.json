@@ -1,5 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/estate_steel/estate_steel_zones/estate_steel_zones-v1.png",
- "pxPerM": 95.1,
+ "variant": "raw_assets/agents/car/variants/estate_steel/estate_steel-v3.props.json",
+ "cutOn": "raw_assets/agents/car/variants/estate_steel/estate_steel-v3.png",
+ "pxPerM": 96.0,
  "encoding": "png lossless"
 }

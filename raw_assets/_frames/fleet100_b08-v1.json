@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_b08-v1",
+ "ts": "2026-10-22T13:50:37",
+ "op": "edit",
+ "name": "fleet100_b08",
+ "file": ".tmp/gen/frames/fleet100_b08-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.016248,
+ "usage": {
+  "prompt_tokens": 1860,
+  "completion_tokens": 158,
+  "total_tokens": 2018,
+  "cost": 0.016248,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.016248,
+   "upstream_inference_prompt_cost": 0.011508,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from above, orthographic. No perspective, no side of the body showing, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe cars in the picture only show the style: draw the cars listed, in their own colours.\n- Lamps switched off (unlit glass, no glow). Front corner: a headlamp and, beside it, a separate amber indicator. Rear corner: three separate small lenses side by side, each in its own thin dark frame, as distinct as the front's — red tail and brake lamp outermost, amber indicator next, white reversing lamp innermost. The rear indicator is the same amber as the front one and as large, plainly not red. Never one merged red cluster, never a light bar across the car.\n- Condition shows only in the paint (faded colour, rust spots, a panel in another shade); the body outline is whole.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.69 × 1.81 m (2.59× longer than wide), gently rounded corners — modern family five-door liftback, good condition, black, level bonnet, long roof sloping to a short tail, split headlamps, angular tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n2. 4.69 × 1.81 m (2.59× longer than wide), gently rounded corners — modern family five-door liftback, average condition, grey, level bonnet, long roof sloping to a short tail, split headlamps, angular tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n3. 4.69 × 1.85 m (2.54× longer than wide), gently rounded corners — new electric four-door saloon, glossy white with an all-glass roof, very short smooth bonnet with no grille, long cabin, short boot, slim headlamps, slim separate tail lamps at each rear corner; each rear lamp with a separate amber indicator lens and a white reversing lens\n4. 4.69 × 1.85 m (2.54× longer than wide), gently rounded corners — new electric four-door saloon, glossy deep red with an all-glass roof, very short smooth bonnet with no grille, long cabin, short boot, slim headlamps, slim separate tail lamps at each rear corner; each rear lamp with a separate amber indicator lens and a white reversing lens\n5. 4.71 × 1.83 m (2.57× longer than wide), gently rounded corners — modern premium compact saloon, good condition, deep metallic blue, long bonnet, cab-rearward roof, short boot, slim angular headlamps, L-shaped tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n6. 4.71 × 1.83 m (2.57× longer than wide), gently rounded corners — modern premium compact saloon, good condition, white, long bonnet, cab-rearward roof, short boot, slim angular headlamps, L-shaped tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n7. 4.73 × 1.80 m (2.63× longer than wide), nearly square corners — 1970s Soviet large four-door saloon, good condition kept as a classic, gloss black, long flat bonnet, upright roof, long flat boot, chrome bumpers and trim strips, round headlamps in a wide chrome grille, vertical tail lamps split into red, amber and white sections\n8. 4.75 × 1.92 m (2.47× longer than wide), gently rounded corners — new electric crossover, glossy mid grey with an all-glass roof, short smooth bonnet with no grille, tall rounded cabin, short tail, slim headlamps, slim separate tail lamps at each rear corner; each rear lamp with a separate amber indicator lens and a white reversing lens\n9. 4.76 × 1.74 m (2.74× longer than wide), nearly square corners — 1990s German boxy executive four-door saloon, average condition, beige, long flat bonnet, upright glasshouse, long flat boot, wide rectangular headlamps, wide ribbed tail lamps split into red, amber and white sections",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "5b710d0458948e6d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_b08_style.png"
+  }
+ ],
+ "cells": [
+  "liftback_black",
+  "liftback_grey",
+  "evsaloon_white",
+  "evsaloon_red",
+  "premsaloon_blue",
+  "premsaloon_white",
+  "bigsaloon70s_black",
+  "evsuv_grey",
+  "execsaloon90s_beige"
+ ]
+}
