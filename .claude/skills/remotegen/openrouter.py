@@ -184,7 +184,48 @@ def frames_of(reply):
     return out
 
 
-def settings_for(model, refs, aspect=None, quality=None, resolution=None, seed=None):
+def video_model(model):
+    """The Video API's record of a model: resolutions, aspects, durations, frame images, prices."""
+    for m in call("GET", "/videos/models", timeout=60)[0].get("data", []):
+        if m["id"] == model:
+            return m
+    sys.exit(f"{model} is not on OpenRouter's Video API")
+
+
+#: A video job is the service's to finish: polled this often, given up after this long (it is billed either way).
+VIDEO_POLL_S, VIDEO_WAIT_S = 10, 900
+
+
+def video_request(model, prompt, first_frame, settings, last_frame=None):
+    """One billed clip: (bytes, cost USD or None, seconds, usage). Submitted, polled until done, then downloaded.
+    Prints the job id at once, so a clip that outlives this process can still be found and fetched."""
+    payload = {"model": model, "prompt": prompt, **settings}
+    frames = [(first_frame, "first_frame"), (last_frame, "last_frame")]
+    payload["frame_images"] = [{**image_part(p), "frame_type": t} for p, t in frames if p]
+    t0 = time.time()
+    job = call("POST", "/videos", payload, retries=0)[0]
+    print(f"video job {job.get('id')}", file=sys.stderr)
+    while True:
+        state = call("GET", f"/videos/{job['id']}", timeout=60)[0]
+        if state.get("status") == "completed":
+            break
+        if state.get("status") == "failed":
+            sys.exit(f"video job {job['id']} failed: {json.dumps(state.get('error'))[:600]}")
+        if time.time() - t0 > VIDEO_WAIT_S:
+            sys.exit(f"video job {job['id']} still {state.get('status')} after {VIDEO_WAIT_S}s (billed): fetch it later")
+        time.sleep(VIDEO_POLL_S)
+    req = urllib.request.Request(f"{API}/videos/{job['id']}/content?index=0",
+                                 headers={"Authorization": f"Bearer {read_key()}"})
+    with urllib.request.urlopen(req, timeout=300) as r:
+        blob = r.read()
+    usage = state.get("usage") or {}
+    cost = usage.get("cost")
+    print(f"usage {json.dumps(usage)}", file=sys.stderr)
+    print(f"1 clip in {time.time() - t0:.0f}s, " + (f"${float(cost):.4f}" if cost is not None else "$?"), file=sys.stderr)
+    return blob, None if cost is None else float(cost), time.time() - t0, usage
+
+
+def settings_for(model, refs, aspect=None, quality=None, resolution=None, seed=None, background=None):
     """What a request sends besides the model, prompt and pictures, as far as the model takes each. Refuses
     more pictures than the model takes."""
     params = image_api_model(model)["supported_parameters"]
@@ -192,7 +233,8 @@ def settings_for(model, refs, aspect=None, quality=None, resolution=None, seed=N
     if len(refs) > most:
         sys.exit(f"{model} takes at most {most} reference image(s), given {len(refs)}")
     sent = {"aspect_ratio": supported_aspect(model, aspect), "resolution": offered(params, "resolution", resolution),
-            "quality": offered(params, "quality", quality), "seed": seed if "seed" in params else None}
+            "quality": offered(params, "quality", quality), "seed": seed if "seed" in params else None,
+            "background": offered(params, "background", background)}
     return {k: v for k, v in sent.items() if v is not None}
 
 

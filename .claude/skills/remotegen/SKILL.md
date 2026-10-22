@@ -6,7 +6,8 @@ description: Generate and edit images through OpenRouter's image models for this
 # remotegen
 
 `.claude/skills/remotegen/remotegen.py` asks OpenRouter's Image API for one frame per call, on the owner's
-settings. Each frame goes to `.tmp/gen/frames/<name>-v<N>.<ext>` with one record in `.tmp/gen/index.jsonl`:
+settings. Each frame goes to `.tmp/gen/frames/<name>-v<N>.<ext>` (a transparent PNG with every pixel under alpha 16 cleared to transparent
+black, the glow the model leaves round each drawing; the owner, 2026-10-22) with one record in `.tmp/gen/index.jsonl`:
 the exact prompt, model, the settings sent, cost, and every picture sent as `inputs`, each copied to
 `.tmp/gen/inputs/<sha>.<ext>` as it was when sent (a frame among them is named as its parent). Cutting,
 keeping and installing are `qq sprites`'s. `openrouter.py` beside it is the bare client (key, catalogue,
@@ -36,13 +37,22 @@ copies the frame is the parent's image kept under another name.
 
 ## The owner's rules for a run
 
-- **Settings are not yours to change**: `openai/gpt-image-2.5-sunburst` at quality `low` are the defaults,
-  and `--model`, `--quality` and `--past-cap` exist for the owner's word only. A sheet is `--aspect 3:2`.
+- **Settings are not yours to change**: `openai/gpt-image-2.5-sunburst` at quality `low` with a transparent
+  background (the owner, 2026-10-20) are the defaults, and `--model`, `--quality`, `--background` and `--past-cap`
+  exist for the owner's word only. A sheet is `--aspect 3:2`.
   Another model (Flare included), quality, aspect or number of references is asked of the owner first,
   never tried. The brief's wording and a `--mask` redo are not settings.
 - **At least nine assets to a frame**, 3×3. Smaller assets go more to a sheet (4×4, 5×4); never fewer than
-  nine, never a frame of one. A set short of nine is merged with a like one.
-- **Three attempts per generation**: one sheet is one `--name`, and its v1, v2 and v3 — a mask redo
+  nine, never a frame of one. A set short of nine is merged with a like one. **The owner's one allowance**
+  (2026-10-20): building roofs a 3×3 cell holds under the art grid go as few as two to a frame, in whichever grid
+  draws them largest (`qq sprites` `BIG_ROOF_MIN_CELLS`); `qq prefabs sheets` plans the whole catalogue that way and
+  `qq prefabs brief` writes each frame's prompt.
+- **Get it in one go; a retry is a backoff, not a habit** (the owner, 2026-10-20). Before v1, read what worked and
+  failed on the family's earlier frames (its `prompting.md`, and the lessons of frames made this session) and write
+  the brief to avoid those faults. A v2 needs a real defect a kept cell cannot carry; a v3 a stronger reason still —
+  real issues left after v2, or a change to the brief expected to improve the result significantly. A minor flaw is
+  kept at a lower score, not re-rolled.
+- **Three attempts per generation at most**: one sheet is one `--name`, and its v1, v2 and v3 — a mask redo
   included — are all it gets. A refusal or a reply with no image counts; a 429 or 5xx the script retried
   does not. The script refuses a fourth frame under one name before it is billed.
 - **Between attempts, `Read` the frame** and judge every cell: its outline traced and filled with nothing
@@ -78,7 +88,8 @@ qq sprites cut roofs_house_a-v1          # each body fitted onto its shape, keye
 # 2. Read the frame, cuts/<frame>/_overlay.png and _parts.png (every part area magnified: `cut`'s "drawn"
 #    only says paint differs there); judge each cell (the rules above), v2/v3 for what failed. A cell is
 #    kept from whichever attempt drew it well.
-qq sprites mask roofs_house_a-v1 house_07   # the --mask for a redo of those cells
+qq sprites mask roofs_house_a-v1 house_07   # the --mask for a redo of those cells; house_07:whole is its grid
+#    cell (paint past the outline redrawn too), car_id:nose / car_id:tail only that end's lamps where it was drawn
 qq sprites keep roofs_house_a-v1 house_01 house_02 --score=4      # the good cells, with their lineage
 qq sprites use house_01-v1               # into assets/ at the art grid, with house_01.src.json
 qq sprites compare house_01              # every kept variant of it beside the sprite in the game
@@ -88,11 +99,21 @@ dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet ID,ID,... -
 # 3. the set's lesson into the family's prompting.md, citing the variants
 ```
 
-- **The shape comes first and the art is made to it**: nothing is ever measured off a picture. The layout is
+- **A car is described, and what is drawn is the car** (the owner, 2026-10-20; CAR-12b, CAR-14a): no layout is
+  sent. `qq fleet brief --batch=N --frame=F [--wrecks]` writes the brief (one shared base, then new cars or wrecks) from the plan and `F.cells.json`, the ids in
+  order, which `$R edit --image <style> ... --cells .tmp/gen/briefs/F.cells.json` keeps in the frame's record;
+  `cut` finds the drawings in that order, scales each to its file's length and measures the rest, and `use`
+  writes footprint, `collisionM` and `trackM` over the plan's; `qq props install` writes the `lamps`. The
+  style picture is the only input (a trial: it halves the proportion faults, `cars_fleet_b`): three of the
+  best installed cars that differ most in shape and paint — `crossover_pearl,estate_steel,kombi_sage` (the owner,
+  2026-10-20), taken whole from their frame with `--style-whole` so mirrors are not clipped (the owner, 2026-10-21) —
+  in one row at their own density (1482×244, $0.016 a frame): smaller pictures saved $0.003 and doubled the
+  proportion faults, and nothing is cached between frames (`raw_assets/agents/car/prompting.md`). Cars only: anything
+  else in it is something else the sheet may draw. `cut` flags a
+  body more than 8 % off its file's width — the car is what was drawn, the flag says which to look at.
+- **Everything else: the shape comes first and the art is made to it.** The layout is
   each asset's authored outline at its true size on one scale, on flat magenta `#FF00FF`, the front a thick
-  edge (a building's street side at the bottom, a car's nose at the right). A car's outline is its
-  `collisionM` box, which the bodywork fills; its mirrors may stand off it as far as the footprint, and its
-  cut keeps the whole footprint (CAR-12b). **A car is drawn without tyres**: the game draws them under the
+  edge (a building's street side at the bottom, a train's nose at the right). **A car is drawn without tyres**: the game draws them under the
   body (`CarSheets`). **And never open-top**: the game has no driver to show in a seat (the owner, in
   `raw_assets/agents/car/prompting.md`). The style picture is finished art from the game, none of it an asset asked for —
   `--style` refuses an id that is also asked.
@@ -110,17 +131,20 @@ dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet ID,ID,... -
   it glowing fails that cell. `template` warns of a part past its asset's shape: re-author it first.
 - imgbench's `bld_prompt.txt` and `train_prompt.txt` are the pattern for the brief, and a family's last
   brief is in its frames' records (`qq sprites trace <id> --full`). Briefs go in `.tmp/gen/briefs/`. The
-  brief asks for the flat magenta background; `cut` measures the colour the model actually drew from the
-  frame's border.
+  layout stays on magenta, a field the model reads as not-asset; the brief asks for everything outside the assets
+  fully transparent, and `cut` keys a frame by its alpha when its border is clear (`CLEAR_BORDER_MIN`). A frame
+  the model painted opaque anyway, as every frame before 2026-10-20, is chroma-keyed: `cut` measures the colour
+  the model actually drew from the frame's border.
 - `use` clears islands under 8 px the shrink leaves off the body (CAR-12's pixel-dust gate).
 - **A car is not in the fleet until it has a wreck sheet** (`CarSpriteTests`): ask the set's wrecks as their own
-  sheet once the cars are installed — ids `<car>_broken`, the cars themselves as the second image
-  (`--style=<car ids>`), `use` writing the file's `wreck.sprite`. Every look is two sheets of
-  `SheetAtlas.Slots`; a car added to `Fleet.json` also wants `--lamps` re-run, and is seen on `--map Showroom`.
-- **A car's lamps are mapped by its sheet's zone map** (CAR-14a): `$R edit --image <sheet>-vN --name <sheet>_zones`
-  with the zone brief in `raw_assets/agents/car/prompting.md`; `cut` fits it like any frame, quantises it to the
-  zones and flags a lamp it left unzoned, and `keep ... <car>_zones` / `use <car>_zones-vN` install the file's
-  `zones`, which must map the sheet its sprite came from. Then `--lamps`.
+  sheet once the cars are installed, described like the bodies — ids `<car>_broken` as `--cells`, the installed cars
+  as the only image (`qq sprites template <ids>_broken --style=<car ids>` makes it), `use` writing the file's
+  `wreck.sprite` at the car's footprint. Every look is two sheets of `SheetAtlas.Slots`; a car added to `Fleet.json`
+  also wants `--lamps` re-run, and is seen on `--map Showroom`.
+- **A car's lamps are cut, not generated** (CAR-14a): `qq props` outlines each lens on the installed sprite (an agent
+  a car, `qq props --help` is its manual) and `qq props install <car>` writes the zone map and `lamps`. A car's files
+  are written from a plan by `qq fleet scaffold`; `use` puts its picture on the art grid and drops lamps cut on an
+  older one.
 - **A set is done when `qq proof` says so**: `qq proof --looks=<the set's ids>` writes `.tmp/proof/lamps.gif`, every
   look through every lamp state and wrecked, from the engine's own instances. Look at it before reporting the set.
 - To ask for an asset again, `trace` it: the prompt and the inputs (`raw_assets/_inputs/<sha>`) are what

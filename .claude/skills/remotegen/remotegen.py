@@ -40,6 +40,11 @@ INPUTS_DIR = os.path.join(GEN_DIR, "inputs")
 # and right, and at quality low half the price with no visible loss (2026-10-18).
 DEFAULT_MODEL = "openai/gpt-image-2.5-sunburst"
 DEFAULT_QUALITY = "low"
+# The owner's call (2026-10-20): a frame comes back with a transparent background where the model offers one, so a
+# sprite's edge is the model's own alpha and not a magenta key pulled out of it.
+DEFAULT_BACKGROUND = "transparent"
+# A trial (2026-10-20), not an owner's pick: the cheapest image-to-video on OpenRouter at 480p, $0.02 a second.
+DEFAULT_VIDEO_MODEL = "x-ai/grok-imagine-video-1.5-lite"
 # The owner's limit: one generation (one --name) gets this many frames, then it is reported back rather than
 # tried again.
 MAX_ATTEMPTS = 3
@@ -101,6 +106,27 @@ def composite(original_path, new_blob, mask_path, feather):
     return out.getvalue()
 
 
+#: Below this alpha a frame's pixel is the glow the model lays round every drawing on a transparent background, never
+#: paint (`qq sprites cut` keeps a rim only over 64).
+GLOW_ALPHA = 16
+
+
+def clear_hidden(path):
+    """A transparent frame's glow made clear and black: the model leaves its glow's colour in the RGB of pixels at or
+    near alpha 0, which a viewer that ignores alpha shows as haze and flares round every drawing."""
+    import numpy as np
+    from PIL import Image
+
+    im = Image.open(path)
+    if im.mode != "RGBA":
+        return
+    px = np.asarray(im).copy()
+    hidden = px[..., 3] < GLOW_ALPHA
+    if hidden.any() and px[hidden].any():
+        px[hidden] = 0
+        Image.fromarray(px, "RGBA").save(path, "PNG")
+
+
 def snapshot(path, role):
     """The picture as sent, kept under its content hash; `frame` names it when it is itself a frame."""
     with open(path, "rb") as f:
@@ -128,15 +154,18 @@ def check_attempts(name, past_cap):
 
 def generate(args, name, op, refs, inputs, mask=None):
     check_attempts(name, args.past_cap)
-    settings = openrouter.settings_for(args.model, refs, aspect=args.aspect, quality=args.quality)
+    settings = openrouter.settings_for(args.model, refs, aspect=args.aspect, quality=args.quality,
+                                       background=args.background)
     print(f"settings {json.dumps(settings)}", file=sys.stderr)
-    frames, cost, _, _ = openrouter.request(args.model, args.prompt, refs, settings)
+    frames, cost, _, usage = openrouter.request(args.model, args.prompt, refs, settings)
     if mask:
         frames = [(composite(refs[0], blob, mask, args.feather), "png") for blob, _ in frames]
     for blob, ext in frames:
         path, ver = next_path(name, ext)
         with open(path, "wb") as f:
             f.write(blob)
+        if ext == "png":
+            clear_hidden(path)
         size = openrouter.png_size(path)
         append_index({
             "id": f"{name}-v{ver}",
@@ -148,10 +177,24 @@ def generate(args, name, op, refs, inputs, mask=None):
             "size": f"{size[0]}x{size[1]}" if size else None,
             "settings": settings,
             "costUsd": cost,
+            # What the cost was made of — input tokens (images among them), cached, output — so a change to what a
+            # frame is sent can be weighed by its tokens and not guessed at.
+            "usage": usage,
             "prompt": args.prompt,
             "inputs": inputs,
+            **({"cells": cells_listed(args.cells)} if getattr(args, "cells", None) else {}),
         })
         print(os.path.relpath(path, ROOT))
+
+
+def cells_listed(path):
+    """The asset ids a frame asked without a layout draws, in the brief's order (left to right, top to bottom): what
+    `qq sprites cut` matches the drawings it finds to."""
+    with open(path, encoding="utf-8") as f:
+        ids = json.load(f)
+    if not isinstance(ids, list) or not ids or not all(isinstance(i, str) and re.fullmatch(r"[a-z0-9_]+", i) for i in ids):
+        sys.exit(f"{path}: a cells file is a JSON list of asset ids")
+    return ids
 
 
 def cmd_gen(args):
@@ -171,6 +214,37 @@ def cmd_edit(args):
         if size:
             args.aspect = openrouter.nearest_aspect(*size)
     generate(args, name, "edit", refs, inputs, mask)
+
+
+def cmd_video(args):
+    """A clip from a first frame: the Video API's settings checked against the model's record, the clip kept as a
+    frame of its own (an .mp4) with the same record a picture's frame gets."""
+    check_attempts(args.name, args.past_cap)
+    m = openrouter.video_model(args.model)
+    for name, value, offered in (("resolution", args.resolution, m.get("supported_resolutions")),
+                                 ("aspect", args.aspect, m.get("supported_aspect_ratios")),
+                                 ("duration", args.duration, m.get("supported_durations"))):
+        if offered and value not in offered:
+            sys.exit(f"{args.model} offers {name} {offered}, not {value}")
+    settings = {"resolution": args.resolution, "aspect_ratio": args.aspect, "duration": args.duration}
+    if m.get("generate_audio") is not None:
+        settings["generate_audio"] = False
+    image = resolve_image(args.image)
+    last = resolve_image(args.last_image) if args.last_image else None
+    if last and "last_frame" not in (m.get("supported_frame_images") or []):
+        sys.exit(f"{args.model} takes no last frame")
+    print(f"settings {json.dumps(settings)}", file=sys.stderr)
+    blob, cost, _, usage = openrouter.video_request(args.model, args.prompt, image, settings, last)
+    path, ver = next_path(args.name, "mp4")
+    with open(path, "wb") as f:
+        f.write(blob)
+    append_index({
+        "id": f"{args.name}-v{ver}", "ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "op": "video", "name": args.name,
+        "file": os.path.relpath(path, ROOT), "model": args.model, "settings": settings, "costUsd": cost,
+        "usage": usage, "prompt": args.prompt,
+        "inputs": [snapshot(image, "first frame")] + ([snapshot(last, "last frame")] if last else []),
+    })
+    print(os.path.relpath(path, ROOT))
 
 
 def cmd_credit(args):
@@ -198,6 +272,10 @@ def flags(p):
                    help="aspect ratio (default: the model's own for gen, the first image's nearest for edit)")
     p.add_argument("--model", default=DEFAULT_MODEL, help=f"owner's word only (default {DEFAULT_MODEL})")
     p.add_argument("--quality", default=DEFAULT_QUALITY, help=f"owner's word only (default {DEFAULT_QUALITY})")
+    p.add_argument("--background", default=DEFAULT_BACKGROUND,
+                   help=f"owner's word only (default {DEFAULT_BACKGROUND}, where the model offers it)")
+    p.add_argument("--cells", default=None,
+                   help="JSON list of the asset ids a frame without a layout draws, in the brief's order; kept in its record")
     p.add_argument("--past-cap", action="store_true",
                    help=f"allow more than {MAX_ATTEMPTS} frames under one --name: owner's word only")
 
@@ -220,6 +298,18 @@ def main():
     e.add_argument("--feather", type=int, default=2, help="pixels of blend at the mask edge")
     flags(e)
     e.set_defaults(func=cmd_edit)
+
+    v = sub.add_parser("video", help="a clip from a first frame, through the Video API")
+    v.add_argument("--image", required=True, help="the first frame: path, id or name")
+    v.add_argument("--last-image", default=None, help="the last frame, where the model takes one")
+    v.add_argument("-p", "--prompt", required=True)
+    v.add_argument("--name", required=True, help="generation name, the clip's stem")
+    v.add_argument("--model", default=DEFAULT_VIDEO_MODEL, help=f"default {DEFAULT_VIDEO_MODEL}")
+    v.add_argument("--resolution", default="480p")
+    v.add_argument("--aspect", default="3:2")
+    v.add_argument("--duration", type=int, default=1, help="seconds, as the model offers them")
+    v.add_argument("--past-cap", action="store_true", help=f"allow more than {MAX_ATTEMPTS} clips under one --name")
+    v.set_defaults(func=cmd_video)
 
     sub.add_parser("credit", help="what the key has spent and has left").set_defaults(func=cmd_credit)
 
