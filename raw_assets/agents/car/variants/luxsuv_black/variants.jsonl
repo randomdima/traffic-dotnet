@@ -1,0 +1,2 @@
+{"variant": "luxsuv_black-v1", "frame": "fleet100_b11-v2", "cell": 3, "pxPerM": 90.297, "score": 4, "status": "candidate", "ts": "2026-10-22T14:49:00"}
+{"variant": "luxsuv_black-v2", "frame": "fleet100_b11-v2", "cell": 3, "pxPerM": 90.297, "score": 4, "lampsMirroredFrom": "luxsuv_black-v1", "props": "raw_assets/agents/car/variants/luxsuv_black/luxsuv_black-v1.props.json", "status": "used", "ts": "2026-10-22T14:51:32"}

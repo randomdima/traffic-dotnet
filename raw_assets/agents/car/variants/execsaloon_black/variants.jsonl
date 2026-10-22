@@ -1,0 +1,2 @@
+{"variant": "execsaloon_black-v1", "frame": "fleet100_b11-v2", "cell": 1, "pxPerM": 88.259, "score": 4, "status": "candidate", "ts": "2026-10-22T14:49:00"}
+{"variant": "execsaloon_black-v2", "frame": "fleet100_b11-v2", "cell": 1, "pxPerM": 88.259, "score": 4, "lampsMirroredFrom": "execsaloon_black-v1", "props": "raw_assets/agents/car/variants/execsaloon_black/execsaloon_black-v1.props.json", "status": "used", "ts": "2026-10-22T14:50:51"}

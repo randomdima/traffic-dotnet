@@ -19,9 +19,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   it; the fleet as it is only hides it.
 - **`SheetAtlasTests.TheShippedArtPacksIntoAHandfulOfPages`** (unit) fails: 6 pages against 5 (2026-10-22). Fleet
   batch 5's eight cars, their wrecks and zone maps tipped it (without them in `Fleet.json` it packs into five), and
-  batch 6 still fits the sixth. Each page is 64 MB of sprite memory, and batches 7–11 add about forty more cars. _owner_: paying for a sixth page (and
-  later a seventh), dropping the sixteen legacy looks and nine earlier ones (below) to make room, or holding the fleet
-  at what five pages take closes it.
+  batches 6 to 11 still fit the sixth (the lamp sheet laid four looks a row, `LampAtlas.LooksARow`). Each page is
+  64 MB of sprite memory. _owner_: paying for the sixth page, dropping the sixteen legacy looks and nine earlier ones
+  (below) to make room, or holding the fleet at what five pages take closes it.
 - **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
   the leg it had before the hand" (2026-10-19, the hand's change in hand). Closed by that change.
 - **Four tests fail since the town's arithmetic left libm** (2026-10-20, core log); all four pass on 79dddfaf:
@@ -82,10 +82,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Regressions and figures not taken
 
-- **The fleet plan's last batch is longer than a bay** (`.tmp/gen/fleet_plan.md`, 2026-10-22): batches 5 to 10
-  raised `CarFigures.LongestLengthM` to 4.95 m inside the 5 m bay (`CityGenFigures.BayLengthM`, GEN-53), but batch 11
-  plans cars of 4.94 to 5.91 m, which `SimConfigTests` refuses until the bay outgrows them, and a longer bay changes
-  every town's car parks. Lengthening the bay before batch 11 is scaffolded, or capping the plan under it, closes it.
 - **`loafvan_grey` has no picture** (batch 5, 2026-10-22): `fleet100_b05`'s three attempts drew a modern minivan, a
   loaf tilted side-on and 13 % wide, and a sliver (raw_assets/agents/car/prompting.md), so the car has no variant
   file and batch 5 is eight cars. Asking it again on a later batch's sheet closes it.

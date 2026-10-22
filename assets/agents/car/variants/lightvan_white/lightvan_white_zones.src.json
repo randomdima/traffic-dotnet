@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/lightvan_white/lightvan_white-v2.props.json",
+ "cutOn": "raw_assets/agents/car/variants/lightvan_white/lightvan_white-v2.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

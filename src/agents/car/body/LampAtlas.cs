@@ -10,9 +10,9 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>One row a variant, two columns a lens</b>, and the grid is fixed rather than packed: a lens's cell
-/// is <c>variant</c> down and <c>lens × 2 + offset</c> across, which both the renderer and the bake work
-/// out from numbers they already hold. Nothing is written down beside the picture, so nothing beside the
+/// <b>A block of cells a variant, two columns a lens, a few blocks a row</b>, and the grid is fixed rather than
+/// packed: a lens's cell is <see cref="CellOf"/>, which both the renderer and the bake work out from numbers they
+/// already hold. Nothing is written down beside the picture, so nothing beside the
 /// picture can disagree with it. The cost is the columns an indicator does not use, which is transparent
 /// texels in a sheet a few hundred pixels square.
 /// </para>
@@ -41,8 +41,27 @@ internal static class LampAtlas
     /// <summary>The most lit states one lens can have: a rear cluster's red and white, a beacon end's two colours.</summary>
     public const int StatesPerLens = 2;
 
-    /// <summary>Every lens a variant may draw, at two states each, which is the width of the sheet whatever the fleet holds.</summary>
+    /// <summary>Every lens a variant may draw, at two states each: the cells one look owns, whatever the fleet holds.</summary>
     public const int Columns = CarLamps.MostLenses * StatesPerLens;
+
+    /// <summary>
+    /// How many looks stand side by side in one row of the sheet. A row a look made the sheet one cell a look tall,
+    /// which passed an atlas page's 4096 texels at 103 looks (the hundred-car fleet's batch 10).
+    /// </summary>
+    public const int LooksARow = 4;
+
+    /// <summary>The sheet's width in cells.</summary>
+    public const int SheetColumns = Columns * LooksARow;
+
+    /// <summary>The sheet's height in cells, for a catalogue of <paramref name="looks"/>.</summary>
+    public static int SheetRows(int looks) => (looks + LooksARow - 1) / LooksARow;
+
+    /// <summary>
+    /// The cell a look's lens burns <paramref name="state"/> in: its look's block of <see cref="Columns"/> cells,
+    /// <see cref="LooksARow"/> blocks a row, and within it a column a lens's state.
+    /// </summary>
+    public static (int Column, int Row) CellOf(int variant, int lens, int state) =>
+        ((variant % LooksARow * Columns) + (lens * StatesPerLens) + state, variant / LooksARow);
 
     /// <summary>One cell, as the body it is cut from measures it. The quad every lamp is drawn as.</summary>
     public static float CellM => CellPx / ArtPxPerM;

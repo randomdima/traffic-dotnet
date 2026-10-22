@@ -311,7 +311,7 @@ internal static class Program
         var cut = LampAtlasBake.Write(catalogue, path);
 
         Console.WriteLine($"{path} written — {cut.Count} lenses over {catalogue.SheetCount} looks, " +
-                          $"{LampAtlas.Columns * LampAtlas.CellPx}x{catalogue.SheetCount * LampAtlas.CellPx} px " +
+                          $"{LampAtlas.SheetColumns * LampAtlas.CellPx}x{LampAtlas.SheetRows(catalogue.SheetCount) * LampAtlas.CellPx} px " +
                           $"at {LampAtlas.CellPx} px a cell");
 
         foreach (var lamp in cut.OrderBy(lamp => lamp.Distinct))

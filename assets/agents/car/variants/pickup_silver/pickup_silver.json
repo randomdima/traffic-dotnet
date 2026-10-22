@@ -1,0 +1,31 @@
+{
+  "id": "pickup_silver",
+  "sprite": "pickup_silver.webp",
+  "wreck": { "sprite": "pickup_silver_broken.webp" },
+  "zones": "pickup_silver_zones.png",
+  "describe": "modern double-cab pickup with a hard flat bed cover, good condition, silver, tall square bonnet, double cab, long flat covered bed, tall headlamps, tall tail lamps at the bed's rear corners",
+  "footprintM": [5.330, 2.247],
+  "collisionM": { "sizeM": [5.330, 1.903], "cornerRadiusM": 0.562 },
+  "massKg": 2100,
+  "frontAxleM": 1.765,
+  "rearAxleM": -1.315,
+  "trackM": 2.009,
+  "drivetrain": 2,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.78,
+  "frontWeightShare": 0.58,
+  "handling": { "maxSpeed": 0.85, "acceleration": 0.85, "braking": 0.85 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.519, -0.572], "sizeM": [0.177, 0.333] },
+    { "fitting": "brake", "atM": [-2.519, 0.562], "sizeM": [0.177, 0.333] },
+    { "fitting": "indicator", "atM": [-2.436, -0.791], "sizeM": [0.198, 0.125] },
+    { "fitting": "indicator", "atM": [-2.436, 0.759], "sizeM": [0.198, 0.125] },
+    { "fitting": "reverse", "atM": [-2.54, -0.458], "sizeM": [0.135, 0.114] },
+    { "fitting": "reverse", "atM": [-2.54, 0.458], "sizeM": [0.135, 0.114] },
+    { "fitting": "head", "atM": [2.384, -0.603], "sizeM": [0.208, 0.281] },
+    { "fitting": "head", "atM": [2.405, 0.583], "sizeM": [0.208, 0.281] },
+    { "fitting": "indicator", "atM": [2.269, -0.811], "sizeM": [0.219, 0.114] },
+    { "fitting": "indicator", "atM": [2.29, 0.791], "sizeM": [0.219, 0.114] }
+  ]
+}

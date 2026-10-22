@@ -1,0 +1,39 @@
+{
+  "car": "lightvan_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/lightvan_white/lightvan_white-v1.png", "sizePx": [528, 252]},
+  "axisY": {"rear": 124.50, "front": 126.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "hold": [4], "axisY": 125.0, "mirrorDx": 0.0, "points": [
+      [11.59, 60.00, 0.57],
+      [9.82, 72.03, 1.14],
+      [11.68, 77.62, 2.88],
+      [22.58, 73.26, 0.00],
+      [25.07, 60.00, 0.00]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "hold": [5], "points": [
+      [25.09, 60.00, 0.00],
+      [25.98, 52.02, 0.00],
+      [25.03, 47.86, 0.91],
+      [18.43, 45.58, 2.04],
+      [12.25, 51.28, 0.00],
+      [10.93, 60.00, 0.00]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "pull": "frame", "axisY": 126.0, "mirrorDx": 1.0, "points": [
+      [490.62, 49.41, 0.60],
+      [502.39, 69.97, 0.58],
+      [504.19, 71.26, 1.26],
+      [506.52, 57.97, 0.67],
+      [501.04, 43.40, 0.30],
+      [488.22, 43.76, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 126.0, "mirrorDx": 1.0, "points": [
+      [476.42, 30.17, 0.56],
+      [475.41, 31.75, 0.31],
+      [479.56, 36.00, 3.43],
+      [496.34, 40.89, 1.18],
+      [497.38, 37.44, 0.45],
+      [489.05, 30.80, 0.51]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

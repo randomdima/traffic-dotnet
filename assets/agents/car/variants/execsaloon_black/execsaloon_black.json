@@ -1,0 +1,31 @@
+{
+  "id": "execsaloon_black",
+  "sprite": "execsaloon_black.webp",
+  "wreck": { "sprite": "execsaloon_black_broken.webp" },
+  "zones": "execsaloon_black_zones.png",
+  "describe": "modern executive four-door saloon, good condition, gloss black, long bonnet, cab-rearward roof, short boot, slim headlamps, wide tail lamps at the corners",
+  "footprintM": [4.940, 2.243],
+  "collisionM": { "sizeM": [4.940, 1.903], "cornerRadiusM": 0.634 },
+  "massKg": 1750,
+  "frontAxleM": 1.62,
+  "rearAxleM": -1.32,
+  "trackM": 1.997,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.9,
+  "cgHeightM": 0.53,
+  "frontWeightShare": 0.52,
+  "handling": { "maxSpeed": 1.08, "acceleration": 1.25, "braking": 1.05 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.241, -0.6], "sizeM": [0.281, 0.407] },
+    { "fitting": "brake", "atM": [-2.241, 0.589], "sizeM": [0.281, 0.407] },
+    { "fitting": "indicator", "atM": [-2.282, -0.621], "sizeM": [0.104, 0.136] },
+    { "fitting": "indicator", "atM": [-2.282, 0.631], "sizeM": [0.104, 0.136] },
+    { "fitting": "head", "atM": [2.189, -0.579], "sizeM": [0.229, 0.303] },
+    { "fitting": "head", "atM": [2.189, 0.589], "sizeM": [0.229, 0.303] },
+    { "fitting": "indicator", "atM": [2.053, -0.788], "sizeM": [0.261, 0.136] },
+    { "fitting": "indicator", "atM": [2.053, 0.777], "sizeM": [0.261, 0.136] },
+    { "fitting": "reverse", "atM": [-2.293, -0.454], "sizeM": [0.167, 0.136] },
+    { "fitting": "reverse", "atM": [-2.293, 0.464], "sizeM": [0.167, 0.136] }
+  ]
+}

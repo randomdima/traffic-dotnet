@@ -213,9 +213,10 @@ public class CarBuildTests
             Assert.Equal(lockRad * MathF.PI / 180f, build.MaxSteerRad, 4);
             Assert.Equal(build.WheelbaseM / MathF.Tan(build.MaxSteerRad), build.TurningRadiusM, 3);
 
-            // 7 to 14 m kerb to kerb is where a road vehicle of these sizes actually sits: a two-seat microcar
-            // on under two metres of wheelbase turns in about 7, a van in 12 or more.
-            Assert.InRange(build.TurningCircleM, 7f, 14f);
+            // 7 to 16 m kerb to kerb is where a road vehicle of these sizes actually sits: a two-seat microcar
+            // on under two metres of wheelbase turns in about 7, a van in 12 or more, and a long-wheelbase
+            // high-roof van (bigvan_silver, 3.66 m between the axles) in 14 to 16.
+            Assert.InRange(build.TurningCircleM, 7f, 16f);
         }
     }
 

@@ -126,12 +126,27 @@ public class TracedCarParksTests
 
     static TracedCarParks.Parking Parked(TownMap map) => TracedCarParks.Parked(map, Config);
 
-    /// <summary>How far down the map each aisle running east and west along the car park stands.</summary>
-    static IEnumerable<double> Rungs(TownMap map) =>
-        from road in map.Roads
-        where road.Aisle
-        let first = map.PointM[road.Points[0]]
-        let last = map.PointM[road.Points[^1]]
-        where Math.Abs(first.Y - last.Y) < LineTolerance.OnePlaceM && Math.Abs(first.X - last.X) > WidthM * 0.5
-        select first.Y;
+    /// <summary>
+    /// Where across the car park each of its aisles stands, along whichever way the ladder runs: the lot is square
+    /// enough that the bay's depth decides which bearing ranks the most bays.
+    /// </summary>
+    static IEnumerable<double> Rungs(TownMap map)
+    {
+        var eastWest = Across(map, along: 0, spanM: WidthM).ToList();
+        var northSouth = Across(map, along: 1, spanM: DepthM).ToList();
+        return eastWest.Count >= northSouth.Count ? eastWest : northSouth;
+    }
+
+    /// <summary>Each aisle running the whole way along axis <paramref name="along"/> (0 x, 1 y), by where it stands across.</summary>
+    static IEnumerable<double> Across(TownMap map, int along, float spanM)
+    {
+        foreach (var road in map.Roads.Where(road => road.Aisle))
+        {
+            var (first, last) = (map.PointM[road.Points[0]], map.PointM[road.Points[^1]]);
+            var (fromAlong, fromAcross, toAlong, toAcross) =
+                along == 0 ? (first.X, first.Y, last.X, last.Y) : (first.Y, first.X, last.Y, last.X);
+            if (Math.Abs(fromAcross - toAcross) < LineTolerance.OnePlaceM && Math.Abs(fromAlong - toAlong) > spanM * 0.5)
+                yield return fromAcross;
+        }
+    }
 }

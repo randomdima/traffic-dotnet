@@ -1125,12 +1125,12 @@ internal sealed class CityGenFigures
     /// town draws</b> (<see cref="CarFigures.LongestLengthM"/>, which <c>SimConfigTests</c> holds it to).
     /// </summary>
     /// <remarks>
-    /// <b>Five metres, which is the clearance and nothing else</b> — a bay square to the street is driven
+    /// <b>Six metres, the longest van's clearance and nothing else</b> — a bay square to the street is driven
     /// straight into off its own turn and straight out of again, where what sizes the parallel bay on a kerb
     /// is the reverse into it (<see cref="RoadFigures.ParkingSpaceMarginInCarWidths"/>). A bay any longer is tarmac laid
     /// for nothing and an arm that much further out into the ground behind the street.
     /// </remarks>
-    public float BayLengthM { get; init; } = 5f;
+    public float BayLengthM { get; init; } = 6f;
 
     /// <summary>
     /// <b>The walk between two rows of a car park's bays standing back to back</b> (GEN-53a): a strip of ground

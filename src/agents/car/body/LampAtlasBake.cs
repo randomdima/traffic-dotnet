@@ -140,7 +140,7 @@ internal static class LampAtlasBake
     public static List<CutLamp> Write(CarCatalog catalogue, string path)
     {
         var rows = catalogue.SheetCount;
-        using var atlas = new Image<Rgba32>(LampAtlas.Columns * LampAtlas.CellPx, rows * LampAtlas.CellPx);
+        using var atlas = new Image<Rgba32>(LampAtlas.SheetColumns * LampAtlas.CellPx, LampAtlas.SheetRows(rows) * LampAtlas.CellPx);
         var cut = new List<CutLamp>();
 
         for (var variant = 0; variant < rows; variant++)
@@ -300,8 +300,11 @@ internal static class LampAtlasBake
     }
 
     /// <summary>Where a cell's top-left texel is in the sheet.</summary>
-    static Point CellOf(int variant, int lens, int state) => new(
-        (((lens * LampAtlas.StatesPerLens) + state) * LampAtlas.CellPx), variant * LampAtlas.CellPx);
+    static Point CellOf(int variant, int lens, int state)
+    {
+        var (column, row) = LampAtlas.CellOf(variant, lens, state);
+        return new(column * LampAtlas.CellPx, row * LampAtlas.CellPx);
+    }
 
     /// <summary>
     /// The cut, lit, laid in its cell around the lens centre the variant authored — which is where the

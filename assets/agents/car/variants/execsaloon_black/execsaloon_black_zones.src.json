@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/execsaloon_black/execsaloon_black-v2.props.json",
+ "cutOn": "raw_assets/agents/car/variants/execsaloon_black/execsaloon_black-v2.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

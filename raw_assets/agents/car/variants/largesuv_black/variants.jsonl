@@ -1,0 +1,2 @@
+{"variant": "largesuv_black-v1", "frame": "fleet100_b11-v2", "cell": 2, "pxPerM": 91.717, "score": 4, "status": "candidate", "ts": "2026-10-22T14:49:00"}
+{"variant": "largesuv_black-v2", "frame": "fleet100_b11-v2", "cell": 2, "pxPerM": 91.717, "score": 4, "lampsMirroredFrom": "largesuv_black-v1", "props": "raw_assets/agents/car/variants/largesuv_black/largesuv_black-v1.props.json", "status": "used", "ts": "2026-10-22T14:51:02"}

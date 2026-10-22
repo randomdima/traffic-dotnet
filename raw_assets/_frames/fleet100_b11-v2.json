@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_b11-v2",
+ "ts": "2026-10-22T14:48:51",
+ "op": "edit",
+ "name": "fleet100_b11",
+ "file": ".tmp/gen/frames/fleet100_b11-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.017238,
+ "usage": {
+  "prompt_tokens": 2058,
+  "completion_tokens": 158,
+  "total_tokens": 2216,
+  "cost": 0.017238,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.017238,
+   "upstream_inference_prompt_cost": 0.012498,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nTHE VANS MUST BE LONGER AND SLIMMER. A previous attempt drew every vehicle about the same length, so the three vans (7, 8, 9) came out too wide for their length: car 7 about 12% too wide, car 8 12%, car 9 25%. One shared scale means car 9 (5.91 m) is drawn a fifth longer than car 1 (4.94 m), filling its place end to end, while staying no wider than the SUVs. Draw every body to its listed proportion; leave spare room empty rather than filling it with a wider vehicle.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from above, orthographic. No perspective, no side of the body showing, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe cars in the picture only show the style: draw the cars listed, in their own colours.\n- Lamps switched off (unlit glass, no glow). Front corner: a headlamp and, beside it, a separate amber indicator. Rear corner: three separate small lenses side by side, each in its own thin dark frame, as distinct as the front's — red tail and brake lamp outermost, amber indicator next, white reversing lamp innermost. The rear indicator is the same amber as the front one and as large, plainly not red. Never one merged red cluster, never a light bar across the car.\n- Condition shows only in the paint (faded colour, rust spots, a panel in another shade); the body outline is whole.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.94 × 1.87 m (2.64× longer than wide), gently rounded corners — modern executive four-door saloon, good condition, gloss black, long bonnet, cab-rearward roof, short boot, slim headlamps, wide tail lamps at the corners; each rear lamp with a separate amber indicator lens and a white reversing lens\n2. 4.95 × 1.98 m (2.50× longer than wide), gently rounded corners — modern large body-on-frame SUV, good condition, black, long square bonnet, tall flat roof with roof rails, upright tailgate, large headlamps, tall tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n3. 5.05 × 2.05 m (2.46× longer than wide), gently rounded corners — new luxury SUV, gloss black, long flat bonnet, floating flat roof, short upright tail, slim headlamps, slim tail lamps at each rear corner; each rear lamp with a separate amber indicator lens and a white reversing lens\n4. 5.14 × 1.93 m (2.66× longer than wide), gently rounded corners — new luxury people van, gloss black, short sloping bonnet, long tall body with a flat roof, tinted glass, big tailgate, slim headlamps, tall tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n5. 5.18 × 1.92 m (2.70× longer than wide), gently rounded corners — new luxury limousine saloon, gloss black, very long bonnet, long cabin, short boot, chrome strip round the windows, slim headlamps, slim wide tail lamps at the corners; each rear lamp with a separate amber indicator lens and a white reversing lens\n6. 5.33 × 1.86 m (2.87× longer than wide), gently rounded corners — modern double-cab pickup with a hard flat bed cover, good condition, silver, tall square bonnet, double cab, long flat covered bed, tall headlamps, tall tail lamps at the bed's rear corners; each rear lamp with a separate amber indicator lens and a white reversing lens\n7. 5.41 × 2.05 m (2.64× longer than wide), nearly square corners — modern high-roof panel van, average condition, white, short sloping bonnet, very tall flat roof, two square rear doors, large headlamps, tall narrow tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens. About 12% too wide last time: a long, narrow van.\n8.5.50 × 2.07 m (2.66× longer than wide), nearly square corners — 2000s Russian light commercial van, worn: dull white paint, rust at the wheel arches and door edges, a short bonnet, tall boxy cab and body, flat roof, two square rear doors, rectangular headlamps, small square tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens. About 12% too wide last time: a long, narrow van.\n9.5.91 × 1.99 m (2.97× longer than wide), nearly square corners — large high-roof panel van, average condition, silver, short sloping bonnet, very long tall body with a flat roof, two square rear doors, large headlamps, tall narrow tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens. About 25% too wide last time: it is nearly three times as long as it is wide, the longest and slimmest shape on the sheet.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "5b710d0458948e6d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_b11_style.png"
+  }
+ ],
+ "cells": [
+  "execsaloon_black",
+  "largesuv_black",
+  "luxsuv_black",
+  "luxvan_black",
+  "luxsaloon_black",
+  "pickup_silver",
+  "hightopvan_white",
+  "lightvan_white",
+  "bigvan_silver"
+ ]
+}

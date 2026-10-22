@@ -1478,8 +1478,9 @@ carriageway is moved onto its driven half (`RoadStage.OntoTheDrivenHalf`), so a 
 line stood the far rank a lane and a half off its kerb and the near one a metre. It is measured off the lane,
 read off `RoadStage.DrivenHalfM`, the one site that moves the carriageway (`CarParks.LaneTowardM`).
 
-**The bay is five metres** (`CityGenFigures.BayLengthM`) against the longest vehicle the catalogue draws, the
-recovery truck's 4.40 m. The plan is laid before a car exists, so `CarCatalogTests` and `SimConfigTests` gate
+**The bay is six metres** (`CityGenFigures.BayLengthM`, the owner's go-ahead of 2026-10-22) against the longest
+vehicle the catalogue draws, the hundred-car fleet's 5.91 m panel van; it was five against a 4.40 m recovery truck
+until the fleet grew past it. The plan is laid before a car exists, so `CarCatalogTests` and `SimConfigTests` gate
 the pair rather than a derivation.
 
 **The bound on the bend is the drift from the rank's line.** A rank is laid off the tangent at its middle, and

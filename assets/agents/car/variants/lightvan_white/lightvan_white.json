@@ -1,0 +1,31 @@
+{
+  "id": "lightvan_white",
+  "sprite": "lightvan_white.webp",
+  "wreck": { "sprite": "lightvan_white_broken.webp" },
+  "zones": "lightvan_white_zones.png",
+  "describe": "2000s Russian light commercial van, worn: dull white paint, rust at the wheel arches and door edges, a short bonnet, tall boxy cab and body, flat roof, two square rear doors, rectangular headlamps, small square tail lamps",
+  "footprintM": [5.500, 2.621],
+  "collisionM": { "sizeM": [5.500, 2.259], "cornerRadiusM": 0.697 },
+  "massKg": 2100,
+  "frontAxleM": 1.7,
+  "rearAxleM": -1.2,
+  "trackM": 2.358,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.76,
+  "cgHeightM": 0.85,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.7, "acceleration": 0.62, "braking": 0.75 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.573, -0.582], "sizeM": [0.167, 0.198] },
+    { "fitting": "brake", "atM": [-2.573, 0.562], "sizeM": [0.167, 0.198] },
+    { "fitting": "indicator", "atM": [-2.562, -0.77], "sizeM": [0.156, 0.156] },
+    { "fitting": "indicator", "atM": [-2.562, 0.728], "sizeM": [0.156, 0.156] },
+    { "fitting": "head", "atM": [2.438, -0.718], "sizeM": [0.188, 0.291] },
+    { "fitting": "head", "atM": [2.448, 0.718], "sizeM": [0.188, 0.291] },
+    { "fitting": "indicator", "atM": [2.312, -0.936], "sizeM": [0.24, 0.125] },
+    { "fitting": "indicator", "atM": [2.333, 0.936], "sizeM": [0.24, 0.125] },
+    { "fitting": "reverse", "atM": [-2.583, -0.52], "sizeM": [0.146, 0.073] },
+    { "fitting": "reverse", "atM": [-2.583, 0.499], "sizeM": [0.146, 0.073] }
+  ]
+}

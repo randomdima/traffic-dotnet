@@ -105,6 +105,15 @@
     "../vanbus_white/vanbus_white.json",
     "../premsuv_white/premsuv_white.json",
     "../premsuv_black/premsuv_black.json",
-    "../premestate_grey/premestate_grey.json"
+    "../premestate_grey/premestate_grey.json",
+    "../execsaloon_black/execsaloon_black.json",
+    "../largesuv_black/largesuv_black.json",
+    "../luxsuv_black/luxsuv_black.json",
+    "../luxvan_black/luxvan_black.json",
+    "../luxsaloon_black/luxsaloon_black.json",
+    "../pickup_silver/pickup_silver.json",
+    "../hightopvan_white/hightopvan_white.json",
+    "../lightvan_white/lightvan_white.json",
+    "../bigvan_silver/bigvan_silver.json"
   ]
 }

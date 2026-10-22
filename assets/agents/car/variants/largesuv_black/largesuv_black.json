@@ -1,0 +1,31 @@
+{
+  "id": "largesuv_black",
+  "sprite": "largesuv_black.webp",
+  "wreck": { "sprite": "largesuv_black_broken.webp" },
+  "zones": "largesuv_black_zones.png",
+  "describe": "modern large body-on-frame SUV, good condition, black, long square bonnet, tall flat roof with roof rails, upright tailgate, large headlamps, tall tail lamps",
+  "footprintM": [4.950, 2.322],
+  "collisionM": { "sizeM": [4.950, 1.973], "cornerRadiusM": 0.643 },
+  "massKg": 2600,
+  "frontAxleM": 1.575,
+  "rearAxleM": -1.375,
+  "trackM": 2.077,
+  "drivetrain": 2,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.82,
+  "frontWeightShare": 0.54,
+  "handling": { "maxSpeed": 0.92, "acceleration": 0.95, "braking": 0.9 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.287, -0.557], "sizeM": [0.198, 0.323] },
+    { "fitting": "brake", "atM": [-2.287, 0.567], "sizeM": [0.198, 0.323] },
+    { "fitting": "head", "atM": [2.194, -0.609], "sizeM": [0.208, 0.312] },
+    { "fitting": "head", "atM": [2.194, 0.64], "sizeM": [0.208, 0.312] },
+    { "fitting": "indicator", "atM": [2.089, -0.807], "sizeM": [0.219, 0.115] },
+    { "fitting": "indicator", "atM": [2.11, 0.817], "sizeM": [0.219, 0.115] },
+    { "fitting": "indicator", "atM": [-2.225, -0.765], "sizeM": [0.219, 0.135] },
+    { "fitting": "indicator", "atM": [-2.225, 0.776], "sizeM": [0.219, 0.135] },
+    { "fitting": "reverse", "atM": [-2.329, -0.453], "sizeM": [0.135, 0.115] },
+    { "fitting": "reverse", "atM": [-2.329, 0.463], "sizeM": [0.135, 0.115] }
+  ]
+}

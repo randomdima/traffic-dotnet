@@ -80,6 +80,10 @@ same three cars taken whole from their frame (`--style-whole`), mirrors not clip
   (at 85–93 px/m, the sheet drawn smaller). v2's coupe drew its "three-bar tail lamps" as glyph-like marks, so it was
   kept from v1. "Covered spare wheel on the tailgate" draws a black wheel standing proud of the tail.
   `fleet100_b10-v1` fitted seven of nine (two at +9–10 %, score 3) in one roll.
+- **A sheet spanning 4.9 to 5.9 m draws every vehicle the same length** (`fleet100_b11-v1`, 2026-10-22): the model
+  filled each place end to end, so the 5.4–5.9 m vans, scaled to their length, came out 12–25 % wide. v2 opened on
+  "THE VANS MUST BE LONGER AND SLIMMER … car 9 (5.91 m) is drawn a fifth longer than car 1 (4.94 m) … no wider than
+  the SUVs" and fitted eight of nine (`lightvan_white` +9 %), the vans at 77–89 px/m, under the art grid.
 - **"Forward-control loaf minibus" is not drawn from words** (`fleet100_b05`, `loafvan_grey`). v1 drew a modern
   minivan with a ribbed roof and a short bonnet; v2, told "no bonnet at all … one smooth dome … like a loaf of bread",
   drew the loaf, but tilted with a row of side windows showing and 13 % wide; a mask redo of its cell (v3) drew only a

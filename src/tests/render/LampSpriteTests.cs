@@ -66,7 +66,10 @@ public class LampSpriteTests
         return fleet;
     }
 
-    /// <summary>Which cells of the sheet these instances drew, as a column and a row apiece.</summary>
+    /// <summary>
+    /// Which cells of the sheet these instances drew, read back through <see cref="LampAtlas.CellOf"/>: the column
+    /// within its look's block (a lens's state) and the look it is (<c>Row</c>).
+    /// </summary>
     static HashSet<(int Column, int Row)> CellsOf(SpriteInstance[] drawn, int written)
     {
         var cells = new HashSet<(int, int)>();
@@ -74,7 +77,8 @@ public class LampSpriteTests
         {
             if (drawn[lamp].Sheet == GlowSheet) continue;
 
-            cells.Add((drawn[lamp].Cell.Column, drawn[lamp].Cell.Row));
+            var cell = drawn[lamp].Cell;
+            cells.Add((cell.Column % LampAtlas.Columns, (cell.Row * LampAtlas.LooksARow) + (cell.Column / LampAtlas.Columns)));
         }
 
         return cells;
@@ -245,11 +249,11 @@ public class LampSpriteTests
             }
 
             Assert.Equal((uint)LensSheet, drawn[lamp].Sheet);
-            Assert.Equal(LampAtlas.Columns, drawn[lamp].Cell.Columns);
-            Assert.Equal(rows, drawn[lamp].Cell.Rows);
+            Assert.Equal(LampAtlas.SheetColumns, drawn[lamp].Cell.Columns);
+            Assert.Equal(LampAtlas.SheetRows(rows), drawn[lamp].Cell.Rows);
         }
 
-        // Every cell is this car's own row, and the lamps lit are the rear pair braking (the first
+        // Every cell is this car's own block, and the lamps lit are the rear pair braking (the first
         // column of each), the indicator on the side it is turning to — its right, the fourth lens —
         // and the two ends of each of its two bars.
         var cells = CellsOf(drawn, written);

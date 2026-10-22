@@ -1,0 +1,2 @@
+{"variant": "bigvan_silver-v1", "frame": "fleet100_b11-v2", "cell": 9, "pxPerM": 89.171, "score": 4, "status": "candidate", "ts": "2026-10-22T14:49:00"}
+{"variant": "bigvan_silver-v2", "frame": "fleet100_b11-v2", "cell": 9, "pxPerM": 89.171, "score": 4, "lampsMirroredFrom": "bigvan_silver-v1", "props": "raw_assets/agents/car/variants/bigvan_silver/bigvan_silver-v1.props.json", "status": "used", "ts": "2026-10-22T14:51:52"}

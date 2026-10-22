@@ -1,0 +1,31 @@
+{
+  "id": "luxsaloon_black",
+  "sprite": "luxsaloon_black.webp",
+  "wreck": { "sprite": "luxsaloon_black_broken.webp" },
+  "zones": "luxsaloon_black_zones.png",
+  "describe": "new luxury limousine saloon, gloss black, very long bonnet, long cabin, short boot, chrome strip round the windows, slim headlamps, slim wide tail lamps at the corners",
+  "footprintM": [5.180, 2.111],
+  "collisionM": { "sizeM": [5.180, 1.785], "cornerRadiusM": 0.599 },
+  "massKg": 2050,
+  "frontAxleM": 1.64,
+  "rearAxleM": -1.44,
+  "trackM": 1.899,
+  "drivetrain": 0,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.9,
+  "cgHeightM": 0.54,
+  "frontWeightShare": 0.52,
+  "handling": { "maxSpeed": 1.1, "acceleration": 1.25, "braking": 1.05 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.392, -0.556], "sizeM": [0.271, 0.385] },
+    { "fitting": "brake", "atM": [-2.392, 0.546], "sizeM": [0.271, 0.385] },
+    { "fitting": "indicator", "atM": [-2.423, -0.577], "sizeM": [0.073, 0.094] },
+    { "fitting": "indicator", "atM": [-2.423, 0.567], "sizeM": [0.073, 0.094] },
+    { "fitting": "head", "atM": [2.34, -0.577], "sizeM": [0.208, 0.26] },
+    { "fitting": "head", "atM": [2.35, 0.567], "sizeM": [0.208, 0.26] },
+    { "fitting": "indicator", "atM": [2.215, -0.754], "sizeM": [0.208, 0.104] },
+    { "fitting": "indicator", "atM": [2.225, 0.744], "sizeM": [0.208, 0.104] },
+    { "fitting": "reverse", "atM": [-2.455, -0.432], "sizeM": [0.146, 0.135] },
+    { "fitting": "reverse", "atM": [-2.455, 0.421], "sizeM": [0.146, 0.135] }
+  ]
+}

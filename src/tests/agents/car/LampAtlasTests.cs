@@ -95,8 +95,8 @@ public class LampAtlasTests
     {
         var atlas = Image.Identify(ProjectPaths.LampAtlasFile()).Size;
 
-        Assert.Equal(LampAtlas.Columns * LampAtlas.CellPx, atlas.Width);
-        Assert.Equal(Catalogue.SheetCount * LampAtlas.CellPx, atlas.Height);
+        Assert.Equal(LampAtlas.SheetColumns * LampAtlas.CellPx, atlas.Width);
+        Assert.Equal(LampAtlas.SheetRows(Catalogue.SheetCount) * LampAtlas.CellPx, atlas.Height);
     }
 
     /// <summary>
@@ -174,12 +174,12 @@ public class LampAtlasTests
                 var burnt = 0;
                 for (var state = 0; state < LampAtlas.StatesOf(fitting); state++)
                 {
-                    var cellX = ((lens * LampAtlas.StatesPerLens) + state) * LampAtlas.CellPx;
+                    var (column, sheetRow) = LampAtlas.CellOf(row, lens, state);
                     for (var y = 0; y < LampAtlas.CellPx; y++)
                     {
                         for (var x = 0; x < LampAtlas.CellPx; x++)
                         {
-                            if (sheet[cellX + x, (row * LampAtlas.CellPx) + y].A == 0) continue;
+                            if (sheet[(column * LampAtlas.CellPx) + x, (sheetRow * LampAtlas.CellPx) + y].A == 0) continue;
 
                             burnt++;
                             Assert.True(

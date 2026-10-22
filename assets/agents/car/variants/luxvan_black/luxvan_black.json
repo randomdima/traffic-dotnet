@@ -1,0 +1,31 @@
+{
+  "id": "luxvan_black",
+  "sprite": "luxvan_black.webp",
+  "wreck": { "sprite": "luxvan_black_broken.webp" },
+  "zones": "luxvan_black_zones.png",
+  "describe": "new luxury people van, gloss black, short sloping bonnet, long tall body with a flat roof, tinted glass, big tailgate, slim headlamps, tall tail lamps",
+  "footprintM": [5.140, 2.354],
+  "collisionM": { "sizeM": [5.140, 2.005], "cornerRadiusM": 0.629 },
+  "massKg": 2200,
+  "frontAxleM": 1.72,
+  "rearAxleM": -1.52,
+  "trackM": 2.1,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.84,
+  "cgHeightM": 0.76,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.92, "acceleration": 0.95, "braking": 0.95 },
+  "lamps": [
+    { "fitting": "brake", "atM": [-2.361, -0.594], "sizeM": [0.219, 0.344] },
+    { "fitting": "brake", "atM": [-2.361, 0.594], "sizeM": [0.219, 0.344] },
+    { "fitting": "indicator", "atM": [-2.382, -0.656], "sizeM": [0.094, 0.156] },
+    { "fitting": "indicator", "atM": [-2.382, 0.656], "sizeM": [0.094, 0.156] },
+    { "fitting": "head", "atM": [2.299, -0.615], "sizeM": [0.229, 0.323] },
+    { "fitting": "head", "atM": [2.32, 0.615], "sizeM": [0.229, 0.323] },
+    { "fitting": "indicator", "atM": [2.174, -0.823], "sizeM": [0.229, 0.135] },
+    { "fitting": "indicator", "atM": [2.184, 0.802], "sizeM": [0.229, 0.135] },
+    { "fitting": "reverse", "atM": [-2.278, -0.781], "sizeM": [0.24, 0.115] },
+    { "fitting": "reverse", "atM": [-2.278, 0.781], "sizeM": [0.24, 0.115] }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "car": "bigvan_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/bigvan_silver/bigvan_silver-v1.png", "sizePx": [567, 227]},
+  "axisY": {"rear": 113.50, "front": 114.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "hold": [3], "axisY": 114.5, "mirrorDx": 0.0, "points": [
+      [9.67, 41.61, 1.63],
+      [8.11, 72.06, 0.00],
+      [18.62, 71.81, 0.00],
+      [21.20, 39.64, 0.00]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "hold": [3], "axisY": 113.5, "mirrorDx": 1.0, "points": [
+      [21.50, 39.73, -1.62],
+      [28.82, 32.02, 2.30],
+      [17.67, 33.37, 0.31],
+      [13.68, 41.15, 0.00]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 114.0, "mirrorDx": 1.0, "points": [
+      [532.54, 40.52, -0.38],
+      [541.69, 60.41, 0.23],
+      [544.49, 65.11, 0.85],
+      [548.47, 65.34, 3.08],
+      [548.90, 45.66, 0.23],
+      [544.57, 39.58, 0.05],
+      [537.76, 38.18, 0.27],
+      [533.31, 38.31, 0.49]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "points": [
+      [522.92, 26.78, 0.65],
+      [521.03, 29.19, 4.10],
+      [539.67, 37.69, 1.07],
+      [541.24, 33.16, 1.79],
+      [529.90, 26.48, 0.08]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

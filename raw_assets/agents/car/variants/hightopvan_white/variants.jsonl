@@ -1,0 +1,2 @@
+{"variant": "hightopvan_white-v1", "frame": "fleet100_b11-v2", "cell": 7, "pxPerM": 85.213, "score": 4, "status": "candidate", "ts": "2026-10-22T14:49:00"}
+{"variant": "hightopvan_white-v2", "frame": "fleet100_b11-v2", "cell": 7, "pxPerM": 85.213, "score": 4, "lampsMirroredFrom": "hightopvan_white-v1", "props": "raw_assets/agents/car/variants/hightopvan_white/hightopvan_white-v1.props.json", "status": "used", "ts": "2026-10-22T14:51:33"}

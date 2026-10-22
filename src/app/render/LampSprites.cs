@@ -149,10 +149,13 @@ internal static class LampSprites
 
     /// <summary>
     /// The cell of the lens sheet a lens burning in <paramref name="state"/> is cut into (<see cref="LampAtlas"/>):
-    /// a column a lens's state, a row a look.
+    /// <see cref="LampAtlas.CellOf"/> in a sheet of <paramref name="looks"/>.
     /// </summary>
-    public static SpriteCell LensCell(int variant, int lens, int state, int rows) =>
-        SpriteCell.Of((lens * LampAtlas.StatesPerLens) + state, variant, LampAtlas.Columns, rows);
+    public static SpriteCell LensCell(int variant, int lens, int state, int looks)
+    {
+        var (column, row) = LampAtlas.CellOf(variant, lens, state);
+        return SpriteCell.Of(column, row, LampAtlas.SheetColumns, LampAtlas.SheetRows(looks));
+    }
 
     /// <summary>
     /// The light around a lit one: white, opaque across its core and fading out to nothing at its rim.
