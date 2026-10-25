@@ -27,7 +27,7 @@ public class RailwayTests
     public void NoJunctionStandsWithinItsClearanceOfTheBallast()
     {
         var ground = new GroundShapes(Plan.Paving(Config), Config);
-        var clearM = Lattice.CorridorM(Config) + Config.Rail.JunctionClearanceM;
+        var clearM = TownGen.CorridorM(Config, 1) + Config.Rail.JunctionClearanceM;
         Assert.NotEmpty(Plan.Rails.PointM);
 
         for (var junction = 0; junction < Plan.Junctions.Count; junction++)
@@ -71,8 +71,8 @@ public class RailwayTests
     [Fact]
     public void AnAuthoredTrackBendsNoTighterThanItsLeastRadius()
     {
-        var draw = new Rng(Towns.CitySeed, Streams.Railway);
-        var tracks = RailLines.Author(Towns.Brief(Towns.CitySeed, railTracks: 1) , Config, ref draw);
+        var draw = new Rng(Towns.CitySeed, Streams.Connectors);
+        var tracks = RailLines.Author(new Vector2(2400f, 1800f), new Vector2(1200f, 900f), 25f * MathF.PI / 180f, 1, 0f, 0.15f, 0, Config, ref draw);
         var lineM = tracks.TrackOf(0);
 
         // The radius of the circle through three points a chord apart, which on a smooth line is its radius there.

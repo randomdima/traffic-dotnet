@@ -211,13 +211,16 @@ public class AtlasKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     /// <summary>
     /// <b>A prop the device finds on a driven way is refused</b>, as the host's check refuses it (TER-4c.4): a prop stood on
-    /// the middle of a lane of the fixture town, named with that lane's way.
+    /// the middle of a lane of the fixture town on the ground — none of a bridge's, which stands over it — named with that
+    /// lane's way.
     /// </summary>
     [Fact]
     public void APropOnADrivenWayIsRefusedOnTheDeviceAsOnTheHost()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
-        var lane = Spline.SampleAt(world.Roads.ArcsOf(0), world.Roads.LaneLengthM[0] * 0.5f).PositionM;
+        var plan = Towns.Of(Towns.Fixture);
+        using var world = new TownWorld(plan, Config);
+        var onTheGround = Enumerable.Range(0, world.Roads.LaneCount).First(at => !plan.Bridges.Road.Contains(world.Roads.LaneRoad[at]));
+        var lane = Spline.SampleAt(world.Roads.ArcsOf(onTheGround), world.Roads.LaneLengthM[onTheGround] * 0.5f).PositionM;
         var furniture = new AtlasFurniture([new Vector2(-1e4f), lane], [0.3f, 0.3f], 2, Driven(world));
 
         var refused = Assert.Throws<InvalidOperationException>(() => Filed(world, furniture).Dispose());
@@ -315,9 +318,12 @@ public class AtlasKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         {
             var alongM = box.Forward * (box.HalfLengthM - (stepM * 0.5f));
             var acrossM = Heading.RightOf(box.Forward) * (box.HalfWidthM - (stepM * 0.5f));
-            return new WheelsRow(
-                box.CentreM + alongM + acrossM, box.CentreM + alongM - acrossM, box.CentreM - alongM + acrossM,
-                box.CentreM - alongM - acrossM, box.HalfLengthM * 0.3f, box.Channels);
+            return WheelsRow.Of(
+                [
+                    box.CentreM + alongM + acrossM, box.CentreM + alongM - acrossM, box.CentreM - alongM + acrossM,
+                    box.CentreM - alongM - acrossM,
+                ],
+                box.HalfLengthM * 0.3f, box.Channels);
         }),
     ];
 
@@ -341,15 +347,15 @@ public class AtlasKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         var onTheDevice = covers.Span<WayCover>().ToArray();
 
         Span<WayCover> host = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        Span<Vector2> wheelsM = stackalloc Vector2[4];
         var differ = new List<string>();
         var overMore = 0;
         for (var at = 0; at < cars.Length; at++)
         {
             var car = cars[at];
-            (wheelsM[0], wheelsM[1], wheelsM[2], wheelsM[3]) = (car.Wheel0M, car.Wheel1M, car.Wheel2M, car.Wheel3M);
+            var points = car.WheelsM;
+            ReadOnlySpan<Vector2> wheelsM = points;
             var droppedBefore = atlas.Dropped;
-            var count = atlas.UnderWheels(wheelsM, car.AroundAWheelM, host, out var onAWay, (byte)car.Channels);
+            var count = atlas.UnderWheels(wheelsM[..car.Wheels], car.AroundAWheelM, host, out var onAWay, (byte)car.Channels);
             var dropped = atlas.Dropped - droppedBefore;
 
             var onDevice = onTheDevice.AsSpan(at * RibbonAtlas.MostWaysUnderABody, (int)Math.Min(found[at].X, (uint)RibbonAtlas.MostWaysUnderABody));

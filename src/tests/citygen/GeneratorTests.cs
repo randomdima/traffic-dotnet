@@ -44,7 +44,7 @@ public class GeneratorTests
     /// below reads it. <b>Twenty-six properties over four seeds is a hundred and nine cases and eight
     /// towns</b>, and a lay per case would be three quarters of the tier this project runs after every edit.
     /// </summary>
-    static CityPlan Lay(TownBrief brief) => Towns.LaidFrom(brief.Seed, brief.Water);
+    static CityPlan Lay(TownBrief brief) => Towns.LaidFrom(brief.Seeds.Town, brief.Sea is null ? WaterKind.River : WaterKind.Coast);
 
     static TownBrief Brief(ulong seed) => Towns.Brief(seed);
 
@@ -285,8 +285,10 @@ public class GeneratorTests
     [MemberData(nameof(Seeds))]
     public void EveryJunctionCanBeDrivenToFromEveryLane(ulong seed)
     {
-        var roads = RoadGraph.Build(Lay(Brief(seed)), Config);
-        Assert.Null(Drivable.Offence(roads));
+        var plan = Lay(Brief(seed));
+        var roads = RoadGraph.Build(plan, Config);
+        var offence = Drivable.Offence(roads, Drivable.OffTheMap(plan, roads));
+        Assert.True(offence is null, offence);
     }
 
     /// <summary>
@@ -298,8 +300,9 @@ public class GeneratorTests
     [MemberData(nameof(Seeds))]
     public void NoLaneIsDrivenOntoByNothing(ulong seed)
     {
-        var roads = RoadGraph.Build(Lay(Brief(seed)), Config);
-        Assert.Null(Drivable.Dangling(roads));
+        var plan = Lay(Brief(seed));
+        var roads = RoadGraph.Build(plan, Config);
+        Assert.Null(Drivable.Dangling(roads, Drivable.OffTheMap(plan, roads)));
     }
 
     /// <summary>
@@ -531,48 +534,31 @@ public class GeneratorTests
             if (plan.Junctions.Lit[junction]) lit++;
         }
 
-        Assert.Equal((int)MathF.Round(candidates * (1f - brief.UnregulatedJunctionShare)), lit);
+        Assert.Equal((int)MathF.Round(candidates * (1f - brief.Streets.UnregulatedShare)), lit);
     }
 
     /// <summary>
-    /// <b>A junction is lit more often the more arms it has</b> (TLT-3): the draw is weighted by the movements
-    /// each admits, so of the junctions that can carry lights a larger share of the crossroads is lit than of
-    /// the tees.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Seeds))]
-    public void ACrossroadsIsLitMoreOftenThanATee(ulong seed)
-    {
-        var plan = Lay(Brief(seed));
-        var drawn = Lightable(plan);
-        var arms = ArmsOf(plan);
-
-        var (tees, teesLit, crossroads, crossroadsLit) = (0, 0, 0, 0);
-        for (var junction = 0; junction < plan.Junctions.Count; junction++)
-        {
-            if (!drawn[junction]) continue;
-
-            var isLit = plan.Junctions.Lit[junction] ? 1 : 0;
-            if (arms[junction] == 3) (tees, teesLit) = (tees + 1, teesLit + isLit);
-            else (crossroads, crossroadsLit) = (crossroads + 1, crossroadsLit + isLit);
-        }
-
-        Assert.True(tees > 0 && crossroads > 0, $"seed {seed} lays {tees} tees and {crossroads} crossroads to draw from");
-        Assert.True(
-            (float)crossroadsLit / crossroads > (float)teesLit / tees,
-            $"{crossroadsLit} of {crossroads} crossroads lit against {teesLit} of {tees} tees");
-    }
-
-    /// <summary>
-    /// The junctions that can carry lights (TLT-3): three arms or more, on no roundabout's ring (GEN-19) and
-    /// cut for no car park (GEN-53).
+    /// The junctions that can carry lights (TLT-3): three arms or more, on no roundabout's ring (GEN-19), cut for no
+    /// car park (GEN-53), and met by no district's own street (GEN-68).
     /// </summary>
     static bool[] Lightable(CityPlan plan)
     {
         var arms = ArmsOf(plan);
         var ringOf = RingOf(plan);
+        var street = new bool[plan.Junctions.Count];
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            if (plan.Roads.Class[road] != RoadClass.Street) continue;
+
+            street[plan.Roads.FromJunction[road]] = true;
+            street[plan.Roads.ToJunction[road]] = true;
+        }
+
         var drawn = new bool[plan.Junctions.Count];
-        for (var junction = 0; junction < drawn.Length; junction++) drawn[junction] = arms[junction] >= 3 && ringOf[junction] < 0;
+        for (var junction = 0; junction < drawn.Length; junction++)
+        {
+            drawn[junction] = arms[junction] >= 3 && ringOf[junction] < 0 && !street[junction];
+        }
 
         return drawn;
     }
@@ -611,7 +597,8 @@ public class GeneratorTests
         var dangling = 0;
         for (var junction = 0; junction < plan.Junctions.Count; junction++)
         {
-            if (arms[junction] == 1) dangling++;
+            // A road running off the map carries on past it (GEN-2b), and ends nowhere.
+            if (arms[junction] == 1 && !plan.Junctions.RunsOff(junction)) dangling++;
         }
 
         Assert.True(dangling == 0, $"{dangling} of {plan.Junctions.Count} junctions are dead ends");

@@ -12,7 +12,8 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <para>
 /// <b>What can carry lights</b> is a junction of <see cref="ArmsLeast"/> arms or more that is not on a
 /// roundabout's ring: fewer arms admit no movements to conflict, and a ring's circulating traffic is driven
-/// over what is entering by the ranking alone (GEN-19).
+/// over what is entering by the ranking alone (GEN-19). <b>And only where roads between districts or above meet</b>
+/// (GEN-68): a junction a district's own street meets is run by the ranking, the street giving way.
 /// </para>
 /// <para>
 /// <b>How many is the map's</b> (<see cref="Zones.ZoneParam.UnregulatedShare"/>), and exactly that many are
@@ -34,12 +35,21 @@ internal static class LitJunctions
 
     public static Drawn Draw(TownLayout layout, float unregulatedShare, SimConfig config, ref Rng draw)
     {
-        var count = layout.NodeM.Count;
-        var lit = new bool[count];
-        var offsetS = new float[count];
-        var arms = layout.Arms();
-        var barred = Unlightable(layout);
+        var lit = Picked(layout.Arms(), Unlightable(layout), unregulatedShare, ref draw);
+        var offsetS = new float[lit.Length];
+        for (var junction = 0; junction < lit.Length; junction++)
+        {
+            if (lit[junction]) offsetS[junction] = draw.NextFloat(0f, config.Signals.CycleS);
+        }
 
+        return new Drawn(lit, offsetS);
+    }
+
+    /// <summary>Which junctions are lit, of those of <paramref name="arms"/> enough and not <paramref name="barred"/>: the weighted draw alone.</summary>
+    internal static bool[] Picked(int[] arms, bool[] barred, float unregulatedShare, ref Rng draw)
+    {
+        var count = arms.Length;
+        var lit = new bool[count];
         var candidates = new List<int>();
         var keys = new List<float>();
         for (var junction = 0; junction < count; junction++)
@@ -58,24 +68,22 @@ internal static class LitJunctions
         var lighting = (int)MathF.Round(order.Length * (1f - unregulatedShare));
         for (var at = order.Length - lighting; at < order.Length; at++) lit[order[at]] = true;
 
-        for (var junction = 0; junction < count; junction++)
-        {
-            if (lit[junction]) offsetS[junction] = draw.NextFloat(0f, config.Signals.CycleS);
-        }
-
-        return new Drawn(lit, offsetS);
+        return lit;
     }
 
     /// <summary>How many movements a junction of this many arms admits: every arm to every other.</summary>
     static int Movements(int arms) => arms * (arms - 1);
 
-    /// <summary>The nodes a roundabout's ring stands on. A car park's bays stand on nodes nothing else meets at.</summary>
+    /// <summary>
+    /// The nodes a roundabout's ring stands on, and those a district's own street meets (GEN-68). A car park's bays stand
+    /// on nodes nothing else meets at.
+    /// </summary>
     static bool[] Unlightable(TownLayout layout)
     {
         var barred = new bool[layout.NodeM.Count];
         foreach (var edge in layout.Edges)
         {
-            if (edge.Class != RoadClass.Roundabout) continue;
+            if (edge.Class is not (RoadClass.Roundabout or RoadClass.Street)) continue;
 
             barred[edge.From] = true;
             barred[edge.To] = true;

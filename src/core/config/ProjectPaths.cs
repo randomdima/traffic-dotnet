@@ -44,8 +44,14 @@ internal static class ProjectPaths
         return maps;
     }
 
-    /// <summary>A brief a map is authored from (<c>--author</c>): a seed and the intent, never read when a map is opened.</summary>
+    /// <summary>A generated town's brief (GEN-60): every parameter and seed it is laid with, read whenever it is opened.</summary>
     public static string BriefFile(string map) => Path.Combine(Towns, "briefs", map + ".json");
+
+    /// <summary>Every generated town's brief this build has, by name.</summary>
+    public static IEnumerable<string> BriefFiles() =>
+        Directory.Exists(Path.Combine(Towns, "briefs"))
+            ? Directory.GetFiles(Path.Combine(Towns, "briefs"), "*.json").Select(path => Path.GetFileNameWithoutExtension(path)).Order(StringComparer.Ordinal)
+            : [];
 
     /// <summary>
     /// Where a traced map's survey and layers sit: what it was imported from, read by the scanner and by a probe that

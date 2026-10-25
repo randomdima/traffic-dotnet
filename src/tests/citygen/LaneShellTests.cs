@@ -50,7 +50,8 @@ public class LaneShellTests
         const float LeastStretchM = 0.5f;
 
         var config = SimConfig.Shipped();
-        var paving = Towns.Of(map).Paving(config);
+        var plan = Towns.Of(map);
+        var paving = plan.Paving(config);
         var shell = paving.Perimeter(config);
         var bands = new Bands(paving, config);
 
@@ -65,6 +66,8 @@ public class LaneShellTests
 
                 var middleM = stretch.LengthM * 0.5f;
                 var atM = stretch.PointAtM(middleM);
+                if (!Towns.OnTheMap(plan, atM, config.PastTheMapEdgeM)) continue;
+
                 var rightM = Heading.RightOf(Heading.Unit(stretch.HeadingAtRad(middleM)));
                 asked++;
                 if (bands.Cover(atM + (rightM * HairM)) && !bands.Cover(atM - (rightM * HairM))) continue;

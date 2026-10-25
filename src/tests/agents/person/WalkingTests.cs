@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
@@ -194,7 +195,8 @@ public class WalkingTests(WalkingTests.Settled settled) : IClassFixture<WalkingT
         var walking = 0;
         for (var person = 0; person < world.People.Count; person++)
         {
-            if (!world.People.Walking[person]) continue;
+            // An officer walking to their post walks the straight to it and no route (SRV-11).
+            if (!world.People.Walking[person] || !PersonActions.WalksItsRoute(world.People.Action[person])) continue;
 
             Assert.True(
                 world.People.RouteCount[person] > 0,

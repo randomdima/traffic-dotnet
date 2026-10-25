@@ -65,24 +65,24 @@ internal sealed class SignalHeads
     public int Count => Heads.Length;
 
     /// <summary>
-    /// <b>The most heads a plan can stand</b>, known before the town is: one car head and two pedestrian heads
-    /// at every road end a lit junction stands at, since an end has one lane arriving and one crossing at most.
+    /// <b>The most heads a plan can stand</b>, known before the town is: a car head over every lane arriving at a lit
+    /// junction, and two pedestrian heads at every road end one stands at, since an end has one crossing at most.
     /// A bound on what the picture lays room for, and not a count.
     /// </summary>
     public static int MostFor(CityPlan plan)
     {
-        var ends = 0;
+        var heads = 0;
         for (var road = 0; road < plan.Roads.Count; road++)
         {
-            if (plan.Junctions.Lit[plan.Roads.FromJunction[road]]) ends++;
-            if (plan.Junctions.Lit[plan.Roads.ToJunction[road]]) ends++;
+            if (plan.Junctions.Lit[plan.Roads.FromJunction[road]]) heads += plan.Roads.LanesAgainstTheRoad(road) + WalkHeadsAtAnEnd;
+            if (plan.Junctions.Lit[plan.Roads.ToJunction[road]]) heads += plan.Roads.LanesWithTheRoad(road) + WalkHeadsAtAnEnd;
         }
 
-        return ends * HeadsAtAnEnd;
+        return heads;
     }
 
-    /// <summary>A car head over the one lane arriving, and a pedestrian head each way over the one crossing.</summary>
-    const int HeadsAtAnEnd = 3;
+    /// <summary>A pedestrian head each way over the one crossing at a road's end.</summary>
+    const int WalkHeadsAtAnEnd = 2;
 
     /// <param name="bars">The town's own bars (<see cref="StopBars"/>): a car head stands past every one a lit junction's lane arrives at.</param>
     /// <param name="zebras">The town's own crossings, which <paramref name="signals"/> numbers its crossings by.</param>

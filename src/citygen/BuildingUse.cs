@@ -32,7 +32,7 @@ internal static class ServiceBuildings
     public static ReadOnlySpan<BuildingUse> Uses => [BuildingUse.Hospital, BuildingUse.PoliceStation, BuildingUse.Depot];
 
     /// <summary>How many buildings of one use a town asks for: one a district, and none where it plans no building.</summary>
-    public static int OfEachUse(int buildings, DistrictWheel districts) => buildings > 0 ? districts.Count : 0;
+    public static int OfEachUse(int buildings, DistrictMap districts) => buildings > 0 ? districts.Count : 0;
 
     public static int OfEachUse(CityPlan plan) => OfEachUse(plan.Buildings.Count, plan.Districts);
 }

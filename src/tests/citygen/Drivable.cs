@@ -40,6 +40,64 @@ internal static class Drivable
         return joinedToNothing;
     }
 
+    /// <summary>
+    /// <b>The lanes of every road that runs off the map</b> (GEN-2b, GEN-63): an intercity road carries the town past its
+    /// edge, so the lane out to the edge leads somewhere the map does not show and the lane in from it is reached from
+    /// there. GEN-50 is excused them as it is a bay's, and the edge's own node is no place the town is driven to.
+    /// </summary>
+    public static bool[] OffTheMap(CityPlan plan, RoadGraph roads, bool[]? also = null)
+    {
+        var off = also is null ? new bool[roads.LaneCount] : (bool[])also.Clone();
+        var edge = new bool[roads.LaneCount];
+        for (var lane = 0; lane < roads.LaneCount; lane++)
+        {
+            var road = roads.LaneRoad[lane];
+            edge[lane] = plan.Junctions.RunsOff(plan.Roads.FromJunction[road]) || plan.Junctions.RunsOff(plan.Roads.ToJunction[road]);
+        }
+
+        // <b>And every lane whose every way on leads only there</b>: the town is left by it, past the edge. Asked of a lane
+        // and the lanes beside it together, since a car moves across onto either (CAR-53) and each waits on the other.
+        var side = new List<int>();
+        for (var drained = true; drained;)
+        {
+            drained = false;
+            for (var lane = 0; lane < roads.LaneCount; lane++)
+            {
+                if (edge[lane]) continue;
+
+                side.Clear();
+                side.Add(lane);
+                foreach (var inward in (ReadOnlySpan<bool>)[true, false])
+                {
+                    for (var beside = roads.LaneBeside(lane, inward); beside != RoadGraph.NoLane; beside = roads.LaneBeside(beside, inward))
+                    {
+                        side.Add(beside);
+                    }
+                }
+
+                var ways = 0;
+                var onlyOff = true;
+                foreach (var one in side)
+                {
+                    foreach (var onto in roads.LanesFrom(one))
+                    {
+                        ways++;
+                        onlyOff &= edge[onto];
+                    }
+                }
+
+                if (ways == 0 || !onlyOff) continue;
+
+                foreach (var one in side) edge[one] = true;
+                drained = true;
+            }
+        }
+
+        for (var lane = 0; lane < roads.LaneCount; lane++) off[lane] |= edge[lane];
+
+        return off;
+    }
+
     /// <summary>What is wrong, or <c>null</c> where every junction can be driven to from every lane.</summary>
     public static string? Offence(RoadGraph roads, bool[]? passedOver = null)
     {
@@ -97,8 +155,15 @@ internal static class Drivable
 
             if (found < asked)
             {
+                var stuck = -1;
+                for (var lane = 0; lane < roads.LaneCount && stuck < 0; lane++)
+                {
+                    if (reaches[lane] != junction + 1 && passedOver?[lane] != true) stuck = lane;
+                }
+
                 return $"{asked - found} of {asked} lanes cannot be driven to junction " +
-                       $"{junction} at {AtJunction(roads, junction)}";
+                       $"{junction} at {AtJunction(roads, junction)}, lane {stuck} of road {roads.LaneRoad[stuck]} among them, " +
+                       $"from {roads.StartOf(stuck).PositionM} to {roads.EndOf(stuck).PositionM}";
             }
         }
 

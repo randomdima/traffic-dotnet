@@ -227,6 +227,7 @@ internal static class OneWayStreets
         readonly int[] _firstLeaving;
         readonly int[] _leaving;
 
+        readonly bool[] _offTheMap;
         readonly int[] _arms;
         readonly int[] _arrivingCount;
         readonly int[] _leavingCount;
@@ -284,6 +285,9 @@ internal static class OneWayStreets
                 _leaving[cursor[_from[edge]]++] = edge * 2;
                 _leaving[cursor[_to[edge]]++] = (edge * 2) + 1;
             }
+
+            _offTheMap = new bool[_nodes];
+            for (var node = 0; node < _nodes; node++) _offTheMap[node] = layout.Sizes.RunsOff(layout.NodeM[node]);
 
             _arms = new int[_nodes];
             _arrivingCount = new int[_nodes];
@@ -449,7 +453,7 @@ internal static class OneWayStreets
                 for (var at = _firstLeaving[arrives]; at < _firstLeaving[arrives + 1]; at++)
                 {
                     var onto = _leaving[at];
-                    if (Runs(onto) && onto / 2 != move / 2 && _piece[onto] != piece) _pieceOpen[piece] = true;
+                    if (RunsOnto(move, onto) && _piece[onto] != piece) _pieceOpen[piece] = true;
                 }
             }
 
@@ -492,7 +496,7 @@ internal static class OneWayStreets
             for (var at = _firstLeaving[arrives]; at < _firstLeaving[arrives + 1]; at++)
             {
                 var onto = _leaving[at];
-                if (!Runs(onto) || onto / 2 == taken / 2 || _onwardIn[onto] == _asked) continue;
+                if (!RunsOnto(taken, onto) || _onwardIn[onto] == _asked) continue;
 
                 _onwardIn[onto] = _asked;
                 onward++;
@@ -503,7 +507,7 @@ internal static class OneWayStreets
             for (var at = _firstLeaving[departs]; at < _firstLeaving[departs + 1]; at++)
             {
                 var before = _leaving[at] ^ 1;
-                if (!Runs(before) || before / 2 == taken / 2) continue;
+                if (!Runs(before) || (before / 2 == taken / 2 && !_offTheMap[departs])) continue;
 
                 if (!ReachesEverything(before, onward, arrives)) return false;
             }
@@ -530,7 +534,7 @@ internal static class OneWayStreets
                 for (var at = _firstLeaving[arrives]; at < _firstLeaving[arrives + 1]; at++)
                 {
                     var onto = _leaving[at];
-                    if (Runs(onto) && onto / 2 != move / 2 && _reachedIn[onto] != _searched) Visit(onto);
+                    if (RunsOnto(move, onto) && _reachedIn[onto] != _searched) Visit(onto);
                 }
             }
 
@@ -553,6 +557,13 @@ internal static class OneWayStreets
 
         /// <summary>Which junction a movement arrives at: the far end of its road, read the way it is driven.</summary>
         int Arrives(int move) => move % 2 == 0 ? _to[move / 2] : _from[move / 2];
+
+        /// <summary>
+        /// <b>Whether a movement runs on onto another leaving where it arrives</b>: any that runs but the way back down its
+        /// own road, since nothing turns round in the road (TER-5f) — <b>except past the map's edge</b>, where a road runs on
+        /// into the world beyond it (GEN-63) and what leaves the town by it is the traffic that comes back in.
+        /// </summary>
+        bool RunsOnto(int move, int onto) => Runs(onto) && (onto / 2 != move / 2 || _offTheMap[Arrives(move)]);
 
         /// <summary>Whether the road is driven this way at all, which is what a one-way street says of one of its two.</summary>
         bool Runs(int move) =>
@@ -589,10 +600,7 @@ internal static class OneWayStreets
                     {
                         _walkAt[walk++] = at + 1;
                         var onto = _leaving[at];
-                        if (!Runs(onto)) continue;
-
-                        // Nothing turns round in the road (TER-5f), so the way back down it is not a movement on.
-                        if (onto / 2 == move / 2) continue;
+                        if (!RunsOnto(move, onto)) continue;
 
                         if (_index[onto] < 0) Enter(onto);
                         else if (_standing[onto]) _low[move] = Math.Min(_low[move], _index[onto]);

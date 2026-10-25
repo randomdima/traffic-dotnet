@@ -96,7 +96,7 @@ internal sealed class CityPlan
     public required WaterArrays Water { get; init; }
 
     /// <summary>The districts the town was laid in (GEN-56), which a service's beat is kept to (SRV-5).</summary>
-    public DistrictWheel Districts { get; init; } = DistrictWheel.Whole;
+    public DistrictMap Districts { get; init; } = DistrictMap.Whole;
 
     /// <summary>
     /// <b>What its map zoned it for</b> (GEN-58, <see cref="Map.TownMap.Zones"/>), carried for whoever asks what a place
@@ -258,6 +258,13 @@ internal sealed class CityPlan
         /// lays (GEN-15); where it is filled, a way <see cref="Flow"/> does not drive has none.
         /// </summary>
         public RoadLanes[] Lanes { get; init; } = [];
+
+        /// <summary>
+        /// <b>What each road is for</b> (GEN-67): a district's own street, a road between districts, an intercity road, a
+        /// bridge, a ring or a bay — which decides how many lanes it carries and what may meet it (GEN-68). <b>Empty where
+        /// the town's roads were not laid by class</b>, which is a traced map's (GEN-57) and a map laid in code.
+        /// </summary>
+        public Gen.RoadClass[] Class { get; init; } = [];
 
         /// <summary>The lanes a road is driven in from its <c>From</c> junction towards its <c>To</c>.</summary>
         public int LanesWithTheRoad(int road) =>

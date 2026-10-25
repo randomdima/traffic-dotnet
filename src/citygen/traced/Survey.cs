@@ -20,7 +20,7 @@ namespace TrafficSimulation.CityGen.Traced;
 /// where it crosses the map's own edge, each run inside a way of its own and each cut one of the places a road leaves
 /// the map (<see cref="LeavesTheMap"/>).
 /// </remarks>
-internal sealed class Survey
+internal sealed record Survey
 {
     public required string Name { get; init; }
 

@@ -59,7 +59,7 @@ internal static class StuckProbe
     /// </summary>
     const int CrowdEvery = 60;
 
-    public static void Run(SimConfig config) => Run("Odesa", config);
+    public static void Run(SimConfig config) => Run(CheckCatalogue.ProbedTown, config);
 
     /// <param name="seconds">How long to measure for, or nothing for <see cref="MeasuredTicks"/>: a small town's rarer faults want a longer run.</param>
     public static void Run(string map, SimConfig config, double seconds = 0)

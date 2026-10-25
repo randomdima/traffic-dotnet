@@ -39,7 +39,7 @@ naga-cli`), which takes the same kernels on from SPIR-V to WGSL.
 ```
 dotnet build
 qq tests
-dotnet run --project traffic-dotnet.csproj -- --map Odesa
+dotnet run --project traffic-dotnet.csproj -- --map Saltbay
 ```
 
 `qq tests` runs the unit tier and `qq tests <tier>` names another; what each is for is
@@ -105,7 +105,7 @@ rest. The same table is printed headless by `--bench census`.
 **Every map says what it claims about itself and whether it is keeping it.** Every headless run prints the
 table — a row a claim, the figures behind each verdict, and a last line a script can read — and a windowed
 run of a scenario map draws the same rows as the status panel's last section (`--ui scenario`). **A broken
-claim is a failed run**, so `--bench soak` and `--map Odesa --seconds 300` both exit non-zero when the town
+claim is a failed run**, so `--bench soak` and `--map Saltbay --seconds 300` both exit non-zero when the town
 breaks something it claims. What is quoted beside the claims fails nothing: it is a fact about that town
 rather than a bound ([verification](docs/verification.md#what-a-map-claims-about-itself)).
 
@@ -154,7 +154,7 @@ lets them decide again, and
 at full size.
 
 ```
-dotnet run --project traffic-dotnet.csproj -- --map Odesa --live --drive .tmp/drive/live.txt \
+dotnet run --project traffic-dotnet.csproj -- --map Saltbay --live --drive .tmp/drive/live.txt \
   --frames .tmp/drive/live --frame-width 800 --ui car-lines --seconds 1800
 ```
 
@@ -194,9 +194,9 @@ appends it. The key comes from `OPENROUTER_API_KEY`, `~/.qq/openrouter.key` or `
 and no part of it is written into the project.
 
 ```
-qq pilot --map Odesa --car 387 --minutes 10        # the model drives; the window is yours
+qq pilot --map Saltbay --car 387 --minutes 10        # the model drives; the window is yours
 qq pilot --car 387 --freeze=off --pace 0.3         # or let the town run on while it thinks
-dotnet run --project traffic-dotnet.csproj -- --map Odesa --windowed --bot-waits \
+dotnet run --project traffic-dotnet.csproj -- --map Saltbay --windowed --bot-waits \
   --bot .tmp/pilot/steps.txt --bot-car 387 --bot-frames .tmp/pilot/eye --bot-eye 768
 ```
 
@@ -242,30 +242,40 @@ follows is only which command reads it.
 | `Idle` | one loop of road and nothing else — a square with rounded corners, the fleet's heaviest look between two police running it one way and a sports car the other — the picture the game idles on, and what a run that names no map opens over | `--map Idle` |
 | `Exam` | the scenario map, above — the one laboratory map that ships ([known gaps](docs/index.md#known-gaps)) | `--map Exam`, `--bench exam`, `qq tests exam` |
 
-**Every other map is its own file, `towns/<Map>.map`, and a town is laid off it when it is opened**
-([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from), `GEN-58`): what the map fixes — its water, its
-roads where it has its own, anything set down by hand — and a tree of zones, each an outline, a kind (an old town, an
-estate of towers, a suburb, a works, a park, a wood…) and the settings its builders read: how much of the street
-frontage is built and how far back, how turned and how varied, what is built and at what size, how much of the ground
-behind, how thickly it grows. Everything else is laid off the map's own seed. `--ui zones` washes the town by its
-zones and tells the one under the pointer. **`Odesa`, `River`, `Test`, `O10` and `O30` are authored off briefs**
-(`towns/briefs/<Map>.json`: a seed, an extent, the water, the railway, the districts and the counts) by
-`dotnet run -- --author <Map>|all`, which draws their water, their railway and their wheel once and writes them into the
-map — a few kilobytes, whose streets the wheel lays when it is opened exactly as the brief always laid them. Authoring
-again replaces the map. `Test` is the fixture every detailed check is staged on.
+**A generated city is its brief, `towns/briefs/<Map>.json`, and is laid off it when it is opened**
+([citygen](src/citygen/docs/requirements.md#a-generated-town), `GEN-60`): an extent, a seed for the town and one per
+stage where it wants its own, and every parameter of each stage — the sea (which edge, how far in), the rivers (how
+many a kilometre, their bearing, width, meander and tributaries), the connectors (intercity roads, the share of them
+minor, railways and their tracks), the districts (the share laid as grids), the streets (the share of their junctions
+left unregulated) and the roster. Three stages lay it: the water, then the intercity roads and railways and the bridges
+they take, then the districts cut round all of them, the roads between districts and every district's own streets.
+No file stands between the brief and the town. Three ship:
+
+| Brief | Extent | Has |
+|---|---|---|
+| `Saltbay` | 3.0 × 2.3 km | a sea, a river, three intercity roads, a double track; seven districts |
+| `Twinford` | 9.5 × 7.3 km | a sea, rivers and tributaries, five intercity roads, two railways; about eighty districts |
+| `Highmoor` | 16.4 × 12.6 km | no sea, rivers and six tributaries, six intercity roads, three railways; about two hundred and fifty districts |
+
+**Every parameter and seed is in the debug menu** (`Map` section, desktop): step one, **Regenerate** lays the town
+again off the edited brief, and **Save brief** writes it back to its file. `dotnet run -- --brief <Map>|<file.json>|all
+[--out sketch.svg]` lays a brief headless and prints what fitted — the water, the connectors, the districts, the streets,
+the junctions — and with `--out`, a sketch of it. `Highmoor` is a desktop map: a page's runtime cannot hold it. The
+fixture every detailed check is staged on is laid off a brief kept in code (`Maps.FixtureBrief`) under the name `Test`.
+
+**A traced map is its own file, `towns/<Map>.map`** (`GEN-58`): what the map fixes — its water, its roads, anything set
+down by hand — and a tree of zones, each an outline, a kind (an old town, an estate of towers, a suburb, a works, a
+park, a wood…) and the settings its builders read: how much of the street frontage is built and how far back, how
+turned and how varied, what is built and at what size, how much of the ground behind, how thickly it grows. Everything
+else is laid off the map's own seed. A generated city is laid as the same map in memory, its districts as its zones.
+`--ui zones` washes the town by its zones and tells the one under the pointer.
 
 **Every map runs trains** ([agents/train](src/agents/train/docs/requirements.md),
-[world/rail](src/world/rail/docs/requirements.md)): a double track across Odesa, O10 and O30, a single one across River
-and Test — each turned once round a loop that passes over itself on a bridge, short enough that a train is over its own
-tail — and `OdesaOsm`'s main line laid off OSM by `qq osm --rails`. An intercity, an oil or a coal train comes now and
-then, runs the town edge to edge, slows for a curve and never stops; every level crossing closes ahead of it — lights, barriers, and the road and the
-walk held — and `--bench trains [--map NAME] [--seconds N]` says what came, what was held and what was hit.
-
-**Two of them are Odesa's brief at scale**, for what a large town costs: `O10` and `O30` at ten and thirty
-times its area with the people, cars and districts at its density. They are desktop maps: a page's runtime
-cannot hold `O30`, and every probe that runs over the shipped maps by default takes them in. A brief under
-`towns/briefs/disabled/` is authored into no map; `BigOdesa`, ten times each way, is there because it does not lay as
-a working town.
+[world/rail](src/world/rail/docs/requirements.md)): a generated city's railways as its brief asks, each turned once round
+a loop that passes over itself on a bridge where its brief gives one, and `OdesaOsm`'s main line laid off OSM by
+`qq osm --rails`. An intercity, an oil or a coal train comes now and then, runs the town edge to edge, slows for a curve
+and never stops; every level crossing closes ahead of it — lights, barriers, and the road and the walk held — and
+`--bench trains [--map NAME] [--seconds N]` says what came, what was held and what was hit.
 
 **`OdesaOsm` is the real Odesa, traced and not generated**
 ([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from), `GEN-57`): central Odesa from the Kotovskoho
@@ -333,8 +343,8 @@ dotnet publish traffic-dotnet.web.csproj -c Release
 cd bin/web/Release/net11.0/publish/wwwroot && python3 -m http.server 8080
 ```
 
-Then `http://localhost:8080/` — **the query string is the command line**, so `?map=Odesa&ui=nodes`
-is `--map Odesa --ui nodes`. Without a map it opens on the start menu over the idle ring, exactly as the
+Then `http://localhost:8080/` — **the query string is the command line**, so `?map=Saltbay&ui=nodes`
+is `--map Saltbay --ui nodes`. Without a map it opens on the start menu over the idle ring, exactly as the
 desktop does; the page differs only in the order, since it shows the menu the moment the engine runs and
 fetches the town behind it.
 

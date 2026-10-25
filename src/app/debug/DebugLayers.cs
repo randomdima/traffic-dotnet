@@ -51,6 +51,9 @@ internal enum SectionFigures : byte
     Trims,
     Shell,
     Ground,
+
+    /// <summary>The brief a generated town was laid off, stepped and laid again (GEN-60).</summary>
+    Brief,
 }
 
 /// <summary>
@@ -153,7 +156,7 @@ internal static class DebugLayers
         new("Road shape", "road",
             [DebugLayer.Perimeter, DebugLayer.Ribbons, DebugLayer.Grid, DebugLayer.Shell], SectionFigures.Shell),
         new("Ground mesh", "ground", [DebugLayer.Wireframe], SectionFigures.Ground),
-        new("Map", "map", [DebugLayer.Zones], SectionFigures.None),
+        new("Map", "map", [DebugLayer.Zones], SectionFigures.Brief),
         new("Tools", "tools", [DebugLayer.Ruler], SectionFigures.None),
     ];
 

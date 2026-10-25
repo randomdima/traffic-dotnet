@@ -112,6 +112,7 @@ internal sealed class ShotStage : IDisposable
         // A shot is a picture of a town somebody asked for unless a switch says otherwise, so the menu
         // starts as the popup under the gear rather than as the panel a run opens on.
         ui.Menu.ShutOntoTheTown();
+        ui.Menu.TownIs(ask.Map);
         ui.Apply(ask.Ui ?? []);
         foreach (var pointM in ask.RulerPointsM ?? []) ui.Ruler.Click(pointM);
 
@@ -167,7 +168,7 @@ internal sealed class ShotStage : IDisposable
 
         _looks.ReadAspects(_renderer.Atlas);
         _looks.Lay(Plan, world.Uses, _config);
-        _renderer.LayTown(_looks, _config.View.PropLeastPx);
+        _renderer.LayTown(_looks, _config.View);
         var lying = _renderer.FillUnder(world.Marks, camera.CentreM, camera.CullSpanM(uiPx), camera.PixelsPerMetre);
         var counts = _looks.Fill(
             world, _config, camera.CentreM, camera.CullSpanM(uiPx), camera.PixelsPerMetre, _renderer.SpritesOver,
@@ -184,7 +185,8 @@ internal sealed class ShotStage : IDisposable
         var cameraView = new CameraView(
             centreM, clipPerM, uiPx, facing, Turning: CameraView.Turned(
                 FanTable.TurnsAt(tick, _config), _config.View.FanLeastPx / camera.PixelsPerMetre),
-            Clouds: CloudShadows.At(world.Clouds, _config, tick), WaterDriftM: GroundPatches.DriftAt(world.Wind, _config, tick));
+            Clouds: CloudShadows.At(world.Clouds, _config, tick), WaterDriftM: GroundPatches.DriftAt(world.Wind, _config, tick),
+            Waves: WaterWaves.At(world.Wind, _config, tick));
         var picked = WriteTheEngine(ui.Switches, world, camera, uiPx, ask.PointerM ?? ask.PickedM, cameraView, ui.Pick.Pinned);
         var under = 0;
         var underAbove = 0;

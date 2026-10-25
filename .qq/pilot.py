@@ -422,7 +422,7 @@ def parse_args():
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--map", default="Odesa", type=_sim.map_name,
+    parser.add_argument("--map", default="Saltbay", type=_sim.map_name,
                         help="the map to stand the town up from")
     parser.add_argument("--car", default=0, type=cli.counting, metavar="INT",
                         help="which car of the fleet the model drives")

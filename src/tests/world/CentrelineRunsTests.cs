@@ -188,7 +188,9 @@ public class CentrelineRunsTests
                 // The bar's back edge is half its thickness against the way it is driven at, and the paint
                 // behind it is further against that way again.
                 var backM = bars.CentreM[bar] - (bars.Approach[bar] * bars.ThicknessM[bar] * 0.5f);
-                var behindM = Vector2.Dot(backM - stopsM, bars.Approach[bar]);
+
+                // Read in a street's frame: a road of more lanes each way stands its bar further off the line (GEN-67).
+                var behindM = Vector2.Dot(backM - stopsM, bars.Approach[bar]) / Math.Max(1, plan.Roads.LanesOn(lanes.LaneRoad[lane]) / 2);
                 asked++;
                 if (behindM >= -worstM) continue;
 
@@ -207,7 +209,8 @@ public class CentrelineRunsTests
 
     /// <summary>
     /// How far the run's metres and a lane's may part over the paint at one arm's end: half a carriageway
-    /// of offset, over the bend a street makes in the seven metres that paint takes.
+    /// of offset, over the bend a street makes in the seven metres that paint takes — for a street of one lane each
+    /// way, and as many times that as a road has lanes each way.
     /// </summary>
     /// <remarks>
     /// <b>Measured on the fixture rather than derived</b>, which is why the claim is stated as a bound it

@@ -149,7 +149,7 @@ def parse_args():
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--map", type=_sim.map_name, default="Odesa", help="the map to open")
+    parser.add_argument("--map", type=_sim.map_name, default="Saltbay", help="the map to open")
     parser.add_argument("--seconds", type=window, default=60, metavar="INT",
                         help=f"sampled seconds after the loop starts (1..{MAX_SECONDS})")
     parser.add_argument("--warmup", type=cli.counting, default=3, metavar="INT",

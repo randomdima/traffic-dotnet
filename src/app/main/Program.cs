@@ -29,7 +29,7 @@ namespace TrafficSimulation.App.Main;
 /// <para>
 /// <b>The game itself is <see cref="Game"/></b>, which is the composition root — this only chooses
 /// between it, the offscreen shot and sheet, a scripted drive, the checks, the dependency read-out and the
-/// workshop steps that write a file and exit (<c>--lamps</c>, <c>--proof</c>, <c>--author</c>, <c>--mend</c>,
+/// workshop steps that write a file or a report and exit (<c>--lamps</c>, <c>--proof</c>, <c>--brief</c>, <c>--mend</c>,
 /// <c>--park</c>). With no map named the game
 /// opens on its start menu, over the idle ring and no city (GEN-1b).
 /// </para>
@@ -73,7 +73,7 @@ internal static class Program
             return 0;
         }
 
-        if (options.Author is not null) return Author(options.Author, config);
+        if (options.Brief is not null) return Brief(options.Brief, options.Out, config);
         if (options.Mend is not null) return Mend(options.Mend, config);
         if (options.Park is not null) return Park(options.Park, config);
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, options.Out, options.Seconds, config);
@@ -345,7 +345,7 @@ internal static class Program
             case "soak" when map is not null:
                 return Kept(SoakProbe.Run(config, map));
             case "deviceworld":
-                return Kept(DeviceWorldProbe.Run(map ?? "Odesa", config));
+                return Kept(DeviceWorldProbe.Run(map ?? CheckCatalogue.ProbedTown, config));
             case "town" when map is not null:
                 TownProbe.Run(config, map);
                 return 0;
@@ -356,10 +356,10 @@ internal static class Program
                 DriveProbe.Run(config, map);
                 return 0;
             case "stuck" when map is not null || seconds > 0:
-                StuckProbe.Run(map ?? "Odesa", config, seconds);
+                StuckProbe.Run(map ?? CheckCatalogue.ProbedTown, config, seconds);
                 return 0;
             case "trains" when map is not null || seconds > 0:
-                TrainProbe.Run(map ?? "Odesa", config, seconds);
+                TrainProbe.Run(map ?? CheckCatalogue.ProbedTown, config, seconds);
                 return 0;
             case "trips" when map is not null:
                 TripProbe.Run(config, map);
@@ -600,22 +600,58 @@ internal static class Program
     }
 
     /// <summary>
-    /// <b>A brief authored into its map</b> (GEN-58, <c>--author NAME|all</c>): <c>towns/briefs/NAME.json</c> read, its
-    /// water and wheel drawn (<see cref="TownAuthor"/>) and written over <c>towns/NAME.map</c> — every edit made to that
-    /// map since lost, as a traced map's is to a second import.
+    /// <b>What a brief lays</b> (GEN-61, <c>--brief NAME|FILE.json|all</c>): <c>towns/briefs/NAME.json</c>, or any brief file,
+    /// read and its terrain, connectors and districts authored (<see cref="TownGen.Author"/>), and what fitted of what it
+    /// asked for printed — the rivers and tributaries, the railways, the intercity roads, the districts and their sizes —
+    /// then its streets laid and the districts they reach, its junctions and its one-way roads counted. With
+    /// <c>--out FILE.svg</c> and one brief, a sketch of its town is written there as well (<see cref="BriefSketch"/>).
     /// </summary>
-    static int Author(string name, SimConfig config)
+    static int Brief(string name, string? sketch, SimConfig config)
     {
-        var briefs = name == "all"
-            ? Directory.GetFiles(Path.GetDirectoryName(ProjectPaths.BriefFile(name))!, "*.json").Select(Path.GetFileNameWithoutExtension).ToArray()
-            : [name];
+        var briefs = name == "all" ? Maps.Briefs() : [name];
         foreach (var brief in briefs)
         {
-            var path = ProjectPaths.BriefFile(brief!);
-            var read = AssetJson.Read(path, TownBriefJson.Default.TownBrief);
-            var into = ProjectPaths.MapFile(read.Name);
-            TownAuthor.Of(read, config).Write(into);
-            Console.WriteLine($"{path} -> {into}  {new FileInfo(into).Length / 1024.0:F1} KB");
+            var read = TownBrief.Read(brief.EndsWith(".json", StringComparison.Ordinal) ? brief : ProjectPaths.BriefFile(brief));
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var town = TownGen.Author(read, config);
+            var courses = town.Water.Courses;
+            var rivers = courses.Count == 0 ? 0 : courses.Kind.Count(kind => kind == CityGen.Map.TownMap.WaterBody.River);
+            var areasKm2 = town.Partition.AreaM2.Select(areaM2 => areaM2 / 1e6f).ToArray();
+            Console.WriteLine(
+                $"{read.Name}: {read.WidthM / 1000f:F1} x {read.HeightM / 1000f:F1} km, authored in {clock.Elapsed.TotalSeconds:F1} s\n" +
+                $"  water      {(read.Sea is null ? "no sea" : "a sea")}, {rivers} rivers and tributaries\n" +
+                $"  railways   {town.Connectors.Tracks.Line.Distinct().Count()} of {read.Connectors.Railways}\n" +
+                $"  intercity  {town.Connectors.Roads.Count} of {read.Connectors.IntercityRoads}, core at ({town.Connectors.CoreM.X:F0}, {town.Connectors.CoreM.Y:F0})\n" +
+                $"  crossings  {town.Connectors.Bridges.Count} bridge sites, {town.Connectors.LevelCrossings.Count} level-crossing sites\n" +
+                $"  districts  {town.Partition.Count}, {(areasKm2.Length == 0 ? "none" : $"{areasKm2.Min():F2}–{areasKm2.Max():F2} km² ({areasKm2.Average():F2} on average)")}");
+            // What the streets came to: the districts any of the town's own streets stand in once it is laid.
+            var laid = TownGen.Lay(town, config, World.Statics.ShippedArt.Sizes.Buildings, static _ => { });
+            var withStreets = new HashSet<int>();
+            for (var road = 0; road < laid.Roads.Roads.Count; road++)
+            {
+                if (laid.Roads.Roads.Class[road] != RoadClass.Street) continue;
+
+                var arcs = laid.Roads.Roads.SegmentsOf(road);
+                withStreets.Add(laid.Districts.At(Core.Geometry.Spline.SampleAt(arcs, Core.Geometry.Spline.TotalLengthM(arcs) * 0.5f).PositionM));
+            }
+
+            withStreets.Remove(-1);
+            Console.WriteLine($"  streets    in {withStreets.Count} of {town.Partition.Count} districts, {laid.Roads.Roads.Count} roads in all");
+            var roads = laid.Roads.Roads;
+            var arms = new int[laid.Roads.Junctions.CentreM.Length];
+            for (var road = 0; road < roads.Count; road++)
+            {
+                arms[roads.FromJunction[road]]++;
+                arms[roads.ToJunction[road]]++;
+            }
+
+            Console.WriteLine(
+                $"  junctions  {arms.Count(count => count == 3)} of three arms, {arms.Count(count => count >= 4)} of four or more, " +
+                $"{laid.Roads.Junctions.Lit.Count(lit => lit)} lit; {roads.Flow.Count(flow => flow != RoadFlow.BothWays)} one-way roads");
+            if (sketch is null || briefs.Length > 1) continue;
+
+            BriefSketch.Write(town, config, sketch);
+            Console.WriteLine($"  sketch     {sketch}");
         }
 
         return 0;
@@ -674,7 +710,7 @@ internal static class Program
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
         bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
         string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
-        bool BotWaits, string? Author, bool ManagedWorld, string? Mend = null, string? Park = null,
+        bool BotWaits, string? Brief, bool ManagedWorld, string? Mend = null, string? Park = null,
         string? Fleet = null, string? Proof = null, bool NoGlow = false)
     {
         /// <summary>
@@ -745,7 +781,7 @@ internal static class Program
                 Note: null, Lamps: false, Windowed: false, Display: null, Drive: null, Frames: null, Out: null,
                 Live: false, FrameWidth: 0,
                 Bot: null, BotCar: -1, BotFrames: null, BotOut: null, BotEyeWidth: 0, BotViewM: 0f,
-                BotWaits: false, Author: null, ManagedWorld: false);
+                BotWaits: false, Brief: null, ManagedWorld: false);
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -904,8 +940,8 @@ internal static class Program
                     case "--caption":
                         options = options with { Caption = true };
                         break;
-                    case "--author" when i + 1 < args.Length:
-                        options = options with { Author = args[i + 1] };
+                    case "--brief" when i + 1 < args.Length:
+                        options = options with { Brief = args[i + 1] };
                         i++;
                         break;
                     case "--mend" when i + 1 < args.Length:
@@ -948,7 +984,7 @@ internal static class Program
                                                     "--windowed, --display NAME|N, --managed-world, --seconds N, --validate, " +
                                                     "--check, --headless, " +
                                                     "--bench NAME|all, --lamps, --drive FILE|-, --live, " +
-                                                    "--frames DIR, --frame-width PX, --out FILE.md, --author BRIEF|all, " +
+                                                    "--frames DIR, --frame-width PX, --out FILE.md, --brief BRIEF|all, " +
                                                     "--mend MAP, --park MAP, " +
                                                     "--bot FILE, --bot-car N, --bot-eye PX, --bot-view METRES, " +
                                                     "--bot-frames DIR, --bot-out FILE, --bot-waits, " +

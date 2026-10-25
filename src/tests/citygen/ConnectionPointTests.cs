@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using Xunit;
@@ -46,20 +47,26 @@ public class ConnectionPointTests
                 var count = ConnectionPoints.At(ground, Config, arm, road, points);
                 for (var point = 0; point < count; point++)
                 {
+                    // The standoff is the disc its junction is drawn on (GEN-46), wider where a wider road meets it
+                    // and none where its road runs off the map (GEN-67, GEN-2b).
                     var off = points[point].AtM - arm.NodeM;
-                    Assert.Equal(Config.CityGen.ConnectionStandoffM, Vector2.Dot(off, arm.OutwardUnit), 3);
+                    Assert.Equal(ground.Junctions.RadiusM[arm.Junction], Vector2.Dot(off, arm.OutwardUnit), 3);
 
+                    // Half a lane across for the innermost lane of its way, and a whole lane further for each lane
+                    // further out (GEN-67).
                     var across = Vector2.Dot(off, Heading.RightOf(arm.OutwardUnit));
-                    Assert.Equal(Config.LaneOffsetM, MathF.Abs(across), 3);
+                    var lanesOut = (MathF.Abs(across) - Config.LaneOffsetM) / ground.Roads.LaneWidthM(road);
+                    Assert.Equal(MathF.Round(lanesOut), lanesOut, 3);
+                    Assert.InRange(MathF.Round(lanesOut), 0f, LayoutEdge.MostLanes - 1);
                 }
             }
         }
     }
 
     /// <summary>
-    /// <b>A two-way road ends one lane each way and a one-way road ends one lane</b> (TER-4d), and the two
-    /// of a two-way arm stand either side of its line — which is what makes the offset a fact about the
-    /// direction a car is driving rather than about the road's own.
+    /// <b>An arm carries a point for each lane its road is driven in</b> (TER-4d, GEN-67), and a two-way arm's leaving
+    /// and arriving points are driven opposite ways — which is what makes the offset a fact about the direction a car
+    /// is driving rather than about the road's own.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -76,10 +83,11 @@ public class ConnectionPointTests
                 var count = ConnectionPoints.At(ground, Config, arm, road, points);
 
                 Assert.Equal(ground.Roads.LanesOn(road), count);
-                if (count < 2) continue;
+                if (ground.Roads.Flow[road] != RoadFlow.BothWays) continue;
 
-                Assert.NotEqual(points[0].End, points[1].End);
-                Assert.Equal(-1f, Vector2.Dot(points[0].DrivenUnit, points[1].DrivenUnit), 3);
+                var (first, last) = (points[0], points[count - 1]);
+                Assert.NotEqual(first.End, last.End);
+                Assert.Equal(-1f, Vector2.Dot(first.DrivenUnit, last.DrivenUnit), 3);
             }
         }
     }
@@ -137,6 +145,50 @@ public class ConnectionPointTests
 
             Assert.Equal(1f, Vector2.Dot(ConnectionPoints.ArmOf(ground, Config, road, true).OutwardUnit, chord), 3);
             Assert.Equal(-1f, Vector2.Dot(ConnectionPoints.ArmOf(ground, Config, road, false).OutwardUnit, chord), 3);
+        }
+    }
+
+    /// <summary>
+    /// <b>A bridgehead is where the lanes change and not a corner</b> (GEN-14a): where only the bridge and the road it
+    /// lands on meet, the two are laid as one straight through it, whatever turn the road owes taken on the bank.
+    /// </summary>
+    [Fact]
+    public void ARoadAndTheBridgeItCarriesOnMeetAtTheirBridgeheadAsOneStraight()
+    {
+        var ground = Towns.Of(Towns.City).Ground;
+        var roads = ground.Roads;
+        var asked = 0;
+        foreach (var bridge in ground.Bridges.Road)
+        {
+            foreach (var atFrom in (bool[])[true, false])
+            {
+                var junction = atFrom ? roads.FromJunction[bridge] : roads.ToJunction[bridge];
+                var landing = -1;
+                var arms = 0;
+                for (var road = 0; road < roads.Count; road++)
+                {
+                    if (roads.FromJunction[road] != junction && roads.ToJunction[road] != junction) continue;
+
+                    arms++;
+                    if (road != bridge) landing = road;
+                }
+
+                if (arms != 2) continue;
+
+                asked++;
+                Assert.Equal(-1f, Vector2.Dot(Leaving(bridge, junction), Leaving(landing, junction)), 3);
+            }
+        }
+
+        Assert.True(asked > 0, "the suite's own city landed no bridge on a road alone");
+
+        // The way a road's own line leaves a junction it ends at.
+        Vector2 Leaving(int road, int junction)
+        {
+            var arcs = roads.SegmentsOf(road);
+            if (roads.FromJunction[road] == junction) return Spline.SampleAt(arcs, 0f).Direction;
+
+            return -Spline.SampleAt(arcs, Spline.TotalLengthM(arcs)).Direction;
         }
     }
 

@@ -52,7 +52,7 @@ internal static class RoadStage
         {
             widthM[road] = bay.Length > 0 && bay[road]
                 ? config.LaneWidthM
-                : WidthM(config, layout.Edges[road].Flow);
+                : WidthM(config, layout.Edges[road].Flow, layout.Edges[road].Lanes);
         }
 
         // <b>A node's centre is the layout's and nothing moves it.</b> The connection points are drawn off
@@ -71,7 +71,7 @@ internal static class RoadStage
 
         return new Laid(
             Roads(layout, chains, widthM, bay),
-            Junctions(centreM, config, LitJunctions.Draw(layout, unregulatedShare, config, ref signals)),
+            Junctions(centreM, layout.Sizes, LitJunctions.Draw(layout, unregulatedShare, config, ref signals)),
 
             // <b>A junction turns no kerb corner and strikes no crossing.</b> A fillet is kerb geometry and the
             // kerb is not laid here; the zebras and the bars are the town's, laid off its kerb ends (TER-6).
@@ -80,7 +80,7 @@ internal static class RoadStage
                 CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
             },
             new CityPlan.CrosswalkArrays { CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [] },
-            Bridges(layout, chains, config),
+            Bridges(layout, chains, widthM, config),
             Rings(layout));
     }
 
@@ -124,11 +124,11 @@ internal static class RoadStage
     }
 
     /// <summary>
-    /// <b>How wide a road of this flow is laid</b> (GEN-15, TER-4d): one lane's width for every way it is
-    /// driven, whether it is an arterial or a street.
+    /// <b>How wide a road of this flow is laid</b> (GEN-15, TER-4d): its lanes' width for every way it is
+    /// driven, whatever its class.
     /// </summary>
-    public static float WidthM(SimConfig config, RoadFlow flow) =>
-        config.LaneWidthM * (flow == RoadFlow.BothWays ? SimConfig.LanesPerCarriageway : 1);
+    public static float WidthM(SimConfig config, RoadFlow flow, int lanes = 1) =>
+        config.LaneWidthM * lanes * (flow == RoadFlow.BothWays ? SimConfig.LanesPerCarriageway : 1);
 
     /// <summary>
     /// <b>How far a road of this flow is moved onto the half of the carriageway its traffic drives</b>
@@ -149,14 +149,21 @@ internal static class RoadStage
 
     /// <summary>
     /// <b>The disc every junction is drawn on, which is the standoff its arms' lanes end at</b>
-    /// (<see cref="SimConfig.JunctionRadiusM"/>, TER-5). One figure for every node the town laid, because
-    /// the standoff is one figure: the disc follows the standoff and the arms follow the disc, and sizing it
-    /// off the arms that end at the standoff would be a circle.
+    /// (<see cref="NodeSizes.StandoffM"/>, TER-5): the disc follows the standoff and the arms follow the disc, and
+    /// sizing it off the arms that end at the standoff would be a circle. <b>A node a road runs off the map at has
+    /// none</b> (GEN-2b), and says so.
     /// </summary>
-    static CityPlan.JunctionArrays Junctions(Vector2[] centreM, SimConfig config, LitJunctions.Drawn signals)
+    static CityPlan.JunctionArrays Junctions(Vector2[] centreM, NodeSizes sizes, LitJunctions.Drawn signals)
     {
         var radiusM = new float[centreM.Length];
-        Array.Fill(radiusM, config.JunctionRadiusM);
+        var runsOff = new bool[centreM.Length];
+        var anyRunsOff = false;
+        for (var node = 0; node < centreM.Length; node++)
+        {
+            radiusM[node] = sizes.StandoffM(centreM[node]);
+            runsOff[node] = sizes.RunsOff(centreM[node]);
+            anyRunsOff |= runsOff[node];
+        }
 
         return new CityPlan.JunctionArrays
         {
@@ -164,6 +171,7 @@ internal static class RoadStage
             RadiusM = radiusM,
             Lit = signals.Lit,
             PhaseOffsetS = signals.PhaseOffsetS,
+            RunsOffTheMap = anyRunsOff ? runsOff : [],
         };
     }
 
@@ -234,14 +242,20 @@ internal static class RoadStage
         var fromJunction = new int[chains.Length];
         var toJunction = new int[chains.Length];
         var flow = new RoadFlow[chains.Length];
+        var lanes = new RoadLanes[chains.Length];
+        var anyWider = false;
         var offsets = new int[chains.Length + 1];
         var segments = new List<ArcSeg>(chains.Length * 2);
 
         for (var road = 0; road < chains.Length; road++)
         {
-            fromJunction[road] = layout.Edges[road].From;
-            toJunction[road] = layout.Edges[road].To;
-            flow[road] = layout.Edges[road].Flow;
+            var edge = layout.Edges[road];
+            fromJunction[road] = edge.From;
+            toJunction[road] = edge.To;
+            flow[road] = edge.Flow;
+            lanes[road] = new RoadLanes(
+                (byte)(edge.Flow != RoadFlow.AgainstTheRoad ? edge.Lanes : 0), (byte)(edge.Flow != RoadFlow.WithTheRoad ? edge.Lanes : 0));
+            anyWider |= edge.Lanes > 1;
             offsets[road] = segments.Count;
             segments.AddRange(chains[road]);
         }
@@ -251,6 +265,8 @@ internal static class RoadStage
         return new CityPlan.RoadArrays
         {
             FromJunction = fromJunction, ToJunction = toJunction, WidthM = widthM, Flow = flow,
+            Lanes = anyWider ? lanes : [],
+            Class = [.. layout.Edges.Select(edge => edge.Class)],
             SegmentOffsets = offsets, Segments = [.. segments],
             ThroughOffsets = throughOffsets, ThroughM = [.. throughM],
             Bay = bay, LaidStraight = LaidStraight(layout),
@@ -296,9 +312,10 @@ internal static class RoadStage
     /// <summary>
     /// A deck for every bridge. <b>A bridge is a road rather than a stretch of one</b> (GEN-14a): it runs
     /// bridgehead to bridgehead, so the deck runs the whole road and reaches standable ground at both ends
-    /// (TER-3b) rather than stopping where the water happened to.
+    /// (TER-3b) rather than stopping where the water happened to. <b>As wide as its own road's walk reaches and a
+    /// parapet past it</b> (TER-3b.1), so the walk across it is the walk the road has on land.
     /// </summary>
-    static CityPlan.BridgeArrays Bridges(TownLayout layout, ArcSeg[][] chains, SimConfig config)
+    static CityPlan.BridgeArrays Bridges(TownLayout layout, ArcSeg[][] chains, float[] widthM, SimConfig config)
     {
         var road = new List<int>();
         var fromM = new List<float>();
@@ -313,7 +330,7 @@ internal static class RoadStage
             road.Add(at);
             fromM.Add(0f);
             toM.Add(Spline.TotalLengthM(chains[at]));
-            deckWidthM.Add(config.RoadFootprintM);
+            deckWidthM.Add(widthM[at] + (2f * (config.WalkOuterM + config.CityGen.BridgeParapetWidthM)));
             pavementWidthM.Add(config.PavementWidthM);
         }
 

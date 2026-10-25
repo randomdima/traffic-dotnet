@@ -1,0 +1,13 @@
+{
+  "name": "Saltbay",
+  "description": "A small port: a sea to the east, one river into it, three roads and a railway in",
+  "widthM": 3000,
+  "heightM": 2300,
+  "seeds": { "town": 1 },
+  "sea": { "bearingDeg": 10, "share": 0.2, "meander": 0.5 },
+  "rivers": { "perKm": 0.34, "bearingDeg": 0, "widthM": 50, "meander": 0.05, "widthSpread": 0.3, "tributaries": 1 },
+  "connectors": { "intercityRoads": 3, "minorShare": 0.34, "railways": 1, "railTracks": 2, "railLoopDeg": 270 },
+  "districts": { "gridShare": 0.6 },
+  "streets": { "unregulatedShare": 0.2 },
+  "roster": { "buildings": 2400, "people": 600, "cars": 520 }
+}

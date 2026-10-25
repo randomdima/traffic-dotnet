@@ -140,28 +140,31 @@ public class RoadSplineTests
             var arcs = lanes.ArcsOf(lane);
             var leavesFrom = lanes.LaneFromJunction[lane] == ground.Roads.FromJunction[road];
 
-            var offM = Vector2.Distance(arcs[0].StartM, PointOn(ground, road, leavesFrom, LaneEnd.Exit));
+            var offM = OffItsPointM(ground, road, leavesFrom, LaneEnd.Exit, arcs[0].StartM);
             Assert.True(
                 offM < 0.01f,
                 $"lane {lane} of road {road} ({ground.Roads.Flow[road]}, {ground.Roads.LanesOn(road)} lanes, "
                 + $"{ground.Roads.WidthM[road]:F2} m wide) starts {offM:F3} m off its own connection point");
-            Assert.Equal(
-                0f, Vector2.Distance(arcs[^1].EndM, PointOn(ground, road, !leavesFrom, LaneEnd.Enter)), 2);
+            Assert.Equal(0f, OffItsPointM(ground, road, !leavesFrom, LaneEnd.Enter, arcs[^1].EndM), 2);
         }
     }
 
-    /// <summary>One arm's point of the kind asked for, which every arm a road is driven onto carries.</summary>
-    static Vector2 PointOn(GroundPieces ground, int road, bool atFrom, LaneEnd end)
+    /// <summary>
+    /// How far a lane's end stands off the nearest of its arm's points of the kind asked for, which every arm a road is
+    /// driven onto carries one of for each of its lanes that way (GEN-67).
+    /// </summary>
+    static float OffItsPointM(GroundPieces ground, int road, bool atFrom, LaneEnd end, Vector2 laneEndM)
     {
         Span<ConnectionPoint> points = stackalloc ConnectionPoint[ConnectionPoints.MostPerArm];
         var found = ConnectionPoints.At(ground, Config, road, atFrom, points);
+        var nearestM = float.PositiveInfinity;
         for (var at = 0; at < found; at++)
         {
-            if (points[at].End == end) return points[at].AtM;
+            if (points[at].End == end) nearestM = MathF.Min(nearestM, Vector2.Distance(points[at].AtM, laneEndM));
         }
 
-        Assert.Fail($"the arm of road {road} at its {(atFrom ? "from" : "to")} end drew no {end} point");
-        return Vector2.Zero;
+        Assert.True(!float.IsPositiveInfinity(nearestM), $"the arm of road {road} at its {(atFrom ? "from" : "to")} end drew no {end} point");
+        return nearestM;
     }
 
     /// <summary>

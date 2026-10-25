@@ -22,6 +22,12 @@ internal readonly record struct CheckEntry(string Name, string Description, Func
 /// </remarks>
 internal static class CheckCatalogue
 {
+    /// <summary>
+    /// The town a probe about one town runs on when <c>--map</c> names none: the smallest shipped generated city,
+    /// which is laid off its brief at open (GEN-60) in seconds.
+    /// </summary>
+    public const string ProbedTown = "Saltbay";
+
     public static readonly CheckEntry[] Shipped =
     [
         new("tick", "The empty loop's cost and its allocation, over a thousand ticks", Quoted(TickProbe.Run)),
@@ -36,22 +42,22 @@ internal static class CheckCatalogue
         new("trips", "Whole trips, end to end: drawn, driven, parked, walked in", Quoted(config => TripProbe.Run(config))),
         new("rescue", "One staged casualty a town: whether an ambulance came, collected and delivered", Quoted(RescueProbe.Run)),
         new("recovery", "One staged wreck a town: whether an evacuator came, towed it home and mended it", Quoted(RecoveryProbe.Run)),
-        new("trains", "One town's railway run for ten minutes: the trains that came, the crossings they held, and what they met", Quoted(config => TrainProbe.Run("Odesa", config, 0))),
+        new("trains", "One town's railway run for ten minutes: the trains that came, the crossings they held, and what they met", Quoted(config => TrainProbe.Run(ProbedTown, config, 0))),
         new("exam", "The scenario map: traffic staged one scenario to a junction and driven end to end, each passed or failed", ExamProbe.Run),
-        new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run("Odesa", config))),
-        new("load", "What opening a map costs, stage by stage", Quoted(config => LoadProbe.Run("Odesa", config))),
-        new("sprites", "What filling a frame's sprites costs, part by part, from a street to the whole town", Quoted(config => SpriteProbe.Run("Odesa", config))),
-        new("deviceload", "What opening a map costs with its world laid onto the device, as a window opens one", Quoted(config => DeviceLoadProbe.Run("Odesa", config))),
-        new("deviceworld", "A town soaked with its world on the device beside the same town's managed world: what each did, how long, and the device's claims", config => DeviceWorldProbe.Run("Odesa", config)),
-        new("deviceatlas", "Which ways a running town's bodies stand over, on the device and on the host: time, and one answer", Quoted(config => DeviceAtlasProbe.Run("Odesa", config))),
+        new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run(ProbedTown, config))),
+        new("load", "What opening a map costs, stage by stage", Quoted(config => LoadProbe.Run(ProbedTown, config))),
+        new("sprites", "What filling a frame's sprites costs, part by part, from a street to the whole town", Quoted(config => SpriteProbe.Run(ProbedTown, config))),
+        new("deviceload", "What opening a map costs with its world laid onto the device, as a window opens one", Quoted(config => DeviceLoadProbe.Run(ProbedTown, config))),
+        new("deviceworld", "A town soaked with its world on the device beside the same town's managed world: what each did, how long, and the device's claims", config => DeviceWorldProbe.Run(ProbedTown, config)),
+        new("deviceatlas", "Which ways a running town's bodies stand over, on the device and on the host: time, and one answer", Quoted(config => DeviceAtlasProbe.Run(ProbedTown, config))),
         new("devicecopy", "What a copy costs the device each way, whole and cut into many runs", Quoted(DeviceCopyProbe.Run)),
-        new("room", "The claims' room term by term against the most a standing town's agents lay into it", Quoted(config => RoomProbe.Run("Odesa", config))),
-        new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),
-        new("joints", "Every junction only two roads meet at, and which structure kept it", Quoted(config => TownShape.Joints("Odesa", config))),
-        new("parks", "Every car park a town laid off a street: where it stands and its bays", Quoted(config => TownShape.Parks("Odesa", config))),
-        new("roofs", "Every building of a town: where it stands, the roof it wears and the fans that roof turns", Quoted(config => TownShape.Roofs("Odesa", config))),
-        new("outset", "A town's boundary moved off itself: what closed, and the two ends of what did not", config => BoundaryProbe.Outset("Odesa", config)),
-        new("fill", "A town's driven ground cut into triangles: what the cut costs, and what it lost", Quoted(config => FillProbe.Run("Odesa", config))),
+        new("room", "The claims' room term by term against the most a standing town's agents lay into it", Quoted(config => RoomProbe.Run(ProbedTown, config))),
+        new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run(ProbedTown, config))),
+        new("joints", "Every junction only two roads meet at, and which structure kept it", Quoted(config => TownShape.Joints(ProbedTown, config))),
+        new("parks", "Every car park a town laid off a street: where it stands and its bays", Quoted(config => TownShape.Parks(ProbedTown, config))),
+        new("roofs", "Every building of a town: where it stands, the roof it wears and the fans that roof turns", Quoted(config => TownShape.Roofs(ProbedTown, config))),
+        new("outset", "A town's boundary moved off itself: what closed, and the two ends of what did not", config => BoundaryProbe.Outset(ProbedTown, config)),
+        new("fill", "A town's driven ground cut into triangles: what the cut costs, and what it lost", Quoted(config => FillProbe.Run(ProbedTown, config))),
         new("shapes", "One row a map: extent, roads, how much of each bends", Quoted(TownShape.Table)),
         new("fidelity", "How far a traced town's lanes stand off its map's own, both ways", Quoted(config => TracedFidelity.Run("OdesaOsm", config))),
         new("fit", "How a town's walk was built as its zones say, look by look", Quoted(config => TracedFit.Run("OdesaOsm", config, null))),

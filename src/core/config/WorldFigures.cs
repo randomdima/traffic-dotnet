@@ -494,8 +494,8 @@ internal sealed class RailFigures
     /// </summary>
     public float GradeMostShare { get; init; } = 0.06f;
 
-    /// <summary>How far a rail bridge's deck stands out past its ballast either side (RAIL-8): its parapets.</summary>
-    public float BridgeDeckOverhangM { get; init; } = 0.6f;
+    /// <summary>How far a rail bridge's deck stands out past its ballast either side (RAIL-8): its walkway and its parapet.</summary>
+    public float BridgeDeckOverhangM { get; init; } = 1.1f;
 
     /// <summary>How far off its curve any chord of a generated track may stand: what says how finely it is laid.</summary>
     public float ChordToleranceM { get; init; } = 0.01f;
@@ -1311,6 +1311,100 @@ internal sealed class CityGenFigures
     public float BridgeDeckLongestM { get; init; } = 150f;
 
     /// <summary>
+    /// <b>How far off its river's own normal a bridge may run</b> (GEN-70). A bridge site is laid on the normal, so this is
+    /// the bound the suite holds every bridge to rather than a figure the generator aims at.
+    /// </summary>
+    public float BridgeSkewMostDeg { get; init; } = 15f;
+
+    /// <summary>How near each other two bridges over one river may stand at the least (GEN-70), along the river.</summary>
+    public float BridgesApartLeastM { get; init; } = 300f;
+
+    /// <summary>
+    /// How far apart, along a river parting built-up districts, the bridges over it stand at the most (GEN-70): a town split
+    /// by water is crossed often enough to be one town.
+    /// </summary>
+    public float BridgesApartMostM { get; init; } = 1500f;
+
+    /// <summary>
+    /// <b>How far every road keeps off the shore's landward edge</b> (GEN-71), carriageway and walk: a strip of open
+    /// ground along every bank that only a bridge and its approach cross.
+    /// </summary>
+    public float WaterfrontClearM { get; init; } = 6f;
+
+    /// <summary>
+    /// <b>The most ground a district takes</b> (GEN-65). A town grows by its districts and never by growing them, so a
+    /// region of land is cut into as many as keep each under this. Authored: how big a neighbourhood is, is a fact about
+    /// towns.
+    /// </summary>
+    public float DistrictLargestM2 { get; init; } = 1_000_000f;
+
+    /// <summary>
+    /// The least ground a district takes (GEN-65): a piece of land the barriers leave smaller than this is open land and
+    /// stands no street of its own.
+    /// </summary>
+    public float DistrictLeastM2 { get; init; } = 150_000f;
+
+    /// <summary>
+    /// <b>How fine the land is cut into districts</b> (GEN-64): the side of the square the partition is laid on. A strip of
+    /// land narrower than a few of these is not seen as land at all.
+    /// </summary>
+    public float DistrictCellM { get; init; } = 10f;
+
+    /// <summary>
+    /// How far a district's edge is bent off the straight line between two districts' middles, as a share of the distance
+    /// between them (GEN-66): none lays a field of polygons, and enough lays a town whose districts read as shapes.
+    /// </summary>
+    public float DistrictBendShare { get; init; } = 0.12f;
+
+    /// <summary>
+    /// How much of a district's edge a railway or an intercity road must run along for the district to lean industrial
+    /// (GEN-74).
+    /// </summary>
+    public float DistrictIndustrialEdgeShare { get; init; } = 0.4f;
+
+    /// <summary>
+    /// <b>The share of district roads laid four lanes</b> (GEN-67): the most loaded, by the demand routed over them. A
+    /// ranking and not a load: what a demand is worth in cars is nothing the generator knows.
+    /// </summary>
+    public float FourLaneDistrictShare { get; init; } = 0.3f;
+
+    /// <summary>How near each other two junctions on an intercity road may stand at the least (GEN-68).</summary>
+    public float IntercityJunctionsApartLeastM { get; init; } = 300f;
+
+    /// <summary>How near each other two junctions on a district road may stand at the least (GEN-68).</summary>
+    public float DistrictJunctionsApartLeastM { get; init; } = 40f;
+
+    /// <summary>
+    /// <b>How far in from the map's edge the town's core stands at the least</b> (GEN-63), as a share of its short side:
+    /// the place the intercity roads converge on is a town's middle and not its edge.
+    /// </summary>
+    public float CoreInsetShare { get; init; } = 0.25f;
+
+    /// <summary>How far off the town's core a railway passes, across its own line (GEN-63).</summary>
+    public float RailPassesCoreM { get; init; } = 450f;
+
+    /// <summary>
+    /// <b>How fine an intercity road is routed</b> (GEN-63): the side of the square its search walks. It is smoothed after,
+    /// so this is how near a bank or a track it can find its way past and not how it bends.
+    /// </summary>
+    public float RouteCellM { get; init; } = 20f;
+
+    /// <summary>How far a road holds a bridge's own line before and after its span (GEN-70), so it meets the river square.</summary>
+    public float BridgeApproachM { get; init; } = 30f;
+
+    /// <summary>
+    /// How far along a barrier two districts it parts are linked across it at the most (GEN-69): one link to every this much
+    /// of their shared edge, and at least one.
+    /// </summary>
+    public float DistrictLinksApartM { get; init; } = 1200f;
+
+    /// <summary>
+    /// How wide the parapet along each edge of a bridge's deck is (TER-3b.1): the margin the deck carries past the street's
+    /// own pavement either side, which nothing walks on.
+    /// </summary>
+    public float BridgeParapetWidthM { get; init; } = 0.5f;
+
+    /// <summary>
     /// How far the shore runs back from the water it belongs to. <b>The strip between the water and whatever
     /// the town does with the ground</b>: nothing is scattered on it and nothing is built on it, because it
     /// is not the grass those take.
@@ -1323,6 +1417,50 @@ internal sealed class CityGenFigures
     /// far both stand off the wave the water is laid from.
     /// </summary>
     public float ShoreChordToleranceM { get; init; } = 0.5f;
+
+    /// <summary>
+    /// The radius the water's bank is rounded to where a river flows into another (GEN-2c): either side of the mouth the
+    /// two banks meet at a point of land, and rounded they meet as a bank does. <b>Wider than the shore</b>, whose own
+    /// edge there is rounded about the same centre a shore's width tighter, so the strip is one width round the bend.
+    /// </summary>
+    public float ConfluenceRadiusM { get; init; } = 24f;
+
+    /// <summary>
+    /// How wide a river is where it flows into another, as a share of the other's width there: the narrowest a brief's
+    /// tributaries are drawn, then the widest. <b>Kept under the whole</b> so a mouth reads as one water joining a
+    /// bigger one, and so a deck that spans the river spans what flows into it.
+    /// </summary>
+    public float TributaryWidthLeastShare { get; init; } = 0.3f;
+
+    /// <inheritdoc cref="TributaryWidthLeastShare"/>
+    public float TributaryWidthMostShare { get; init; } = 0.6f;
+
+    /// <summary>
+    /// How narrow a tributary has grown by where it enters the map, as a share of its width at its mouth: a river
+    /// gathers its water on the way down.
+    /// </summary>
+    public float TributaryHeadNarrowShare { get; init; } = 0.35f;
+
+    /// <summary>
+    /// The angle a tributary runs off the water it flows into, measured from that water's way upstream: the least, then
+    /// the most. <b>Never square and never alongside</b> — a river joins another pointing downstream, and one joining
+    /// at a glance runs beside its parent for a kilometre with a strip of shore between them.
+    /// </summary>
+    public float TributaryJoinLeastDeg { get; init; } = 35f;
+
+    /// <inheritdoc cref="TributaryJoinLeastDeg"/>
+    public float TributaryJoinMostDeg { get; init; } = 75f;
+
+    /// <summary>
+    /// How far in from the map's edge along its parent a tributary's mouth stands at the least, as a share of the
+    /// parent's run across the map: a mouth at the edge is a river the town never sees join.
+    /// </summary>
+    public float TributaryMouthInsetShare { get; init; } = 0.05f;
+
+    /// <summary>
+    /// How deep the tributaries branch: one flowing into the main water is the first, one flowing into that the second.
+    /// </summary>
+    public int TributaryDepthMost { get; init; } = 2;
 
     /// <summary>
     /// The lattice the props are scattered on — one candidate a cell, jittered inside it. <b>It is the

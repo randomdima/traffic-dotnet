@@ -212,6 +212,10 @@
     <TownArt Include="assets/**" />
     <TownMap Include="towns/*.map" />
 
+    <!-- A generated town is its brief (GEN-60): a kilobyte, so it comes down at boot with the heads and the town
+         is laid off it when it is opened. -->
+    <TownBrief Include="towns/briefs/*.json" />
+
     <!-- The figures, loose beside the archive as well as inside it. They are the one thing a page reads
          before it has any reason to want the art, so a run that only ever shows the menu fetches this
          and nothing else. **Naming the folder is the build's business and naming the file is not** —
@@ -236,25 +240,27 @@
   <Target Name="ListTheTownData" AfterTargets="Build"
           DependsOnTargets="NameTheArtPack;PackTheArt;PackTheMaps;ForgetTheOldLinks">
     <WriteLinesToFile File="$(OutDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownMap->'%(Identity).head');@(TownMap->'%(Identity).tar.gz')" />
+                      Lines="@(TownMap->'%(Identity).head');@(TownMap->'%(Identity).tar.gz');@(TownBrief->'%(Identity)')" />
     <RemoveDir Directories="$(OutDir)wwwroot/assets;$(OutDir)wwwroot/towns" />
     <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(OutDir)wwwroot" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(OutDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownMap->'$(MapPacks)%(Filename)%(Extension).head');@(TownMap->'$(MapPacks)%(Filename)%(Extension).tar.gz')"
           DestinationFolder="$(OutDir)wwwroot/towns" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TownBrief)" DestinationFolder="$(OutDir)wwwroot/towns/briefs" SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="PublishTheTownData" AfterTargets="Publish"
           DependsOnTargets="NameTheArtPack;PackTheArt;PackTheMaps;ForgetTheOldLinks">
     <WriteLinesToFile File="$(PublishDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownMap->'%(Identity).head');@(TownMap->'%(Identity).tar.gz')" />
+                      Lines="@(TownMap->'%(Identity).head');@(TownMap->'%(Identity).tar.gz');@(TownBrief->'%(Identity)')" />
     <RemoveDir Directories="$(PublishDir)wwwroot/assets;$(PublishDir)wwwroot/towns" />
     <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(PublishDir)wwwroot" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(PublishDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownMap->'$(MapPacks)%(Filename)%(Extension).head');@(TownMap->'$(MapPacks)%(Filename)%(Extension).tar.gz')"
           DestinationFolder="$(PublishDir)wwwroot/towns" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TownBrief)" DestinationFolder="$(PublishDir)wwwroot/towns/briefs" SkipUnchangedFiles="true" />
   </Target>
 
   <!-- Sorted, so that the same tree packs to the same bytes and a publish that changed nothing does not

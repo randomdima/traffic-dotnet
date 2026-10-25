@@ -231,6 +231,10 @@ public class GroundMeshTests
             var lowSide = corner.Surface == Surface.Shadow || (corner.Surface == Surface.Kerb && corner.Across >= 1f);
             if (!lowSide || offTheLine(corner.PositionM) < config.Road.KerbWidthM * 0.25f) continue;
 
+            // Past the map's edge the carriageway is cut where a road runs off it (GEN-2b), and a kerb's corner there
+            // stands on nothing the town lays.
+            if (!Towns.OnTheMap(Towns.Of(map), corner.PositionM)) continue;
+
             low++;
             if (!Covered(carriageway.GetValueOrDefault(Cell(corner.PositionM), []), corner.PositionM) && off.Count < Named)
             {
@@ -284,6 +288,7 @@ public class GroundMeshTests
     static void FillHides(string map, List<Vector2[]> laid, Vector2[][] outline, string named)
     {
         var kerb = Binned(laid);
+        var plan = Towns.Of(map);
 
         var sampled = 0;
         var bare = new List<Vector2>();
@@ -296,7 +301,10 @@ public class GroundMeshTests
                 var steps = Math.Max(1, (int)MathF.Ceiling(Vector2.Distance(fromM, ontoM) / SamplePitchM));
                 for (var step = 0; step <= steps; step++)
                 {
+                    // No kerb is struck along the cut a road running off the map is laid to (GEN-2b).
                     var pointM = Vector2.Lerp(fromM, ontoM, (float)step / steps);
+                    if (!Towns.OnTheMap(plan, pointM)) continue;
+
                     sampled++;
                     if (!Covered(kerb.GetValueOrDefault(Cell(pointM), []), pointM) && bare.Count < Named)
                     {
@@ -434,6 +442,7 @@ public class GroundMeshTests
     {
         var kerb = Binned(laid);
         var offM = kerbM * 0.25f;
+        var plan = Towns.Of(map);
 
         var sampled = 0;
         var bare = new List<Vector2>();
@@ -441,7 +450,10 @@ public class GroundMeshTests
         {
             foreach (var sideM in (ReadOnlySpan<float>)[-offM, offM])
             {
+                // What a road running off the map lays past its edge is cut there, and no kerb is struck along a cut (GEN-2b).
                 var pointM = atM + (across * sideM);
+                if (!Towns.OnTheMap(plan, pointM)) continue;
+
                 sampled++;
                 if (!Covered(kerb.GetValueOrDefault(Cell(pointM), []), pointM) && bare.Count < Named)
                 {

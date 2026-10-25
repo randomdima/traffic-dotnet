@@ -79,12 +79,11 @@ bug.
 **Nothing in `all` asks a question of a shipped city.** The suite asks its questions of two towns of its
 own ([Towns](../src/tests/citygen/Towns.cs)): `Towns.Fixture`, the small town every detailed check is
 staged on, and `Towns.City`, a whole town laid from a brief in that same file at a seed of its own — water,
-bridges, districts, an orbital and traffic, at a fraction of what a shipped city costs to tick.
+bridges, districts, intercity roads and traffic, at a fraction of what a shipped city costs to tick.
 
-**Both of them have their streets generated, and that is a loss the build is carrying.** A fixture is a file
-because it may not move when the generator does. `towns/Test.map` fixes the fixture's water and wheel but not its
-streets, which its wheel lays when it is opened (GEN-58), so the two towns differ only in size and seed —
-[the known gaps](index.md#known-gaps) names it.
+**Both of them are generated, and that is a loss the build is carrying.** A fixture should not move when the
+generator does. The fixture is laid off a brief kept in code (`Maps.FixtureBrief`, GEN-60) when it is opened, so the
+two towns differ only in size and seed — [the known gaps](index.md#known-gaps) names it.
 
 **Three things between them leave nothing for a city to say.** What the generator owes whatever seed it is
 given is `GeneratorTests`', over four unrelated seeds and both kinds of water. What a map laid to measure

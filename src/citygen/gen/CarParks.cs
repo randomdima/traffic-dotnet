@@ -50,7 +50,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// them first is what puts the services as far apart as the town's roads allow.
 /// </para>
 /// <para>
-/// <b>It is the last stage of the layout</b> (<see cref="WheelStreets"/>): a bay's arms are read off its own
+/// <b>It is the last stage of the layout</b> (<see cref="TownGen.Lay"/>): a bay's arms are read off its own
 /// line, so nothing may be offered to the layout after one.
 /// </para>
 /// </remarks>
@@ -80,19 +80,17 @@ internal static class CarParks
     static readonly bool[] Sides = [true, false];
 
     /// <param name="districts">
-    /// The wheel the town was laid on: its hub is the middle a yard's rank faces (<see cref="FaceTheTown"/>), and
-    /// each district is laid a yard for each service (GEN-56).
+    /// The districts the town was laid in: each is laid a yard for each service (GEN-56), its rank facing the district's
+    /// own middle (<see cref="FaceIn"/>).
     /// </param>
     /// <param name="sizes">The service buildings' footprints, which say how far across its rank a yard's building reaches.</param>
     public static Laid Lay(
-        TownLayout layout, int buildings, SimConfig config, DistrictWheel districts, BuildingSizes sizes,
+        TownLayout layout, int buildings, SimConfig config, DistrictMap districts, BuildingSizes sizes,
         ref Rng draw)
     {
         var services = TheServicesWanted(buildings, districts);
         var wanted = services.Count + config.CarParksFor(buildings);
         if (wanted <= 0) return Laid.None;
-
-        var townM = districts.HubM;
 
         var street = new List<int>();
         var atM = new List<Vector2>();
@@ -118,7 +116,7 @@ internal static class CarParks
             if (use == BuildingUse.Ordinary) BaysPerSide(config, perSide, ref draw);
             else AYard(config, sizes, use, perSide);
 
-            Vector2? facingM = use == BuildingUse.Ordinary ? null : townM;
+            Vector2? facingM = use == BuildingUse.Ordinary ? null : districts.CentreM[district];
 
             var mostBays = Math.Max(perSide[0], perSide[1]);
             var frontageM = config.CarParkFrontageM(mostBays);
@@ -196,19 +194,19 @@ internal static class CarParks
 
     /// <summary>
     /// <b>Whether a site is inside the district a yard is wanted in</b> (GEN-56): the ground its building will
-    /// stand on, across the rank on the side it faces (<see cref="FaceTheTown"/>), near face and far face both.
-    /// <b>The building and not the road</b>, because a district's edge is as often as not a spoke or the orbital:
-    /// asked of the road alone, a yard laid on one stood its building in the district over the road, and a yard
-    /// on one facing into the district is that district's.
+    /// stand on, across the rank on the side it faces (<see cref="FaceIn"/>), near face and far face both.
+    /// <b>The building and not the road</b>, because a district's edge is as often as not a district road: asked of the
+    /// road alone, a yard laid on one stood its building in the district over the road, and a yard on one facing into
+    /// the district is that district's.
     /// </summary>
-    static bool IsIn(TownLayout layout, RoadsideSites.Site site, DistrictWheel districts, int district, YardReach reach)
+    static bool IsIn(TownLayout layout, RoadsideSites.Site site, DistrictMap districts, int district, YardReach reach)
     {
         if (district == AnyDistrict) return true;
 
         var at = Spline.SampleAt(layout.LineOf(site.Road), site.AlongM);
-        var townward = Vector2.Dot(at.Right, districts.HubM - at.PositionM) >= 0f ? at.Right : -at.Right;
-        return districts.At(at.PositionM + (townward * reach.NearM)) == district
-               && districts.At(at.PositionM + (townward * reach.FarM)) == district;
+        var inward = Vector2.Dot(at.Right, districts.CentreM[district] - at.PositionM) >= 0f ? at.Right : -at.Right;
+        return districts.At(at.PositionM + (inward * reach.NearM)) == district
+               && districts.At(at.PositionM + (inward * reach.FarM)) == district;
     }
 
     /// <summary>How far from its road's line a yard's building stands: its face on the walk, and its back.</summary>
@@ -230,14 +228,14 @@ internal static class CarParks
     /// every one of them there. Which side each stands on is written into <paramref name="onTheRight"/> in the
     /// same order.
     /// </summary>
-    /// <param name="facingM">Where a yard's rank faces (<see cref="FaceTheTown"/>), or nothing for the town's own car park.</param>
+    /// <param name="facingM">Where a yard's rank faces (<see cref="FaceIn"/>), or nothing for the town's own car park.</param>
     static int[]? At(
         TownLayout layout, SimConfig config, RoadsideSites.Site site, ReadOnlySpan<int> perSide, Vector2? facingM,
         bool[] onTheRight)
     {
         Span<int> sides = stackalloc int[Sides.Length];
         perSide.CopyTo(sides);
-        if (facingM is { } townM) FaceTheTown(layout, site, townM, sides);
+        if (facingM is { } middleM) FaceIn(layout, site, middleM, sides);
 
         var line = layout.LineOf(site.Road);
         var flow = layout.Edges[site.Road].Flow;
@@ -322,16 +320,15 @@ internal static class CarParks
     }
 
     /// <summary>
-    /// <b>A yard's one rank goes on the side of its road facing the town's middle</b> (GEN-55): its building
-    /// stands past the rank's far end, and the edge of a town is where the ground to stand one on runs out.
-    /// Drawn instead, a yard laid on a road along the edge of the map faced off it half the time and its
-    /// building stood nowhere.
+    /// <b>A yard's one rank goes on the side of its road facing its own district's middle</b> (GEN-55, GEN-56): its
+    /// building stands past the rank's far end, and the edge of a district is where its ground runs out. Drawn instead, a
+    /// yard laid on a road along a district's edge faced out of it half the time and its building stood in the next.
     /// </summary>
-    static void FaceTheTown(TownLayout layout, RoadsideSites.Site site, Vector2 townM, Span<int> perSide)
+    static void FaceIn(TownLayout layout, RoadsideSites.Site site, Vector2 middleM, Span<int> perSide)
     {
         var at = Spline.SampleAt(layout.LineOf(site.Road), site.AlongM);
         var rank = Math.Max(perSide[0], perSide[1]);
-        var right = Vector2.Dot(at.Right, townM - at.PositionM) >= 0f;
+        var right = Vector2.Dot(at.Right, middleM - at.PositionM) >= 0f;
         perSide[0] = right ? rank : 0;
         perSide[1] = right ? 0 : rank;
     }
@@ -477,7 +474,7 @@ internal static class CarParks
     /// its people's, and a district's services are not a share of it.
     /// </para>
     /// </remarks>
-    static List<(BuildingUse Use, int District)> TheServicesWanted(int buildings, DistrictWheel districts)
+    static List<(BuildingUse Use, int District)> TheServicesWanted(int buildings, DistrictMap districts)
     {
         var wanted = new List<(BuildingUse, int)>();
         var each = ServiceBuildings.OfEachUse(buildings, districts);
@@ -494,7 +491,7 @@ internal static class CarParks
     /// building's frontage, whichever is wider</b> (GEN-55, GEN-4k). <b>One side</b> because a special building
     /// stands past the far end of its own rank and there is only one of it; <b>the widest</b> because the apron
     /// it holds is the bays nearest its door, and a station with three bays stands three vehicles. <b>Which side
-    /// is the site's to say</b> (<see cref="FaceTheTown"/>), so the rank is written on the first and moved there.
+    /// is the site's to say</b> (<see cref="FaceIn"/>), so the rank is written on the first and moved there.
     /// </summary>
     static void AYard(SimConfig config, BuildingSizes sizes, BuildingUse use, Span<int> perSide)
     {

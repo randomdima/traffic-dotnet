@@ -25,13 +25,24 @@ namespace TrafficSimulation.CityGen.Gen;
 /// slanting over it, is not.
 /// </para>
 /// </remarks>
-/// <param name="bridgeable">Whether the water is a river, which a road may span, rather than a sea or a lake (GEN-14b).</param>
+/// <param name="sea">
+/// Whether a wet point is the sea's, which no road spans, rather than a river's (GEN-14b, GEN-62). <b>Asked of the
+/// water under the span and never of the map</b>, so a map holding both bridges its rivers and never its sea.
+/// </param>
 /// <param name="railClearM">How far a junction's node stands off the ballast at the least: its own ground and the clearance.</param>
 /// <param name="squareLeast">How square to a track a road meets it at the least, as the sine of the angle between them.</param>
 internal sealed class WaterRules(
-    GroundShapes ground, float stepM, bool bridgeable, float longestDeckM, float abutmentM,
+    GroundShapes ground, float stepM, Func<Vector2, bool> sea, float longestDeckM, float abutmentM,
     float halfWidthM, CityPlan.RailArrays rails, float railClearM, float squareLeast)
 {
+    /// <summary>The rules over water every wet point of which is a river's, or every wet point of which is the sea's.</summary>
+    public WaterRules(
+        GroundShapes ground, float stepM, bool bridgeable, float longestDeckM, float abutmentM,
+        float halfWidthM, CityPlan.RailArrays rails, float railClearM, float squareLeast)
+        : this(ground, stepM, bridgeable ? static _ => false : static _ => true, longestDeckM, abutmentM, halfWidthM, rails, railClearM, squareLeast)
+    {
+    }
+
     /// <summary>How far back from the bank a bridgehead stands: the ground its own junction takes.</summary>
     public float AbutmentM => abutmentM;
 
@@ -77,16 +88,43 @@ internal sealed class WaterRules(
     /// Whether a road standing over the water may be laid at all: over a river rather than the sea, and no
     /// longer than the deck a town builds (GEN-14a).
     /// </summary>
-    public bool Spans(Vector2 fromM, Vector2 toM) =>
-        bridgeable && (toM - fromM).Length() <= longestDeckM;
+    public bool Spans(Vector2 fromM, Vector2 toM)
+    {
+        var runM = (toM - fromM).Length();
+        if (runM > longestDeckM) return false;
+
+        var steps = Math.Max(2, (int)(runM / stepM));
+        for (var step = 0; step <= steps; step++)
+        {
+            var atM = Blend.Lerp(fromM, toM, step / (float)steps);
+            if (Wet(atM) && sea(atM)) return false;
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// Whether a road of this class may be laid between two nodes at all. <b>Dry ground takes anything but a
     /// bridge, and water takes nothing else</b> — which is the whole of GEN-14a, asked once of every road in
     /// the town.
     /// </summary>
-    public bool Carries(Vector2 fromM, Vector2 toM, RoadClass roadClass) =>
-        Wets(fromM, toM)
-            ? roadClass == RoadClass.Bridge && Spans(fromM, toM)
-            : roadClass != RoadClass.Bridge;
+    /// <param name="throughM">
+    /// The places a road passes between its ends (<see cref="LayoutEdge.ThroughM"/>), which it is asked along: a road
+    /// following a bank runs round water its chord would cross. A bridge passes nowhere.
+    /// </param>
+    public bool Carries(Vector2 fromM, Vector2 toM, RoadClass roadClass, Vector2[]? throughM = null)
+    {
+        if (roadClass == RoadClass.Bridge) return Wets(fromM, toM) && Spans(fromM, toM);
+        if (throughM is not { Length: > 0 }) return !Wets(fromM, toM);
+
+        var atM = fromM;
+        foreach (var passM in throughM)
+        {
+            if (Wets(atM, passM)) return false;
+
+            atM = passM;
+        }
+
+        return !Wets(atM, toM);
+    }
 }

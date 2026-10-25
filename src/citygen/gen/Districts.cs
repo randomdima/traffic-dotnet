@@ -1,5 +1,4 @@
 using System.Numerics;
-using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -7,232 +6,168 @@ using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Gen;
 
-/// <summary>
-/// One district: the ground between two spokes, inside the orbital or outside it, laid on its own bearing
-/// at its own block spacing.
-/// </summary>
-/// <param name="Strict">
-/// Whether it is a grid, whose streets are mostly straight, rather than a loose district, whose streets
-/// mostly wander (<paramref name="StraightShare"/>). The traced cities say a grid is straight: half of
-/// Odesa's straight road length stands inside one five-degree band.
-/// </param>
-/// <param name="BlockAlongM">How far apart its streets stand along its own bearing.</param>
+/// <summary>One district's streets as they are to be laid: its own bearing and spacing, and what it is built as.</summary>
+/// <param name="BearingRad">The way its lattice runs: its own ground's longer axis, turned a little by a draw (GEN-74).</param>
+/// <param name="BlockAlongM">How far apart its streets stand along its bearing.</param>
 /// <param name="BlockAcrossM">And across it, which is the longer of the two: a block is a rectangle.</param>
+/// <param name="Strict">Whether it is laid as a grid rather than loose (GEN-47).</param>
 /// <param name="StraightShare">
-/// <b>How many of its streets are laid straight</b> (GEN-47), drawn for the district near its kind's own
-/// share, so no two of a kind lay the same mix. The lattice takes it as a count that is never all of them
-/// and never none (<see cref="Lattice"/>).
+/// <b>How many of its streets are laid straight</b> (GEN-47), drawn for the district near its kind's own share, so no two
+/// of a kind lay the same mix. The lattice takes it as a count that is never all of them and never none
+/// (<see cref="Lattice"/>).
 /// </param>
+/// <param name="Kind">What it is built as (GEN-74).</param>
 internal readonly record struct District(
-    int Sector, bool Inside, float BearingRad, float BlockAlongM, float BlockAcrossM, bool Strict,
-    float StraightShare)
+    float BearingRad, float BlockAlongM, float BlockAcrossM, bool Strict, float StraightShare, ZoneKind Kind)
 {
     /// <summary>The tighter of its two spacings, which is what a street's own wander is bounded by.</summary>
     public float BlockTightestM => MathF.Min(BlockAlongM, BlockAcrossM);
 }
 
 /// <summary>
-/// <b>Where the districts are, and what each is like.</b> A town is a wheel — a hub, its spokes and one
-/// orbital — and a district is one of the pieces that arrangement cuts the ground into.
+/// <b>What each district the land was cut into is like</b> (GEN-47, GEN-74): its bearing, its spacing, whether it is a
+/// grid, and what it is built as — drawn off where it stands and what it borders, never off a compass.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The regions are convex, and that is the whole reason for them.</b> A sector inside the orbital is a
-/// disc cut by two half-planes, and a street is laid between two lattice points of one district — so a
-/// street cannot leave its own district, and two districts' streets cannot cross. It is what keeps the
-/// number of roads that have to be refused as they are laid (GEN-49,
-/// <see cref="TownLayout.Clear"/>) down to the handful a town loses rather than the search a
-/// generator that laid its streets anywhere would have to do. The sectors outside the orbital are the one
-/// region that is not convex, and they are the reason the lattice still tests an edge against the ring
-/// itself (<see cref="Lattice"/>).
+/// <b>The bearing belongs to the district and not to the node</b>: a grid is bearing coherence, and a bearing drawn per
+/// node produces noise wearing a grid's clothes. It is the district's own longer axis, so its streets run the way its
+/// ground does.
 /// </para>
 /// <para>
-/// <b>The bearing belongs to the district and not to the node</b>: a grid is bearing coherence, and a
-/// bearing drawn per node produces noise wearing a grid's clothes.
+/// <b>The middle of a town is finer than its edge, and denser</b>: a district near the core draws its spacing from the
+/// tighter half of the range and is built as an old town, the ring past it as housing, and the edge as suburbs or estates —
+/// but one a railway or an intercity road runs along most of leans industrial, which is where a town puts its works.
 /// </para>
 /// </remarks>
 internal sealed class Districts
 {
-    /// <summary>How few and how many spokes a wheel is laid with. Three is the fewest that makes sectors; beyond five the hub is a roundabout nobody laid.</summary>
-    const int SpokesFewest = 3;
+    /// <summary>How far a district's bearing is turned off its own axis, either way.</summary>
+    const float BearingSpreadRad = 0.17f;
 
-    const int SpokesMost = 5;
+    /// <summary>The share of a town's districts nearest its core that are its old town, and at least one.</summary>
+    const float OldTownShare = 0.1f;
+
+    /// <summary>How far out, as a share of the furthest district's distance from the core, the housing gives way to the edge's kinds.</summary>
+    const float InnerShare = 0.55f;
 
     readonly District[] _districts;
+    readonly Partition _partition;
+    readonly float _outsideM;
 
-    Districts(District[] districts, DistrictWheel wheel)
+    Districts(District[] districts, Partition partition, float outsideM)
     {
         _districts = districts;
-        Wheel = wheel;
+        _partition = partition;
+        _outsideM = outsideM;
     }
-
-    /// <summary>The wheel they are laid on, which the plan carries on (GEN-56).</summary>
-    public DistrictWheel Wheel { get; }
-
-    public int Spokes => Wheel.Spokes;
-
-    public Vector2 HubM => Wheel.HubM;
-
-    /// <summary>How far out the orbital stands, or zero where the brief lays none.</summary>
-    public float RingRadiusM => Wheel.RingRadiusM;
-
-    public bool HasRing => Wheel.HasRing;
 
     public int Count => _districts.Length;
 
     public District this[int district] => _districts[district];
 
-    /// <summary>The bearing a spoke runs out on. The first is drawn, so a town is not always laid to the compass.</summary>
-    public float SpokeBearingRad(int spoke) => Wheel.FirstSpokeRad + (spoke * MathF.Tau / Spokes);
+    /// <summary>Which district a point stands in, or −1.</summary>
+    public int At(Vector2 pointM) => _partition.At(pointM);
 
-    public static Districts Lay(
-        TownBrief brief, SimConfig config, GroundShapes ground, TerrainStage.Water water, ref Rng draw)
+    /// <summary>How tight the blocks are where a point stands: its district's tighter spacing, or the tightest a town lays outside any.</summary>
+    public float BlockTightestM(Vector2 pointM) =>
+        At(pointM) is var district and >= 0 ? _districts[district].BlockTightestM : _outsideM;
+
+    /// <param name="industrial">The share of each district's edge a railway or an intercity road runs along.</param>
+    public static Districts Plan(Partition partition, float[] industrial, Vector2 coreM, float gridShare, SimConfig config, ulong seed)
     {
-        var extentM = new Vector2(brief.WidthM, brief.HeightM);
-        var spokes = Math.Clamp((brief.Districts + 1) / 2, SpokesFewest, SpokesMost);
-        var ringRadiusM = brief.RingShare > 0f ? MathF.Min(extentM.X, extentM.Y) * brief.RingShare : 0f;
-        var hubM = DryHubM(
-            extentM * 0.5f, ground, extentM, config.Terrain.GroundStepM, water,
-            config.CityGen.BlockSpacingAlongMaxM, out var inlandM);
+        var figures = config.CityGen;
+        var draw = new Rng(seed, Streams.District ^ PlanStream);
+        var count = partition.Count;
+        var awayM = new float[count];
+        for (var district = 0; district < count; district++) awayM[district] = Vector2.Distance(partition.CentreM[district], coreM);
 
-        var townBearingRad = draw.NextFloat(0f, MathF.PI * 0.5f);
-        var spreadRad = brief.BearingSpreadDeg * MathF.PI / 180f;
-        var strictOf = StrictSectors(spokes * 2, brief.GridDistrictShare, ref draw);
+        var furthestM = count == 0 ? 1f : MathF.Max(1f, awayM.Max());
+        var byNearness = Enumerable.Range(0, count).OrderBy(district => awayM[district]).ToArray();
+        var oldTowns = Math.Max(1, (int)MathF.Round(count * OldTownShare));
+        var rank = new int[count];
+        for (var at = 0; at < count; at++) rank[byNearness[at]] = at;
 
-        var districts = new District[spokes * 2];
-        for (var district = 0; district < districts.Length; district++)
+        var strict = Strict(count, gridShare, ref draw);
+        var axis = Axes(partition);
+        var districts = new District[count];
+        var middlingM = (figures.BlockSpacingAlongMinM + figures.BlockSpacingAlongMaxM) * 0.5f;
+        for (var district = 0; district < count; district++)
         {
-            // <b>The middle of a town is finer than its edge.</b> A district inside the orbital draws from
-            // the tighter half of the range and one outside it from the wider half, which is what the traced
-            // cities are and what keeps the ground inside the ring from being one block wide.
-            var inside = district < spokes;
-            var middlingM = (config.CityGen.BlockSpacingAlongMinM + config.CityGen.BlockSpacingAlongMaxM) * 0.5f;
-            var alongM = inside
-                ? draw.NextFloat(config.CityGen.BlockSpacingAlongMinM, middlingM)
-                : draw.NextFloat(middlingM, config.CityGen.BlockSpacingAlongMaxM);
+            var inner = awayM[district] < furthestM * InnerShare;
+            var alongM = inner
+                ? draw.NextFloat(figures.BlockSpacingAlongMinM, middlingM)
+                : draw.NextFloat(middlingM, figures.BlockSpacingAlongMaxM);
+            var kind = rank[district] < oldTowns ? ZoneKind.OldTown
+                : industrial[district] >= figures.DistrictIndustrialEdgeShare ? ZoneKind.Industrial
+                : inner ? ZoneKind.Residential
+                : strict[district] ? ZoneKind.HighRise
+                : ZoneKind.Suburb;
             districts[district] = new District(
-                district % spokes,
-                inside,
-                townBearingRad + draw.NextFloat(-spreadRad, spreadRad),
+                axis[district] + draw.NextFloat(-BearingSpreadRad, BearingSpreadRad),
                 alongM,
-                alongM * draw.NextFloat(config.CityGen.BlockAspectMin, config.CityGen.BlockAspectMax),
-                strictOf[district],
-                StraightShareOf(brief.Seed, district, strictOf[district], config));
+                alongM * draw.NextFloat(figures.BlockAspectMin, figures.BlockAspectMax),
+                strict[district],
+                StraightShareOf(seed, district, strict[district], config),
+                kind);
         }
 
-        // <b>A river town is turned so that one spoke runs down the river's own normal</b> (GEN-14b). The
-        // crossing a town on two banks cannot do without is then the shortest line over the water there is,
-        // and it is the wheel's rotation that buys it rather than any node moved afterwards.
-        var firstSpokeRad = water.Bridgeable
-            ? Trig.Atan2(-inlandM.Y, -inlandM.X)
-            : draw.NextFloat(0f, MathF.Tau / spokes);
-
-        return new Districts(districts, new DistrictWheel(hubM, ringRadiusM, firstSpokeRad, spokes));
+        return new Districts(districts, partition, figures.BlockSpacingAlongMinM);
     }
+
+    /// <summary>The stream a district's plan is drawn on, apart from the partition's own (GEN-11).</summary>
+    const ulong PlanStream = 0x706C_616E_0000_0000;
 
     /// <summary>
-    /// <b>A wheel's districts as its map holds them</b> (GEN-58): the wheel off the whole map's own settings, and each
-    /// district off the zone that says which sector it is (<see cref="ZoneParam.Sector"/>) — numbered as
-    /// <see cref="DistrictWheel"/> numbers them.
+    /// <b>Each district's longer axis</b>: the way its own cells spread furthest, off their second moments — so a district
+    /// long along a river is laid along it.
     /// </summary>
-    public static Districts Of(TownMap.ZoneArrays zones)
+    static float[] Axes(Partition partition)
     {
-        const int root = TownMap.ZoneArrays.Root;
-        var wheel = new DistrictWheel(
-            new Vector2(Said(root, ZoneParam.HubXM), Said(root, ZoneParam.HubYM)), Said(root, ZoneParam.RingRadiusM),
-            Said(root, ZoneParam.FirstSpokeRad), (int)Said(root, ZoneParam.Spokes));
-        if (wheel.Spokes is < SpokesFewest or > SpokesMost) throw new InvalidDataException($"a wheel of {wheel.Spokes} spokes.");
-
-        var districts = new District?[wheel.Count];
-        for (var zone = root + 1; zone < zones.Count; zone++)
+        var count = partition.Count;
+        var (xx, yy, xy) = (new double[count], new double[count], new double[count]);
+        for (var cell = 0; cell < partition.Label.Length; cell++)
         {
-            if (zones.Own(zone, ZoneParam.Sector) is not { } said) continue;
+            var district = partition.Label[cell];
+            if (district < 0) continue;
 
-            var (sector, inside) = ((int)said, Said(zone, ZoneParam.Inside) > 0f);
-            var district = inside || !wheel.HasRing ? sector : wheel.Spokes + sector;
-            if (sector < 0 || sector >= wheel.Spokes || districts[district] is not null) throw new InvalidDataException($"zone {zone} is sector {sector} of a wheel of {wheel.Spokes}, or a second zone for it.");
-
-            districts[district] = new District(
-                sector, inside, Said(zone, ZoneParam.BearingRad), Said(zone, ZoneParam.BlockAlongM), Said(zone, ZoneParam.BlockAcrossM),
-                Said(zone, ZoneParam.Strict) > 0f, Said(zone, ZoneParam.StraightShare));
+            var offM = partition.Grid.CentreOf(cell) - partition.CentreM[district];
+            xx[district] += offM.X * offM.X;
+            yy[district] += offM.Y * offM.Y;
+            xy[district] += offM.X * offM.Y;
         }
 
-        var laid = new District[districts.Length];
-        for (var district = 0; district < laid.Length; district++)
-        {
-            laid[district] = districts[district] ?? throw new InvalidDataException($"district {district} of the wheel has no zone.");
-        }
+        var axis = new float[count];
+        for (var district = 0; district < count; district++) axis[district] = 0.5f * (float)Math.Atan2(2.0 * xy[district], xx[district] - yy[district]);
 
-        return new Districts(laid, wheel);
-
-        float Said(int zone, ZoneParam param) =>
-            zones.Own(zone, param) ?? throw new InvalidDataException($"zone {zone} of a wheel says nothing of its {param}.");
+        return axis;
     }
-
-    /// <summary>
-    /// <b>The middle of the town, moved off the water it fell in</b> (GEN-14). A river runs through the
-    /// centre of the map, so a hub left there is a junction in the river and every spoke out of it starts
-    /// wet. It stands a block back from the bank instead, on whichever side the ground comes back first.
-    /// </summary>
-    /// <param name="inlandM">The way it moved, which is the way the water lies from it.</param>
-    static Vector2 DryHubM(
-        Vector2 atM, GroundShapes ground, Vector2 extentM, float stepM, TerrainStage.Water water,
-        float clearanceM, out Vector2 inlandM)
-    {
-        inlandM = water.Any ? water.Across(atM) : Vector2.UnitX;
-        if (ground.At(atM) != Ground.Water) return atM;
-
-        // Both banks are walked out from together, so the hub crosses the narrower half of the water rather
-        // than whichever side the shore normal happened to point at.
-        var reachM = MathF.Min(extentM.X, extentM.Y) * 0.5f;
-        for (var offM = stepM; offM < reachM; offM += stepM)
-        {
-            if (ground.At(atM + (inlandM * offM)) != Ground.Water) return atM + (inlandM * (offM + clearanceM));
-
-            if (ground.At(atM - (inlandM * offM)) != Ground.Water)
-            {
-                inlandM = -inlandM;
-                return atM + (inlandM * (offM + clearanceM));
-            }
-        }
-
-        return atM;
-    }
-
-    /// <summary>Which district a point stands in (<see cref="DistrictWheel.At"/>).</summary>
-    public int At(Vector2 pointM) => Wheel.At(pointM);
-
-    /// <summary>The town's own centre, and the bearing each spoke leaves it on, as a direction.</summary>
-    public Vector2 SpokeUnit(int spoke) => Heading.Unit(SpokeBearingRad(spoke));
 
     /// <summary>
     /// <b>How many of one district's streets are laid straight</b>: its kind's share, moved by a draw inside
-    /// <see cref="CityGenFigures.StraightShareSpread"/>. <b>A stream of its own, keyed on the district</b>, so
-    /// the mix is retuned without turning the wheel or moving a block.
+    /// <see cref="CityGenFigures.StraightShareSpread"/>. <b>A stream of its own, keyed on the district</b>, so the mix is
+    /// retuned without moving a block.
     /// </summary>
     static float StraightShareOf(ulong seed, int district, bool strict, SimConfig config)
     {
-        var draw = new Rng(seed, StraightShareStream ^ (ulong)district);
-        var spread = config.CityGen.StraightShareSpread;
-        var share = strict ? config.CityGen.GridStraightShare : config.CityGen.LooseStraightShare;
-        return share + draw.NextFloat(-spread, spread);
+        var figures = config.CityGen;
+        var draw = new Rng(seed, StraightStream ^ (ulong)district);
+        var share = strict ? figures.GridStraightShare : figures.LooseStraightShare;
+        return Math.Clamp(share + draw.NextFloat(-figures.StraightShareSpread, figures.StraightShareSpread), 0f, 1f);
     }
 
-    const ulong StraightShareStream = 0x7374_7261_6967_6874;
+    const ulong StraightStream = 0x7374_7261_6967_6874;
 
-    static bool[] StrictSectors(int count, float share, ref Rng draw)
+    /// <summary>Which districts are grids: the brief's share of them, rounded, at drawn places.</summary>
+    static bool[] Strict(int count, float share, ref Rng draw)
     {
         var strict = new bool[count];
-        var strictly = (int)MathF.Round(count * share);
-        for (var district = 0; district < count; district++) strict[district] = district < strictly;
+        var order = new float[count];
+        for (var district = 0; district < count; district++) order[district] = draw.NextFloat();
 
-        // Drawn rather than taken in order, so which districts are grids is a fact about the seed and not
-        // about the sector numbering.
-        for (var district = count - 1; district > 0; district--)
-        {
-            var other = draw.NextInt(district + 1);
-            (strict[district], strict[other]) = (strict[other], strict[district]);
-        }
+        var ranked = Enumerable.Range(0, count).OrderBy(district => order[district]).ToArray();
+        var grids = (int)MathF.Round(count * share);
+        for (var at = 0; at < grids; at++) strict[ranked[at]] = true;
 
         return strict;
     }

@@ -1,0 +1,13 @@
+{
+  "name": "Twinford",
+  "description": "A coastal city ten times the port's size: three rivers into the sea, five roads and two railways in",
+  "widthM": 9500,
+  "heightM": 7300,
+  "seeds": { "town": 1 },
+  "sea": { "bearingDeg": 200, "share": 0.15, "meander": 0.5 },
+  "rivers": { "perKm": 0.32, "bearingDeg": 0, "widthM": 60, "meander": 0.05, "widthSpread": 0.3, "tributaries": 3 },
+  "connectors": { "intercityRoads": 5, "minorShare": 0.4, "railways": 2, "railTracks": 2, "railLoopDeg": 270 },
+  "districts": { "gridShare": 0.66 },
+  "streets": { "unregulatedShare": 0.2 },
+  "roster": { "buildings": 24000, "people": 12000, "cars": 5200 }
+}

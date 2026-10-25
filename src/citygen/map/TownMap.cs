@@ -14,10 +14,11 @@ namespace TrafficSimulation.CityGen.Map;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>It is the map, and an edit is made to it.</b> A map is written by what authors it — the scanner off a real
-/// place's survey (<see cref="TracedMapImport"/>, <c>qq osm --import</c>), or a brief's water and wheel
-/// (<see cref="Gen.TownAuthor"/>, <c>--author</c>) — and changed in place after that (<see cref="Cropped"/>,
-/// <see cref="Without"/>, <c>qq osm --zones</c>). Authoring it again replaces it and every edit made since.
+/// <b>It is the map, and an edit is made to it.</b> A map file is written by the scanner off a real place's survey
+/// (<see cref="TracedMapImport"/>, <c>qq osm --import</c>) and changed in place after that (<see cref="Cropped"/>,
+/// <see cref="Without"/>, <c>qq osm --zones</c>); importing it again replaces it and every edit made since. A generated
+/// town's map is laid in memory off its brief when the town is opened (<see cref="Gen.TownGen.Author"/>, GEN-60) and
+/// never written.
 /// </para>
 /// <para>
 /// <b>What is fixed is respected and what is zoned is laid</b>: a fixed road is laid as it stands, and a building or a
@@ -42,10 +43,13 @@ internal sealed partial record TownMap
     const uint Magic = 0x50414D54;
 
     /// <summary>
-    /// Bumped whenever what is written changes, so a file of another shape is refused rather than misread. Only this
-    /// version is read.
+    /// Bumped whenever what is written changes, so a file of another shape is refused rather than misread. This version
+    /// is read, and <see cref="OneWidthVersion"/>.
     /// </summary>
-    public const ushort Version = 9;
+    public const ushort Version = 10;
+
+    /// <summary>The version before a course's banks stood off it point by point: each course one width the whole way, and none flowing into another.</summary>
+    const ushort OneWidthVersion = 9;
 
     /// <summary>A line's places, in steps a metre: millimetres.</summary>
     const double StepsPerM = 1000.0;
@@ -182,6 +186,10 @@ internal sealed partial record TownMap
         for (var water = 0; water < Courses.Count; water++)
         {
             if (Courses.CourseOf(water).Length < 2) throw new InvalidDataException($"{what}: water {water} runs along a course of fewer than two points.");
+            if (Courses.Parent[water] is var parent && parent != CourseArrays.NoParent && (parent < 0 || parent >= water))
+            {
+                throw new InvalidDataException($"{what}: water {water} flows into water {parent}, which is not written before it.");
+            }
         }
 
         for (var track = 0; track < Rails.Count; track++)
@@ -248,28 +256,47 @@ internal sealed partial record TownMap
     }
 
     /// <summary>
-    /// <b>The waters drawn along a course</b> (<see cref="Gen.TerrainStage.Rings"/>): each its kind, the line it runs
-    /// along, the way across that line and how far each of its banks stands off it that way — a sea's far bank past the
-    /// map. <b>Written as they are</b>, a float's own four bytes each: what a wheel was laid round when it was authored
-    /// is the water its streets are laid round when it is opened.
+    /// <b>The waters drawn along a course</b> (<see cref="Gen.TerrainStage.Rings(CourseArrays, Vector2, Core.Config.SimConfig)"/>):
+    /// each its kind, the water it flows into, the line it runs along, the way across that line and how far each of its
+    /// banks stands off it that way at every point of it — a sea's far bank past the map. <b>Written as they are</b>, a
+    /// float's own four bytes each: what a wheel was laid round when it was authored is the water its streets are laid
+    /// round when it is opened.
     /// </summary>
+    /// <remarks>
+    /// <b>A water flowing into another is drawn as one with it</b>: its rings are joined into its parent's, so the two
+    /// have one bank and one fade where they meet rather than two drawn over each other. A parent is always written
+    /// before the waters flowing into it.
+    /// </remarks>
     internal sealed class CourseArrays
     {
         public required WaterBody[] Kind { get; init; }
         public required Vector2[] Across { get; init; }
-        public required float[] NearM { get; init; }
-        public required float[] FarM { get; init; }
 
-        /// <summary>Count + 1 entries, over <see cref="PointM"/>.</summary>
+        /// <summary>The course each flows into, or <see cref="NoParent"/>.</summary>
+        public required int[] Parent { get; init; }
+
+        /// <summary>Count + 1 entries, over <see cref="PointM"/>, <see cref="NearM"/> and <see cref="FarM"/>.</summary>
         public required int[] PointOffsets { get; init; }
 
         public required Vector2[] PointM { get; init; }
+
+        /// <summary>How far the near bank stands off each point, along its course's <see cref="Across"/>.</summary>
+        public required float[] NearM { get; init; }
+
+        /// <summary>And the far bank.</summary>
+        public required float[] FarM { get; init; }
+
+        public const int NoParent = -1;
 
         public int Count => Kind.Length;
 
         public ReadOnlySpan<Vector2> CourseOf(int water) => PointM.AsSpan(PointOffsets[water], PointOffsets[water + 1] - PointOffsets[water]);
 
-        public static CourseArrays None => new() { Kind = [], Across = [], NearM = [], FarM = [], PointOffsets = [0], PointM = [] };
+        public ReadOnlySpan<float> NearOf(int water) => NearM.AsSpan(PointOffsets[water], PointOffsets[water + 1] - PointOffsets[water]);
+
+        public ReadOnlySpan<float> FarOf(int water) => FarM.AsSpan(PointOffsets[water], PointOffsets[water + 1] - PointOffsets[water]);
+
+        public static CourseArrays None => new() { Kind = [], Across = [], Parent = [], PointOffsets = [0], PointM = [], NearM = [], FarM = [] };
     }
 
     /// <summary>The buildings set down by hand: each a look, its middle, its sides — the front first — and its bearing.</summary>

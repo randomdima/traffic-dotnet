@@ -22,8 +22,9 @@ public class RailLoopTests
 
     static readonly Lazy<TownMap.RailArrays> Tracks = new(() =>
     {
-        var draw = new Rng(Towns.CitySeed, Streams.Railway);
-        return RailLines.Author(Towns.Brief(Towns.CitySeed, railTracks: 2, railLoopDeg: ThreeQuartersDeg), Config, ref draw);
+        var draw = new Rng(Towns.CitySeed, Streams.Connectors);
+        return RailLines.Author(
+            new Vector2(2400f, 1800f), new Vector2(1200f, 900f), 25f * MathF.PI / 180f, 2, ThreeQuartersDeg, 0.15f, 0, Config, ref draw);
     });
 
     /// <summary>

@@ -60,8 +60,8 @@ internal readonly record struct ConnectionPoint(Vector2 AtM, Vector2 DrivenUnit,
 /// </remarks>
 internal static class ConnectionPoints
 {
-    /// <summary>The most points one arm of one node ever carries: one lane each way (GEN-15).</summary>
-    public const int MostPerArm = 2;
+    /// <summary>The most points one arm of one node ever carries: one a lane, of as many lanes each way as a road carries (GEN-67).</summary>
+    public const int MostPerArm = 2 * Gen.LayoutEdge.MostLanes;
 
     /// <summary>
     /// The stream this draw takes, so that retuning it moves no earlier stage's town (GEN-11). <b>It is
@@ -129,10 +129,67 @@ internal static class ConnectionPoints
             : ground.Junctions.CentreM[other];
 
         var ring = Ringed(ground, road, atFrom, out var curvature);
+        var nodeM = ground.Junctions.CentreM[junction];
+        var settled = ring || Array.IndexOf(ground.Bridges.Road, road) >= 0;
+        if (!settled && !roads.IsLaidStraight(road) && FarBridgehead(ground, junction, out var farM)
+            && CarriesOn(nodeM, towardM, farM, out var onTheSpanM))
+        {
+            towardM = onTheSpanM;
+            settled = true;
+        }
+
         return ArmOf(
-            ground.Seed, config, junction, ground.Junctions.CentreM[junction], towardM,
-            ring || Array.IndexOf(ground.Bridges.Road, road) >= 0, curvature, roads.IsLaidStraight(road))
+                   ground.Seed, config, junction, nodeM, towardM, settled, curvature, roads.IsLaidStraight(road),
+                   ground.Junctions.RadiusM[junction])
                with { OnTheLine = ring || roads.DrivenOverOneLine(road) };
+    }
+
+    /// <summary>
+    /// The other end of the first bridge landing at <paramref name="junction"/>, in the plan's order of roads —
+    /// the order <c>RoadLines</c> files them in when it asks the same of the layout.
+    /// </summary>
+    static bool FarBridgehead(GroundPieces ground, int junction, out Vector2 farM)
+    {
+        var roads = ground.Roads;
+        foreach (var bridge in ground.Bridges.Road)
+        {
+            if (bridge < 0) continue;
+
+            var other = roads.FromJunction[bridge] == junction ? roads.ToJunction[bridge]
+                : roads.ToJunction[bridge] == junction ? roads.FromJunction[bridge]
+                : -1;
+            if (other < 0) continue;
+
+            farM = ground.Junctions.CentreM[other];
+            return true;
+        }
+
+        farM = default;
+        return false;
+    }
+
+    /// <summary>
+    /// How near the span's own line a road leaving a bridgehead has to run to be the one the bridge carries on into
+    /// (<see cref="CarriesOn"/>): nearer it than square across it, by half. A street meeting the bridge's end
+    /// across it is a junction's arm and keeps its own bearing.
+    /// </summary>
+    const float CarriesOnWithinRad = MathF.PI / 4f;
+
+    /// <summary>
+    /// <b>Whether a road leaving a bridgehead carries the bridge on</b> (GEN-14a), and if so the place it aims at
+    /// instead of its own: the far bridgehead mirrored through this one. So the road leaves on the span's own line,
+    /// unjittered, the two meet at the bridgehead as one straight, and whatever turn the road owes is taken on the
+    /// bank rather than inside the bridgehead.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of the road alone</b> — its own chord against the span — and never of the node's other arms, so the
+    /// layout that lays a road and the plan that reads it back answer alike whatever was laid at the node after it.
+    /// </remarks>
+    public static bool CarriesOn(Vector2 nodeM, Vector2 towardM, Vector2 farBridgeheadM, out Vector2 onTheSpanM)
+    {
+        var onward = Chord(farBridgeheadM, nodeM);
+        onTheSpanM = nodeM + (onward * Vector2.Distance(nodeM, towardM));
+        return Vector2.Dot(Chord(nodeM, towardM), onward) >= MathF.Cos(CarriesOnWithinRad);
     }
 
     /// <summary>
@@ -178,16 +235,21 @@ internal static class ConnectionPoints
     /// Whether the road is laid straight (GEN-47), which leaves on the chord to the place it runs for and is
     /// not jittered off it.
     /// </param>
+    /// <param name="standoffM">
+    /// How far out the arm's lanes end, which is the disc its junction is drawn on: the town's one standoff where a
+    /// node says nothing of its own (GEN-46), wider where a wider road meets it (GEN-67), none where its road runs off
+    /// the map (GEN-2b).
+    /// </param>
     public static Arm ArmOf(
         ulong seed, SimConfig config, int junction, Vector2 nodeM, Vector2 towardM, bool settled,
-        float curvature, bool straight = false)
+        float curvature, bool straight = false, float? standoffM = null)
     {
         var outward = settled ? Tangent(nodeM, towardM, curvature)
             : straight ? Chord(nodeM, towardM)
             : Jittered(Chord(nodeM, towardM), config, seed, nodeM, towardM);
 
         var arm = new Arm(junction, nodeM, outward, curvature, nodeM, outward);
-        var lead = arm.Lead(config.CityGen.ConnectionStandoffM);
+        var lead = arm.Lead(standoffM ?? config.CityGen.ConnectionStandoffM);
 
         return arm with { StandM = lead.EndM, StandUnit = Heading.Unit(lead.HeadingAtRad(lead.LengthM)) };
     }
@@ -210,8 +272,8 @@ internal static class ConnectionPoints
 
     /// <summary>
     /// <b>Every point one arm carries</b>, written into <paramref name="into"/> and counted back: one for
-    /// each way the road is driven (TER-4d), standing half a lane off the arm's own line on the side its
-    /// traffic keeps.
+    /// each lane of each way the road is driven (TER-4d, GEN-67), the innermost standing half a lane off the arm's
+    /// own line on the side its traffic keeps and each lane further out a lane further.
     /// </summary>
     /// <remarks>
     /// <b>One rule covers the one-way street as well as the two-way one.</b> A street driven one way is a
@@ -222,22 +284,18 @@ internal static class ConnectionPoints
     /// </remarks>
     public static int At(GroundPieces ground, SimConfig config, in Arm arm, int road, Span<ConnectionPoint> into)
     {
-        var flow = ground.Roads.Flow[road];
-        var leavesHere = arm.Junction == ground.Roads.FromJunction[road];
-
-        var written = 0;
+        var roads = ground.Roads;
+        var leavesHere = arm.Junction == roads.FromJunction[road];
+        var (leaving, arriving) = leavesHere
+            ? (roads.LanesWithTheRoad(road), roads.LanesAgainstTheRoad(road))
+            : (roads.LanesAgainstTheRoad(road), roads.LanesWithTheRoad(road));
+        var laneM = roads.LaneWidthM(road);
 
         // A car leaves the node on this arm where the road is driven away from it, and arrives on it where
         // the road is driven towards it. A two-way road is both.
-        if (flow != (leavesHere ? RoadFlow.AgainstTheRoad : RoadFlow.WithTheRoad))
-        {
-            into[written++] = Point(config, arm, arm.StandUnit, LaneEnd.Exit);
-        }
-
-        if (flow != (leavesHere ? RoadFlow.WithTheRoad : RoadFlow.AgainstTheRoad))
-        {
-            into[written++] = Point(config, arm, -arm.StandUnit, LaneEnd.Enter);
-        }
+        var written = 0;
+        for (var outward = 0; outward < leaving; outward++) into[written++] = Point(config, arm, arm.StandUnit, LaneEnd.Exit, outward * laneM);
+        for (var outward = 0; outward < arriving; outward++) into[written++] = Point(config, arm, -arm.StandUnit, LaneEnd.Enter, outward * laneM);
 
         return written;
     }
@@ -257,9 +315,10 @@ internal static class ConnectionPoints
     /// the arm's own line rather than a share of a carriageway, and it is the same exception
     /// <c>RoadStage.OntoTheDrivenHalf</c> makes.
     /// </remarks>
-    static ConnectionPoint Point(SimConfig config, in Arm arm, Vector2 drivenUnit, LaneEnd end)
+    /// <param name="furtherM">How much further out than the innermost lane of its way this lane stands.</param>
+    static ConnectionPoint Point(SimConfig config, in Arm arm, Vector2 drivenUnit, LaneEnd end, float furtherM)
     {
-        var acrossM = arm.OnTheLine ? 0f : config.LaneOffsetM * config.RoadSideSign;
+        var acrossM = arm.OnTheLine ? 0f : (config.LaneOffsetM + furtherM) * config.RoadSideSign;
         return new ConnectionPoint(
             arm.StandM + (Heading.RightOf(drivenUnit) * acrossM), drivenUnit, end);
     }

@@ -7,14 +7,14 @@ namespace TrafficSimulation.CityGen;
 /// </summary>
 internal static class Streams
 {
-    /// <summary>A brief's water, drawn when the map is authored (<see cref="Gen.TownAuthor"/>).</summary>
+    /// <summary>A brief's sea and rivers (<see cref="Gen.TerrainStage"/>).</summary>
     public const ulong Terrain = 0x7465_7272_6169_6E00;
 
-    /// <summary>A brief's wheel and districts, drawn when the map is authored.</summary>
+    /// <summary>A brief's districts: where the land is cut, and what each district is like (<see cref="Gen.Partition"/>).</summary>
     public const ulong District = 0x6469_7374_7269_6374;
 
-    /// <summary>A brief's railway, drawn when the map is authored (<see cref="RailLines.Author"/>).</summary>
-    public const ulong Railway = 0x7261_696C_7761_7900;
+    /// <summary>A brief's core, railways and intercity roads (<see cref="Gen.Connectors"/>).</summary>
+    public const ulong Connectors = 0x636F_6E6E_6563_7473;
 
     public const ulong CarPark = 0x6361_7270_6172_6B00;
 

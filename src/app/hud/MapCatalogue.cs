@@ -10,8 +10,8 @@ internal enum MapKind
     Place,
 
     /// <summary>
-    /// A town laid in code to put one behaviour under a microscope — the scenario map — the fixture being a map file
-    /// like a city's. Still an ordinary map in every way that matters — the ordinary game, camera and agents — and
+    /// A town laid in code to put one behaviour under a microscope — the scenario map. Still an ordinary map in every way
+    /// that matters — the ordinary game, camera and agents — and
     /// behind its own submenu so that a menu of two cities does not read as a menu of two cities and a laboratory.
     /// </summary>
     Scenario,
@@ -25,8 +25,9 @@ internal readonly record struct MapEntry(string Name, MapKind Kind, string Descr
 /// can be opened one way can be opened the other.
 /// </summary>
 /// <remarks>
-/// <b><see cref="Maps.Offered"/> is the authority for which maps exist</b> — the map files in <c>towns/</c> and the maps
-/// this build lays in code — so a map cannot exist and be unlisted. <b>A town says what it is in its own map's head</b>;
+/// <b><see cref="Maps.Offered"/> is the authority for which maps exist</b> — the briefs and map files in <c>towns/</c> and
+/// the maps this build lays in code — so a map cannot exist and be unlisted. <b>A town says what it is in its own brief
+/// or its own map's head</b>;
 /// this catalogue is the authority for the rest, which is the maps laid to measure one thing. The unit suite guards the
 /// pair in both directions.
 /// </remarks>

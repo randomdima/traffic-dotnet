@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Gen;
@@ -10,8 +11,14 @@ internal enum RoadClass : byte
     /// <summary>A block's own street: short, laid on its district's bearing, and where the buildings are.</summary>
     Street,
 
-    /// <summary>The orbital and the spokes: long, faster, and the only roads that cross a district edge.</summary>
+    /// <summary>A road between districts: long, faster, and the only roads that cross a district edge.</summary>
     Arterial,
+
+    /// <summary>
+    /// A road between the town and outside (GEN-63): the widest, met least often, and never by a district's own
+    /// street (GEN-68). It may run off the map (GEN-2b).
+    /// </summary>
+    Intercity,
 
     /// <summary>
     /// The one span between two bridgeheads. <b>The only class of road that may stand over water</b>
@@ -57,8 +64,22 @@ internal enum RoadClass : byte
 /// piece, and it bends only at a corner it was joined through. Some of every district's streets are, drawn
 /// street by street at the district's own share (<see cref="Lattice"/>).
 /// </param>
+/// <param name="Lanes">
+/// How many lanes it carries each way it is driven (GEN-67), and so how wide it is laid and how much ground it keeps
+/// (<see cref="RoadLines"/>). Fixed when the road is offered, because the ground it keeps is.
+/// </param>
 internal readonly record struct LayoutEdge(
-    int From, int To, RoadClass Class, float Curvature, RoadFlow Flow, Vector2[] ThroughM, bool Straight = false);
+    int From, int To, RoadClass Class, float Curvature, RoadFlow Flow, Vector2[] ThroughM, bool Straight = false, int Lanes = 1)
+{
+    /// <summary>
+    /// How wide its carriageway is laid as it is offered: its lanes each way, both ways — every road is offered running
+    /// both ways, and which run one way is settled after (<see cref="OneWayStreets"/>).
+    /// </summary>
+    public float OfferedWidthM(float laneWidthM) => laneWidthM * Lanes * SimConfig.LanesPerCarriageway;
+
+    /// <summary>The most lanes a road carries each way: four in all (GEN-67).</summary>
+    public const int MostLanes = 2;
+}
 
 /// <summary>
 /// <b>The town as nodes and what joins them</b>, before any of it is a curve or a cell — the product of the
@@ -89,8 +110,12 @@ internal readonly record struct LayoutEdge(
 /// </para>
 /// </remarks>
 internal sealed class TownLayout(
-    float shortestRoadM, float armsApartMinRad, float localityM, GridLevel level, WaterRules water, RoadLines lines)
+    float shortestRoadM, float armsApartMinRad, float localityM, GridLevel level, WaterRules water, RoadLines lines,
+    NodeSizes sizes)
 {
+    /// <summary>How much ground each node takes and which of them a road runs off the map at.</summary>
+    public NodeSizes Sizes => sizes;
+
     readonly List<Vector2> _nodeM = [];
 
     /// <summary>
@@ -221,7 +246,11 @@ internal sealed class TownLayout(
 
         for (var node = 0; node < _nodeM.Count; node++)
         {
-            if (moved[node] < 0) moved[node] = moved[stays[Clusters.Find(root, node)]];
+            if (moved[node] >= 0) continue;
+
+            var stayed = stays[Clusters.Find(root, node)];
+            moved[node] = moved[stayed];
+            sizes.Took(_nodeM[stayed], _nodeM[node]);
         }
 
         _nodeM.Clear();
@@ -257,16 +286,16 @@ internal sealed class TownLayout(
     /// <returns>The road, or <c>−1</c> where it was refused.</returns>
     public int Join(
         int from, int to, RoadClass roadClass, float curvature = 0f, Vector2[]? throughM = null,
-        bool straight = false)
+        bool straight = false, int lanes = 1)
     {
         if (from == to) return -1;
 
         var runM = _nodeM[to] - _nodeM[from];
         if (runM.Length() < shortestRoadM) return -1;
-        if (!water.Carries(_nodeM[from], _nodeM[to], roadClass)) return -1;
+        if (!water.Carries(_nodeM[from], _nodeM[to], roadClass, throughM)) return -1;
         if (!_joined.Add(from < to ? (from, to) : (to, from))) return -1;
 
-        var road = new LayoutEdge(from, to, roadClass, curvature, RoadFlow.BothWays, throughM ?? [], straight);
+        var road = new LayoutEdge(from, to, roadClass, curvature, RoadFlow.BothWays, throughM ?? [], straight, lanes);
         var (outOfFrom, outOfTo) = BearingsOf(road);
         if (!StandsSquareEnough(from, outOfFrom) || !StandsSquareEnough(to, outOfTo)
             || !lines.CanLay(road, _nodeM, out var line))
@@ -402,7 +431,8 @@ internal sealed class TownLayout(
     /// </summary>
     public static int Precedence(RoadClass roadClass) => roadClass switch
     {
-        RoadClass.Bridge => 2,
+        RoadClass.Bridge => 3,
+        RoadClass.Intercity => 2,
         RoadClass.Arterial => 1,
         _ => 0,
     };
@@ -654,6 +684,10 @@ internal sealed class TownLayout(
     bool IsALeaf(int node, int[] arms, List<int>[] edgesAt, bool[] dropped)
     {
         if (arms[node] <= 0) return false;
+
+        // <b>Nor is a node a road runs off the map at</b> (GEN-2b, GEN-63): the road carries on past the edge, and the
+        // node is only where the map stops showing it.
+        if (sizes.RunsOff(_nodeM[node])) return false;
 
         // <b>A node on a ring is never one a road merely stops at</b> (GEN-19): a roundabout is one junction
         // laid out as a circle, so pruning one of its nodes leaves the rest of them standing a radius apart

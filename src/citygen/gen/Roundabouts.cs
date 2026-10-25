@@ -5,8 +5,8 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>Which junctions of the town are opened out into a roundabout</b> (GEN-19): the ones a district's own
-/// streets leave it by, where there is ground for a circle and the arms already stand round it.
+/// <b>Which junctions of the town are opened out into a roundabout</b> (GEN-19): the ones where roads between
+/// districts meet (GEN-68), where there is ground for a circle and the arms already stand round it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -24,7 +24,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </para>
 /// <para>
 /// <b>It runs on the layout the deletions left</b>, after the stranded pieces, the dead ends and the runs
-/// joined into one road (<see cref="WheelStreets"/>), because a ring is laid against the town there actually is
+/// joined into one road (<see cref="TownGen.Lay"/>), because a ring is laid against the town there actually is
 /// — and before the one-way scatter, which then finds every ring node already spoken for.
 /// </para>
 /// <para>
@@ -41,8 +41,9 @@ internal static class Roundabouts
     /// </summary>
     public const int ArmsLeast = 4;
 
+    /// <param name="blockTightestM">How tight the blocks are where a point stands (<see cref="RoadLines.WanderM"/>).</param>
     public static void Lay(
-        TownLayout layout, Districts districts, WaterRules water, SimConfig config, Vector2 extentM,
+        TownLayout layout, Func<Vector2, float> blockTightestM, WaterRules water, SimConfig config, Vector2 extentM,
         float marginM)
     {
         var laidM = new List<Vector2>();
@@ -53,12 +54,12 @@ internal static class Roundabouts
         for (var node = 0; node < nodes; node++)
         {
             var arms = layout.ArmsAt(node);
-            if (!ADistrictLeavesHere(layout, arms)) continue;
+            if (!DistrictRoadsMeetHere(layout, arms)) continue;
             if (StandsNearOne(laidM, layout.NodeM[node], config.CityGen.RoundaboutApartMinM)) continue;
 
             var radiusM = RadiusM(layout, node, arms, config);
             if (float.IsNaN(radiusM)) continue;
-            if (!RoomFor(layout, districts, water, config, node, arms, radiusM, extentM, marginM)) continue;
+            if (!RoomFor(layout, blockTightestM, water, config, node, arms, radiusM, extentM, marginM)) continue;
 
             layout.RingOut(node, radiusM, Curvature(radiusM, config));
             laidM.Add(layout.NodeM[node]);
@@ -79,32 +80,35 @@ internal static class Roundabouts
     static float Curvature(float radiusM, SimConfig config) => -config.RoadSideSign / radiusM;
 
     /// <summary>
-    /// <b>Where a district leaves the town</b> (GEN-19): a junction of four arms or more that some district's
-    /// own street meets a road carrying the town between districts at. <b>A bridgehead is never one</b> — a
-    /// deck cannot move (GEN-14a), and the arm the ring would cut back is the span itself.
+    /// <b>Where a road between districts is met</b> (GEN-19, GEN-68): a junction of four arms or more, one of them at least
+    /// a road between districts and none an intercity road, whose junctions are its own few (GEN-68). <b>A bridgehead is
+    /// never one</b> — a deck cannot move (GEN-14a), and the arm the ring would cut back is the span itself.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Three arms are a junction and not a roundabout</b> (GEN-19). A ring there is a circle laid to sort
     /// out one conflict, which the ranking already sorts out standing still, and it costs every car through
     /// the node a detour to reach the arm opposite.
+    /// </para>
+    /// <para>
+    /// <b>Every arm one lane each way</b>: the ring is laid one lane wide (GEN-67), and an arm of two arriving at it would
+    /// lose one at its mouth.
+    /// </para>
     /// </remarks>
-    static bool ADistrictLeavesHere(TownLayout layout, List<int> arms)
+    static bool DistrictRoadsMeetHere(TownLayout layout, List<int> arms)
     {
         if (arms.Count < ArmsLeast) return false;
 
-        var street = false;
-        var arterial = false;
+        var betweenDistricts = false;
         foreach (var arm in arms)
         {
-            switch (layout.Edges[arm].Class)
-            {
-                case RoadClass.Bridge or RoadClass.Roundabout: return false;
-                case RoadClass.Street: street = true; break;
-                default: arterial = true; break;
-            }
+            var road = layout.Edges[arm];
+            if (road.Class is RoadClass.Bridge or RoadClass.Roundabout or RoadClass.Intercity || road.Lanes > 1) return false;
+
+            betweenDistricts |= road.Class == RoadClass.Arterial;
         }
 
-        return street && arterial;
+        return betweenDistricts;
     }
 
     /// <summary>
@@ -164,7 +168,7 @@ internal static class Roundabouts
     /// </list>
     /// </summary>
     static bool RoomFor(
-        TownLayout layout, Districts districts, WaterRules water, SimConfig config, int node, List<int> arms,
+        TownLayout layout, Func<Vector2, float> blockTightestM, WaterRules water, SimConfig config, int node, List<int> arms,
         float radiusM, Vector2 extentM, float marginM)
     {
         var centreM = layout.NodeM[node];
@@ -204,8 +208,8 @@ internal static class Roundabouts
             var edge = layout.Edges[road];
             var fromM = layout.NodeM[edge.From];
             var toM = layout.NodeM[edge.To];
-            var strayM = RoadLines.WanderM(districts, edge, (fromM + toM) * 0.5f, config);
-            if (OffM(centreM, fromM, toM) < radiusM + config.RoadFootprintM + strayM) return false;
+            var strayM = RoadLines.WanderM(blockTightestM, edge, (fromM + toM) * 0.5f, config);
+            if (OffM(centreM, fromM, toM) < radiusM + RoadLines.FootprintM(config, edge) + strayM) return false;
         }
 
         return true;

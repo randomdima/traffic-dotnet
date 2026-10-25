@@ -66,8 +66,9 @@ def probe_names() -> list[str]:
 
 
 def map_names() -> list[str]:
-    """The maps a file ships for, which is every map a probe can be pointed at."""
-    return sorted(path.stem for path in (_sim.ROOT / "towns").glob("*.map"))
+    """The maps a file ships for — a traced map or a generated town's brief — which is every map a probe can be pointed at."""
+    towns = _sim.ROOT / "towns"
+    return sorted(path.stem for path in [*towns.glob("*.map"), *(towns / "briefs").glob("*.json")])
 
 
 def main():
@@ -156,7 +157,7 @@ def parse_args():
     )
     parser.add_argument("--probes", default="none", choices=["none"] + probe_names(),
                         help=f"which figures to take after the suite passes ({CATALOGUE})")
-    parser.add_argument("--map", default="Odesa", choices=map_names(),
+    parser.add_argument("--map", default="Saltbay", choices=map_names(),
                         help="the town the probes run on")
     parser.add_argument("--full", action="store_true",
                         help="build and test on every core at normal priority, rather than light (qq tests --help)")

@@ -105,7 +105,7 @@ public class StatusPanelClaimsTests(StandingTown town) : IClassFixture<StandingT
 
         // A brief describes itself and is a place; a name nothing ships is read as a laboratory, which is
         // what the row a laid map would take says of it.
-        Assert.False(MapCatalogue.IsScenario("Odesa"));
+        Assert.False(MapCatalogue.IsScenario("Saltbay"));
         Assert.True(MapCatalogue.IsScenario("Idle"));
     }
 

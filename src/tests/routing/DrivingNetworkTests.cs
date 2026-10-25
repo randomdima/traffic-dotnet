@@ -91,7 +91,7 @@ public class DrivingNetworkTests
 
                 Assert.False(
                     hasAChoice[ringOf[place]],
-                    $"{map}: place {place} is a bend on a road with a choice on it, and is on the network");
+                    $"{map}: place {place} at {roads.EndOf(arriving[place][0]).PositionM} is a bend on a road with a choice on it, and is on the network");
                 anchors[ringOf[place]]++;
             }
         }
@@ -165,9 +165,18 @@ public class DrivingNetworkTests
         var lanes = arriving[place];
         if (lanes.Count == 0 || lanes.Count != runs.LanesLeaving(place).Length) return false;
 
+        // Where more lanes than one each way arrive, which of them a car is in is a choice it made (CAR-53, GEN-67).
+        if (lanes.Count > 2 || (lanes.Count == 2 && roads.LaneForward[lanes[0]] == roads.LaneForward[lanes[1]] && roads.LaneRoad[lanes[0]] == roads.LaneRoad[lanes[1]]))
+        {
+            return false;
+        }
+
         foreach (var lane in lanes)
         {
             if (roads.LanesFrom(lane).Length != 1) return false;
+
+            // Nor is it a bend where the lane arriving has another beside it, wherever that one arrives.
+            if (roads.LaneBeside(lane, true) >= 0 || roads.LaneBeside(lane, false) >= 0) return false;
         }
 
         return true;

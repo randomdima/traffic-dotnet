@@ -143,6 +143,7 @@ internal sealed partial class Menu
             SectionFigures.Trims => FiguresGapPx + (TrimFigures.Count * TrimPitchPx) + LinePitchPx,
             SectionFigures.Shell => FiguresGapPx + (2 * TrimPitchPx),
             SectionFigures.Ground => FiguresGapPx + GroundHeightPx(paneWidthPx),
+            SectionFigures.Brief => FiguresGapPx + BriefHeightPx,
             _ => 0f,
         };
 
@@ -185,6 +186,7 @@ internal sealed partial class Menu
         Array.Clear(_layerRows);
         Array.Clear(_trims);
         Array.Clear(_grounds);
+        Array.Clear(_briefRows);
         _allOff = default;
         _paneRule = default;
         _figuresRule = default;
@@ -242,6 +244,10 @@ internal sealed partial class Menu
             case SectionFigures.Ground:
                 LayGround(paneX, y, paneWidthPx);
                 break;
+
+            case SectionFigures.Brief:
+                LayBrief(paneX, y, paneWidthPx);
+                break;
         }
     }
 
@@ -296,6 +302,7 @@ internal sealed partial class Menu
         return DebugLayers.Sections[Section].Figures switch
         {
             SectionFigures.Ground => ClickedGroundRow(pointPx, switches.Ground),
+            SectionFigures.Brief => ClickedBrief(pointPx),
             SectionFigures.None => MenuChoice.None,
             _ => ClickedTrim(pointPx, switches, trims),
         };
@@ -321,6 +328,7 @@ internal sealed partial class Menu
 
         draw.Rect(_figuresRule.AtPx, _figuresRule.SizePx, Theme.Rule);
         if (laid.Figures == SectionFigures.Ground) DrawGround(ref draw, pointerPx, switches.Ground, mesh);
+        else if (laid.Figures == SectionFigures.Brief) DrawBrief(ref draw, pointerPx);
         else DrawTrims(ref draw, pointerPx, switches, trims);
     }
 

@@ -8,10 +8,18 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Failing tests
 
+- **`ShippedCityTests.NothingStandsInItsWater(OdesaOsm)`** (maps) fails: "2 road places, the first at <3430.4446,
+  12487.6455>". A service road traced from OSM curves along a pond, and its carriageway's edge stands about a metre
+  inside OSM's own outline of the water. No stage laid it there, and the map holds both shapes as surveyed. Closes by
+  mending that road off the water in `qq osm --mend`, or by cutting the water back from the roads the survey holds
+  when the sea is laid (`TracedSea`).
+
 - **`WayIntentsTests.EveryHolderUnderWayStatesWhereItGoes`** (town) fails: "Walking 29 is under way and states nothing"
   (2026-10-19). Not the railway loop's: it fails as well with the suite's line laid straight, the old train and rail
   figures and the ballast answered over the walk. Not traced; which of `WalkingGround.StateIntents`' two pieces comes
-  back empty for walker 29, and why, closes it.
+  back empty for walker 29, and why, closes it. Passing at `HEAD` on 2026-10-25 and failing again once the roads landing
+  at bridgeheads leave on the span's line (GEN-14a): walker 29 stands at (2054, 904), nearly 800 m from any bridge, so
+  what moved it is the town reshaped and not the bridgeheads.
 - **A plan draws back with nothing cutting it** (`PlansInATownTests.APlanNothingCutNeverDrawsBack`, map "Laid") fails
   or passes by what the fleet is (2026-10-22): with batch 1 out, "car 42 drew its plan back 4.77 m"; with the tracks
   narrowed to CAR-12's sliver, "tick 886, car 42 drew its plan back 0.03 m with nothing cutting it, doing 0.1 m/s" (and
@@ -21,11 +29,17 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   horizon (`HorizonM` 1.66 m, hold `Reach`); at tick 886 the horizon lets go, the plan becomes what the car wants
   (`wantedToM`, which follows its speed), and that is 3 cm short of where the horizon had held it. A wanted end that
   falls with the speed while it is hidden under a horizon is the bug; deciding whether the plan should keep its
-  reached end, or the creep itself is the fault, closes it.
+  reached end, or the creep itself is the fault, closes it. Back on 2026-10-25 when the roads landing at bridgeheads
+  began leaving on the span's line (GEN-14a), which reshapes the suite's city: "tick 1920, car 9 drew its plan back
+  2.61 m … doing 0.2 m/s" at (1614, 1509), some 700 m from either bridge — a creeping car again, and nothing of a
+  bridge's.
 - **`SolverGateTests.AStepAllocatesNothing(bodyCount: 1000, packed: True)`** (perf) failed once in a light
   `qq tests --changed` run, "Expected: 0, Actual: 1" (2026-10-22), and passed twice on its own after: one allocation
   in the measured window that the solver's own code did not make, or did only when the run was loaded. A run of the
   perf tier that catches it again, with the allocation's stack, closes it.
+- **`AsideThreadTests.TheFirstWaitTheCallerHasToBlockOnAllocatesNothing`** (unit) failed once in a light `qq tests`
+  run (2026-10-25) and passed on its own straight after; the change under it was a view figure nothing on that thread
+  reads. Same shape as the solver gate's above: a run that catches it again, with the allocation's stack, closes it.
 - **`SheetAtlasTests.TheShippedArtPacksIntoAHandfulOfPages`** (unit) fails: 7 pages against 5 (2026-10-23). The
   civilian fleet's cars, wrecks and zone maps fill six (the lamp sheet laid four looks a row, `LampAtlas.LooksARow`),
   and the evacuator looks the seventh, which the props' 203 looks still fit (2026-10-25). Each page is 64 MB of sprite
@@ -33,19 +47,33 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
   the leg it had before the hand" (2026-10-19; still on 2026-10-25's working tree). Not traced; what the leg reads
   once the hand lets go, and why it is the one from before the hand, closes it.
-- **Four tests fail since the town's arithmetic left libm** (2026-10-20, core log); all four pass on 79dddfaf:
-  - `PedestrianWaysTests.ALaneWeldedToOnePointIsTheOnlyOneNothingIsLaidDown` and
-    `PedestrianNodesTests.APointStandingOnThePointItsLaneArrivesAtIsOnePointMidwayBetweenThem` (unit, WLK-12): "the
-    fixture town welds no lane at all". The fixture had one weld, node 62's lane 1 (983.2, 858.1), whose point is where
-    two all but parallel kerb lines meet: the roads' headings a float apart (`citygen/gen`'s `Atan2` and `Asin`) move it
-    0.4 m, and its pair now stands 1.083 m apart against `Road.FootConnectorMergeM`'s 1 m. The plan's junctions are the
-    same to the bit. Each asks the fixture for a weld it no longer lays; a fixture that welds by its own shape, or the
-    point found by a better-conditioned construction than a near-parallel meet, closes them;
-  - `PersonActionTests.AWalkerInTheRoadClaimsTheStretchOfItsWayItStepsBackOnto` (town, PER-25): the walker put on the
-    nearest street lane's middle is read as walking and not rejoining. Not traced; which walker and lane the probe now
-    picks, and why the world does not read that body as in the road, closes it;
-  - `WalkingTests.ABodyOnNoWayOfTheNetworkPlansNothing` (town, PER-26): "walker 22 is on no way of the network and
-    plans 4535" — the rule broken in the settled town, as the `WayIntents` entry above is. Not traced.
+- **`PedestrianWaysTests.ALaneWeldedToOnePointIsTheOnlyOneNothingIsLaidDown` and
+  `PedestrianNodesTests.APointStandingOnThePointItsLaneArrivesAtIsOnePointMidwayBetweenThem`** (unit, WLK-12) fail:
+  "the fixture town welds no lane at all" (2026-10-20, core log; both pass on 79dddfaf). The old fixture had one weld,
+  where two all but parallel kerb lines met, and lost it to a float; the fixture laid off its brief since GEN-60
+  (2026-10-26) welds none either. Each asks the fixture for a weld it does not lay; a weld staged by its own shape, or
+  the point found by a better-conditioned construction than a near-parallel meet, closes them.
+- **Six tests, ten cases, fail on the towns the generator lays since the three-stage rework** (2026-10-26), each a rule
+  broken in a town laid where none of these shapes stood before; not traced unless said:
+  - `TownGenTests.EveryDistrictIsReachedFromOutsideAndFromItsNeighbours` (town, GEN-69), seeds 7 and 0xDEADBEEF: "the
+    68 roads that are no district's own make 3 networks" — the [known gap](index.md#known-gaps): a planned road the
+    ground refuses is dropped with nothing planned behind it. Planning against the same refusals the layout asks, or
+    planning again for a piece left alone, closes it.
+  - `CrossingsTests.AZebraReachesAtLeastItsRoadsWidth` (unit, TER-6): "a zebra reaches 7.19 m over a 7.20 m
+    carriageway at 1291,1263" — 1 cm short on a two-lane road of the fixture.
+  - `LaneArrowsTests.NoArrowIsPaintedOverAZebra` (unit): "the arrow on lane 106 from 33.6 m is painted over the zebra at
+    34.5 m".
+  - `GroundMeshTests.EveryLaneLineStandsBetweenTwoRibbonsThatTouch(Laid)` (town): a mark at (1066.6, 365.2) that no
+    ribbon near it reaches the edge of.
+  - `LaneShellTests.TheGroundIsInsideTheBoundaryAndNotOutsideIt(Laid)` (town): 3 of 2 010 boundary stations, the first
+    at (721.0, 1715.3), without the driven ground on their right.
+  - `RoadClosureInATownTests` (town, SRV-7…11), four cases: "1 patrol(s) never stood closing wreck 0 in 14400 ticks",
+    car 84 sent to it standing 1 004 m off. Where the staged wreck now stands, and why the patrol's leg there is never
+    driven, closes it.
+- **`LegEndsInATownTests.APatrolStopsOnThePlaceItWasSentTo`** (town) and **`BayManoeuvreTests.ACarSentToABayParksInIt`**
+  (town) failed in some of the day's runs on the reworked towns (2026-10-26) and passed in the last: "patrol 79 drove
+  through its place at (810, 1100)"; "car 0 sent from bay 363 to bay 362 … 457 m off it". Which towns they fail on is
+  which shapes the generator happened to lay; a run that catches either again, traced, closes it.
 
 - **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) is skipped, failing: the worst bar's gap is 0.0426 m off the setback
   against `FramesM`, a 0.04 m bound measured on the fixture. It fails on 5a973d8, 2b8936c7 and 9f5c05af (2026-09-30)
@@ -86,17 +114,30 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Sixteen town tests are skipped** for the decisions no claim can make any more: all fourteen of
   `OvertakeInATownTests` (CAR-46, CAR-50, PER-28) and two of `LaneSwitchInATownTests` (getting past a wreck and slower
   traffic, CAR-53). They come back with the entry below.
-- **`BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark`** (town, GEN-55) has failed since the world's trigonometry
-  became `Trig` (2026-10-15, core log; it passes on 5a973d8): `Heading.Unit` lays the town as well as turning it, so the
-  suite's town stands a float off where it stood. Since the buildings grew (2026-10-20) building 163 stands 10.4 m off
-  the middle of a rank reaching 10.8 m with 2.6 m of frontage either side — 2.2 m onto the rounding, where it was 0.1 m.
-  Read again 2026-10-25: building 57 at (1976.3, 980.7), 8.0 m off with 4.2 m either side, 1.4 m onto it.
+- **`BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark`** (town, GEN-55) failed from 2026-10-15 until the
+  generator's rework, and passes on the reworked suite town (2026-10-26) — hidden, not fixed, as the shapes moved:
+  read on the day's earlier towns, building 82 at (745.0, 974.5) stood 8.4 m off the middle of a rank reaching 5.4 m.
   Not traced: `ZoneBuildings.Stand` asks `Yards.Allows` of the place before `Face.Seat` moves the building to the
   face's true nearest (GEN-15), which may be the whole of it; asking it of the seated wall closes it if so.
 - **The kernels have not been held to `Trig` on a GPU** (2026-10-15): `TrigKernelTests` and `RoundedKernelTests` pass
   on lavapipe, which the suite runs. The device tier pointed at the RX 9070 XT by hand closes it.
 
 ## Regressions and figures not taken
+
+- **Every figure taken on `Odesa`, `O10`, `O30`, `River` or the old `Test.map` is a figure not taken since**
+  (2026-10-26): those maps are gone with the wheel (GEN-60), and the entries below that quote them quote towns nobody
+  can open. The probes' default town is now `Saltbay` (`CheckCatalogue.ProbedTown`). Each figure taken again on
+  `Saltbay`, `Twinford` or `Highmoor` — and `qq tests maps`, which has not been run on them — closes it entry by entry.
+- **No generated town in the suite has a tributary** (2026-10-25): the suite's city (`Towns.Brief`) asks for none, so
+  `GeneratorTests` and `TownGenTests` never see one. `TerrainStageTests` asks only about the water. A seed of
+  `Towns.Brief` with tributaries, run through those properties, closes it.
+- **A generated city's open is not taken on the page** (2026-10-26): `qq web --map Saltbay` stands it (plan 1.6 s,
+  272 MiB held), `Twinford` and `Highmoor` have not been opened there. Opening the two closes it, and says whether
+  `Highmoor` is the desktop map the readme calls it.
+
+- **The ground pass's GPU time is not taken since the water's waves** (`WaterWaves`, 2026-10-25): three sines and three
+  lumps of value noise a water pixel and one varying every ground corner, judged negligible but not measured; the browser head held 60 Hz on River
+  at 40 m across. A `qq prof --gpu` on a water map, before and after, closes it.
 
 - **A page fills four times the scenery it did at a district's framing and wider** (`GEN-6g`, `ScenerySprites.Fill`,
   2026-10-25): Odesa's scenery grew from 28 266 pieces to 104 509, past `SimConfig.View.SceneryMostDrawn` (65 536), so
@@ -387,6 +428,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Redundant work left in place
 
+### The ground
+
+- **A bridge on the ground fills its whole deck with the deck surface and then covers all of it** (2026-10-25,
+  `GroundMesh.Decks`): the walkways, the carriageway and the parapets are laid over the fill edge to edge, so the deck
+  surface (`bridge.webp`) shows only where a parapet's picture is clear — nowhere, with the iron parapet in use — and
+  on the level above's junction decks. A few hundred triangles a bridge and one surface loaded for little; laying the
+  fill only where no strip is, or dropping it once a parapet with gaps is ruled out, closes it.
+
 ### A car's tick
 
 - **A car's tick works out again what only changes at its turn** (2026-10-15, O30 at 40 000 moving cars: the cars' own
@@ -605,6 +654,16 @@ kept, but a moving one lays its layers again.
 Found by the cleanup of 2026-10-15 (`qq unused`, the analyzers) and left because closing each crosses slices, changes
 a layout or changes behaviour.
 
+- **Whether a point is inside a ring is written seven times** (2026-10-26): `Polygons.Encloses` in core, which the
+  generator's rework added, and private copies in `ZoneFidelity`, `ShellFill`, `TracedCarParks.Bays`, `ZoneTree`,
+  `TownMap.Stumps` and the scanner's `ZoneHints` (which compiles without the engine). Every copy in the engine reading
+  `Polygons.Encloses` closes it.
+- **`ZoneKind.Wheel` and the wheel's zone settings are kept for a map nobody lays** (2026-10-26): no generated town
+  is a wheel since GEN-60, and `OdesaOsm.map` is the only map file left. Reading whether `OdesaOsm.map` holds any, and
+  retiring the kind with explicit numbers kept for the file format, closes it.
+- **`--bench` probes that run every shipped map by default now take `Highmoor`** (`DriveProbe`, `TownProbe`, 2026-10-26):
+  53 s and 4 GB to lay before the probe starts. Naming the probed maps, or leaving the largest out by default, closes it.
+
 - **One union-find root, three copies** (`FootJunctions`, `CrossingWays`, `LanePlaces`) — only the root: each join
   keeps a different representative (the first, the lower, the other), which the order of what they lay rests on, and
   no folder of `core/` is a home for four lines; **three `Spread`/`Percentile`/`Median`** in the bench
@@ -662,22 +721,62 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   deleted, closes it.
 - **`tests/` does not mirror `src/` folder for folder** _owner_: `tests/physics/` and `tests/routing/` stand at the top
   while `tests/world/{foot,parking,rail,statics}` are nested; `tests/world/` holds road, terrain and town tests flat;
-  `routing/DrivingNetworkTests` tests `world/road/`; `citygen/TownAuthorTests` and `ExamPlanTests` belong under `gen/`
+  `routing/DrivingNetworkTests` tests `world/road/`; `citygen/TownGenTests` and `ExamPlanTests` belong under `gen/`
   and `exam/`; `hud/InterfaceScaleTests` tests `runtime/` (beside `PointerSpaceTests` on purpose, its remarks say).
   A layout chosen and moved to closes it.
 - **Test helpers written several times**: `Advance(PhysicsWorld, n)` four times, a bit-exact `Same` four times (the
   kernel tests), `Cross` five, `Straight` and `Square` in geometry and again in `ZoneTreeTests`/`TownMapTests`, the
   status panel's `Fill` twice, and `new TownWorld(Towns.Of(Towns.Fixture), Config)` twenty-nine times; and two classes
   named `Claims` (`tests/bench/`, `tests/world/`). One shared helper each closes it.
-- **`Towns.EveryLaidMap` leaves the fixture out**: `Test.map` is a file, so `Maps.IsCity(Fixture)` is true; and
-  `Towns.EveryShippedMap` is read by nothing, though `verification.md` describes it. Testing for the fixture by name,
-  and deleting the unused member or its description, closes it.
+- **`Towns.EveryLaidMap` leaves the fixture out**: it walks `Maps.Shipped()`, which lists the files and the exam and
+  not the fixture laid in code; and `Towns.EveryShippedMap` is read by nothing, though `verification.md` describes it.
+  Adding the fixture by name, and deleting the unused member or its description, closes it.
 - **No test asserts a scenario map's watch keeps its claims** _owner_: `Claims.AssertKept` was read by nothing and is
   gone, while CLAUDE.md says the tier reads a new claim from the map's own watch. `qq tests exam` asserts the exam's
   cards; whether the tier should assert the watch too is the question.
 
 ## Inconsistencies
 
+- **The generator's stages carry tuning figures as literals** (2026-10-26): `Connectors` turns an intercity road's
+  bearing by ±0.15 rad a try and 0.12 a retry, a rail line's by ±0.2 rad and its loop ±0.3 of the extent, and rounds a
+  route at 1.25 times the intercity floor; `TerrainStage` turns a coast ±0.35 of the breadth and inland ±0.8 rad;
+  `TownLinks` reaches 2 and 3 cells past a corridor, welds at twice a corridor and thins a seam at 0.75 of a cell;
+  `Districts` holds its `InnerShare` and `BearingSpreadRad`, and `Lattice` its `ShortestStubInBlocks`, as named constants
+  and not `SimConfig` figures. Each a figure on `CityGenFigures` (CLAUDE.md, *a literal in behaviour code is a defect*)
+  closes it.
+- **A tributary is laid by its river's figures and nothing of its own** (2026-10-26): `TributaryWanderShare` went with
+  the wheel, unread, and a tributary now wanders by its brief's river meander off its own run. Whether a stream needs a
+  wander of its own again is the next look at a tributary's shape.
+
+- **`qq art` and `qq sprites` disagree on the bridge art's grid** (2026-10-25): `qq sprites` installs everything under
+  `assets/world/terrain/ground/bridge/` at the cars' 96 px/m (`FAMILIES`), and `qq art` holds it to the ground's 32 and
+  lists every piece, road and rail alike, as above its grid — so `qq art --fix` would shrink them all. Giving `qq art`
+  the same family table (one source for both tools) closes it.
+- **A double-track rail bridge's piers are placed along each track on its own** (2026-10-25, `RAIL-12`): each span
+  pitches its piers by its own length, and the inner ones are dropped as standing on the other's deck, so the two
+  outer rows need not stand opposite each other. No shipped map has a double track on a bridge; pitching both from one
+  span's line closes it.
+
+- **No town has stood a car on other than two axles of two** (2026-10-25): a variant may lay out its own wheels
+  (`wheels`, CAR-57) and the unit and device tiers hold a three-axle body to the model and to the host
+  (`Layouts.SixWheels`), but no shipped variant lays any out, so no town tier, scenario or drawn frame has seen one —
+  nor a tow of one, whose axle down is `TowBar.AxleOnTheGround`'s guess at the far end from the fork. A shipped
+  multi-axle look and a `--shot` of it, laden and towed, closes it.
+- **Every per-wheel row keeps room for eight wheels a car** (2026-10-25): the tyre table, its impulses and scrub on the
+  device and `TyreCarries`/`WheelScratch` on the host stride `TyreModel.MostWheels`, twice what the fleet's four-wheeled
+  cars use. Nothing reads the room past a car's own wheels, so it costs memory and not time in a town — 64 B a car on
+  the device — but a pass that hands its rows back reads twice the bytes (0.36 → 0.7 ms over 20 000 cars on lavapipe).
+  The tyre pass itself costs a fifth to a third more there than before CAR-57 (1.8–2.1 → 2.3–2.5 ms over 20 000 driven
+  cars), its loads and arrays sized for eight; a real GPU's town is one dispatch either way. Striding by the
+  catalogue's most wheels, a figure the kernels are handed, closes the room; sizing their arrays the same needs a
+  specialisation constant WGSL may not give.
+- **Host and device draw 22 of Odesa's 2020 instances differently** (2026-10-25, `--bench deviceworld --map Odesa`):
+  `drawn, instances host / device / differing … town 2020 / 2020 / 22`, on the commit before CAR-57 as on this one; Test
+  and street draw none differently. Not traced; which instances and which field closes it.
+- **A car creeping up to a stop hunts between its pedals, and its body rocks for it** (2026-10-25): on Test, car 0 from
+  tick 2460 to 2495 creeps the last metre to its plan's end at 1.4 → 0 m/s with throttle and brake swapping every two
+  to four ticks (brake 0.45–6.1, throttle 0.9–4.3 m/s²). It always did; since CAR-57 its body pitches 0.2–0.8° with each
+  swap, drawn (CAR-56). Not traced; why `CarFollower.Pedals` alternates on a falling target this close to it closes it.
 - **A page weighs three times what WEB-6 allows** _owner_ (2026-10-25): WEB-6 promises 6–8 MB before the first frame
   with "2.8 MB of art", and WEB-9's table and `town.js` say about three megabytes, but `assets.tar.gz` is 21.0 MB in a
   Release publish. WEB-6 also counts the art before the first frame where WEB-4 fetches it after. Re-measuring a

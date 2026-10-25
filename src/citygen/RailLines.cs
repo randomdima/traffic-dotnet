@@ -36,41 +36,39 @@ internal static class RailLines
     const float StraightRadii = 2.5f;
 
     /// <summary>
-    /// <b>A brief's railway, drawn once</b>: a line through the town on the brief's bearing, off its middle by its
-    /// offset, wandering as far as its least radius allows, and run on past the map at both ends far enough for a whole
-    /// train to stand off it (TRN-7). A double line is two tracks either side of that, each run one way, on the right
-    /// as it is faced.
+    /// <b>One line of a town's railway, drawn once</b> (GEN-63): through a place on a bearing, wandering as far as its least
+    /// radius allows, and run on past the map at both ends far enough for a whole train to stand off it (TRN-7). A double
+    /// line is two tracks either side of that, each run one way, on the right as it is faced.
     /// </summary>
     /// <remarks>
-    /// <b>A loop is laid at the least radius round the town's middle, or as far along the line off it as the brief says</b>
-    /// (RAIL-11), straight either side of it, and its
+    /// <b>A loop is laid at the least radius round the place it passes</b> (RAIL-11), straight either side of it, and its
     /// way out crosses its way in on a bridge (RAIL-8): the chords within the bridge's half-span of the crossing along the
     /// line — the ballast under it, and the climb to its clearance at the ruling grade either side — stand
     /// <see cref="TownMap.RailArrays.Above"/>. <b>The line is walked by its heading</b>, so a loop and the
     /// wander compose: the wander turns the heading either way about the leg's own and never on average, and the line
     /// keeps its bearing however far it runs.
     /// </remarks>
-    public static TownMap.RailArrays Author(TownBrief brief, SimConfig config, ref Rng draw)
+    /// <param name="middleM">Where the line passes, and where its loop is laid if it has one.</param>
+    /// <param name="meander">How far it wanders off its bearing, as a share of the map's short side.</param>
+    /// <param name="line">Which line of the map's railway this is, so a map of several numbers each its own.</param>
+    public static TownMap.RailArrays Author(
+        Vector2 extentM, Vector2 middleM, float bearingRad, int tracks, float loopDeg, float meander, int line, SimConfig config, ref Rng draw)
     {
-        if (brief.RailTracks == 0) return TownMap.RailArrays.None;
+        if (tracks == 0) return TownMap.RailArrays.None;
 
         var rail = config.Rail;
-        var extentM = new Vector2(brief.WidthM, brief.HeightM);
         var shortSideM = MathF.Min(extentM.X, extentM.Y);
-        var halfSpacingM = brief.RailTracks == 2 ? rail.TrackSpacingM * 0.5f : 0f;
+        var halfSpacingM = tracks == 2 ? rail.TrackSpacingM * 0.5f : 0f;
 
         // The line bends no tighter than its inner track may (RAIL-2).
         var radiusM = rail.LeastRadiusM + halfSpacingM;
-        var bearingRad = brief.RailBearingDeg * MathF.PI / 180f;
-        var loopRad = brief.RailLoopDeg * MathF.PI / 180f;
+        var loopRad = loopDeg * MathF.PI / 180f;
         var turn = MathF.Sign(loopRad);
-        var middleM = (extentM * 0.5f) + (Heading.RightOf(Heading.Unit(bearingRad)) * (brief.RailOffsetShare * shortSideM))
-                      + (Heading.Unit(bearingRad) * (brief.RailLoopAlongShare * MathF.Max(extentM.X, extentM.Y)));
 
         // A sum of sines turns hardest at the sum of what each turns, so the wander is held to what the radius allows.
         var periodM = extentM.Length();
         var wave = new Wave(MathF.Tau / periodM, MathF.Tau / (periodM * SecondWaveShare));
-        var wanderRad = MathF.Min(brief.RailMeander * shortSideM * wave.FirstPerM, 1f / (radiusM * wave.TurnPerRad));
+        var wanderRad = MathF.Min(meander * shortSideM * wave.FirstPerM, 1f / (radiusM * wave.TurnPerRad));
         var (inSide, outSide) = (SideOf(ref draw), SideOf(ref draw));
 
         // A chord of a curve stands off it by its square over eight radii, which is the sagitta.
@@ -113,7 +111,7 @@ internal static class RailLines
             if (overM - halfSpanM <= underM + underHalfM)
             {
                 throw new InvalidDataException(
-                    $"{brief.Name}: a bridge climbing {halfSpanM:F0} m to its crossing reaches the track it passes over, {overM - underM:F0} m back along the loop.");
+                    $"a bridge climbing {halfSpanM:F0} m to its crossing reaches the track it passes over, {overM - underM:F0} m back along the loop.");
             }
 
             for (var chord = 0; chord + 1 < points; chord++)
@@ -123,11 +121,11 @@ internal static class RailLines
         }
 
         var centreM = centre.ToArray();
-        if (brief.RailTracks == 1)
+        if (tracks == 1)
         {
             return new TownMap.RailArrays
             {
-                Line = [0], Runs = [TownMap.TrackRuns.Both], PointOffsets = [0, points], PointM = centreM, Level = level,
+                Line = [line], Runs = [TownMap.TrackRuns.Both], PointOffsets = [0, points], PointM = centreM, Level = level,
             };
         }
 
@@ -141,7 +139,7 @@ internal static class RailLines
 
         return new TownMap.RailArrays
         {
-            Line = [0, 0], Runs = [TownMap.TrackRuns.Forward, TownMap.TrackRuns.Backward], PointOffsets = [0, points, points * 2],
+            Line = [line, line], Runs = [TownMap.TrackRuns.Forward, TownMap.TrackRuns.Backward], PointOffsets = [0, points, points * 2],
             PointM = pointM, Level = [.. level, .. level],
         };
     }
@@ -190,10 +188,17 @@ internal static class RailLines
 
     static float Cross(Vector2 one, Vector2 other) => (one.X * other.Y) - (one.Y * other.X);
 
-    /// <summary>The map's tracks, each with the ballast's band struck round it and cut to the map (RAIL-4, GEN-2b).</summary>
-    public static CityPlan.RailArrays Lay(TownMap.RailArrays tracks, Vector2 worldSizeM, SimConfig config)
+    /// <summary>
+    /// The map's tracks, each with the ballast's band struck round it and cut to the map (RAIL-4, GEN-2b), <b>and every
+    /// chord over the water or its shore raised onto a bridge</b> (RAIL-8, GEN-14a): the water is laid before the railway,
+    /// and a track at grade across a river is a track under it.
+    /// </summary>
+    /// <param name="water">The ground the water was laid as, asked only where the water stands; none where the plan has none.</param>
+    public static CityPlan.RailArrays Lay(TownMap.RailArrays tracks, Vector2 worldSizeM, SimConfig config, GroundShapes? water = null)
     {
         if (tracks.Count == 0) return CityPlan.RailArrays.None;
+
+        var levels = water is null ? tracks.Level : OverTheWater(tracks, water, config.Terrain.GroundStepM);
 
         // <b>Each band cut on its own</b>: cut together, the runs of two tracks side by side are closed into each other
         // along the map's edge, and a run closed round a corner encloses everything between the line and that corner.
@@ -203,7 +208,7 @@ internal static class RailLines
         for (var track = 0; track < tracks.Count; track++)
         {
             var lineM = tracks.TrackOf(track);
-            var level = tracks.Level.AsSpan(tracks.PointOffsets[track], lineM.Length);
+            var level = levels.AsSpan(tracks.PointOffsets[track], lineM.Length);
             for (var from = 0; from + 1 < lineM.Length;)
             {
                 var to = from + 1;
@@ -220,8 +225,38 @@ internal static class RailLines
         return new CityPlan.RailArrays
         {
             Line = [.. tracks.Line], Runs = [.. tracks.Runs], PointOffsets = [.. tracks.PointOffsets], PointM = [.. tracks.PointM],
-            Level = [.. tracks.Level], Ballast = new CityPlan.RingArrays { Offsets = offsets, PointM = [.. cut.SelectMany(ring => ring)] },
+            Level = [.. levels], Ballast = new CityPlan.RingArrays { Offsets = offsets, PointM = [.. cut.SelectMany(ring => ring)] },
         };
+    }
+
+    /// <summary>
+    /// Each chord's level, raised to <see cref="TownMap.RailArrays.Above"/> where any of it stands over the water or its
+    /// shore, walked a step at a time: a bridge spans the shore as well, so its deck lands on the grass and not on the
+    /// pebbles at the water's edge.
+    /// </summary>
+    static byte[] OverTheWater(TownMap.RailArrays tracks, GroundShapes water, float stepM)
+    {
+        var levels = tracks.Level.ToArray();
+        for (var track = 0; track < tracks.Count; track++)
+        {
+            var from = tracks.PointOffsets[track];
+            var lineM = tracks.TrackOf(track);
+            for (var point = 0; point + 1 < lineM.Length; point++)
+            {
+                if (levels[from + point] != TownMap.RailArrays.AtGrade) continue;
+
+                var runM = Vector2.Distance(lineM[point], lineM[point + 1]);
+                for (var alongM = 0f; alongM <= runM; alongM += stepM)
+                {
+                    if (!water.Waterside(Blend.Lerp(lineM[point], lineM[point + 1], MathF.Min(1f, alongM / runM)))) continue;
+
+                    levels[from + point] = TownMap.RailArrays.Above;
+                    break;
+                }
+            }
+        }
+
+        return levels;
     }
 
     /// <summary>

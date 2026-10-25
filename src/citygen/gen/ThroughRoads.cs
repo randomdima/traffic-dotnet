@@ -34,7 +34,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </para>
 /// <para>
 /// <b>It runs on the layout the deletions left</b>, after the stranded pieces and the dead ends
-/// and before the roundabouts (<see cref="WheelStreets"/>): a ring is opened out of a junction, so what is
+/// and before the roundabouts (<see cref="TownGen.Lay"/>): a ring is opened out of a junction, so what is
 /// offered one has to be a junction already. Nothing here deletes a road — every run comes back as the one
 /// road it was — and the nodes it empties are dropped by the prune it ends on, the way
 /// <see cref="TownLayout.RingOut"/>'s husks are.
@@ -137,7 +137,7 @@ internal static class ThroughRoads
         // A piece on its own is the road it always was, offered again exactly as it stood — and its line is a
         // function of the link, so it comes back the line it had.
         var road = pieces.Count == 1 ? was[pieces[0]] : Merged(was, layout, pieces, nodes, start);
-        if (layout.Join(road.From, road.To, road.Class, road.Curvature, road.ThroughM, road.Straight) >= 0) return;
+        if (layout.Join(road.From, road.To, road.Class, road.Curvature, road.ThroughM, road.Straight, road.Lanes) >= 0) return;
 
         if (pieces.Count == 1) return;
 
@@ -174,6 +174,10 @@ internal static class ThroughRoads
         var a = layout.Edges[one];
         var b = layout.Edges[other];
         if (NeverJoined(a.Class) || NeverJoined(b.Class)) return false;
+
+        // <b>Where the carriageway changes is a junction</b> (GEN-67), and an intercity road is never anything else
+        // carrying on (GEN-68): joined into a street, the street would be met by what may not meet the other.
+        if (a.Lanes != b.Lanes || ((a.Class == RoadClass.Intercity) != (b.Class == RoadClass.Intercity))) return false;
 
         // <b>The two arms carry the same traffic or they are not one road</b> (TER-4d): what arrives on one
         // is what leaves on the other, both ways round, and a node nothing passes through at all is a dead
@@ -272,6 +276,6 @@ internal static class ThroughRoads
         }
 
         return new LayoutEdge(
-            start, nodes[^1], roadClass, 0f, RoadFlow.BothWays, [.. throughM], straightM > wanderingM);
+            start, nodes[^1], roadClass, 0f, RoadFlow.BothWays, [.. throughM], straightM > wanderingM, was[run[0]].Lanes);
     }
 }

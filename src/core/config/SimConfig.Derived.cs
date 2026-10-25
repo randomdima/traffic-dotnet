@@ -366,6 +366,13 @@ internal sealed partial class SimConfig
     /// <summary>The sharpest corner a junction turns (GEN-13).</summary>
     public float ArmsApartMinRad => CityGen.ArmsApartMinDeg * MathF.PI / 180f;
 
+    public float TributaryJoinLeastRad => CityGen.TributaryJoinLeastDeg * MathF.PI / 180f;
+
+    public float TributaryJoinMostRad => CityGen.TributaryJoinMostDeg * MathF.PI / 180f;
+
+    /// <summary>The radius the shore's outer edge is rounded to where a river flows into another: about the same centre as the bank's.</summary>
+    public float ConfluenceShoreRadiusM => MathF.Max(0f, CityGen.ConfluenceRadiusM - CityGen.ShoreWidthM);
+
     /// <summary>
     /// The tightest circle a roundabout may be driven round (GEN-19): what its own design speed affords on
     /// tarmac. <b>Derived and never authored</b> — a roundabout quoted in metres is a figure nobody could
@@ -626,6 +633,14 @@ internal sealed partial class SimConfig
     /// edge, which from <see cref="CloudFigures.HeightM"/> up is that height across the sun's width.
     /// </summary>
     public float CloudPenumbraM => Clouds.HeightM * Trig.Tan(Clouds.SunAcrossDeg * MathF.PI / 180f);
+
+    /// <summary>How far the water's two shorter trains of waves run off the prevailing wind (<see cref="ViewFigures.WaterWaveLongM"/>).</summary>
+    public float WaterWaveMidOffWindRad => View.WaterWaveMidOffWindDeg * MathF.PI / 180f;
+
+    public float WaterWaveShortOffWindRad => View.WaterWaveShortOffWindDeg * MathF.PI / 180f;
+
+    /// <summary>How far the waterline's swash moves the water's fade onto the shore, as a share of the fade's cover.</summary>
+    public float WaterWaveSwashShare => View.WaterWaveSwashM / View.ShoreFadeM;
 
     /// <summary>How many steps in a row a body has to end at rest before it freezes (SOL-37) — never fewer than one.</summary>
     public int SolverRestTicks => Math.Max(1, (int)MathF.Ceiling(Solver.RestS * Sim.TickRateHz));

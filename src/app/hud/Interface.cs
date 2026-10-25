@@ -424,8 +424,10 @@ internal sealed class Interface(TrimFigures trims)
     /// shut onto a town nobody asked for would be the game choosing for the reader</b>: the idle map is
     /// what the menu is drawn over, and the menu is still what a run opens on.
     /// </param>
-    public void TownChanged(bool behindTheMenu = false)
+    /// <param name="map">The town now standing, whose brief the menu's map section turns where it was laid off one.</param>
+    public void TownChanged(string map = "", bool behindTheMenu = false)
     {
+        Menu.TownIs(map);
         Overlay.TownChanged();
         Ruler.TownChanged();
         Pick.TownChanged();

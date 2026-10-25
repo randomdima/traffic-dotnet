@@ -49,6 +49,13 @@ namespace TrafficSimulation.Tests.CityGen;
 /// apiece bought nothing.
 /// </para>
 /// </remarks>
+/// <summary>What water the suite's own city stands on: a river across it, or a sea along one edge.</summary>
+internal enum WaterKind
+{
+    River,
+    Coast,
+}
+
 internal static class Towns
 {
     /// <summary>The fixture map: a small town with a river and no buildings, and what detailed checks are staged on.</summary>
@@ -106,37 +113,35 @@ internal static class Towns
     /// <b>None, unless the case is about somebody walking</b> (GEN-7). A walker is stood at a door, so a
     /// brief with no buildings on it stands nobody whatever this says.
     /// </param>
+    /// <param name="water">A river across it, or a sea along one edge and no river.</param>
     /// <param name="railTracks">The railway the case asks about (RAIL-2): none, unless the case is about the railway.</param>
     /// <param name="railLoopDeg">Its loop (RAIL-11): none, unless the case is about the loop.</param>
+    /// <param name="waterTributaries">The rivers flowing into its own: none, unless the case is about them.</param>
+    /// <param name="waterWidthSpread">How far its river widens and narrows: one width, unless the case is about that.</param>
     public static TownBrief Brief(
         ulong seed, WaterKind water = WaterKind.River, int cars = 60, float gridDistrictShare = 0.5f,
-        int buildings = 0, int people = 0, int railTracks = 0, float railLoopDeg = 0f) => new()
+        int buildings = 0, int people = 0, int railTracks = 0, float railLoopDeg = 0f, int waterTributaries = 0,
+        float waterWidthSpread = 0f) => new()
     {
-        Buildings = buildings,
-        People = people,
-        RailTracks = railTracks,
-        RailLoopDeg = railLoopDeg,
-        RailBearingDeg = 25f,
-        RailOffsetShare = 0.12f,
-        RailMeander = 0.15f,
         Name = City,
         Description = "The suite's own town, laid to ask questions of a city without shipping one",
-        Seed = seed,
         WidthM = 2400f,
         HeightM = 1800f,
-        Districts = 6,
-        GridDistrictShare = gridDistrictShare,
-        BearingSpreadDeg = 30f,
-        RingShare = 0.34f,
-        UnregulatedJunctionShare = 0.2f,
-        Cars = cars,
-        Water = water,
-        WaterBearingDeg = 100f,
-        WaterMeander = 0.6f,
+        Seeds = new BriefSeeds { Town = seed },
+        Sea = water == WaterKind.Coast ? new SeaBrief { BearingDeg = 100f, Share = 0.2f, Meander = 0.5f } : null,
 
         // Narrow enough that the deck a town builds spans it (GEN-14a): a river this town cannot bridge is
         // a town in two halves, and the half that is deleted takes the properties being asked about with it.
-        WaterShare = water == WaterKind.Coast ? 0.2f : 0.06f,
+        Rivers = water == WaterKind.River
+            ? new RiversBrief { PerKm = 0.42f, BearingDeg = 100f, WidthM = 40f, Meander = 0.05f, WidthSpread = waterWidthSpread, Tributaries = waterTributaries }
+            : new RiversBrief(),
+        Connectors = new ConnectorsBrief
+        {
+            IntercityRoads = 2, Railways = railTracks > 0 ? 1 : 0, RailTracks = Math.Max(1, railTracks), RailLoopDeg = railLoopDeg,
+        },
+        Districts = new DistrictsBrief { GridShare = gridDistrictShare },
+        Streets = new StreetsBrief { UnregulatedShare = 0.2f },
+        Roster = new RosterBrief { Buildings = buildings, People = people, Cars = cars },
     };
 
     /// <summary>
@@ -186,12 +191,8 @@ internal static class Towns
     public static CityPlan LayFresh(ulong seed, WaterKind water = WaterKind.River) =>
         LayFresh(Brief(seed, water));
 
-    /// <summary>
-    /// The same, off a brief: authored into its map and the map laid, which is the one way a town is laid
-    /// (<see cref="TownAuthor"/>, <see cref="TownPlan"/>).
-    /// </summary>
-    public static CityPlan LayFresh(TownBrief brief) =>
-        TownPlan.Lay(TownAuthor.Of(brief, Figures), Figures, ShippedArt.Sizes);
+    /// <summary>The same, off a brief, which is the one way a generated town is laid (<see cref="TownPlan"/>, GEN-60).</summary>
+    public static CityPlan LayFresh(TownBrief brief) => TownPlan.Lay(brief, Figures, ShippedArt.Sizes);
 
     /// <summary>
     /// <b>The suite's own city with buildings standing on it</b> (GEN-54), laid once — the one brief that
@@ -298,18 +299,14 @@ internal static class Towns
     }
 
     /// <summary>
-    /// <b>The shipped cities whose streets a wheel laid</b>, which are the ones asked whether a town is furnished and
+    /// <b>The shipped cities laid off a brief</b> (GEN-60), which are the ones asked whether a town is furnished and
     /// whether it can be driven round: a city whose roads are its map's own keeps every dead end its survey has
     /// (GEN-57).
     /// </summary>
     public static TheoryData<string> EveryGeneratedCity()
     {
         var maps = new TheoryData<string>();
-        foreach (var map in Shipped)
-        {
-            if (Maps.IsCity(map) && Maps.Read(map).Zones.Kind[TownMap.ZoneArrays.Root] == ZoneKind.Wheel) maps.Add(map);
-        }
-
+        foreach (var map in Maps.Briefs()) maps.Add(map);
         return maps;
     }
 
@@ -366,6 +363,14 @@ internal static class Towns
 
         return maps;
     }
+
+    /// <summary>
+    /// <b>Whether a place is on the map</b> (GEN-2b): what a road running off it lays past its edge is cut there, so a
+    /// question about the town's ground asked off the map is about ground the town does not have — and within
+    /// <paramref name="insetM"/> of the edge, about the cut's own corner.
+    /// </summary>
+    public static bool OnTheMap(CityPlan plan, Vector2 atM, float insetM = 0f) =>
+        atM.X >= insetM && atM.Y >= insetM && atM.X <= plan.WorldSizeM.X - insetM && atM.Y <= plan.WorldSizeM.Y - insetM;
 
     /// <summary>
     /// The two ring sets a town's water is drawn from, each with the name to say which one a failure is

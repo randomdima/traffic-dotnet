@@ -70,7 +70,7 @@ retired number, which the owning slice's log records.
 | `AGT-5`, `AGT-7` | The terminal state; every leg bounded | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `SIM-3`, `SIM-4`, `SIM-8`, `SIM-9`, `AGT-6` | Units, the two seeds, the one grid, real time at any display rate, where randomness comes from | [core](../src/core/docs/requirements.md) |
-| `GEN-1…3`, `GEN-5…19`, `GEN-46…58` | A map's file and its zones, the maps, a city traced off its survey, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks laid off a street, a traced car park laid as a mall's, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
+| `GEN-1…3`, `GEN-5…19`, `GEN-46…72`, `GEN-74` | A generated city's brief and its three stages — water, connectors, districts, roads by class, links between districts, bridges, lattices — a map's file and its zones, the maps, a city traced off its survey, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks laid off a street, a traced car park laid as a mall's, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
 | `TER-1…3d`, `TER-7…7b`, `PHY-8` | The ground, the pavement and its kerb, water and decks, and the stack of layers the mesh is | [world/terrain](../src/world/terrain/docs/requirements.md) |
 | `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5d.2`, `TER-5f`, `TER-5i`, `TER-5j`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint, the arrow a lane carries and the movements an unmarked arm makes | [world/road](../src/world/road/docs/requirements.md) |
 | `TER-49`, `TER-4c…4c.8`, `TER-5c…5c.3`, `TER-5e`, `TER-5g`, `TER-5g.1` | Each agent claiming on its own turn, the ribbon atlas and its marks, a zebra held whole, where the bodies are, the ground a pass covers, where they mean to be, the ground a car backs up over, no movement over ground unclaimed, right of way and the ladder | [world/road/claims](../src/world/road/docs/claims.md) |
@@ -155,15 +155,26 @@ owning slice's log; this list says only what is absent now and what closes it.
   and some are walked round, a walker in the middle of the paint sent to the far pavement walks back to the
   near one and round, and only a walk from one edge of the paint to the other is the zebra every time —
   which is how the exam stages its pedestrians.
-- **The fixture's streets are generated, and it stands nobody.** `towns/Test.map` fixes its water and its wheel
-  (`GEN-58`), but its streets are laid off the wheel when it is opened, so the map every detailed check is staged on
-  moves when the street generator does, which is the one thing a fixture exists not to do
+- **The fixture is generated, and it stands nobody.** It is laid off a brief kept in code (`Maps.FixtureBrief`,
+  `GEN-60`) when it is opened, so the map every detailed check is staged on moves whenever any stage of the
+  generator does, which is the one thing a fixture exists not to do
   ([verification.md](verification.md)). It asks for no buildings, so it carries no walker (`GEN-7`), no car park and
   no crossing — the shipped cities carry theirs (`--bench census`). It closes when the fixture can carry buildings
   without the car parks counted off them (`GEN-53`).
-- **A map's roads are its own or its zones', never both** (`GEN-58`): a map whose roads are fixed lays no street of
-  a zone's, and a wheel lays every street of its own, so a map cannot fix its main roads and leave its side streets to
-  a district. A district's streets are laid by the wheel round it, and only a wheel's sectors lay any.
+- **A map's roads are all fixed or all generated** (`GEN-58`, `GEN-60`): a traced map lays no street of a zone's, and
+  a generated city lays every road of its own, so no map can fix its main roads and leave its side streets to its
+  districts.
+- **Nothing enters or leaves a generated city by its intercity roads** (`GEN-63`): a lane out past the map's edge
+  leads to a world the town does not hold, and no car arrives from it or goes into it. The generator and the suite
+  treat the edge as that world; the traffic does not.
+- **The roads between districts are not always one network** (`GEN-69`): they are planned as one, and a planned road
+  the ground then refuses (a link leaning too near another road's arm, a lead off a bridge) is dropped with nothing
+  planned again behind it, which leaves the districts it served reached through their neighbours' streets alone.
+  Two of the suite's seeds show it (`TownGenTests`).
+- **A district's services are hoped for, not reserved** (`GEN-56`): its streets are laid without keeping a straight
+  frontage for its three yards, so a crooked district stands one of them or none, and the census says so.
+- **A railway crosses a river at whatever angle its line meets it** (`GEN-70` is the roads'): the track is routed
+  before the bridges are, as RAIL-8 raises it over the water.
 - **One laboratory map ships, and it is the scenario map**: `Exam`, a lattice of traffic scenarios driven end to
   end ([verification](verification.md#the-scenario-map)). No map is laid to measure a track, a footway, a skid pad
   or the zebras alone.
@@ -201,9 +212,9 @@ owning slice's log; this list says only what is absent now and what closes it.
   run one way or taken out — so a leg routed into one stands there until its clock gives it up. A car going nowhere
   in particular is never toured down a lane every way off which only ends, and none is stood on one
   (`LaneLines.LanesDrivenOn`), but a route is not asked whether it can be driven round.
-- **A traced city reaches the page on a desktop browser alone.** Opening OdesaOsm grows the page's heap to 2.8 GB and
-  O30 to 3.6 GB of the 4 GB a 32-bit page can address, which a phone's browser does not give a page, and stands it up
-  on the page's one thread — 84 s and 170 s — with the tab frozen meanwhile.
+- **A traced city reaches the page on a desktop browser alone.** Opening OdesaOsm grows the page's heap to 2.8 GB
+  of the 4 GB a 32-bit page can address, which a phone's browser does not give a page, and stands it up on the page's
+  one thread in 84 s with the tab frozen meanwhile; `Highmoor` is not opened there at all.
 - **A deck's pavement is not drawn.** The walk across a bridge is the driven ground's own boundary moved
   like anywhere else (`WLK-1`, `TER-3b.1`), and the ground answers walk there — but the ground stack is laid
   under the deck rather than across it, so the concrete is not drawn. What is owed is a boundary that knows

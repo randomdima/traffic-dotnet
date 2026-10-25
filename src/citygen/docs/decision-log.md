@@ -1,5 +1,101 @@
 # CityGen — decision log
 
+## 2026-10-26 — a generated city is its brief, laid in three stages, and the wheel is gone
+
+**The owner asked for the cities and their generation reworked**, the traced map aside: the old cities dropped; a sea
+and rivers an option for every city, with a river density; the generation in abstract stages — terrain, then a few
+intercity roads and railways, then the town; districts that span no river, intercity road or track, of any smooth
+shape and no bigger than a district gets; bridges short and square; no road touching the water; roads of up to four
+lanes by how much they carry; every district reached from the intercity network and from each neighbour, separately;
+a hospital, police station and depot in every district; three cities of the old sizes; and every parameter and seed
+explicit, adjustable and regenerated from the debug menu. GEN-60 to GEN-72 and GEN-74 are new; GEN-1a, GEN-14a,
+GEN-14b, GEN-15, GEN-18, GEN-19, GEN-55, GEN-56 and GEN-58 are restated. The owner chose: lanes counted both ways
+together (a street 1+1, a road between districts 1+1 or 2+2 by demand, an intercity road 2+2); the fixture dropped as
+a file too; regenerating live and saving to the brief; and the requirements and the plan before the code.
+
+- **A generated city is laid off its brief when it is opened**, and no `.map` stands for it (GEN-60). Authoring a
+  wheel once into a file was what kept a brief's streets stable; with every stage its own seed (`StageSeeds`), a
+  rerolled stage moves only itself and the ones after it, which is the stability the file was for. A traced map stays
+  a file. `Odesa`, `O10`, `O30`, `River`, `Test` and their briefs went; `Saltbay`, `Twinford` and `Highmoor` were
+  briefed at the old three sizes.
+- **Districts are cut on a raster and not a wheel** (`Partition`): the barriers burnt into 10 m cells, each region a
+  flood fill, cut by k-means in a plane warped by a smooth field so the edge between two districts bends. A Voronoi of
+  the region's polygon was weighed and not built: clipping to a region with holes and a coast is most of the code, and
+  a raster answers "which district is this point in" for the services as it is (`DistrictMap`).
+- **Roads between districts are planned before any is laid** (`TownLinks`): along every shared edge, over every
+  intercity road two districts face (a crossroads, as two roads in), over the water and the railway at the crossing
+  sites, and a road in to every piece not yet reaching an intercity road — then their lanes by a gravity demand routed
+  over them. Planned and laid are two answers to one question, and where the layout refuses what was planned the
+  piece behind it is left reached only through its neighbours' streets (the known gaps).
+- **A connector holds its line straight off a crossing for an approach before it bends**, the route's own rounding
+  added on top so the straight survives it, and the road off a bridgehead passes a point on the span's line. Without
+  both the corner after the approach was refused for turning tighter than its class, or met the bridge kinked.
+- **The edge of the map is the world beyond it**: a road running off it is a lane out and a lane in, so the one-way
+  scatter and the suite count the way back down it there as a way on. Counted as a dead end, the bare town never stood
+  and the scatter took almost no street one way.
+- **Lights only where roads between districts or above meet, and a street meeting anything gives way** (GEN-68). It
+  takes `Saltbay` from 88 lit junctions to 5. **Roundabouts were first put on the same footing and found none to
+  stand on** — four arms of roads between districts alone are rare — so a roundabout stands where a road between
+  districts is met, never on an intercity road, every arm one lane.
+- **The web head ships the briefs** in place of the generated maps' heads and archives: a kilobyte each, fetched at
+  boot, the town laid in the page when opened. The Android head was left as it was, at the owner's word.
+
+## 2026-10-25 — nothing but a deck stands in the water
+
+**The owner asked that the water be laid first and every stage after it respect it.** It already was laid first
+(GEN-10), and the wheel's roads, buildings, props, car parks and slabs already kept off it. The check that should have
+said so could not: it asked the ground, which answers what is on top, and a road or a track laid into a river is road
+or track there. `Conformance.NothingStandsInItsWater` asks the water itself (`GroundShapes.Wet`) along every road's
+middle and edges, every track, car park, slab, building footprint and prop. It found two things:
+
+- **River's railway ran 249 m at grade through its water.** The railway never asked about water. It is now raised
+  onto a bridge (`TownMap.RailArrays.Above`, RAIL-8) wherever a chord crosses the water or its shore. This is done when
+  the plan is laid, after the water, so a map takes it without being authored again, and a traced railway would too.
+  The deck lands on the grass, not on the pebbles. River's loop leg runs along the river at the map's top edge, so
+  that stretch is a 200 m viaduct over the water.
+- **One OdesaOsm road's edge clips a pond by about a metre**: OSM's own road and OSM's own water disagree. Left in
+  [tech-debt](../../../docs/tech-debt.md); no stage laid it there.
+
+## 2026-10-25 — a river widens, narrows and is fed by tributaries
+
+**The owner asked for more varied rivers: a width that varies along the route, and sub-rivers.** A brief now asks for
+both (`waterWidthSpread`, `waterTributaries`), and River is authored with 0.35 and three: its river runs 67–127 m
+wide where it was 103 m the whole way, and three tributaries join it, one of them a branch of another.
+
+- **A course's banks stand off it point by point** (map version 10; version 9 is still read, as one width the whole way).
+  Each course names the course it flows into, written before it.
+- **A tributary is joined into its parent as one ring** (`WaterOutline.Joined`), its outline and its shore each. Two
+  rings drawn over each other drew the water's fade and its foam across the open river where they met. The join takes
+  only a meeting of exactly two crossings. A tributary that meets its water any other way is drawn again elsewhere,
+  eight times at most, then left out, and `--author` prints how many fitted.
+- **Each crossing is rounded** (`ConfluenceRadiusM`, the owner: "prevent sharp edges on river connections"). Joined as it
+  was, each side of a mouth was a point of land cut to a knife edge. The shore's edge is rounded about the same centre,
+  a shore's width tighter, so the strip keeps one width round the bend (GEN-2c). The rings are drawn at load, so a map
+  needs no new authoring to take the rounding.
+- **A river pools only as wide as the deck spans square on** (GEN-14a), bridgeheads included, and narrows by the whole
+  spread. The first cut widened River's pool at the hub past 150 m: its first spoke lost its bridge and the town fell
+  into eleven pieces.
+- **A coast takes no tributary.** A river flowing into the sea is one ring with it, so the bridge rules could not tell
+  the sea apart from the river, and a deck over the sea would pass GEN-14b.
+
+## 2026-10-25 — a bridgehead is where the lanes change, not a corner
+
+**The owner asked for a smoother joint where a bridge meets the road: "it's not a junction, it's a place where road
+lanes change".** River's six bridgeheads deflected 0.8° to 22° (`qq town --joints River`), the bend taken inside the
+bridgehead's own box — worst on the orbital, whose chords either side of a span stand at the circle's angle. Now the
+road landing at a bridgehead within half a right angle of the span leaves on the span's line (`ConnectionPoints.CarriesOn`,
+GEN-14a), and the arterials' bridges are laid before their approaches so the layout can ask; all six read 0.0°, River
+keeps its three bridges and its roundabout, and `Test` keeps its own.
+
+- **Asked of the road alone and never of the node's other arms**, because the layout lays a road before it knows what
+  else will meet at its node and the plan reads it back after — two answers that could differ otherwise.
+- **No landing kept clear of streets.** A stretch either side of a bridge refusing street nodes, so the approach had
+  room to turn at its floor, was tried and dropped: no approach needed it, and it moved the fixture's streets enough
+  to fail four tests staged on them.
+- **The bridgehead was not moved back past the shore.** Standing it a shore's width further back to close the shore
+  showing between deck and walk lengthened every span past what one of River's crossings may be (GEN-14a's longest
+  deck), so the deck is carried back over the shore where it is drawn instead (TER-3b.2).
+
 ## 2026-10-25 — the props are laid as a town sets them out and as the ground grows them
 
 **The owner asked for better prop placement and counts.** Measured first (`--bench census`, which now prints the props
@@ -322,14 +418,6 @@ restated.
   whatever authored it. `TownGenerator`, `TracedPlan`, `TracedSpawns` and `TracedZones` went.
 - **The laboratories stay code.** The idle ring and the scenario map are laid in code and are not towns; a map file
   with everything fixed and nothing zoned is what the owner said a map should never be.
-- **A brief is a recipe, authored once** (`TownAuthor`, `--author`). The briefs moved to `towns/briefs/`; their maps
-  are 2–4 KB. **What is fixed is the water and the wheel**: the water as the course it is drawn along and its two
-  banks' offsets, its four rings drawn off it at load exactly as `TerrainStage` drew them, and the wheel as its hub,
-  orbital, spokes and each district's lattice. **Those are written as a float's own four bytes**, since a millimetre
-  off moved enough nodes off the water to change the fixture: with them exact, `Test` lays 36 roads, 28 junctions and
-  9 lights and `Odesa` 2 616, 4 852 and 118, the counts the brief laid before, and every fixture-placed test passes
-  unchanged. The street layout stays wheel-based — membership is still the wheel's sectors — so a district's outline
-  is what its buildings and props are laid by and not its streets.
 - **A map's roads are its own or its zones', never both.** Mixing a survey's roads with a district's lattice would need
   the two street builders to share one layout; refused for now and named in the known gaps.
 - **Every town's buildings are its zones'.** A wheel's districts are zoned by where they stand and how strictly they

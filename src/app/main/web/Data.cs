@@ -52,6 +52,9 @@ internal static class Data
     /// <summary>What a whole map is published as: an archive holding it under its own path.</summary>
     const string MapKind = ".tar.gz";
 
+    /// <summary>What a generated town's brief is published as: itself, under its own path.</summary>
+    const string BriefKind = ".json";
+
     /// <summary>Whether the archive has been unpacked, so a second map picked is not a second fetch.</summary>
     static bool _laid;
 
@@ -96,7 +99,8 @@ internal static class Data
             // **A map's head comes down now**: it is a few kilobytes and the menu reads a map's description
             // straight out of it, so a page that fetched one lazily would draw its own map list against files
             // that are not there yet. The map itself waits to be opened.
-            if (path.EndsWith(HeadKind, StringComparison.Ordinal))
+            // A generated town's brief comes down with them (GEN-60): it is the whole of what that town is laid off.
+            if (path.EndsWith(HeadKind, StringComparison.Ordinal) || path.EndsWith(BriefKind, StringComparison.Ordinal))
                 papers.Add(path);
             else if (path.EndsWith(MapKind, StringComparison.Ordinal))
                 Archives[Path.GetFileNameWithoutExtension(Path.GetFileName(path)[..^MapKind.Length])] = path;

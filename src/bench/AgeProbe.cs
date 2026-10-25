@@ -32,7 +32,7 @@ internal static class AgeProbe
     /// <summary>How many ticks a window runs: a minute of the town.</summary>
     const int WindowTicks = 3600;
 
-    public static void Run(SimConfig config) => Run(config, "Odesa");
+    public static void Run(SimConfig config) => Run(config, CheckCatalogue.ProbedTown);
 
     public static void Run(SimConfig config, string map)
     {

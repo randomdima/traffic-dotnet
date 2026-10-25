@@ -151,6 +151,107 @@ internal static class Conformance
         }
     }
 
+    /// <summary>
+    /// <b>Nothing a town lays stands in its water but a deck</b> (GEN-5, GEN-14, GEN-14a): no road off a bridge's span, no
+    /// junction, no track, no car park, no paved slab, no building and no prop. Asked of the water itself
+    /// (<see cref="GroundShapes.Wet"/>), because the ground answers what is on top and a road laid into the river is road
+    /// there. A road and a track are asked along their middle and both edges, a building round its footprint.
+    /// </summary>
+    public static void NothingStandsInItsWater(string map)
+    {
+        var plan = Towns.Of(map);
+        var config = SimConfig.Shipped();
+        var ground = new GroundShapes(plan.Paving(config), config);
+        var wet = new Dictionary<string, (int Count, Vector2 FirstM)>();
+        void Asked(string what, Vector2 atM)
+        {
+            if (!ground.Wet(atM)) return;
+
+            wet[what] = wet.TryGetValue(what, out var seen) ? (seen.Count + 1, seen.FirstM) : (1, atM);
+        }
+
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var chain = plan.Roads.SegmentsOf(road);
+            var lengthM = Spline.TotalLengthM(chain);
+            var halfM = plan.Roads.WidthM[road] * 0.5f;
+            for (var alongM = 0f; alongM <= lengthM; alongM += WaterStepM)
+            {
+                if (OnADeck(plan, road, alongM)) continue;
+
+                var sample = Spline.SampleAt(chain, alongM);
+                var acrossM = Heading.RightOf(Heading.Unit(sample.HeadingRad)) * halfM;
+                foreach (var atM in (ReadOnlySpan<Vector2>)[sample.PositionM, sample.PositionM + acrossM, sample.PositionM - acrossM])
+                {
+                    Asked(plan.Roads.IsABay(road) ? "bay" : "road", atM);
+                }
+            }
+        }
+
+        for (var junction = 0; junction < plan.Junctions.Count; junction++) Asked("junction", plan.Junctions.CentreM[junction]);
+
+        for (var track = 0; track < plan.Rails.Count; track++)
+        {
+            var line = plan.Rails.TrackOf(track);
+            var levels = plan.Rails.Level.AsSpan(plan.Rails.PointOffsets[track], line.Length);
+            for (var point = 0; point + 1 < line.Length; point++)
+            {
+                if (levels[point] != 0) continue;
+
+                var runM = Vector2.Distance(line[point], line[point + 1]);
+                for (var alongM = 0f; alongM < runM; alongM += WaterStepM) Asked("track", Blend.Lerp(line[point], line[point + 1], alongM / runM));
+            }
+        }
+
+        for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
+        {
+            var (centreM, axis, halfM) = (plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot], plan.ParkingLots.HalfExtentM[lot]);
+            foreach (var cornerM in Corners(centreM, axis, halfM)) Asked("car park", cornerM);
+        }
+
+        for (var slab = 0; slab < plan.PavedAreas.Count; slab++)
+        {
+            var (minM, sizeM) = (plan.PavedAreas.MinM[slab], plan.PavedAreas.SizeM[slab]);
+            foreach (var cornerM in (ReadOnlySpan<Vector2>)[minM, minM + sizeM, minM with { X = minM.X + sizeM.X }, minM with { Y = minM.Y + sizeM.Y }])
+            {
+                Asked("slab", cornerM);
+            }
+        }
+
+        for (var building = 0; building < plan.Buildings.Count; building++)
+        {
+            var axis = Heading.Unit(plan.Buildings.HeadingRad[building]);
+            foreach (var cornerM in Corners(plan.Buildings.CentreM[building], axis, plan.Buildings.SizeM[building] * 0.5f)) Asked("building", cornerM);
+        }
+
+        for (var prop = 0; prop < plan.Props.Count; prop++) Asked("prop", plan.Props.CentreM[prop]);
+
+        Assert.True(wet.Count == 0, $"{map} stands in its water: " + string.Join("; ", wet.Select(kind => $"{kind.Value.Count} {kind.Key} places, the first at {kind.Value.FirstM}")));
+    }
+
+    /// <summary>How finely a road or a track is walked for the water under it.</summary>
+    const float WaterStepM = 1f;
+
+    static bool OnADeck(CityPlan plan, int road, float alongM)
+    {
+        for (var bridge = 0; bridge < plan.Bridges.Count; bridge++)
+        {
+            if (plan.Bridges.Road[bridge] == road && alongM >= plan.Bridges.FromM[bridge] && alongM <= plan.Bridges.ToM[bridge]) return true;
+        }
+
+        return false;
+    }
+
+    static Vector2[] Corners(Vector2 centreM, Vector2 axis, Vector2 halfM)
+    {
+        var across = Heading.RightOf(axis);
+        return
+        [
+            centreM + (axis * halfM.X) + (across * halfM.Y), centreM + (axis * halfM.X) - (across * halfM.Y),
+            centreM - (axis * halfM.X) - (across * halfM.Y), centreM - (axis * halfM.X) + (across * halfM.Y),
+        ];
+    }
+
     static void AssertOffTheWater(GroundLocator grid, Vector2 pointM, string what)
     {
         var ground = grid.At(pointM);
@@ -244,8 +345,8 @@ internal static class Conformance
         var roads = RoadGraph.Build(plan, SimConfig.Shipped());
 
         // <b>Except the lanes joined to nothing</b> — a car park's bays (GEN-53) and a road's roadsides (GEN-57)
-        // (<see cref="Drivable.JoinedToNothing"/>).
-        var passedOver = Drivable.JoinedToNothing(plan, roads);
+        // (<see cref="Drivable.JoinedToNothing"/>) — and a road's that runs off the map (GEN-2b).
+        var passedOver = Drivable.OffTheMap(plan, roads, Drivable.JoinedToNothing(plan, roads));
 
         Assert.Null(Drivable.Offence(roads, passedOver));
         Assert.Null(Drivable.Dangling(roads, passedOver));

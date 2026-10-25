@@ -776,7 +776,7 @@ internal sealed partial class Game : IDisposable
         _renderer = NewRenderer(laid.Ground, _movingOnTheDevice ? room with { Over = 0, Above = 0 } : room);
         _looks.ReadAspects(_renderer.Atlas);
         _looks.Lay(laid.Plan, laid.World.Uses, _config);
-        _renderer.LayTown(_looks, _config.View.PropLeastPx);
+        _renderer.LayTown(_looks, _config.View);
         LayTheMovingOnTheDevice(laid.World, room);
 
         _world?.Dispose();
@@ -805,7 +805,7 @@ internal sealed partial class Game : IDisposable
         _camera = new Camera2D(_config, laid.Plan.WorldSizeM, _uiPx) { DevicePxPerUiPx = _window.UiScale };
         if (OpeningViewM > 0f) _camera.SetSpan(OpeningViewM, _uiPx);
         FrameTheTown(laid.World, laid.Plan.WorldSizeM);
-        _ui.TownChanged(behindTheMenu);
+        _ui.TownChanged(_map, behindTheMenu);
         _hands.TownChanged();
 
         // The camera is nobody's over a town that has just stood — unless a second driver came up with it,
@@ -1019,7 +1019,8 @@ internal sealed partial class Game : IDisposable
         _renderer.Frame(new CameraView(
             centreM, clipPerM, _uiPx, facing, Turning: turned,
             Clouds: _world is null ? default : CloudShadows.At(_world.Clouds, _config, tick),
-            WaterDriftM: _world is null ? default : GroundPatches.DriftAt(_world.Wind, _config, tick)));
+            WaterDriftM: _world is null ? default : GroundPatches.DriftAt(_world.Wind, _config, tick),
+            Waves: _world is null ? default : WaterWaves.At(_world.Wind, _config, tick)));
         parts.Mark(ref parts.SubmitMs);
 
         // The renderer's own account of what it waited for, taken off the frame just drawn and taken

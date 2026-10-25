@@ -78,6 +78,14 @@ public class RoadGraphTests
                 continue;
             }
 
+            // On a road of more lanes each way only the two either side of the line the ways meet on are each
+            // other's (GEN-67); a lane nearer its kerb has the lane beside it and none the other way.
+            if (back == RoadGraph.NoLane)
+            {
+                Assert.True(plan.Roads.LanesOn(graph.LaneRoad[lane]) > 2, $"{map}: lane {lane} of a road of one lane each way has no reverse");
+                continue;
+            }
+
             Assert.Equal(lane, graph.LaneReverse[back]);
             Assert.Equal(graph.LaneRoad[lane], graph.LaneRoad[back]);
             Assert.Equal(graph.LaneFromJunction[lane], graph.LaneToJunction[back]);
@@ -154,13 +162,22 @@ public class RoadGraphTests
             var acrossM = Vector2.Dot(start.PositionM - sample.PositionM, sample.Right);
 
             // Read in the road's own frame, so a backward lane is the negative of a forward one — and a
-            // one-way road's own lane is the middle of it, there being no other lane to keep off (TER-4d).
-            var expectedM = plan.Roads.Flow[road] == RoadFlow.BothWays
-                ? plan.Roads.WidthM[road] * 0.25f * config.RoadSideSign * (graph.LaneForward[lane] ? 1f : -1f)
-                : 0f;
+            // one-way road's own lane is the middle of it, there being no other lane to keep off (TER-4d). A road of
+            // more lanes each way has them all on its own side, each where it is counted from the kerb (GEN-67).
+            var forward = graph.LaneForward[lane];
+            var count = forward ? plan.Roads.LanesWithTheRoad(road) : plan.Roads.LanesAgainstTheRoad(road);
+            var nearestM = float.PositiveInfinity;
+            for (var fromKerb = 0; fromKerb < count; fromKerb++)
+            {
+                var expectedM = plan.Roads.Flow[road] == RoadFlow.BothWays
+                    ? MathF.Abs(plan.Roads.LaneOffsetM(road, fromKerb, forward)) * config.RoadSideSign * (forward ? 1f : -1f)
+                    : 0f;
+                nearestM = MathF.Min(nearestM, MathF.Abs(acrossM - expectedM));
+            }
+
             Assert.True(
-                MathF.Abs(acrossM - expectedM) < 0.1f,
-                $"{map}: lane {lane} sits {acrossM:F2} m across its road's centreline, not {expectedM:F2} m");
+                nearestM < 0.1f,
+                $"{map}: lane {lane} sits {acrossM:F2} m across its road's centreline, where none of its way's lanes stands");
         }
     }
 
@@ -182,7 +199,11 @@ public class RoadGraphTests
     [MemberData(nameof(Maps))]
     public void ALaneRunsOnIntoTheOneOppositeWithoutSteppingSideways(string map)
     {
+        var plan = Towns.Of(map);
         var graph = GraphOf(map);
+        int LanesItsWay(int lane) => graph.LaneForward[lane]
+            ? plan.Roads.LanesWithTheRoad(graph.LaneRoad[lane])
+            : plan.Roads.LanesAgainstTheRoad(graph.LaneRoad[lane]);
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
@@ -194,12 +215,14 @@ public class RoadGraphTests
                 var apartRad = MathF.Acos(Math.Clamp(Vector2.Dot(end.Direction, start.Direction), -1f, 1f));
                 if (apartRad > StraightThroughRad) continue;
 
-                // What the pair may be apart: what the angle carries over the ground between them, and what
-                // two roads laid at different lane widths put between their middles whatever else is true.
+                // What the pair may be apart: what the angle carries over the ground between them, what two roads
+                // laid at different lane widths put between their middles whatever else is true, and a lane's width
+                // for every lane one road carries its way that the other does not (GEN-67).
                 var overM = start.PositionM - end.PositionM;
                 var acrossM = MathF.Abs(Vector2.Dot(overM, end.Right));
                 var carriedM = (overM.Length() * MathF.Sin(apartRad))
                                + (MathF.Abs(graph.LaneWidthM[lane] - graph.LaneWidthM[onto]) * 0.5f)
+                               + (Math.Abs(LanesItsWay(lane) - LanesItsWay(onto)) * graph.LaneWidthM[lane])
                                + ToleranceM;
                 Assert.True(
                     acrossM <= carriedM,
@@ -239,11 +262,20 @@ public class RoadGraphTests
             var sample = Spline.SampleAt(centreline, Spline.ProjectM(centreline, start.PositionM, 0f, float.MaxValue));
             var acrossM = MathF.Abs(Vector2.Dot(start.PositionM - sample.PositionM, sample.Right));
 
-            // Half a lane off the middle where the road is shared with the oncoming traffic, and down the
-            // middle where there is none of it (TER-4d).
-            var offsetM = plan.Roads.LanesOn(road) == 2 ? graph.LaneWidthM[lane] * 0.5f : 0f;
+            // Half a lane off the middle where the road is shared with the oncoming traffic, a lane and a half for the
+            // next lane out, and down the middle where there is none of it (TER-4d, GEN-67).
+            var offAny = false;
+            foreach (var withTheRoad in (ReadOnlySpan<bool>)[true, false])
+            {
+                var count = withTheRoad ? plan.Roads.LanesWithTheRoad(road) : plan.Roads.LanesAgainstTheRoad(road);
+                for (var fromKerb = 0; fromKerb < count; fromKerb++)
+                {
+                    offAny |= MathF.Abs(acrossM - MathF.Abs(plan.Roads.LaneOffsetM(road, fromKerb, withTheRoad))) < 0.1f;
+                }
+            }
+
             Assert.True(
-                MathF.Abs(acrossM - offsetM) < 0.1f,
+                offAny,
                 $"{map}: lane {lane} is {graph.LaneWidthM[lane]:F2} m wide but its line was laid {acrossM:F2} m " +
                 "off the centreline");
         }

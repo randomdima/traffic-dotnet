@@ -207,6 +207,9 @@ public class AllocationGateTests
         loop.Advance(Towns.SettleTicks(Towns.City));
         for (var tick = 0; tick < Towns.SettleTicks(Towns.City) && world.CrossingStretchesHeld == 0; tick++) loop.Advance();
 
+        // And a train's gap more, so the next train has come too: what its crossings lean on has reached its size by then.
+        loop.Advance((int)MathF.Ceiling(config.Train.GapMostS / config.TickSeconds));
+
         var before = GC.GetAllocatedBytesForCurrentThread() + world.AllocatedAsideBytes;
         loop.Advance(600);
 
