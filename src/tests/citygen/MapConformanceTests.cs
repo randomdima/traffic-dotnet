@@ -56,6 +56,10 @@ public class MapConformanceTests
 
     [Theory]
     [MemberData(nameof(Maps))]
+    public void NothingStandsInItsWater(string map) => Conformance.NothingStandsInItsWater(map);
+
+    [Theory]
+    [MemberData(nameof(Maps))]
     public void NothingItCarriesStandsOffIt(string map) => Conformance.NothingItCarriesStandsOffIt(map);
 
     [Theory]

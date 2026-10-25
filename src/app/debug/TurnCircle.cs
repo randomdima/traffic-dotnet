@@ -65,19 +65,24 @@ internal readonly record struct TurnCircle(
     {
         Heading.Frame(headingRad, out var forward, out var right);
 
-        Span<float> wheelRad = stackalloc float[TyreModel.Wheels];
+        Span<float> wheelRad = stackalloc float[TyreModel.MostWheels];
         TyreModel.Ackermann(config, build, steerRad, wheelRad);
 
-        // The turn is to the driver's right for a positive angle, so the inside of it is the +y side of
-        // the body — which is the side the pair with the even indices stand on.
-        var toTheRight = steerRad > 0f;
-        var frontInner = toTheRight ? 0 : 1;
-        var rearInner = toTheRight ? 2 : 3;
+        // The turn is to the driver's right for a positive angle, so the inside of it is the +y side of the body: the
+        // steered wheel and the unsteered one furthest to that side are the inner ones, and furthest from it the outer.
+        var inside = steerRad > 0f ? 1f : -1f;
+        var frontInner = Furthest(build, steered: true, inside);
+        var rearInner = Furthest(build, steered: false, inside);
+        if (frontInner < 0 || rearInner < 0)
+        {
+            circle = default;
+            return false;
+        }
 
         var frontInnerM = WheelM(build, positionM, forward, right, frontInner);
-        var frontOuterM = WheelM(build, positionM, forward, right, frontInner ^ 1);
+        var frontOuterM = WheelM(build, positionM, forward, right, Furthest(build, steered: true, -inside));
         var rearInnerM = WheelM(build, positionM, forward, right, rearInner);
-        var rearOuterM = WheelM(build, positionM, forward, right, rearInner ^ 1);
+        var rearOuterM = WheelM(build, positionM, forward, right, Furthest(build, steered: false, -inside));
 
         // Square to the inner front wheel, which is the line every point of that wheel's own circle stands
         // on. Where it is parallel to the rear axle the wheels are straight and there is no crossing.
@@ -104,7 +109,20 @@ internal readonly record struct TurnCircle(
         return true;
     }
 
-    /// <summary>Where one patch stands in the town — the car's own axles under its own body (CAR-11).</summary>
+    /// <summary>The steered wheel, or the unsteered one, furthest to one side (<paramref name="side"/>, <c>+1</c> the right); or none.</summary>
+    static int Furthest(in CarBuild build, bool steered, float side)
+    {
+        var at = -1;
+        for (var wheel = 0; wheel < build.WheelCount; wheel++)
+        {
+            if (build.WheelAt(wheel).IsSteered != steered) continue;
+            if (at < 0 || (side * build.WheelAt(wheel).AtM.Y) > (side * build.WheelAt(at).AtM.Y)) at = wheel;
+        }
+
+        return at;
+    }
+
+    /// <summary>Where one patch stands in the town — the car's own wheels under its own body (CAR-11).</summary>
     static Vector2 WheelM(in CarBuild build, Vector2 positionM, Vector2 forward, Vector2 right, int wheel)
     {
         var atBody = TyreModel.WheelAtM(build, wheel);

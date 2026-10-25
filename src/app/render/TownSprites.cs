@@ -37,19 +37,16 @@ internal sealed class TownSprites
     /// <summary>The car head's strip and the pedestrian head's.</summary>
     const int HeadSheets = 2;
 
-    /// <summary>The two brushes a mark is stamped through, the two pictures every lamp is drawn through, a steered tyre's rubber, a crossing's barrier, its housing and its X light dark and lit, and a puff of smoke.</summary>
+    /// <summary>The two brushes a mark is stamped through, the two pictures every lamp is drawn through, a tyre's rubber, a crossing's barrier, its housing and its X light dark and lit, and a puff of smoke.</summary>
     const int GroundworkSheets = 10;
 
-    TownSprites(
-        PersonCatalog people, CarCatalog cars, BuildingCatalog buildings, PropCatalog props, SheetSource[] sheets,
-        Vector2[] carSheetScales)
+    TownSprites(PersonCatalog people, CarCatalog cars, BuildingCatalog buildings, PropCatalog props, SheetSource[] sheets)
     {
         People = people;
         Cars = cars;
         Buildings = buildings;
         Props = props;
         Sheets = sheets;
-        CarSheetScales = carSheetScales;
         Aspects = new float[sheets.Length];
     }
 
@@ -70,10 +67,7 @@ internal sealed class TownSprites
     /// <summary>The sheets in slot order — every walker's look and the same again lying down, then every car's, then the tow arms, the roofs, the prop looks, the two head strips, the two mark brushes, the lamp's lens and glow, and the rubber.</summary>
     public SheetSource[] Sheets { get; }
 
-    /// <summary>How much larger than its art's own box each car sheet is drawn, from <see cref="FirstCarSheet"/> on, intact then wrecked (<see cref="CarSheets"/>).</summary>
-    public Vector2[] CarSheetScales { get; }
-
-    /// <summary>The widest tyre any car of the catalogue or the nominal car runs on: a frame that would leave it out leaves every steered tyre out, unasked.</summary>
+    /// <summary>The widest tyre any car of the catalogue or the nominal car runs on: a frame that would leave it out leaves every tyre out, unasked.</summary>
     public float WidestTyreM { get; private init; }
 
     /// <summary>And the widest glow any lens of the catalogue is drawn with (<see cref="LampSprites.GlowM"/>), for the lamps.</summary>
@@ -125,7 +119,7 @@ internal sealed class TownSprites
     /// <summary>And the glow around the lit ones.</summary>
     public int LampGlowSheet => LensSheet + 1;
 
-    /// <summary>What a steered tyre is drawn with (<see cref="CarSheets.RubberSheet"/>).</summary>
+    /// <summary>What a tyre is drawn with (<see cref="CarSheets.RubberSheet"/>).</summary>
     public int RubberSheet => LampGlowSheet + 1;
 
     /// <summary>A level crossing's barrier arm, the housing it pivots at, and its X light dark and lit (RAIL-7), the railway's art (<see cref="RailLooks"/>).</summary>
@@ -198,26 +192,25 @@ internal sealed class TownSprites
         }
 
         var firstCar = people.SheetCount * 2;
-        var carScales = new Vector2[cars.SheetCount * 2];
         var widestTyreM = config.Tyre.WheelWidthM;
         var widestGlowM = 0f;
         var carReachM = 0f;
         var mostLenses = 0;
         var mostExhausts = 0;
+        var mostWheels = 0;
         for (var variant = 0; variant < cars.SheetCount; variant++)
         {
             ref readonly var look = ref cars.Variants[variant];
             var build = CarBuild.Of(config, look);
             widestTyreM = MathF.Max(widestTyreM, build.WheelWidthM);
+            mostWheels = Math.Max(mostWheels, build.WheelCount);
             carReachM = MathF.Max(carReachM, (look.FootprintM * look.WreckScale).Length());
             mostLenses = Math.Max(mostLenses, cars.LensesOf(variant).Length);
             mostExhausts = Math.Max(mostExhausts, cars.ExhaustsOf(variant).Length);
             foreach (var lens in cars.LensesOf(variant)) widestGlowM = MathF.Max(widestGlowM, LampSprites.GlowM(lens, config));
 
-            sheets[firstCar + variant] = CarSheets.WithTyres(
-                look.SpritePath, look.FootprintM, build, out carScales[variant]);
-            sheets[firstCar + cars.SheetCount + variant] = CarSheets.WithTyres(
-                look.WreckSpritePath, look.FootprintM * look.WreckScale, build, out carScales[cars.SheetCount + variant]);
+            sheets[firstCar + variant] = SheetSource.File(look.SpritePath);
+            sheets[firstCar + cars.SheetCount + variant] = SheetSource.File(look.WreckSpritePath);
         }
 
         var firstBeam = firstCar + (cars.SheetCount * 2);
@@ -259,12 +252,13 @@ internal sealed class TownSprites
         sheets[firstHead + HeadSheets + 9] = SmokeSprites.Sheet();
         for (var vehicle = 0; vehicle < trains.Length; vehicle++) sheets[firstTrain + vehicle] = TrainSprites.Of(trains[vehicle]);
 
-        return new TownSprites(people, cars, buildings, props, sheets, carScales)
+        return new TownSprites(people, cars, buildings, props, sheets)
         {
             WidestTyreM = widestTyreM,
             WidestGlowM = widestGlowM,
             CarReachM = carReachM,
             MostLensesOnALook = mostLenses,
+            MostWheelsOnALook = mostWheels,
             Smoke = SmokeSprites.Look(config),
             Chimney = ChimneySprites.Look(config, buildings),
             MostExhaustsOnALook = mostExhausts,
@@ -312,7 +306,7 @@ internal sealed class TownSprites
     /// <summary>
     /// How many instances each run of the town needs at most, which is what the buffers are laid for — none of which
     /// needs the town stood up to be known. Under: the whole ring of marks and as much scenery as a frame draws.
-    /// Standing: every building and prop. Over: a body a spawn, a body, two steered tyres, a tow arm and every lens with
+    /// Standing: every building and prop. Over: a body a spawn, a body, four tyres, a tow arm and every lens with
     /// its glow a car its people own or its plan stands (<see cref="TownWorld.CarsOfThePlan"/>), and the heads a lit
     /// junction can stand (<see cref="SignalHeads.MostFor"/>). <b>Above</b> (PHY-1a): every car's again, since any of
     /// them may be on a bridge, and every wagon's again where a track is on one — and none in a town with nothing above
@@ -334,12 +328,16 @@ internal sealed class TownSprites
     }
 
     /// <summary>
-    /// A body with its rear tyres painted on (<see cref="CarSheets"/>), the two it steers, a tow arm, and every lens with
-    /// its glow — <b>the catalogue's most lenses on one look</b>, and not every lens any look may carry
-    /// (<see cref="CarLamps.MostLenses"/>), which over a city's fleet is half the room again for lenses nothing draws.
-    /// The smoke's room is the device's emit's own (<see cref="PuffsEach"/>): no fill draws a puff.
+    /// A body, its tyres (<see cref="CarSprites.FillTyres"/>), a tow arm, and every lens with its glow — <b>the
+    /// catalogue's most wheels and lenses on one look</b>, and not every one any look may carry
+    /// (<see cref="TyreModel.MostWheels"/>, <see cref="CarLamps.MostLenses"/>), which over a city's fleet is half the room
+    /// again for parts nothing draws. The smoke's room is the device's emit's own (<see cref="PuffsEach"/>): no fill draws a
+    /// puff.
     /// </summary>
-    int CarSpritesEach => 1 + TyreModel.SteeredWheels + 1 + (2 * MostLensesOnALook);
+    int CarSpritesEach => 1 + MostWheelsOnALook + 1 + (2 * MostLensesOnALook);
+
+    /// <summary>The most wheels any one look of the catalogue stands on.</summary>
+    public int MostWheelsOnALook { get; private init; }
 
     /// <summary>The most puffs of smoke one car has out at once (CAR-54): its pipes', the catalogue's most on one look.</summary>
     public int PuffsEach => MostExhaustsOnALook * Smoke.Tailpipe.PuffsEach;
@@ -477,19 +475,19 @@ internal sealed class TownSprites
         Vector2 viewCentreM, Vector2 viewSpanM, float leastPartM, Span<SpriteInstance> into, int level)
     {
         // The exhausts' smoke (CAR-54) is the device's alone (SmokeSprites): this fill draws none, and the device's
-        // emit draws it ahead of the steered tyres. The steered tyres before the bodies, so a car's own bodywork is drawn
-        // over them and what shows is the rubber standing proud of the arch — which is what a wheel looks like from above.
+        // emit draws it ahead of the tyres. The tyres before the bodies, so a car's own bodywork is drawn over them and
+        // what shows is the rubber standing proud of the arch — which is what a wheel looks like from above.
         var written = WidestTyreM < leastPartM
             ? 0
-            : CarSprites.FillFrontTyres(cars, drawn, RubberSheet, leastPartM, viewCentreM, viewSpanM, into, level);
+            : CarSprites.FillTyres(cars, drawn, RubberSheet, leastPartM, viewCentreM, viewSpanM, into, level);
 
-        written += CarSprites.Fill(
-            cars, drawn, Cars, FirstCarSheet, CarSheetScales, viewCentreM, viewSpanM, into[written..], level);
+        written += CarSprites.Fill(cars, drawn, Cars, FirstCarSheet, viewCentreM, viewSpanM, into[written..], level);
 
         // The arm over both bodies: it stands on the truck's deck and its fork is above the nose of what it
         // is holding, so a tow drawn under either of them is an arm running through a car (EVA-5).
         written += CarSprites.FillBeams(
-            cars, drawn, Cars, hitches, wagons, FirstBeamSheet, viewCentreM, viewSpanM, into[written..], level);
+            cars, drawn, Cars, hitches, wagons, FirstBeamSheet, config.View.CarTiltEyeHeightM, viewCentreM, viewSpanM,
+            into[written..], level);
 
         // The lamps over the bodies, because a lamp is a light on the bodywork: drawn under it, a brake
         // lamp is a red smudge on the road behind a car rather than anything the car is showing.
@@ -537,17 +535,27 @@ internal static class CarSprites
     public static bool IsOn(CarFleet cars, int car, int level) => level == EveryLevel || cars.LevelOf(car) == level;
 
     /// <summary>
-    /// The front pair, drawn at the very offsets the impulses act on and turned to the rack's angle. Plain
-    /// rubber, one quad a tyre; the rear pair never steers and is painted into the car's own sheet
-    /// (<see cref="CarSheets"/>).
+    /// <b>Where a point of a car's body is drawn</b>, the body tilted on its springs (CAR-56, <see cref="BodyTilt.OnBodyM"/>):
+    /// what is bolted to the body — its lamps, its arm — is placed so. Its tyres are not, and every cull is the untilted
+    /// body's.
+    /// </summary>
+    public static Vector2 OnBodyM(CarFleet cars, int car, Vector2 forward, Vector2 atBodyM, float tiltEyeHeightM)
+    {
+        var drawnM = BodyTilt.OnBodyM(atBodyM, BodyTilt.AsDrawn(cars.TiltRad[car]), tiltEyeHeightM);
+        return cars.PositionM[car] + (forward * drawnM.X) + (Heading.RightOf(forward) * drawnM.Y);
+    }
+
+    /// <summary>
+    /// A car's tyres, drawn at the very offsets the impulses act on, the steered ones turned to the rack's angle. Plain
+    /// rubber, one quad a tyre, under the body and never tilted with it (CAR-56): a tyre stands where its patch is.
     /// </summary>
     /// <remarks>
-    /// <b>Both at one angle</b>, which is the picture and not the model: the patches work at their own Ackermann
-    /// angles (<see cref="TyreModel.Ackermann"/>), and the difference between them is not worth its trig a car a
-    /// frame.
+    /// <b>The steered ones at one angle</b>, which is the picture and not the model: the patches work at their own
+    /// Ackermann angles (<see cref="TyreModel.Ackermann"/>), and the difference between them is not worth its trig a car
+    /// a frame.
     /// </remarks>
     /// <param name="leastWidthM">The narrowest tyre this frame draws; a car whose tyres are narrower draws none.</param>
-    public static int FillFrontTyres(
+    public static int FillTyres(
         CarFleet cars, ReadOnlySpan<int> drawn, int rubberSheet, float leastWidthM, Vector2 viewCentreM,
         Vector2 viewSpanM, Span<SpriteInstance> into, int level = EveryLevel)
     {
@@ -556,9 +564,9 @@ internal static class CarSprites
 
         foreach (var car in drawn)
         {
-            if (written + TyreModel.SteeredWheels > into.Length) break;
-
             ref readonly var build = ref cars.BuildOf(car);
+            if (written + build.WheelCount > into.Length) break;
+
             if (build.WheelWidthM < leastWidthM || !IsOn(cars, car, level)) continue;
 
             var centreM = cars.PositionM[car];
@@ -572,14 +580,14 @@ internal static class CarSprites
             var headingRad = cars.HeadingRad[car];
             var forward = Heading.Unit(headingRad);
             var right = Heading.RightOf(forward);
-            var tyreRad = headingRad + cars.Command[car].SteerRad;
+            var steeredRad = headingRad + cars.Command[car].SteerRad;
 
-            for (var wheel = 0; wheel < TyreModel.SteeredWheels; wheel++)
+            for (var wheel = 0; wheel < build.WheelCount; wheel++)
             {
-                var atBody = TyreModel.WheelAtM(build, wheel);
+                ref readonly var laid = ref build.WheelAt(wheel);
                 into[written++] = new SpriteInstance(
-                    centreM + (forward * atBody.X) + (right * atBody.Y), halfSizeM, SpriteCell.Whole, SpriteTint.Plain,
-                    (uint)rubberSheet, tyreRad);
+                    centreM + (forward * laid.AtM.X) + (right * laid.AtM.Y), halfSizeM, SpriteCell.Whole, SpriteTint.Plain,
+                    (uint)rubberSheet, laid.IsSteered ? steeredRad : headingRad);
             }
         }
 
@@ -598,9 +606,11 @@ internal static class CarSprites
     /// the coupling is held at are one number in one file (<see cref="CarTowBeam.ReachM"/>). What it holds may be a
     /// car or a rail vehicle, read where the view shows it.
     /// </remarks>
+    /// <param name="tiltEyeHeightM">How high a body's tilt is seen from, which puts the hinge on it (<see cref="OnBodyM"/>).</param>
     public static int FillBeams(
         CarFleet cars, ReadOnlySpan<int> drawn, CarCatalog catalogue, TowHitches hitches, ReadOnlySpan<WagonView> wagons,
-        int firstBeamSheet, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into, int level = EveryLevel)
+        int firstBeamSheet, float tiltEyeHeightM, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into,
+        int level = EveryLevel)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
@@ -621,7 +631,7 @@ internal static class CarSprites
             if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
 
             var forward = Heading.Unit(cars.HeadingRad[car]);
-            var hingeM = cars.PositionM[car] + (forward * beam.PivotM.X) + (Heading.RightOf(forward) * beam.PivotM.Y);
+            var hingeM = OnBodyM(cars, car, forward, beam.PivotM, tiltEyeHeightM);
 
             // The arm points at what it is holding, and along the deck when it is holding nothing. A pair
             // the solver has driven exactly on top of each other has no direction, and stows rather than
@@ -646,13 +656,13 @@ internal static class CarSprites
         return written;
     }
 
-    /// <param name="sheetScales">
-    /// How much larger than its art's own box each car sheet is drawn, intact then wrecked
-    /// (<see cref="TownSprites.CarSheetScales"/>): the margin its tyres are painted into.
-    /// </param>
+    /// <summary>
+    /// The bodies, each at its middle and its tilt on its springs as its ID (<see cref="BodyTilt.Id"/>), which the vertex
+    /// stage draws the plane of.
+    /// </summary>
     public static int Fill(
-        CarFleet cars, ReadOnlySpan<int> drawn, CarCatalog catalogue, int firstSheet, ReadOnlySpan<Vector2> sheetScales,
-        Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into, int level = EveryLevel)
+        CarFleet cars, ReadOnlySpan<int> drawn, CarCatalog catalogue, int firstSheet, Vector2 viewCentreM,
+        Vector2 viewSpanM, Span<SpriteInstance> into, int level = EveryLevel)
     {
         var sheetCount = catalogue.SheetCount;
         if (sheetCount <= 0) return 0;
@@ -671,16 +681,15 @@ internal static class CarSprites
 
             var centreM = cars.PositionM[car];
             ref readonly var build = ref cars.BuildOf(car);
-            var artHalfM = new Vector2(build.LengthM, build.WidthM) * 0.5f;
-            if (broken) artHalfM *= catalogue.Variants[variant].WreckScale;
-            var halfSizeM = artHalfM * sheetScales[sheet];
+            var halfSizeM = new Vector2(build.LengthM, build.WidthM) * 0.5f;
+            if (broken) halfSizeM *= catalogue.Variants[variant].WreckScale;
             var reachM = halfSizeM.Length();
             var offset = centreM - viewCentreM;
             if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
 
             into[written++] = new SpriteInstance(
-                centreM, halfSizeM, SpriteCell.Whole, SpriteTint.Plain, (uint)(firstSheet + sheet),
-                cars.HeadingRad[car]);
+                centreM, halfSizeM, SpriteCell.Whole, SpriteTint.Plain, (uint)(firstSheet + sheet), cars.HeadingRad[car],
+                BodyTilt.Id(cars.TiltRad[car]));
         }
 
         return written;

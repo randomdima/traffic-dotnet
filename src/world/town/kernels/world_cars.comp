@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 // Every car read off its body into the pose its tyres read, one thread a car, once, as the world is laid
-// (DeviceWorld), keeping the acceleration it was laid with; and whether its body comes into the first step frozen. From
+// (DeviceWorld), keeping the body on its springs as it was laid; and whether its body comes into the first step frozen. From
 // then on the step's view keeps both as each step leaves the body (world_view.comp), and the signals what they do to it
 // between steps (world_signals.comp).
 
@@ -27,8 +27,7 @@ void main()
     int body = row.body;
     vec4 placed = pose[body];
     vec4 moving = motion[body];
-    poses[car] = TyrePose(
-        placed.xy, moving.xy, placed.zw, poses[car].accelerationMps2, headingRad[body], moving.z, row.massKg, 0.0);
+    poses[car] = TyrePose(placed.xy, moving.xy, placed.zw, headingRad[body], moving.z, row.massKg, poses[car].sprung);
 
     bool frozen = (filter_[body] & world.frozenBit) != 0u;
     cars[car].flags = (row.flags & ~CarFrozenNext) | (frozen ? CarFrozenNext : 0u);

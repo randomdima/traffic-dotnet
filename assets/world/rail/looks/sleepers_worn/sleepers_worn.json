@@ -1,0 +1,8 @@
+{
+  "id": "sleepers_worn",
+  "sprite": "sleepers_worn.webp",
+  "kind": "Track",
+  "sleeperLengthM": 2.6,
+  "describe": "a straight stretch of old railway track seen from straight above with no ballast: weathered grey concrete sleepers stained with rust and oil lying across the strip, evenly spaced, clear between them; two steel rails along the whole length, their running strips polished, their sides rusty brown",
+  "footprintM": [6.0952, 2.6]
+}

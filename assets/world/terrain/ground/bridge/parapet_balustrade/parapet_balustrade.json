@@ -1,0 +1,8 @@
+{
+  "id": "parapet_balustrade",
+  "sprite": "parapet_balustrade.webp",
+  "kind": "Parapet",
+  "describe": "a stone bridge balustrade seen straight down: a flat pale limestone coping rail along its length, square pedestals every 2 m a little wider than the rail, the bulbs of the balusters showing faintly between, weathered",
+  "footprintM": [4.571, 0.5],
+  "pictureM": 3.9062
+}

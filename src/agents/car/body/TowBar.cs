@@ -3,7 +3,7 @@ using System.Numerics;
 namespace TrafficSimulation.Agents.Car.Body;
 
 /// <summary>
-/// <b>A car on the back of another one</b> (EVA-5): where the two bodies are coupled and the two wheels the towed car is
+/// <b>A car on the back of another one</b> (EVA-5): where the two bodies are coupled and the axle the towed car is
 /// left rolling on. The coupling itself is the solver's link (SOL-38), a pin between the points named here.
 /// </summary>
 /// <remarks>
@@ -20,9 +20,6 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// </remarks>
 internal static class TowBar
 {
-    /// <summary>The wheels a towed car is left standing on: its own back pair, and no others.</summary>
-    public const int Wheels = 2;
-
     /// <summary>
     /// <b>The hinge the arm turns about</b>, which is a place on the tractor's own deck and not a point in
     /// the air behind it: the arm swings there and the reaction to every newton the tow spends lands there
@@ -102,44 +99,40 @@ internal static class TowBar
         -tractor.TowHingeAheadOfCentreM + tractor.TowReachM + towed.TowGripFromTheMiddleM;
 
     /// <summary>
-    /// Where the two wheels a towed car still stands on meet the ground — the axle at its far end from the
-    /// fork, at the very offsets the four-wheeled model puts them at, because they are the same two wheels.
+    /// <b>The trailer wheels</b>: what the wheels of the axle on the ground (<paramref name="axle"/>) do with nothing
+    /// driving them and nothing braking them, which is hold sideways as hard as the ground lets them and give the roll
+    /// back the rolling resistance; every other wheel is up on the arm and spends nothing. That lateral hold is what
+    /// makes a towed car track the one pulling it rather than swing about behind the bar.
     /// </summary>
-    public static void AxleM(in CarBuild towed, in CarPose pose, int pair, Span<Vector2> into)
-    {
-        for (var wheel = 0; wheel < Wheels; wheel++)
-        {
-            var atBody = TyreModel.WheelAtM(towed, pair + wheel);
-            into[wheel] = pose.PositionM + (pose.Forward * atBody.X) + (pose.Right * atBody.Y);
-        }
-    }
-
-    /// <summary>
-    /// <b>The two trailer wheels</b>: what a pair of wheels with nothing driving them and nothing braking
-    /// them does, which is hold sideways as hard as the ground lets them and give the roll back the rolling
-    /// resistance. That lateral hold is what makes a towed car track the one pulling it rather than swing
-    /// about behind the bar.
-    /// </summary>
+    /// <param name="atM">Where each of its wheels stands (<see cref="TyreModel.WheelPointsM"/>).</param>
     /// <param name="onTheAxleShare">
-    /// How much of the towed car's weight is still on these two wheels rather than on the hook. Lifting the
+    /// How much of the towed car's weight is still on that axle rather than on the hook. Lifting the
     /// nose is the whole of what a recovery hitch does, and this is that lift expressed as the only thing a
     /// flat world can express it as: the load these patches grip with.
     /// </param>
     /// <remarks>
     /// It is deliberately not <see cref="TyreModel.Step"/> with the pedals set to nothing. That model
     /// carries a rim, a slip budget split between two axes, an engine and a brake, and a towed wreck has
-    /// none of them — what is left when they are taken out is the eight lines below, and running the whole
-    /// model to reach them would be four patches of arithmetic to produce two.
+    /// none of them — what is left when they are taken out is the lines below.
     /// </remarks>
     public static void Step(
-        in CarBuild towed, in CarPose pose, ReadOnlySpan<Vector2> atM, ReadOnlySpan<SurfaceUnderWheel> ground,
+        in CarBuild towed, in CarPose pose, int axle, ReadOnlySpan<Vector2> atM, ReadOnlySpan<SurfaceUnderWheel> ground,
         float onTheAxleShare, float dtS, Span<WheelImpulse> into)
     {
         var forward = pose.Forward;
         var right = pose.Right;
-        var loadKg = pose.MassKg * onTheAxleShare / Wheels;
-        for (var wheel = 0; wheel < Wheels; wheel++)
+        var down = 0;
+        for (var wheel = 0; wheel < towed.WheelCount; wheel++) down += towed.WheelAt(wheel).Axle == axle ? 1 : 0;
+
+        var loadKg = pose.MassKg * onTheAxleShare / down;
+        for (var wheel = 0; wheel < towed.WheelCount; wheel++)
         {
+            if (towed.WheelAt(wheel).Axle != axle)
+            {
+                into[wheel] = new WheelImpulse(Vector2.Zero, atM[wheel]);
+                continue;
+            }
+
             var fromCentreM = atM[wheel] - pose.PositionM;
             var velocityMps = pose.VelocityMps + (pose.YawRateRadPerS * new Vector2(-fromCentreM.Y, fromCentreM.X));
             var surface = ground[wheel];
@@ -162,19 +155,21 @@ internal static class TowBar
         }
     }
 
-    /// <summary>Where each pair starts in the four the body carries — front right, front left, then the back two.</summary>
-    public const int FrontPair = 0;
-
-    public const int RearPair = 2;
-
     /// <summary>
-    /// The pair a towed car is left rolling on, which is always <b>the far one from the fork</b>: the end on
-    /// the arm is the end in the air. A car caught by the tail therefore rolls on its own steered pair, which
-    /// is why the wheels of anything put on the bar are straightened first (EVA-5). A car held at both ends
-    /// has no pair down at all, and is not asked this.
+    /// The axle a towed car is left rolling on, which is always <b>the far one from the fork</b>: the end on
+    /// the arm is the end in the air. A car caught by the tail therefore rolls on its own frontmost axle — its steered
+    /// pair, which is why the wheels of anything put on the bar are straightened first (EVA-5). A car held at both
+    /// ends has no axle down at all, and is not asked this.
     /// </summary>
-    public static int PairOnTheGround(bool byTheTail) => byTheTail ? FrontPair : RearPair;
+    public static int AxleOnTheGround(in CarBuild towed, bool byTheTail)
+    {
+        var at = 0;
+        for (var wheel = 1; wheel < towed.WheelCount; wheel++)
+        {
+            var aheadM = towed.WheelAt(wheel).AtM.X - towed.WheelAt(at).AtM.X;
+            if (byTheTail ? aheadM > 0f : aheadM < 0f) at = wheel;
+        }
 
-    /// <summary>And the one that is up on it, whose patches are spending nothing at all.</summary>
-    public static int PairInTheAir(bool byTheTail) => byTheTail ? RearPair : FrontPair;
+        return (int)towed.WheelAt(at).Axle;
+    }
 }

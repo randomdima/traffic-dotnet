@@ -1,0 +1,8 @@
+{
+  "id": "deckroad_worn",
+  "sprite": "deckroad_worn.webp",
+  "kind": "DeckRoad",
+  "describe": "a bridge's carriageway of older asphalt on the deck, charcoal grey, faint long patched repairs along the wheel paths, smooth and in good repair",
+  "footprintM": [15.667, 6.8],
+  "pictureM": 12.4669
+}

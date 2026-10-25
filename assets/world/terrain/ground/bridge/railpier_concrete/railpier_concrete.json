@@ -1,0 +1,7 @@
+{
+  "id": "railpier_concrete",
+  "sprite": "railpier_concrete.webp",
+  "kind": "RailPierNose",
+  "describe": "a railway bridge pier's nose seen straight down where it pokes out from under the deck: a half-round end of weathered grey concrete with formwork lines, its curve at the top, square-cut along the bottom edge, a dark wet band at its foot",
+  "footprintM": [3.0, 1.796]
+}

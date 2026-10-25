@@ -1,0 +1,8 @@
+{
+  "id": "walkway_setts",
+  "sprite": "walkway_setts.webp",
+  "kind": "Walkway",
+  "describe": "a bridge footway of small warm grey granite setts in neat rows square across the footway, a border of long kerb-like granite blocks along both long edges",
+  "footprintM": [9.874, 2.4],
+  "pictureM": 9.1161
+}

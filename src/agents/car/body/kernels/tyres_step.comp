@@ -27,6 +27,7 @@ layout(push_constant) uniform Figures
 #include "agents/car/body/kernels/car_build.glsl"
 #include "agents/car/body/kernels/tyre_rows.glsl"
 #include "agents/car/body/kernels/tyre.glsl"
+#include "agents/car/body/kernels/suspension.glsl"
 
 layout(std430, binding = 0) readonly buffer Builds { CarBuildRow builds[]; };
 layout(std430, binding = 1) readonly buffer BuildOf { uint buildOf[]; };
@@ -34,33 +35,45 @@ layout(std430, binding = 2) readonly buffer Poses { TyrePose poses[]; };
 layout(std430, binding = 3) readonly buffer Commands { TyreCommand commands[]; };
 layout(std430, binding = 4) readonly buffer Ceilings { float ceilings[]; };
 layout(std430, binding = 5) readonly buffer Surfaces { TyreSurface surfaces[]; };
-layout(std430, binding = 6) buffer Spins { vec4 spins[]; };
+layout(std430, binding = 6) buffer Spins { float spins[]; };
 layout(std430, binding = 7) writeonly buffer Impulses { vec4 impulses[]; };
 layout(std430, binding = 8) writeonly buffer Scrubs { TyreScrub scrubs[]; };
 
+// Every per-wheel row CarMostWheels a car, the car's own wheels first.
 void main()
 {
     uint car = gl_GlobalInvocationID.x;
     if (car >= figures.carCount) return;
 
     CarBuildRow build = builds[buildOf[car]];
+    int wheels = int(build.wheelCount);
+    uint first = car * uint(CarMostWheels);
     TyrePose pose = poses[car];
-    vec2 atM[4];
+    vec2 atM[TyreWheels];
     tyreWheelPointsM(build, pose, atM);
 
-    TyreSurface ground[4];
-    for (int wheel = 0; wheel < TyreWheels; wheel++) ground[wheel] = surfaces[car * 4u + uint(wheel)];
-
-    vec4 spin = spins[car];
-    float spinMps[4] = float[4](spin.x, spin.y, spin.z, spin.w);
-    vec4 spent[4];
-    TyreScrub scrub[4];
-    tyreStep(build, pose, commands[car], ceilings[car], atM, ground, spinMps, figures.dtS, spent, scrub);
-
-    spins[car] = vec4(spinMps[0], spinMps[1], spinMps[2], spinMps[3]);
+    TyreSurface ground[TyreWheels];
+    float spinMps[TyreWheels];
     for (int wheel = 0; wheel < TyreWheels; wheel++)
     {
-        impulses[car * 4u + uint(wheel)] = spent[wheel];
-        scrubs[car * 4u + uint(wheel)] = scrub[wheel];
+        if (wheel >= wheels) break;
+
+        ground[wheel] = surfaces[first + uint(wheel)];
+        spinMps[wheel] = spins[first + uint(wheel)];
+    }
+
+    float loadShare[TyreWheels];
+    suspensionLoads(build, pose.sprung, loadShare);
+    vec4 spent[TyreWheels];
+    TyreScrub scrub[TyreWheels];
+    tyreStep(build, pose, commands[car], ceilings[car], loadShare, atM, ground, spinMps, figures.dtS, spent, scrub);
+
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        if (wheel >= wheels) break;
+
+        spins[first + uint(wheel)] = spinMps[wheel];
+        impulses[first + uint(wheel)] = spent[wheel];
+        scrubs[first + uint(wheel)] = scrub[wheel];
     }
 }

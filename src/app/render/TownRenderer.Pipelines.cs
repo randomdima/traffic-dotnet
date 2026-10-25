@@ -30,7 +30,8 @@ internal sealed unsafe partial class TownRenderer
 
         // One set for the whole frame: every pipeline reads the same camera and every picture the
         // town is drawn with is bound here once, so nothing is bound twice in a recording. Two
-        // uniform blocks the vertex stage reads, then the atlas, the glyphs and the five
+        // uniform blocks the vertex stage reads — the camera's the ground's fragment stage too, for the
+        // water's waves — then the atlas, the glyphs and the five
         // surfaces — and not one of them is an array a shader indexes at run time — then what the
         // marks and the scenery are read out of, by the vertex stage again.
         var bindings = stackalloc DescriptorSetLayoutBinding[Bindings];
@@ -42,7 +43,7 @@ internal sealed unsafe partial class TownRenderer
                 Binding = (uint)binding,
                 DescriptorType = type,
                 DescriptorCount = 1,
-                StageFlags = binding == FanTableBinding ? ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit
+                StageFlags = binding is FanTableBinding or CameraBinding ? ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit
                     : type == DescriptorType.CombinedImageSampler ? ShaderStageFlags.FragmentBit : ShaderStageFlags.VertexBit,
             };
         }

@@ -64,11 +64,14 @@ internal readonly record struct CarTowBeam(CarTowArm Extended, CarTowArm Collaps
 /// <param name="TyreFriction">What its rubber holds across the roll, or nothing for the nominal tyre.</param>
 /// <param name="CgHeightM">And how high it carries its weight, or nothing for the nominal car's.</param>
 /// <param name="FrontWeightShare">And how much of it stands on the front axle, or nothing for an even split.</param>
+/// <param name="WheelRateNPerM">And how stiff it is sprung at each wheel, or nothing for the nominal car's.</param>
+/// <param name="WheelDampingNsPerM">And how hard it is damped at each wheel, or nothing for the nominal car's.</param>
 /// <param name="WheelM">
 /// The size of one of its tyres, along the roll and across it, or nothing for the nominal tyre. It is what
 /// the wheel is drawn at and how wide a mark it leaves.
 /// </param>
 /// <param name="WheelRotatingMassKg">And what one of them behaves like as a straight-line mass (J/r²).</param>
+/// <param name="Wheels">Its own wheels where its file lays them out, or nothing for two axles of two.</param>
 /// <param name="ZonesPath">
 /// Its zone map (CAR-14a), which only the lamp sheet's bake reads, or nothing for a look whose lamps are lit over their
 /// rectangles.
@@ -78,7 +81,7 @@ internal readonly record struct CarVariant(
     string Id, string SpritePath, string WreckSpritePath, Vector2 WreckScale, CarTowBeam? Beam, Vector2 FootprintM,
     Vector2 CollisionSizeM, float CornerRadiusM, float MassKg, float FrontAxleM, float RearAxleM, float HalfTrackM,
     int Drivetrain, float? MaxSteeringDeg, float? TyreFriction, float? CgHeightM, float? FrontWeightShare,
-    Vector2? WheelM, float? WheelRotatingMassKg,
+    float? WheelRateNPerM, float? WheelDampingNsPerM, Vector2? WheelM, float? WheelRotatingMassKg, CarWheel[]? Wheels,
     bool Unbreakable, CarHandling Handling, CarLens[] Lenses, string? ZonesPath, Vector2[] ExhaustsM)
 {
     public float WheelbaseM => FrontAxleM - RearAxleM;
@@ -372,8 +375,8 @@ internal sealed class CarCatalog
             variant.FootprintM, variant.CollisionM?.SizeM ?? variant.FootprintM,
             variant.CollisionM?.CornerRadiusM ?? 0f, variant.MassKg, variant.FrontAxleM,
             variant.RearAxleM, variant.TrackM * 0.5f, variant.Drivetrain, variant.MaxSteeringDeg,
-            variant.TyreFriction, variant.CgHeightM, variant.FrontWeightShare,
-            variant.WheelM, variant.WheelRotatingMassKg, variant.Unbreakable,
+            variant.TyreFriction, variant.CgHeightM, variant.FrontWeightShare, variant.WheelRateNPerM,
+            variant.WheelDampingNsPerM, variant.WheelM, variant.WheelRotatingMassKg, Wheels(variant, path), variant.Unbreakable,
             CarHandling.Of(variant.Handling), Lenses(variant, path, sprite),
             variant.Zones is { } zones ? AssetJson.Beside(path, zones) : null,
             variant.Exhausts.Length <= MostExhausts
@@ -383,6 +386,37 @@ internal sealed class CarCatalog
 
     static CarTowArm Arm(TowArmFile arm, string path) =>
         new(AssetJson.Beside(path, arm.Sprite), arm.SizeM, arm.HingeAtM);
+
+    /// <summary>
+    /// A file's own wheels as the model stands them (<see cref="CarWheel"/>), or nothing where it lays out none: each on the
+    /// axle of every wheel standing as far along the car, the axles numbered from the nose.
+    /// </summary>
+    static CarWheel[]? Wheels(CarVariantFile variant, string path)
+    {
+        if (variant.Wheels is not { } laid) return null;
+        if (laid.Length == 0 || laid.Length > TyreModel.MostWheels)
+        {
+            throw new InvalidDataException(
+                $"{path}: stands on {laid.Length} wheels, and a car stands on one to {TyreModel.MostWheels}.");
+        }
+
+        var wheels = new CarWheel[laid.Length];
+        for (var wheel = 0; wheel < laid.Length; wheel++)
+        {
+            // Its axle is how many places along the car stand ahead of it.
+            var aheadOfIt = new HashSet<float>();
+            foreach (var other in laid)
+            {
+                if (other.AtM.X > laid[wheel].AtM.X) aheadOfIt.Add(other.AtM.X);
+            }
+
+            var flags = (laid[wheel].Steered ? CarWheel.Steered : 0u) | (laid[wheel].Handbrake ? CarWheel.Handbrake : 0u)
+                        | (laid[wheel].Driven ? CarWheel.Driven : 0u);
+            wheels[wheel] = new CarWheel(laid[wheel].AtM, (uint)aheadOfIt.Count, flags);
+        }
+
+        return wheels;
+    }
 
     /// <param name="sprite">
     /// The picture the lenses are measured off, which is read for its size: a lens centre is snapped to

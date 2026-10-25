@@ -20,6 +20,8 @@ struct Camera {
     propCull: vec4f,
     // How far every fan has turned at this tick, in turns, and the least a picture's widest is across (CameraView.Turning).
     turning: vec4f,
+    // The car bodies' sheets from and past, and the height their tilt is seen from (CameraView.CarTilt, CAR-56).
+    carTilt: vec4f,
     // The clouds' shadows (CameraView.Clouds), which a page does not draw: here so what follows lands where it is written.
     cloudField: vec4f,
     cloudLook: vec4f,
@@ -35,6 +37,17 @@ struct Camera {
     patchRagged: vec4f,
     // How far the water's still look and its lively one have drifted, in metres (GroundPatches.DriftAt).
     waterDriftM: vec4f,
+    // The waves the water sways under (WaterWaves): each train's wavenumber along x, in radians a metre, then the sway
+    // downwind under the tallest crest along x, in metres; the same along y; how far each train has run; how far its
+    // crests are bent off their lines, then one over the width of the lumps that bend them, in metres; and the crests'
+    // light, the fewest pixels a train is drawn across and how far the water's patches move the waves' height; and how
+    // far a crest moves the water's fade up the shore, as a share of its cover, and how much of the waterline is foam.
+    waveNumberXPerM: vec4f,
+    waveNumberYPerM: vec4f,
+    wavePhaseRad: vec4f,
+    waveBendRad: vec4f,
+    waveLook: vec4f,
+    waveShore: vec4f,
 };
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -86,6 +99,8 @@ const fanLookSalt = 0x5bd1e995u;
 // And the two kerbs' strips after it (ground.frag's bindings 18 and 19).
 @group(0) @binding(14) var kerb: texture_2d<f32>;
 @group(0) @binding(15) var edging: texture_2d<f32>;
+// A bridge's art, a layer a strip and one of its fittings (ground.frag's bridge, BridgeSheet).
+@group(0) @binding(16) var bridge: texture_2d_array<f32>;
 
 // The sheet's run, or nought where its widest fan, drawn `widthM` across, is less than `leastAcrossM` this frame.
 fn fansRun(sheet: u32, widthM: f32, leastAcrossM: f32) -> u32 {
@@ -171,6 +186,11 @@ fn toClip(atM: vec2f) -> vec4f {
     return vec4f(offset.x, -offset.y, 0.0, 1.0);
 }
 
+/// A car body's tilt as its ID carries it (quad.glsl's quadTiltRad, BodyTilt.Id).
+fn tiltRad(id: u32) -> vec2f {
+    return vec2f(f32(bitcast<i32>(id << 24u) >> 24u), f32(bitcast<i32>(id << 16u) >> 24u)) * (1.0 / 512.0);
+}
+
 /// A triangle strip's four corners, in the order the strip wants them.
 fn corner(vertex: u32) -> vec2f {
     return vec2f(f32(vertex & 1u), f32((vertex >> 1u) & 1u));
@@ -194,6 +214,8 @@ struct GroundOut {
     @location(7) positionM: vec2f,
     @location(8) @interpolate(flat) scatter: vec4f,
     @location(9) @interpolate(flat) drift: vec4f,
+    // Each wave train's phase at the corner, linear in its place so the interpolation is exact. Nought off the water.
+    @location(10) waveRad: vec3f,
 };
 
 // The ground's patches, ground_patches.glsl said again: GroundPatches' FieldMean and FieldSpread are this field's.
@@ -295,6 +317,9 @@ const SHORE_ROW: u32 = 5u;
 const KERB: u32 = 7u;
 const EDGING: u32 = 8u;
 const SHADOW: u32 = 9u;
+// A bridge's strips and fittings, filed as the track's is, each the layer its number past the first names.
+const BRIDGE_FIRST: u32 = 10u;
+const BRIDGE_LAST: u32 = 15u;
 // The walk, whose patches a kerb wears.
 const PAVEMENT: u32 = 2u;
 // A surface fading out over the ground before it files its number with this bit, and how much it covers in place of
@@ -322,6 +347,14 @@ fn groundVertex(
     result.positionM = positionM;
     result.scatter = vec4f(0.0);
     result.drift = vec4f(0.0);
+    result.waveRad = vec3f(0.0);
+    if (filed >= BRIDGE_FIRST && filed <= BRIDGE_LAST) {
+        result.uv = vec2f(f32(shade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, f32((shade >> 18u) & CHANNEL_STEPS) / ACROSS_STEPS);
+        result.tint = vec3f(1.0);
+        result.surface = filed;
+        return result;
+    }
+
     if (filed == TRACK || filed == KERB || filed == EDGING) {
         let strip = vec2f(f32(shade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, f32((shade >> 18u) & CHANNEL_STEPS) / ACROSS_STEPS);
         // A kerb's picture has its low side at the bottom: the town's kerb drops to the road on the right of its line,
@@ -359,6 +392,7 @@ fn groundVertex(
         period = camera.waterPeriodM.x;
         perAcross = camera.patchPerAcrossWet.x;
         result.drift = camera.waterDriftM / period;
+        result.waveRad = camera.waveNumberXPerM.xyz * positionM.x + camera.waveNumberYPerM.xyz * positionM.y - camera.wavePhaseRad.xyz;
     } else if (filed == SHORE) {
         period = camera.waterPeriodM.y;
         perAcross = camera.patchPerAcrossWet.y;
@@ -396,6 +430,24 @@ const RAGGED_SALT: u32 = 8u;
 const SCATTER_SALT: u32 = 16u;
 const LEAST_SHARE: f32 = 1.0 / 256.0;
 const WHOLE_COVER: f32 = 0.999;
+
+const WATER: u32 = 4u;
+const WAVE_TRAINS: f32 = 3.0;
+const TAU: f32 = 6.28318531;
+
+const WAVE_BEND_SALT: u32 = 32u;
+
+// The waves' height at this pixel, about minus one under every trough and one under every crest, their crests bent and
+// their swell moved by the water's patches (ground.frag's waveHeight).
+fn waveHeight(frag: GroundOut, widthRad: vec3f, lumps: f32) -> f32 {
+    let look = camera.waveLook;
+    let shown = clamp(TAU / (widthRad * look.y) - 1.0, vec3f(0.0), vec3f(1.0));
+    let bendAt = frag.positionM * camera.waveBendRad.w;
+    let bend = 2.0 * vec3f(
+        patchValue(bendAt, WAVE_BEND_SALT), patchValue(bendAt, WAVE_BEND_SALT + 1u), patchValue(bendAt, WAVE_BEND_SALT + 2u)) - 1.0;
+    let swell = max(0.0, 1.0 + look.z * lumps);
+    return swell * dot(sin(frag.waveRad + bend * camera.waveBendRad.xyz), shown) / WAVE_TRAINS;
+}
 
 // One look at `uv`, as the hexes there read it (scatterCorners).
 fn scattered(which: u32, uv: vec2f, look: u32, scatter: vec4f, salt: u32, ddx: vec2f, ddy: vec2f) -> vec3f {
@@ -437,6 +489,7 @@ fn ragged(frag: GroundOut) -> f32 {
 fn groundFragment(frag: GroundOut) -> @location(0) vec4f {
     let ddx = dpdx(frag.uv);
     let ddy = dpdy(frag.uv);
+    let waveWidthRad = fwidth(frag.waveRad);
 
     // An edge is the surface drawn darker and paint is the surface drawn brighter, so both are the
     // ground's own texture through a tint and the grain comes through both.
@@ -447,6 +500,16 @@ fn groundFragment(frag: GroundOut) -> @location(0) vec4f {
     if (frag.surface == KERB || frag.surface == EDGING) {
         let kerbLumps = patchLumps(frag.patchAt, frag.patchField, frag.surface);
         return vec4f(kerbstone(frag, ddx, ddy) * patchTint(kerbLumps, frag.patchLook), 1.0);
+    }
+
+    if (frag.surface >= BRIDGE_FIRST && frag.surface <= BRIDGE_LAST) {
+        let half = 0.5 / f32(textureDimensions(bridge).y);
+        let piece = textureSampleGrad(
+            bridge, repeated, vec2f(frag.uv.x, clamp(frag.uv.y, half, 1.0 - half)), frag.surface - BRIDGE_FIRST, ddx, ddy);
+        if (piece.a < 0.5) {
+            discard;
+        }
+        return vec4f(piece.rgb, 1.0);
     }
 
     if (frag.surface == SHADOW) {
@@ -465,21 +528,34 @@ fn groundFragment(frag: GroundOut) -> @location(0) vec4f {
     // A look the patches give no share of a place is not read there.
     let lumps = patchLumps(frag.patchAt, frag.patchField, frag.surface);
     let second = patchLook(lumps, frag.patchLook);
+    var wave = 0.0;
+    var uv = frag.uv;
+    if (frag.surface == WATER) {
+        wave = waveHeight(frag, waveWidthRad, lumps);
+        uv += wave * vec2f(camera.waveNumberXPerM.w, camera.waveNumberYPerM.w) / camera.waterPeriodM.x;
+    }
     var ground = vec3f(0.0);
     if (second < 1.0) {
         ground += (1.0 - second) * scattered(
-            frag.surface, frag.uv - frag.drift.xy, 0u, frag.scatter, SCATTER_SALT + 2u * frag.surface, ddx, ddy);
+            frag.surface, uv - frag.drift.xy, 0u, frag.scatter, SCATTER_SALT + 2u * frag.surface, ddx, ddy);
     }
     if (second > 0.0) {
         ground += second * scattered(
-            frag.surface, frag.uv - frag.drift.zw, 1u, frag.scatter, SCATTER_SALT + 2u * frag.surface + 1u, ddx, ddy);
+            frag.surface, uv - frag.drift.zw, 1u, frag.scatter, SCATTER_SALT + 2u * frag.surface + 1u, ddx, ddy);
     }
     // Blended, and opaque everywhere but where a surface fades out over the ground before it (GroundVertex.Fading).
+    var colour = ground * patchTint(lumps, frag.patchLook) * frag.tint * (1.0 + wave * camera.waveLook.x);
     var cover = 1.0;
     if (frag.cover < WHOLE_COVER) {
         cover = ragged(frag);
+        // The water's fade onto the shore laps, and foam rides its middle (ground.frag).
+        if (frag.surface == WATER) {
+            cover = clamp(cover + camera.waveShore.x * wave * 4.0 * cover * (1.0 - cover), 0.0, 1.0);
+            let foam = camera.waveShore.y * 4.0 * cover * (1.0 - cover) * clamp(0.5 + wave, 0.0, 1.0);
+            colour = mix(colour, vec3f(1.0), foam);
+        }
     }
-    return vec4f(ground * patchTint(lumps, frag.patchLook) * frag.tint, cover);
+    return vec4f(colour, cover);
 }
 
 struct SpriteOut {
@@ -510,7 +586,16 @@ fn spriteVertex(
 ) -> SpriteOut {
     let sheet = sheetId.x;
     let at = corner(vertex);
-    let fromCentreM = (at * 2.0 - 1.0) * halfSizeM;
+    var fromCentreM = (at * 2.0 - 1.0) * halfSizeM;
+
+    // A car body tilted on its springs (quad.glsl's quadEmit, CAR-56).
+    var depth = 1.0;
+    let look = f32(sheet);
+    if (look >= camera.carTilt.x && look < camera.carTilt.y) {
+        let sinkM = dot(fromCentreM, tiltRad(sheetId.y));
+        depth = (camera.carTilt.z + sinkM) / camera.carTilt.z;
+        fromCentreM = fromCentreM / depth;
+    }
 
     // Upright is a rotation of nothing, so the walkers pay one sine and one cosine and no branch.
     let along = vec2f(cos(headingRad), sin(headingRad));
@@ -520,7 +605,7 @@ fn spriteVertex(
     let uv = (vec2f(cell.xy) + at) / vec2f(cell.zw);
 
     var result: SpriteOut;
-    result.position = toClip(centreM + along * fromCentreM.x + across * fromCentreM.y);
+    result.position = toClip(centreM + along * fromCentreM.x + across * fromCentreM.y) * depth;
     result.uv = vec3f(place.originScale.xy + uv * place.originScale.zw, place.layerSize.x);
     result.tint = tint;
     result.light = place.layerSize.w;

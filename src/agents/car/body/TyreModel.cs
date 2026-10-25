@@ -32,15 +32,15 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// </remarks>
 internal static partial class TyreModel
 {
-    /// <summary>Front right, front left, rear right, rear left — <c>+y</c> in the body's frame being the driver's side.</summary>
-    public const int Wheels = 4;
-
-    /// <summary>The ones the rack turns: the front pair, first of the four.</summary>
-    public const int SteeredWheels = 2;
+    /// <summary>
+    /// <b>The most wheels a car may stand on</b> (<see cref="CarBuild.Wheels"/>), which is the room every per-wheel table
+    /// keeps a car — on the host and on the device, where a kernel's arrays are sized by it.
+    /// </summary>
+    public const int MostWheels = 8;
 
     /// <summary>
     /// The whole of one car's tyres for one tick: an impulse and a place to spend it per wheel, what
-    /// each wheel did to the ground under it, and the four rims wound on.
+    /// each wheel did to the ground under it, and the rims wound on.
     /// </summary>
     /// <param name="car">
     /// <b>The car whose tyres these are</b> (CAR-11): where its axles stand under it, how wide its track
@@ -51,6 +51,10 @@ internal static partial class TyreModel
     /// The most a <em>driven axle</em> may be asked for, applied after the drive has been divided by the
     /// axle's load because that is the figure a wheel is actually asked for. Infinite for a hand at the
     /// wheel — flooring it is the player's to do.
+    /// </param>
+    /// <param name="loadShare">
+    /// What each wheel carries, as its share of the car (<see cref="Suspension.Loads"/>). Passed in because the caller
+    /// has already had to have it for the corner its driven axle has paid for.
     /// </param>
     /// <param name="atM">
     /// Where the four patches stand, from <see cref="WheelPointsM"/>. Passed in because the caller has
@@ -63,19 +67,20 @@ internal static partial class TyreModel
     /// </param>
     public static void Step(
         SimConfig config, in CarBuild car, in CarPose pose, in DriveCommand command, float axleDriveCeilingMps2,
-        ReadOnlySpan<Vector2> atM, ReadOnlySpan<SurfaceUnderWheel> ground, Span<float> spinMps, float dtS,
-        Span<WheelImpulse> into, Span<TyreScrub> scrub)
+        ReadOnlySpan<float> loadShare, ReadOnlySpan<Vector2> atM, ReadOnlySpan<SurfaceUnderWheel> ground, Span<float> spinMps,
+        float dtS, Span<WheelImpulse> into, Span<TyreScrub> scrub)
     {
         var forward = pose.Forward;
-        var drivenFrontShare = car.DrivenFrontShare;
+        var wheels = car.WheelCount;
 
-        // Every table cut to the four wheels and every figure the loop reads taken out of what it was handed by
+        // Every table cut to the car's wheels and every figure the loop reads taken out of what it was handed by
         // reference: a store into a span may be the same memory to the JIT, which then reads each again every wheel.
-        atM = atM[..Wheels];
-        ground = ground[..Wheels];
-        spinMps = spinMps[..Wheels];
-        into = into[..Wheels];
-        scrub = scrub[..Wheels];
+        var loadFraction = loadShare[..wheels];
+        atM = atM[..wheels];
+        ground = ground[..wheels];
+        spinMps = spinMps[..wheels];
+        into = into[..wheels];
+        scrub = scrub[..wheels];
         var positionM = pose.PositionM;
         var bodyVelocityMps = pose.VelocityMps;
         var yawRateRadPerS = pose.YawRateRadPerS;
@@ -85,41 +90,46 @@ internal static partial class TyreModel
         var handbrake = command.Handbrake;
         var pedalBrakeMps2 = command.BrakeMps2;
 
-        Span<float> loadFraction = stackalloc float[Wheels];
-        Loads(car, pose, loadFraction);
-
-        Span<Vector2> turnedBy = stackalloc Vector2[SteeredWheels];
+        Span<Vector2> turnedBy = stackalloc Vector2[MostWheels];
         var steered = command.SteerRad != 0f;
         if (steered) AckermannTurns(config, car, command.SteerRad, turnedBy);
 
         // Drive is placed by layout and divided by the load of the axle it is placed on, so a light end
         // of the car spins its wheels rather than pushing the whole of it.
-        var frontLoad = loadFraction[0] + loadFraction[1];
+        Span<float> axleLoad = stackalloc float[MostWheels];
+        axleLoad.Clear();
+        for (var wheel = 0; wheel < wheels; wheel++) axleLoad[(int)car.WheelAt(wheel).Axle] += loadFraction[wheel];
+
+        // The engine holds the car back through the same wheels it drives, so it is a brake on the driven axles.
         var driveMps2 = command.ThrottleMps2 * command.GearSign;
-        var frontDriveMps2 = NoLargerThan(AxleShare(config, driveMps2, drivenFrontShare, frontLoad), axleDriveCeilingMps2);
-        var rearDriveMps2 = NoLargerThan(
-            AxleShare(config, driveMps2, 1f - drivenFrontShare, 1f - frontLoad), axleDriveCeilingMps2);
+        var engineMps2 = EngineBrakingMps2(config, car, command);
+        Span<float> axleDriveMps2 = stackalloc float[MostWheels];
+        Span<float> axleEngineMps2 = stackalloc float[MostWheels];
+        for (var axle = 0; axle < car.AxleCount; axle++)
+        {
+            var share = car.DriveOf(axle);
+            axleDriveMps2[axle] = NoLargerThan(AxleShare(config, driveMps2, share, axleLoad[axle]), axleDriveCeilingMps2);
+            axleEngineMps2[axle] = AxleShare(config, engineMps2, share, axleLoad[axle]);
+        }
+
         var spinAllowanceMps = SpinAllowanceMps(config, Vector2.Dot(pose.VelocityMps, forward));
 
-        // The engine holds the car back through the same wheels it drives, so it is a brake on the driven axle.
-        var engineMps2 = EngineBrakingMps2(config, car, command);
-        var frontEngineMps2 = AxleShare(config, engineMps2, drivenFrontShare, frontLoad);
-        var rearEngineMps2 = AxleShare(config, engineMps2, 1f - drivenFrontShare, 1f - frontLoad);
-
-        for (var wheel = 0; wheel < Wheels; wheel++)
+        for (var wheel = 0; wheel < wheels; wheel++)
         {
+            ref readonly var laid = ref car.WheelAt(wheel);
+            var axle = (int)laid.Axle;
+
             // The body's motion plus what the yaw rate carries that corner round by.
             var fromCentreM = atM[wheel] - positionM;
             var velocityMps = bodyVelocityMps + yawRateRadPerS * new Vector2(-fromCentreM.Y, fromCentreM.X);
             // An unturned wheel points where the car does, to the bit; a turned one is the car's direction turned by its
             // own share of the rack.
-            var wheelForward = steered && wheel < SteeredWheels ? Turned(forward, turnedBy[wheel]) : forward;
+            var wheelForward = steered && laid.IsSteered ? Turned(forward, turnedBy[wheel]) : forward;
             var wheelRight = Heading.RightOf(wheelForward);
 
-            var rear = wheel >= 2;
-            // The handbrake holds the rear pair while the front keeps rolling and steering, so a car can
-            // be turned into its stop; a wreck is locked as a block because nobody is deciding on it.
-            var locked = locksEveryWheel || (rear && handbrake);
+            // The handbrake holds its wheels while the steered ones keep rolling, so a car can be turned into its
+            // stop; a wreck is locked as a block because nobody is deciding on it.
+            var locked = locksEveryWheel || (laid.IsHandbraked && handbrake);
             var surface = ground[wheel];
             // This car's own rubber on this wheel's own ground: what a variant is worth through a corner
             // is the difference between a supercar and a truck on the same tarmac. One coefficient at any
@@ -135,7 +145,7 @@ internal static partial class TyreModel
             // it against the tyre for as long as it is on.
             if (locked) spinMps[wheel] = 0f;
             var spin = spinMps[wheel];
-            var brakeMps2 = pedalBrakeMps2 + (rear ? rearEngineMps2 : frontEngineMps2);
+            var brakeMps2 = pedalBrakeMps2 + axleEngineMps2[axle];
 
             // What the patch is asked to absorb, and what that ask is worth as an impulse if it can
             // simply hold it. Two questions: pulling a light rim back into step is a slip of metres a
@@ -157,7 +167,7 @@ internal static partial class TyreModel
                 // A brake can only oppose the roll, never push through zero into reverse. Signed off the
                 // road speed rather than the rotation, so a wheel the brake has already stopped still
                 // drags the car down instead of quietly asking for nothing.
-                var pedalMps = (rear ? rearDriveMps2 : frontDriveMps2) * dtS
+                var pedalMps = axleDriveMps2[axle] * dtS
                     - MathF.Sign(alongMps) * MathF.Min(brakeMps2 * dtS, MathF.Abs(alongMps));
 
                 // Guard 1: whatever daylight is already open between the tread and the road, less the
@@ -202,8 +212,11 @@ internal static partial class TyreModel
             }
 
             // The rolling resistance is spent outside the traction budget, but it is still a force on
-            // this corner of the car, and a wheel that is rolling has to follow the road it slows down.
-            var dragNs = RollingDrag(velocityMps, wheelForward, alongMps, loadKg, surface.DragMps2, locked, dtS);
+            // this corner of the car, and a wheel that is rolling has to follow the road it slows down. It
+            // opposes what motion the tyre left the corner: a wheel its brake has already stopped has nothing
+            // left to roll, and drag spent against the speed it had would push it back the other way.
+            var leftMps = loadKg > 0f ? velocityMps + (tyreNs / loadKg) : velocityMps;
+            var dragNs = RollingDrag(leftMps, wheelForward, Vector2.Dot(leftMps, wheelForward), loadKg, surface.DragMps2, locked, dtS);
 
             var alongAfterMps = loadKg > 0f ? alongMps + (wantAlongNs + Vector2.Dot(dragNs, wheelForward)) / loadKg : alongMps;
             var acrossAfterMps = loadKg > 0f ? acrossMps + wantAcrossNs / loadKg : acrossMps;
@@ -211,7 +224,7 @@ internal static partial class TyreModel
             {
                 spinMps[wheel] = Rim(
                     config, car, spin, alongMps, alongAfterMps, wantAlongNs, askedAlongNs, sliding, loadKg,
-                    (rear ? rearDriveMps2 : frontDriveMps2), brakeMps2, spinAllowanceMps, dtS);
+                    axleDriveMps2[axle], brakeMps2, spinAllowanceMps, dtS);
             }
 
             into[wheel] = new WheelImpulse(tyreNs + dragNs, atM[wheel]);
@@ -223,8 +236,9 @@ internal static partial class TyreModel
 
     /// <summary>
     /// <b>A car its locks hold, held still</b> (CAR-52): the impulses that bring the whole body to rest — its momentum and its
-    /// spin together — spent at the rear pair, which a handbrake locks as every lock does, with nothing at the front and
-    /// every rim stopped. False, and nothing written, where either rear patch could not grip its share.
+    /// spin together — spent at the wheels the handbrake holds, which it locks as every lock does, with nothing at the
+    /// others and every rim stopped. False, and nothing written, where any of them could not grip its share, or where they
+    /// stand on one line along the car and so can turn nothing back.
     /// </summary>
     /// <remarks>
     /// <b>Each patch in <see cref="Step"/> arrests its own corner as though the corner moved alone</b>, which is right
@@ -233,38 +247,62 @@ internal static partial class TyreModel
     /// off its tyres. Static friction holds the body, not four corners of it.
     /// </remarks>
     /// <param name="inertiaKgM2">The body's own moment of inertia about its centre, which the corners' loads are not.</param>
+    /// <param name="loadShare">What each wheel carries, as <see cref="Step"/> was handed it.</param>
     public static bool HoldStill(
-        in CarBuild car, in CarPose pose, float inertiaKgM2, ReadOnlySpan<Vector2> atM,
+        in CarBuild car, in CarPose pose, float inertiaKgM2, ReadOnlySpan<float> loadShare, ReadOnlySpan<Vector2> atM,
         ReadOnlySpan<SurfaceUnderWheel> ground, float dtS, Span<WheelImpulse> into, Span<float> spinMps)
     {
         var impulseNs = -pose.VelocityMps * pose.MassKg;
         var spinNms = -pose.YawRateRadPerS * inertiaKgM2;
-
-        // The pair shares the momentum and turns the body back with a couple along it, a track apart.
-        var rightM = atM[RearRight] - pose.PositionM;
-        var leftM = atM[RearLeft] - pose.PositionM;
         var forward = pose.Forward;
-        var coupleNs = (spinNms - Cross((rightM + leftM) * 0.5f, impulseNs)) / Cross(rightM - leftM, forward);
-        var rightNs = (impulseNs * 0.5f) + (forward * coupleNs);
-        var leftNs = (impulseNs * 0.5f) - (forward * coupleNs);
+        var wheels = car.WheelCount;
 
-        Span<float> loadFraction = stackalloc float[Wheels];
-        Loads(car, pose, loadFraction);
-        if (!Grips(car, pose, ground[RearRight], loadFraction[RearRight], rightNs, dtS)
-            || !Grips(car, pose, ground[RearLeft], loadFraction[RearLeft], leftNs, dtS))
+        // The held wheels share the momentum, and turn the body back with a push along it at each, as far as its lever
+        // about where they stand together: the couple that turns the body and moves it nowhere.
+        var held = 0;
+        var middleM = Vector2.Zero;
+        for (var wheel = 0; wheel < wheels; wheel++)
         {
-            return false;
+            if (!car.WheelAt(wheel).IsHandbraked) continue;
+
+            middleM += atM[wheel] - pose.PositionM;
+            held++;
         }
 
-        into[0] = new WheelImpulse(Vector2.Zero, atM[0]);
-        into[1] = new WheelImpulse(Vector2.Zero, atM[1]);
-        into[RearRight] = new WheelImpulse(rightNs, atM[RearRight]);
-        into[RearLeft] = new WheelImpulse(leftNs, atM[RearLeft]);
+        if (held == 0) return false;
+
+        middleM /= held;
+        var leverSquaredM2 = 0f;
+        for (var wheel = 0; wheel < wheels; wheel++)
+        {
+            if (!car.WheelAt(wheel).IsHandbraked) continue;
+
+            var leverM = Cross(atM[wheel] - pose.PositionM - middleM, forward);
+            leverSquaredM2 += leverM * leverM;
+        }
+
+        if (leverSquaredM2 <= 0f) return false;
+
+        var perLeverN = (spinNms - Cross(middleM, impulseNs)) / leverSquaredM2;
+        var shareNs = impulseNs / held;
+        Span<Vector2> heldNs = stackalloc Vector2[MostWheels];
+        for (var wheel = 0; wheel < wheels; wheel++)
+        {
+            if (!car.WheelAt(wheel).IsHandbraked)
+            {
+                heldNs[wheel] = Vector2.Zero;
+                continue;
+            }
+
+            var leverM = Cross(atM[wheel] - pose.PositionM - middleM, forward);
+            heldNs[wheel] = shareNs + (forward * (perLeverN * leverM));
+            if (!Grips(car, pose, ground[wheel], loadShare[wheel], heldNs[wheel], dtS)) return false;
+        }
+
+        for (var wheel = 0; wheel < wheels; wheel++) into[wheel] = new WheelImpulse(heldNs[wheel], atM[wheel]);
         spinMps.Clear();
         return true;
     }
-
-    const int RearRight = 2, RearLeft = 3;
 
     /// <summary>Whether a patch can put down this impulse in a tick without sliding: its own grip, on its own ground, at its own load.</summary>
     static bool Grips(in CarBuild car, in CarPose pose, in SurfaceUnderWheel surface, float loadFraction, Vector2 impulseNs, float dtS) =>
@@ -367,7 +405,7 @@ internal static partial class TyreModel
     /// Resistance to the wheel simply going round: it opposes the roll and nothing else, so a rolling
     /// tyre is free to be carried sideways by its own grip alone. A locked wheel has no roll direction
     /// left, so its rubber drags against whatever way it is being shoved. Capped at the motion it is
-    /// opposing, so it can never push the wheel backwards.
+    /// opposing — what the tyre's own impulse left of it — so it can never push the wheel backwards.
     /// </summary>
     static Vector2 RollingDrag(
         Vector2 velocityMps, Vector2 wheelForward, float alongMps, float loadKg, float dragMps2, bool locked, float dtS)

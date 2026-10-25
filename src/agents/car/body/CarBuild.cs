@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -84,7 +85,32 @@ internal readonly record struct CarBuild
     /// </summary>
     public required float FrontWeightShare { get; init; }
 
-    public required float DrivenFrontShare { get; init; }
+    /// <summary>
+    /// <b>Its wheels</b> (CAR-57): where each stands, the axle it turns on, and whether it steers, is the handbrake's and
+    /// is driven — <see cref="WheelCount"/> of them, and two axles of two where its file lays out no other.
+    /// </summary>
+    /// <remarks>Read one at a time by <see cref="WheelAt"/>, which hands the wheel over where it lies rather than the table.</remarks>
+    public required CarWheelTable Wheels { get => _wheels; init => _wheels = value; }
+
+    readonly CarWheelTable _wheels;
+
+    /// <inheritdoc cref="Wheels"/>
+    public required int WheelCount { get; init; }
+
+    /// <summary>One of its wheels, where it lies (<see cref="Wheels"/>).</summary>
+    [UnscopedRef]
+    public ref readonly CarWheel WheelAt(int wheel) => ref _wheels[wheel];
+
+    /// <summary>How many axles its wheels turn on, and what each is handed of the engine's drive and its hold (<see cref="AxleDriveTable"/>).</summary>
+    public required int AxleCount { get; init; }
+
+    /// <inheritdoc cref="AxleCount"/>
+    public required AxleDriveTable AxleDrive { get => _axleDrive; init => _axleDrive = value; }
+
+    readonly AxleDriveTable _axleDrive;
+
+    /// <summary>What one axle is handed of the engine (<see cref="AxleDrive"/>).</summary>
+    public float DriveOf(int axle) => _axleDrive[axle];
 
     public required float MaxSpeedMps { get; init; }
 
@@ -133,20 +159,54 @@ internal readonly record struct CarBuild
 
     /// <summary>
     /// <b>The per-tick arithmetic's own constants of this body</b>, laid with the build so a wheel loads them rather than
-    /// working them out: one over <see cref="WheelRotatingMassKg"/>, and the wheelbase and the track each times the weight
-    /// a load is a share of (<see cref="TyreModel.Loads"/>).
+    /// working them out: one over <see cref="WheelRotatingMassKg"/>.
     /// </summary>
     /// <remarks>
-    /// Each is the very expression the model wrote before, so the model rounds as it did. Derived when the build is
-    /// resolved: a <c>with</c> that changed the wheelbase, the track or the rim would carry the old figure.
+    /// Derived when the build is resolved: a <c>with</c> that changed the rim would carry the old figure.
     /// </remarks>
     public required float InverseWheelRotatingMassPerKg { get; init; }
 
-    /// <inheritdoc cref="InverseWheelRotatingMassPerKg"/>
-    public required float WheelbaseWeightM2PerS2 { get; init; }
+    /// <summary>
+    /// <b>How stiff it is sprung and damped at each wheel</b> (CAR-56, <see cref="Suspension"/>): what a wheel's spring
+    /// pushes back with per metre it is compressed, anti-roll bar and all, and what its damper does per metre a second.
+    /// </summary>
+    public required float WheelRateNPerM { get; init; }
 
-    /// <inheritdoc cref="InverseWheelRotatingMassPerKg"/>
-    public required float TrackWeightM2PerS2 { get; init; }
+    /// <inheritdoc cref="WheelRateNPerM"/>
+    public required float WheelDampingNsPerM { get; init; }
+
+    /// <summary>How far ahead of the middle of the body its centre of mass stands, which <see cref="FrontWeightShare"/> places.</summary>
+    public required float CgAheadOfCentreM { get; init; }
+
+    /// <summary>
+    /// <b>What a wheel stands on at rest</b>, in newtons, as a plane of its place off the centre of mass
+    /// (<see cref="Suspension.StandingShare"/>): at the centre, and per metre along and across.
+    /// </summary>
+    /// <remarks>
+    /// Derived when the build is resolved off its weight and its wheels: a <c>with</c> that changed either would carry the
+    /// old figure. So would <see cref="InverseMassPerKg"/> and the two inertias, which are its mass and a box of its
+    /// length, width and twice its height.
+    /// </remarks>
+    public required float StandingN { get; init; }
+
+    /// <inheritdoc cref="StandingN"/>
+    public required float StandingNPerMAlong { get; init; }
+
+    /// <inheritdoc cref="StandingN"/>
+    public required float StandingNPerMAcross { get; init; }
+
+    /// <inheritdoc cref="StandingN"/>
+    public required float InverseMassPerKg { get; init; }
+
+    /// <inheritdoc cref="StandingN"/>
+    public required float InversePitchInertiaPerKgM2 { get; init; }
+
+    /// <inheritdoc cref="StandingN"/>
+    public required float InverseRollInertiaPerKgM2 { get; init; }
+
+    /// <summary>One over its mass times the height of its centre of mass: what a roll moment its springs carry is worth across it.</summary>
+    /// <remarks><inheritdoc cref="StandingN" path="/remarks"/></remarks>
+    public required float InverseMassCgHeightPerKgM { get; init; }
 
     public required float MaxSteerRad { get; init; }
 
@@ -264,25 +324,52 @@ internal readonly record struct CarBuild
         // The balance is settled before the layout, because a car that drives all four wheels places its
         // drive by the load it will be spent against rather than evenly.
         var frontWeightShare = Math.Clamp(variant.FrontWeightShare ?? config.Car.StaticFrontShare, 0f, 1f);
+
+        // Its own wheels where its file lays them out, the drive placed on its driven axles by what each stands on; or
+        // its two axles' four, the drive placed as its drivetrain says.
+        Span<CarWheel> wheels = stackalloc CarWheel[TyreModel.MostWheels];
+        Span<float> axleDrive = stackalloc float[2];
+        int wheelCount;
+        if (variant.Wheels is { } laid)
+        {
+            laid.CopyTo(wheels);
+            wheelCount = laid.Length;
+            axleDrive = [];
+        }
+        else
+        {
+            var drivenFrontShare = variant.DrivenFrontShare(frontWeightShare);
+            wheelCount = CarWheels.TwoAxles(variant.WheelbaseM, -variant.RearAxleM, variant.HalfTrackM, drivenFrontShare, wheels);
+            axleDrive[0] = drivenFrontShare;
+            axleDrive[1] = 1f - drivenFrontShare;
+        }
+
         return Resolve(
             config, variant.FootprintM.X, variant.FootprintM.Y, variant.CollisionSizeM, variant.CornerRadiusM,
-            variant.MassKg, variant.WheelbaseM, variant.HalfTrackM, -variant.RearAxleM,
-            variant.DrivenFrontShare(frontWeightShare),
+            variant.MassKg, variant.WheelbaseM, variant.HalfTrackM, -variant.RearAxleM, wheels[..wheelCount], axleDrive,
             variant.Handling, variant.Beam?.PivotM.X ?? 0f, variant.Beam?.ReachM ?? 0f,
             variant.MaxSteeringDeg, variant.TyreFriction, variant.CgHeightM, frontWeightShare,
-            variant.WheelM, variant.WheelRotatingMassKg);
+            variant.WheelM, variant.WheelRotatingMassKg, variant.WheelRateNPerM, variant.WheelDampingNsPerM);
     }
 
     /// <summary>
     /// <b>The nominal car, with one variant's drive layout on it</b> — the crash sandbox's car and no town's
     /// (CAR-11a): its cars stand on the figures the town was sized against and differ in layout alone.
     /// </summary>
-    public static CarBuild Nominal(SimConfig config, float drivenFrontShare) => Resolve(
-        config, config.Car.LengthM, config.Car.WidthM,
-        new Vector2(config.Car.LengthM, config.Car.WidthM), cornerRadiusM: 0f, config.Car.MassKg,
-        config.Car.WheelbaseM, config.CarTrackM * 0.5f, config.CarCentreAheadOfAxleM, drivenFrontShare,
-        CarHandling.Nominal, towHingeAheadOfCentreM: 0f, towReachM: 0f, maxSteeringDeg: null, tyreFriction: null,
-        cgHeightM: null, Math.Clamp(config.Car.StaticFrontShare, 0f, 1f), wheelM: null, wheelRotatingMassKg: null);
+    public static CarBuild Nominal(SimConfig config, float drivenFrontShare)
+    {
+        Span<CarWheel> wheels = stackalloc CarWheel[TyreModel.MostWheels];
+        var wheelCount = CarWheels.TwoAxles(
+            config.Car.WheelbaseM, config.CarCentreAheadOfAxleM, config.CarTrackM * 0.5f, drivenFrontShare, wheels);
+        ReadOnlySpan<float> axleDrive = [drivenFrontShare, 1f - drivenFrontShare];
+        return Resolve(
+            config, config.Car.LengthM, config.Car.WidthM,
+            new Vector2(config.Car.LengthM, config.Car.WidthM), cornerRadiusM: 0f, config.Car.MassKg,
+            config.Car.WheelbaseM, config.CarTrackM * 0.5f, config.CarCentreAheadOfAxleM, wheels[..wheelCount], axleDrive,
+            CarHandling.Nominal, towHingeAheadOfCentreM: 0f, towReachM: 0f, maxSteeringDeg: null, tyreFriction: null,
+            cgHeightM: null, Math.Clamp(config.Car.StaticFrontShare, 0f, 1f), wheelM: null, wheelRotatingMassKg: null,
+            wheelRateNPerM: null, wheelDampingNsPerM: null);
+    }
 
     /// <summary>
     /// <b>Where a steering angle stops describing a circle.</b> At a right angle the front wheels point
@@ -299,10 +386,10 @@ internal readonly record struct CarBuild
 
     static CarBuild Resolve(
         SimConfig config, float lengthM, float widthM, Vector2 collisionSizeM, float cornerRadiusM, float massKg,
-        float wheelbaseM, float halfTrackM, float centreAheadOfAxleM, float drivenFrontShare,
-        in CarHandling handling, float towHingeAheadOfCentreM, float towReachM, float? maxSteeringDeg,
+        float wheelbaseM, float halfTrackM, float centreAheadOfAxleM, ReadOnlySpan<CarWheel> wheels,
+        ReadOnlySpan<float> axleDrive, in CarHandling handling, float towHingeAheadOfCentreM, float towReachM, float? maxSteeringDeg,
         float? tyreFriction, float? cgHeightM, float frontShare, Vector2? wheelM,
-        float? wheelRotatingMassKg)
+        float? wheelRotatingMassKg, float? wheelRateNPerM, float? wheelDampingNsPerM)
     {
         // Everything a reader would look up is worked out from a raw term and never the other way about:
         // the lock is the angle at the road wheel and the circle is what it comes to, the friction is a
@@ -320,12 +407,49 @@ internal readonly record struct CarBuild
         var gripMps2 = friction * config.Tyre.StandardGravityMps2;
         var maxSpeedMps = config.Car.MaxSpeedMps * handling.MaxSpeed;
 
-        // The engine is authored as a headroom over the rubber and not as an acceleration, so that a pedal
-        // stays a demand a tyre can be measured against when the compound underneath it moves (CAR-45).
-        var drivenTractionMps2 = DrivenTraction(gripMps2, frontShare, drivenFrontShare);
-        var accelerationMps2 = drivenTractionMps2 * config.Car.DrivePedalInDrivenGrips * handling.Acceleration;
         var rotatingMassKg = wheelRotatingMassKg ?? config.Tyre.WheelRotatingMassKg;
         var weightMps2 = config.Tyre.StandardGravityMps2;
+        var cgM = cgHeightM ?? config.Car.CgHeightM;
+
+        // On its springs: the centre of mass where the balance puts it between the axles, what each wheel stands on
+        // there, and a box of the body's length, width and twice its height turning about it.
+        var cgAheadOfCentreM = (frontShare * wheelbaseM) - centreAheadOfAxleM;
+        Span<Vector2> wheelsM = stackalloc Vector2[wheels.Length];
+        for (var wheel = 0; wheel < wheels.Length; wheel++) wheelsM[wheel] = wheels[wheel].AtM - new Vector2(cgAheadOfCentreM, 0f);
+
+        var weightN = massKg * weightMps2;
+        var standing = Suspension.StandingShare(wheelsM);
+        var standingN = standing * weightN;
+        var boxHeightM = 2f * cgM;
+
+        // What each axle stands on at rest, and what of the engine it is handed: as stated, or else shared among the
+        // driven axles by what each stands on, which is what driving them is for (CarVariant.DrivenFrontShare).
+        var axles = CarWheels.AxlesOf(wheels);
+        Span<float> axleStanding = stackalloc float[axles];
+        axleStanding.Clear();
+        var drivenStanding = 0f;
+        for (var wheel = 0; wheel < wheels.Length; wheel++)
+        {
+            var share = standing.X + (standing.Y * wheelsM[wheel].X) + (standing.Z * wheelsM[wheel].Y);
+            axleStanding[(int)wheels[wheel].Axle] += share;
+            if (wheels[wheel].IsDriven) drivenStanding += share;
+        }
+
+        var drive = new AxleDriveTable();
+        var wheelTable = new CarWheelTable();
+        for (var wheel = 0; wheel < wheels.Length; wheel++)
+        {
+            wheelTable[wheel] = wheels[wheel];
+            var axle = (int)wheels[wheel].Axle;
+            if (axleDrive.IsEmpty && wheels[wheel].IsDriven) drive[axle] = axleStanding[axle] / drivenStanding;
+        }
+
+        for (var axle = 0; axle < axleDrive.Length; axle++) drive[axle] = axleDrive[axle];
+
+        // The engine is authored as a headroom over the rubber and not as an acceleration, so that a pedal
+        // stays a demand a tyre can be measured against when the compound underneath it moves (CAR-45).
+        var drivenTractionMps2 = DrivenTraction(gripMps2, axleStanding, drive);
+        var accelerationMps2 = drivenTractionMps2 * config.Car.DrivePedalInDrivenGrips * handling.Acceleration;
         var pedalRateMps3 = (accelerationMps2 + brakingMps2) / config.Driving.PedalTravelS;
         var plannedBrakingMps2 = MathF.Min(brakingMps2, gripMps2) * config.Driving.BrakingMargin;
 
@@ -342,12 +466,15 @@ internal readonly record struct CarBuild
             TowHingeAheadOfCentreM = towHingeAheadOfCentreM,
             TowReachM = towReachM,
             TowGripFromTheMiddleM = TowBar.GripFromTheMiddleM(lengthM, config.Evacuator.TowGripInsideTheEndM),
-            CgHeightM = cgHeightM ?? config.Car.CgHeightM,
+            CgHeightM = cgM,
 
             // A share is a share, and a car standing on more than all of itself is not a body the loads
             // can split.
             FrontWeightShare = frontShare,
-            DrivenFrontShare = drivenFrontShare,
+            WheelCount = wheels.Length,
+            Wheels = wheelTable,
+            AxleCount = axles,
+            AxleDrive = drive,
             MaxSpeedMps = maxSpeedMps,
             ReverseMaxMps = config.Car.ReverseMaxMps,
             AccelerationMps2 = accelerationMps2,
@@ -358,8 +485,16 @@ internal readonly record struct CarBuild
             WheelWidthM = wheelM?.Y ?? config.Tyre.WheelWidthM,
             WheelRotatingMassKg = rotatingMassKg,
             InverseWheelRotatingMassPerKg = 1f / rotatingMassKg,
-            WheelbaseWeightM2PerS2 = wheelbaseM * weightMps2,
-            TrackWeightM2PerS2 = halfTrackM * 2f * weightMps2,
+            WheelRateNPerM = wheelRateNPerM ?? config.Car.WheelRateNPerM,
+            WheelDampingNsPerM = wheelDampingNsPerM ?? config.Car.WheelDampingNsPerM,
+            CgAheadOfCentreM = cgAheadOfCentreM,
+            StandingN = standingN.X,
+            StandingNPerMAlong = standingN.Y,
+            StandingNPerMAcross = standingN.Z,
+            InverseMassPerKg = 1f / massKg,
+            InversePitchInertiaPerKgM2 = 12f / (massKg * ((lengthM * lengthM) + (boxHeightM * boxHeightM))),
+            InverseRollInertiaPerKgM2 = 12f / (massKg * ((widthM * widthM) + (boxHeightM * boxHeightM))),
+            InverseMassCgHeightPerKgM = 1f / (massKg * cgM),
             MaxSteerRad = maxSteerRad,
             PedalRateMps3 = pedalRateMps3,
             PlannedBrakingMps2 = plannedBrakingMps2,
@@ -379,16 +514,15 @@ internal readonly record struct CarBuild
     }
 
     /// <summary>
-    /// <see cref="DrivenTractionMps2"/>: the pedal at which the driven axle's quotient — the drive it is
+    /// <see cref="DrivenTractionMps2"/>: the pedal at which a driven axle's quotient — the drive it is
     /// placed by layout, over the load it stands on — first reaches what the patch holds.
     /// </summary>
-    static float DrivenTraction(float gripMps2, float frontWeightShare, float drivenFrontShare)
+    static float DrivenTraction(float gripMps2, ReadOnlySpan<float> axleStanding, in AxleDriveTable drive)
     {
         var mostMps2 = float.PositiveInfinity;
-        if (drivenFrontShare > 0f) mostMps2 = gripMps2 * frontWeightShare / drivenFrontShare;
-        if (drivenFrontShare < 1f)
+        for (var axle = 0; axle < axleStanding.Length; axle++)
         {
-            mostMps2 = MathF.Min(mostMps2, gripMps2 * (1f - frontWeightShare) / (1f - drivenFrontShare));
+            if (drive[axle] > 0f) mostMps2 = MathF.Min(mostMps2, gripMps2 * axleStanding[axle] / drive[axle]);
         }
 
         // A car nothing drives has no pedal at all, and a car standing on nothing at the driven end has no

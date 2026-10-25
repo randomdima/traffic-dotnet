@@ -110,6 +110,18 @@ internal sealed class ViewFigures
     public float HeightDrawnAside { get; init; } = 0.25f;
 
     /// <summary>
+    /// <b>How high over a car its tilt on its springs is seen from</b> (CAR-56), in metres: its body is drawn as an eye
+    /// this far over its middle would see the tilted plane, so a corner its spring let down draws in towards the middle
+    /// and one let up stands out.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the exaggeration, and the only one.</b> Seen from the camera's real height a few centimetres of roll is
+    /// under a pixel; from three metres a hard stop draws a hatchback's nose in by about one and a half at the drive's
+    /// framing. The tilt itself is the springs' (<c>SprungBody.TiltRad</c>, CAR-57), and nothing simulated reads this.
+    /// </remarks>
+    public float CarTiltEyeHeightM { get; init; } = 2.86f;
+
+    /// <summary>
     /// What a frame of a hand-driven run spans when the script names no span (DRV-4). Tighter than the
     /// default view, because what such a frame is about is the car and the few metres it is steering
     /// through rather than the town it is in.
@@ -179,6 +191,33 @@ internal sealed class ViewFigures
     public float GroundPeriodWaterM { get; init; } = 16f;
     public float GroundPeriodShoreM { get; init; } = 16f;
 
+    /// <summary>How far apart the lamps along each of a bridge's parapets stand (TER-3b.2), the two sides opposite each other.</summary>
+    public float BridgeLampPitchM { get; init; } = 22f;
+
+    /// <summary>How far apart a bridge's piers stand along its span (TER-3b.2): the deck's own span between two of them.</summary>
+    public float BridgePierPitchM { get; init; } = 30f;
+
+    /// <summary>How deep the expansion joint across each end of a bridge's span is, along the bridge (TER-3b.2).</summary>
+    public float BridgeJointDepthM { get; init; } = 0.4f;
+
+    /// <summary>
+    /// How long the wing wall a bridge's parapet turns back along the bank at each corner is, and how far off the span's
+    /// own line it turns away from the road (TER-3b.2).
+    /// </summary>
+    public float BridgeWingWallM { get; init; } = 4f;
+
+    public float BridgeWingWallTurnDeg { get; init; } = 35f;
+
+    /// <summary>
+    /// How much of a rail bridge's side, from its outer edge, is its parapet rather than its walkway (RAIL-8): what its
+    /// wing walls are laid as, read off the side's picture (<c>BridgeLookKind.RailParapet</c>).
+    /// </summary>
+    public float RailBridgeParapetShare { get; init; } = 0.45f;
+
+    /// <summary>How far in from the edge of a track's bed of ballast the grass beside it fades out over the bed (RAIL-13),
+    /// as it does onto a shore (<see cref="ShoreFadeM"/>): over its loose stones, short of its packed ones.</summary>
+    public float BallastFadeM { get; init; } = 0.5f;
+
     /// <summary>How far onto the shore the ground beside it fades out — the grass from its outer edge, the water from its
     /// own — in place of a line struck along either edge (GEN-2c).</summary>
     public float ShoreFadeM { get; init; } = 1.5f;
@@ -224,6 +263,48 @@ internal sealed class ViewFigures
     public float WaterDriftLivelyWindShare { get; init; } = 0.03f;
 
     public float WaterDriftStillWindShare { get; init; } = 0.012f;
+
+    /// <summary>
+    /// The three trains of wind waves the water is drawn swaying under (<c>WaterWaves</c>), crest to crest: the longest
+    /// running down the prevailing wind and the other two off it by their angles, so their crests cross. Each runs at the
+    /// speed deep water gives its length, which is not authored.
+    /// </summary>
+    public float WaterWaveLongM { get; init; } = 3.4f;
+
+    public float WaterWaveMidM { get; init; } = 2.2f;
+    public float WaterWaveShortM { get; init; } = 1.4f;
+    public float WaterWaveMidOffWindDeg { get; init; } = 30f;
+    public float WaterWaveShortOffWindDeg { get; init; } = -40f;
+
+    /// <summary>How far the water's picture is moved downwind under the three trains' crests all standing at one place,
+    /// and back under their troughs.</summary>
+    public float WaterWaveSwayM { get; init; } = 0.12f;
+
+    /// <summary>How much lighter the water is drawn there, and darker in the troughs, as a share of its colour.</summary>
+    public float WaterWaveCrestLight { get; init; } = 0.08f;
+
+    /// <summary>How far a train's crests are bent off their straight lines at most, by lumps of their own
+    /// <see cref="WaterWaveBendAcrossM"/> wide, so no two crests and no two crossings are alike.</summary>
+    public float WaterWaveBendM { get; init; } = 1f;
+
+    public float WaterWaveBendAcrossM { get; init; } = 7f;
+
+    /// <summary>How much higher the waves run where the water's patches stand a standard deviation above their mean, as a
+    /// share of their height, and lower below it: choppy where the lively look shows, calmer where the still one does.</summary>
+    public float WaterWaveSwellShare { get; init; } = 0.45f;
+
+    /// <summary>How far the waterline runs up the shore under the tallest crest, and back down under the deepest trough,
+    /// at the middle of the water's fade onto it (<see cref="ShoreFadeM"/>); its two ends stay where they are laid.</summary>
+    public float WaterWaveSwashM { get; init; } = 1.2f;
+
+    /// <summary>How much of the waterline is drawn as foam as a crest runs up it, as a share of its colour: whitened
+    /// along the middle of the water's fade onto the shore, wherever the swash has moved it, and half as much between
+    /// crests.</summary>
+    public float WaterWaveFoamShare { get; init; } = 0.55f;
+
+    /// <summary>The fewest screen pixels a train's crest to crest is drawn across: a shorter train fades out on the way
+    /// down to it, since a crest drawn across a pixel or two flickers rather than moves.</summary>
+    public float WaterWaveLeastPx { get; init; } = 6f;
 
     /// <summary>
     /// How much of each surface wears its second look — the worn lawn, the worn asphalt — as a share of its ground: the

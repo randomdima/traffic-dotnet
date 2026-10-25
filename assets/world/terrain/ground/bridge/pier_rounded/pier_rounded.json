@@ -1,0 +1,7 @@
+{
+  "id": "pier_rounded",
+  "sprite": "pier_rounded.webp",
+  "kind": "PierNose",
+  "describe": "a concrete bridge pier's rounded nose seen straight down where it pokes out from under the deck: a half-round end of smooth grey concrete, curve at the top of the picture, square-cut along the bottom edge",
+  "footprintM": [3.0, 1.863]
+}

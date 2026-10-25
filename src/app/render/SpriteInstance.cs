@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.App.Render;
 
@@ -25,9 +26,7 @@ namespace TrafficSimulation.App.Render;
 /// over the picture rather than a colour laid into it (<see cref="Hud.SelectionMark"/>).
 /// </para>
 /// <para>
-/// <b>The half-size is rounded to the nearest half, ties to even</b> (<see cref="Half"/>'s conversion), which the
-/// device's emit does in integer arithmetic (<c>sprites.glsl</c>'s <c>spritesHalf</c>) rather than through
-/// <c>packHalf2x16</c>, whose rounding a driver chooses — so an instance the device emits is the host's to the bit.
+/// <b>The half-size is two halves</b> (<see cref="Halves"/>), so an instance the device emits is the host's to the bit.
 /// A half is a millimetre on a car and a centimetre and a half on the widest roof.
 /// </para>
 /// </remarks>
@@ -60,7 +59,7 @@ internal readonly record struct SpriteInstance
         Vector2 centreM, Vector2 halfSizeM, SpriteCell cell, uint packedTint, uint sheet, float headingRad, int id = 0)
     {
         CentreM = centreM;
-        _halfSize = Halves(halfSizeM);
+        _halfSize = Halves.Pack(halfSizeM);
         HeadingRad = headingRad;
         Cell = cell;
         PackedTint = packedTint;
@@ -69,15 +68,12 @@ internal readonly record struct SpriteInstance
     }
 
     /// <summary>The quad's half-size as drawn: the one handed in, at a half's precision (<see cref="AsDrawn"/>).</summary>
-    public Vector2 HalfSizeM => new((float)BitConverter.UInt16BitsToHalf((ushort)_halfSize), (float)BitConverter.UInt16BitsToHalf((ushort)(_halfSize >> 16)));
+    public Vector2 HalfSizeM => Halves.Unpack(_halfSize);
 
     public Vector4 Tint => SpriteTint.Of(PackedTint);
 
     /// <summary>A half-size as an instance carries it, which is what a quad is drawn at.</summary>
     public static Vector2 AsDrawn(Vector2 halfSizeM) => new((float)(Half)halfSizeM.X, (float)(Half)halfSizeM.Y);
-
-    static uint Halves(Vector2 halfSizeM) =>
-        BitConverter.HalfToUInt16Bits((Half)halfSizeM.X) | ((uint)BitConverter.HalfToUInt16Bits((Half)halfSizeM.Y) << 16);
 }
 
 /// <summary>

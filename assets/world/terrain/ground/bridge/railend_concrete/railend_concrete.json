@@ -1,0 +1,7 @@
+{
+  "id": "railend_concrete",
+  "sprite": "railend_concrete.webp",
+  "kind": "RailEndPost",
+  "describe": "the end block a railway bridge's parapet ends on at the abutment, seen straight down: a square block of light grey concrete with chamfered edges and a small dark steel bearing plate at its middle",
+  "footprintM": [1.2, 1.242]
+}

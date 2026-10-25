@@ -1,0 +1,7 @@
+{
+  "id": "railend_steel",
+  "sprite": "railend_steel.webp",
+  "kind": "RailEndPost",
+  "describe": "the end of a railway bridge's steel girder at the abutment, seen straight down: a square dark grey-green steel end plate with a ring of round rivet heads round its edge and one in the middle",
+  "footprintM": [1.2, 1.226]
+}

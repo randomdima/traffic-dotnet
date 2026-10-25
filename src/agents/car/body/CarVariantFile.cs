@@ -113,6 +113,23 @@ internal sealed class CollisionFile
     public required float CornerRadiusM { get; init; }
 }
 
+/// <summary>
+/// One wheel of a car whose file lays its own out (<see cref="CarVariantFile.Wheels"/>): where it stands from the middle of
+/// the footprint, <c>+x</c> the nose and <c>+y</c> the driver's right, and what it does. Wheels standing equally far along
+/// the car turn on one axle.
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+internal sealed class WheelFile
+{
+    public required Vector2 AtM { get; init; }
+
+    public bool Steered { get; init; }
+
+    public bool Handbrake { get; init; }
+
+    public bool Driven { get; init; }
+}
+
 /// <summary>One car variant as its file is written.</summary>
 /// <remarks>
 /// The shape is the file's and not the model's: an unmapped member is refused rather than dropped, so
@@ -162,6 +179,15 @@ internal sealed class CarVariantFile
     public required float TrackM { get; init; }
 
     public required int Drivetrain { get; init; }
+
+    /// <summary>
+    /// <b>Its own wheels, where it stands on other than two axles of two</b> (CAR-57) — a third axle, a pair at one end,
+    /// a wheel steered behind the rear axle — up to <see cref="Agents.Car.Body.TyreModel.MostWheels"/>. Absent is the four
+    /// <see cref="FrontAxleM"/>, <see cref="RearAxleM"/> and <see cref="TrackM"/> stand, driven as
+    /// <see cref="Drivetrain"/> says. Laid out, those three still say where it is driven from and turns about, and the
+    /// drive is shared among the driven axles by what each stands on.
+    /// </summary>
+    public WheelFile[]? Wheels { get; init; }
 
     /// <summary>
     /// <b>How far this one's front wheels turn at the stop</b>, at the road wheel and not at the steering
@@ -214,6 +240,18 @@ internal sealed class CarVariantFile
     /// car's.
     /// </summary>
     public float? CgHeightM { get; init; }
+
+    /// <summary>
+    /// <b>How stiff this one is sprung, as the rate at one wheel</b> (N/m), which with its mass and its height is how far
+    /// its body tilts on its springs (CAR-56). Absent is the nominal car's (<see cref="CarFigures.WheelRateNPerM"/>).
+    /// </summary>
+    public float? WheelRateNPerM { get; init; }
+
+    /// <summary>
+    /// <b>How hard this one is damped, at one wheel</b> (N·s/m), which with its spring and its mass is how quickly its body
+    /// settles back (CAR-56). Absent is the nominal car's (<see cref="CarFigures.WheelDampingNsPerM"/>).
+    /// </summary>
+    public float? WheelDampingNsPerM { get; init; }
 
     /// <summary>
     /// <b>How much of this one stands on its front axle at rest</b>, which is where the engine is and what

@@ -14,8 +14,10 @@ internal static class TownsInStep
         var (cars, otherCars) = (one.Cars, other.Cars);
         for (var car = 0; car < cars.Count; car++)
         {
-            var pose = (cars.PositionM[car], cars.VelocityMps[car], cars.HeadingRad[car], one.PlanHoldOf(car));
-            var otherPose = (otherCars.PositionM[car], otherCars.VelocityMps[car], otherCars.HeadingRad[car], other.PlanHoldOf(car));
+            var pose = (cars.PositionM[car], cars.VelocityMps[car], cars.HeadingRad[car], cars.TiltRad[car], one.PlanHoldOf(car));
+            var otherPose = (
+                otherCars.PositionM[car], otherCars.VelocityMps[car], otherCars.HeadingRad[car], otherCars.TiltRad[car],
+                other.PlanHoldOf(car));
             if (!pose.Equals(otherPose)) unlike.Add($"tick {tick} car {car}: {pose} against {otherPose}");
 
             var (read, otherRead) = (one.World.View.Cars[car], other.World.View.Cars[car]);

@@ -23,7 +23,7 @@ public class TowBarTests
         CarBuild.Of(Config, CarCatalog.Shared.Variants[CarCatalog.Shared.Evacuator]);
 
     static CarPose Standing(float atX, float headingRad = 0f) =>
-        new(new Vector2(atX, 0f), headingRad, Vector2.Zero, 0f, Config.Car.MassKg, Vector2.Zero);
+        new(new Vector2(atX, 0f), headingRad, Vector2.Zero, 0f, Config.Car.MassKg);
 
     /// <summary>
     /// EVA-5: <b>the coupling's two ends meet the moment the crew has winched a wreck onto the arm</b>, which
@@ -99,30 +99,40 @@ public class TowBarTests
             "the arm stands out of line over a car it has by the tail");
         Assert.Equal(Evacuator.TowReachM, (hookM - TowBar.ForkM(Nominal, towed, byTheTail: true)).Length(), 3);
 
-        // And what is left on the ground under it is the pair the fork is not holding up.
-        Assert.Equal(TowBar.FrontPair, TowBar.PairOnTheGround(byTheTail: true));
-        Assert.Equal(TowBar.RearPair, TowBar.PairOnTheGround(byTheTail: false));
-        Assert.NotEqual(TowBar.PairInTheAir(byTheTail: true), TowBar.PairOnTheGround(byTheTail: true));
+        // And what is left on the ground under it is the axle the fork is not holding up: by the tail, its frontmost.
+        Assert.Equal(0, TowBar.AxleOnTheGround(Nominal, byTheTail: true));
+        Assert.Equal(1, TowBar.AxleOnTheGround(Nominal, byTheTail: false));
     }
 
     /// <summary>
-    /// EVA-5: the two wheels a towed car stands on are its own back pair, at the very offsets the
-    /// four-wheeled model puts them at — because they are the same two wheels.
+    /// EVA-5: <b>a towed car stands on the axle at its far end from the fork, and on no other wheel</b>: carried
+    /// sideways, the wheels of that axle hold, and those up on the arm spend nothing at all.
     /// </summary>
     [Fact]
-    public void TheTrailerStandsOnItsOwnBackPair()
+    public void TheTrailerStandsOnTheAxleAwayFromTheForkAlone()
     {
-        var pose = Standing(0f);
         var build = Nominal;
-        Span<Vector2> axleM = stackalloc Vector2[TowBar.Wheels];
-        TowBar.AxleM(build, pose, TowBar.RearPair, axleM);
+        var sliding = new CarPose(Vector2.Zero, 0f, new Vector2(10f, 4f), 0f, Config.Car.MassKg);
+        var axle = TowBar.AxleOnTheGround(build, byTheTail: false);
+        var into = Trailer(build, sliding, axle, 0.6f);
 
-        for (var wheel = 0; wheel < TowBar.Wheels; wheel++)
+        for (var wheel = 0; wheel < build.WheelCount; wheel++)
         {
-            var expected = TyreModel.WheelAtM(build, TowBar.RearPair + wheel);
-            Assert.Equal(expected.X, axleM[wheel].X - pose.PositionM.X, 4);
-            Assert.Equal(expected.Y, axleM[wheel].Y - pose.PositionM.Y, 4);
+            var down = build.WheelAt(wheel).Axle == axle;
+            Assert.True(down == (into[wheel].ImpulseNs != Vector2.Zero), $"wheel {wheel} on axle {build.WheelAt(wheel).Axle}");
         }
+    }
+
+    /// <summary>A towed car's wheels stepped on the axle down, each at where it stands (<see cref="TyreModel.WheelPointsM"/>).</summary>
+    static WheelImpulse[] Trailer(in CarBuild build, in CarPose pose, int axle, float onTheAxleShare)
+    {
+        var atM = new Vector2[build.WheelCount];
+        var into = new WheelImpulse[build.WheelCount];
+        var ground = new SurfaceUnderWheel[build.WheelCount];
+        Array.Fill(ground, new SurfaceUnderWheel(1f, 0f, 0f, false));
+        TyreModel.WheelPointsM(build, pose, atM);
+        TowBar.Step(build, pose, axle, atM, ground, onTheAxleShare, Config.TickSeconds, into);
+        return into;
     }
 
     /// <summary>
@@ -134,25 +144,21 @@ public class TowBarTests
     public void TheTrailerWheelsHoldSidewaysAndOnlyRollAlong()
     {
         var build = Nominal;
-        Span<Vector2> axleM = stackalloc Vector2[TowBar.Wheels];
-        Span<WheelImpulse> into = stackalloc WheelImpulse[TowBar.Wheels];
-        Span<SurfaceUnderWheel> ground = stackalloc SurfaceUnderWheel[TowBar.Wheels];
-        ground.Fill(new SurfaceUnderWheel(1f, 0f, 0f, false));
+        var axle = TowBar.AxleOnTheGround(build, byTheTail: false);
+        var down = RearRight;
 
-        var rolling = new CarPose(
-            Vector2.Zero, 0f, new Vector2(10f, 0f), 0f, Config.Car.MassKg, Vector2.Zero);
-        TowBar.AxleM(build, rolling, TowBar.RearPair, axleM);
-        TowBar.Step(build, rolling, axleM, ground, 0.6f, Config.TickSeconds, into);
-        Assert.Equal(0f, into[0].ImpulseNs.Length(), 3);
+        var rolling = new CarPose(Vector2.Zero, 0f, new Vector2(10f, 0f), 0f, Config.Car.MassKg);
+        Assert.Equal(0f, Trailer(build, rolling, axle, 0.6f)[down].ImpulseNs.Length(), 3);
 
-        var sliding = new CarPose(
-            Vector2.Zero, 0f, new Vector2(10f, 4f), 0f, Config.Car.MassKg, Vector2.Zero);
-        TowBar.AxleM(build, sliding, TowBar.RearPair, axleM);
-        TowBar.Step(build, sliding, axleM, ground, 0.6f, Config.TickSeconds, into);
+        var sliding = new CarPose(Vector2.Zero, 0f, new Vector2(10f, 4f), 0f, Config.Car.MassKg);
+        var into = Trailer(build, sliding, axle, 0.6f);
 
-        Assert.True(into[0].ImpulseNs.Y < 0f, "a wheel carried to its right did not push back to its left");
-        Assert.Equal(0f, into[0].ImpulseNs.X, 3);
+        Assert.True(into[down].ImpulseNs.Y < 0f, "a wheel carried to its right did not push back to its left");
+        Assert.Equal(0f, into[down].ImpulseNs.X, 3);
     }
+
+    /// <summary>The nominal car's first wheel on its rear axle, which a car caught by the nose rolls on.</summary>
+    const int RearRight = 2;
 
     /// <summary>
     /// And never harder than the ground affords: the lateral impulse is the friction budget of the load
@@ -162,21 +168,17 @@ public class TowBarTests
     public void ATrailerWheelSpendsNoMoreThanItsOwnLoadAffords()
     {
         var build = Nominal;
-        Span<Vector2> axleM = stackalloc Vector2[TowBar.Wheels];
-        Span<WheelImpulse> into = stackalloc WheelImpulse[TowBar.Wheels];
-        Span<SurfaceUnderWheel> ground = stackalloc SurfaceUnderWheel[TowBar.Wheels];
-        ground.Fill(new SurfaceUnderWheel(1f, 0f, 0f, false));
-
-        var shoved = new CarPose(Vector2.Zero, 0f, new Vector2(0f, 30f), 0f, Config.Car.MassKg, Vector2.Zero);
-        TowBar.AxleM(build, shoved, TowBar.RearPair, axleM);
+        var shoved = new CarPose(Vector2.Zero, 0f, new Vector2(0f, 30f), 0f, Config.Car.MassKg);
+        var axle = TowBar.AxleOnTheGround(build, byTheTail: false);
 
         const float axleShare = 0.6f;
-        TowBar.Step(build, shoved, axleM, ground, axleShare, Config.TickSeconds, into);
+        var into = Trailer(build, shoved, axle, axleShare);
 
-        var loadKg = Config.Car.MassKg * axleShare / TowBar.Wheels;
+        // The axle down is the rear pair, and each carries half of what is left on it.
+        var loadKg = Config.Car.MassKg * axleShare * 0.5f;
         var mostNs = build.GripMps2 * loadKg * Config.TickSeconds;
         Assert.True(
-            MathF.Abs(into[0].ImpulseNs.Y) <= mostNs + 1e-3f,
-            $"a trailer wheel put down {MathF.Abs(into[0].ImpulseNs.Y):F0} Ns of an affordable {mostNs:F0}");
+            MathF.Abs(into[RearRight].ImpulseNs.Y) <= mostNs + 1e-3f,
+            $"a trailer wheel put down {MathF.Abs(into[RearRight].ImpulseNs.Y):F0} Ns of an affordable {mostNs:F0}");
     }
 }

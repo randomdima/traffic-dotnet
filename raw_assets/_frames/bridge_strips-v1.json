@@ -1,0 +1,55 @@
+{
+ "id": "bridge_strips-v1",
+ "ts": "2026-10-25T18:14:12",
+ "op": "edit",
+ "name": "bridge_strips",
+ "file": ".tmp/gen/frames/bridge_strips-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "high",
+  "background": "transparent"
+ },
+ "costUsd": 0.047868,
+ "usage": {
+  "prompt_tokens": 1140,
+  "completion_tokens": 1372,
+  "total_tokens": 2512,
+  "cost": 0.047868,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.047868,
+   "upstream_inference_prompt_cost": 0.006708,
+   "upstream_inference_completions_cost": 0.04116
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 1372
+  }
+ },
+ "prompt": "A sheet of nine top-down game textures for a town's river bridge, every one seen exactly straight down from above, in the painted style of the picture sent (a street kerb, a footway edging of setts and a concrete kerb from the same game): soft, calm, painted rather than photographic, low contrast, no black lines and no outlines anywhere.\n\nThe sheet is a grid of 3 rows and 3 columns, each drawing a long flat strip lying horizontally, drawn whole with square-cut ends, a clear gap of transparency between drawings. Everything outside the drawings is fully transparent: no ground, no backdrop, no frame, no shadow, no text, no labels.\n\nEach strip repeats along its length when the game lays it end to end, so its left and right ends must continue into each other: the same tone, the same grain, joints laid evenly along it. Every strip is one even colour from a distance; its grain is very fine — tiny specks a pixel or two across, so close together they read as a texture and never as separate stones — with only gentle, soft, broad variations of tone. Nothing damaged: no cracks, no rubble, no stains, no leaves, no paint, no road markings, no lines along it.\n\nRow 1 — three bridge footways, each 6 m long and 2.4 m deep (2.5 times as long as deep), the long edges along the top and bottom:\n1. walkway_granite: large pale grey granite flagstones laid in one course across the whole depth, each flag about 1.2 m along the strip (exactly 5 flags), hairline joints square across only a shade darker than the stone, fine speckled stone softly worn smooth, no two flags quite the same grey.\n2. walkway_concrete: smooth light grey precast concrete slabs spanning the whole depth, exactly 4 slabs along the strip, hairline joints square across a shade darker than the slab, very fine even grain.\n3. walkway_setts: small warm grey granite setts in neat rows square across the strip, with a border of long smooth granite blocks along both long edges, the setts all one size.\n\nRow 2 — three bridge carriageways, each 8 m long and 6.8 m deep (a little longer than deep), the long edges along the top and bottom, no lane markings of any kind:\n4. deckroad_mastic: smooth dark mastic asphalt laid on a bridge deck, a little darker and cooler than street asphalt, very fine even grain, two faint slightly darker smoother bands running the whole length where wheels run.\n5. deckroad_concrete: cast concrete deck slabs, mid grey, a very fine brushed texture running square across, a thin dark sealed joint square across exactly every 4 m (two slabs along the strip).\n6. deckroad_worn: older charcoal grey asphalt on a bridge deck, smooth and in good repair, its fine stones a little more exposed, two long faint slightly lighter resurfaced bands along the wheel paths.\n\nRow 3 — three bridge expansion joints, each 6 m long and 0.4 m deep (15 times as long as deep), the joint running along the strip:\n7. joint_fingers: a steel finger joint: two dull galvanised grey steel plates along the strip whose long rounded teeth interlock across a narrow dark gap in the middle, bolt heads in a row along both long edges.\n8. joint_strip: a strip-seal joint: two dull grey steel edge rails along the strip with a black rubber seal between them, a row of small round bolt heads along each rail.\n9. joint_plate: a sliding-plate joint: one wide flat dull grey chequered steel cover plate along the strip, its long edges bevelled lighter, countersunk bolts evenly along one edge.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "10827553c3a29bda",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/bridge_strips_style.png"
+  }
+ ],
+ "cells": [
+  "walkway_granite",
+  "walkway_concrete",
+  "walkway_setts",
+  "deckroad_mastic",
+  "deckroad_concrete",
+  "deckroad_worn",
+  "joint_fingers",
+  "joint_strip",
+  "joint_plate"
+ ]
+}

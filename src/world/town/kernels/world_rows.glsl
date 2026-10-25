@@ -103,7 +103,8 @@ struct CarViewRow
     uint followSerial;
     float leadAtM;
     float aimRad;
-    uint pad;
+    // How the body stands tilted on its springs, as two halves (CarView.TiltHalves, CAR-56).
+    uint tiltHalves;
 };
 
 // Its words, as world_view.comp writes the rows out.

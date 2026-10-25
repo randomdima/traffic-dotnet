@@ -1,0 +1,8 @@
+{
+  "id": "railparapet_brick",
+  "sprite": "railparapet_brick.webp",
+  "kind": "RailParapet",
+  "describe": "the side of an old railway viaduct's deck seen straight down: along the bottom edge a narrow cess path of fine brown gravel, along the top edge a dark red brick parapet wall capped with blue-grey engineering bricks, a pale stone pier cap exactly every 3 m",
+  "footprintM": [4.391, 1.1],
+  "pictureM": 2.3646
+}

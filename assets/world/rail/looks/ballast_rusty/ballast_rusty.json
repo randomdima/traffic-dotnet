@@ -1,0 +1,7 @@
+{
+  "id": "ballast_rusty",
+  "sprite": "ballast_rusty.webp",
+  "kind": "Ballast",
+  "describe": "a railway's ballast bed seen straight down with no track on it: grey crushed stone stained rusty brown down its middle, packed flat across its middle, thinning toward both long edges into loose single stones scattered apart into nothing",
+  "footprintM": [6.8889, 4.4]
+}

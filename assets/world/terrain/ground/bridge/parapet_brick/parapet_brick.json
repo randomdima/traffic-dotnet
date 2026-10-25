@@ -1,0 +1,8 @@
+{
+  "id": "parapet_brick",
+  "sprite": "parapet_brick.webp",
+  "kind": "Parapet",
+  "describe": "an old brick bridge parapet seen straight down: dark red brick wall top capped with rounded blue-grey engineering bricks along its length, a stone pier cap every 3 m",
+  "footprintM": [4.065, 0.5],
+  "pictureM": 3.4062
+}

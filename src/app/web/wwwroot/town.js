@@ -157,7 +157,8 @@ async function start(wgsl) {
 
 function buildLayout() {
     const entries = [
-        { binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
+        // The camera's: the ground's fragment stage reads the water's waves from it.
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
         { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { viewDimension: '2d-array' } },
     ];
@@ -179,7 +180,9 @@ function buildLayout() {
     // The two kerbs' strips, the eighth and ninth (town.wgsl).
     entries.push({ binding: 14, visibility: GPUShaderStage.FRAGMENT, texture: {} });
     entries.push({ binding: 15, visibility: GPUShaderStage.FRAGMENT, texture: {} });
-    state.layout = state.device.createBindGroupLayout({ entries, label: 'town' });
+    // A bridge's art, its strips and its fittings a layer each, after them (town.wgsl, BridgeSheet).
+    entries.push({ binding: 16, visibility: GPUShaderStage.FRAGMENT, texture: { viewDimension: '2d-array' } });
+    state.layout =state.device.createBindGroupLayout({ entries, label: 'town' });
 }
 
 function buildPipelines(module) {
@@ -342,6 +345,7 @@ function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, und
     entries.push({ binding: 13, resource: state.textures[TEXTURE.surfaces + 6].createView({ dimension: '2d-array' }) });
     entries.push({ binding: 14, resource: state.textures[TEXTURE.surfaces + 7].createView() });
     entries.push({ binding: 15, resource: state.textures[TEXTURE.surfaces + 8].createView() });
+    entries.push({ binding: 16, resource: state.textures[TEXTURE.surfaces + 9].createView({ dimension: '2d-array' }) });
     const group = state.device.createBindGroup({ layout: state.layout, entries });
 
     const pass = state.device.createRenderBundleEncoder({ colorFormats: [state.format] });

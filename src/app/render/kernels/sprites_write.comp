@@ -60,11 +60,7 @@ void writeCar(uint car)
     slot = spritesCarSlot(run, PartTyres, car);
     if (countAt(slot) != 0u)
     {
-        SpriteOut first;
-        SpriteOut second;
-        spritesTyres(car, first, second);
-        put(run, starts[slot], first);
-        put(run, starts[slot] + 1u, second);
+        for (uint tyre = 0u; tyre < countAt(slot); tyre++) put(run, starts[slot] + tyre, spritesTyre(car, tyre));
     }
 
     slot = spritesCarSlot(run, PartBody, car);

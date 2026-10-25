@@ -1,0 +1,55 @@
+{
+ "id": "bridge_rail-v1",
+ "ts": "2026-10-25T20:47:35",
+ "op": "edit",
+ "name": "bridge_rail",
+ "file": ".tmp/gen/frames/bridge_rail-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.017224,
+ "usage": {
+  "prompt_tokens": 1892,
+  "completion_tokens": 158,
+  "total_tokens": 2050,
+  "cost": 0.017224,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.017224,
+   "upstream_inference_prompt_cost": 0.012484,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "A sheet of nine top-down game sprites for a town's railway bridge over a river, every one seen exactly straight down from above, in the painted style of the picture sent (a bridge railing, a pier nose, a railing end post and a stretch of railway track from the same game, at one scale): soft, calm, painted rather than photographic, low contrast, no black outlines. A car beside them would be 4.5 m long and 1.8 m wide; the track in the picture is 4.4 m across.\n\nEverything outside the drawings is fully transparent: no ground, no water, no backdrop, no frame, no cast shadow, no text, no labels. Each drawing whole, a clear gap of transparency between drawings. Nothing is drawn from the side: no face of a wall or girder shows below its top.\n\nThe sheet is 3 rows, read top to bottom and each row left to right.\n\nRow 1 — three sides of a railway bridge's deck, each a long strip 6 m long and 1.1 m deep (about 5.5 times as long as deep), lying horizontally, square-cut ends; each repeats along its length when the game lays it end to end beside the track, so its ends continue into each other. The bottom long edge is the side facing the track's ballast, the top long edge the bridge's outer edge.\n1. railparapet_girder: along the bottom two thirds a grey steel chequer-plate service walkway; along the top third the flat top flange of a riveted steel plate girder painted dark grey-green, with a row of small round rivet heads, a stiffener plate square across it exactly every 1.5 m (4 along it).\n2. railparapet_concrete: along the bottom two thirds a row of pale grey concrete cable-trough lids, a thin joint between lids square across; along the top third a smooth light grey concrete upstand with a slim galvanised steel handrail along its top, a joint square across exactly every 3 m (2 along it).\n3. railparapet_brick: along the bottom two thirds a cess path of fine brown-grey gravel; along the top third a dark red brick parapet wall capped with rounded blue-grey engineering bricks, a pale stone pier cap a little wider than the wall exactly every 3 m (2 along it).\n\nRow 2 — three railway bridge pier noses. A pier nose is the end of a pier standing in the river, seen from above where it pokes out from under the deck: its bottom edge is straight and square-cut where the deck covers it, its point or curve faces the top. Draw each a little smaller than its size rather than larger:\n4. railpier_concrete: 3.0 m wide and 2.0 m deep: a half-round end of weathered grey concrete with faint horizontal formwork lines, its curve at the top, a band of darker wet concrete along the curve.\n5. railpier_brick: 3.0 m wide and 2.4 m deep: a pointed cutwater of blue-grey engineering brick in fine courses, a pale stone cap course along its two sloping edges, its point at the top.\n6. railpier_columns: 3.0 m wide and 1.6 m deep: a dark grey-green steel crosshead beam 0.6 m deep along the whole bottom edge, and below it toward the top one round dark steel column 1.0 m across standing in the water, a ring of bolts on its cap.\n\nRow 3 — three end posts a railway bridge's sides end on at each bank, each a square 1.2 m by 1.2 m, drawn a little smaller rather than larger:\n7. railend_concrete: a square block of light grey concrete with chamfered edges and a small dark steel bearing plate at its middle.\n8. railend_brick: a square of dark red brick under a pale stone cap with a shallow pyramid top.\n9. railend_steel: a square dark grey-green steel end plate with a ring of round rivet heads round its edge and one in the middle.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "5e8695008c263f6f",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/bridge_rail_style.png"
+  }
+ ],
+ "cells": [
+  "railparapet_girder",
+  "railparapet_concrete",
+  "railparapet_brick",
+  "railpier_concrete",
+  "railpier_brick",
+  "railpier_columns",
+  "railend_concrete",
+  "railend_brick",
+  "railend_steel"
+ ]
+}

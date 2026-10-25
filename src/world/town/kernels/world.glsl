@@ -13,12 +13,6 @@ layout(push_constant) uniform World
     uint mode;
     float dtS;
 
-    // What a car's lagged acceleration closes on its new reading by in one step (TownWorld.LoadSettledShare).
-    float loadSettledShare;
-
-    // The least settled load that is any (TyreFigures.LeastSettledLoadMps2).
-    float leastSettledLoadMps2;
-
     // The bits of a body's flags (BodyFlags): in the world, frozen, filed frozen.
     uint enabledBit;
     uint frozenBit;

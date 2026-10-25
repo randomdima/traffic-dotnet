@@ -170,14 +170,27 @@ internal sealed unsafe class GpuTexture : IDisposable
     /// <param name="arrayed">Viewed as an array, whatever the count of layers.</param>
     static GpuTexture Upload(Vk vk, Decoded decoded, bool repeats, bool mipped, int layers = 1, bool arrayed = false)
     {
-        var width = decoded.Width;
-        var height = decoded.Height / layers;
-
         // The one crossing between the library's pixel and the town's. Both are four bytes in this
         // order, so it is a copy and never a conversion.
-        var all = new Texel[width * height * layers];
+        var all = new Texel[decoded.Width * decoded.Height];
         decoded.CopyPixelDataTo(MemoryMarshal.AsBytes(all.AsSpan()));
+        return Upload(vk, all, decoded.Width, decoded.Height / layers, repeats, mipped, layers, arrayed);
+    }
 
+    /// <summary>
+    /// <b>An array of layers already composed as texels</b>, each mipped and repeating as a ground surface is — a bridge's
+    /// art (<c>BridgeSheet</c>), whose pictures are laid out here rather than read from one file.
+    /// </summary>
+    /// <param name="all">Every layer, top row first, one after another.</param>
+    public static GpuTexture FromLayers(Vk vk, Texel[] all, int width, int height, int layers) =>
+        Upload(vk, all, width, height, repeats: true, mipped: true, layers, arrayed: true);
+
+    /// <summary>One picture already composed as texels, mipped and repeating as a ground strip is — the track's (<c>TrackSheet</c>).</summary>
+    public static GpuTexture FromTexels(Vk vk, Texel[] all, int width, int height) =>
+        Upload(vk, all, width, height, repeats: true, mipped: true, layers: 1, arrayed: false);
+
+    static GpuTexture Upload(Vk vk, Texel[] all, int width, int height, bool repeats, bool mipped, int layers, bool arrayed)
+    {
         // Layer by layer, every level of each: a buffer copy names one layer and one level, in that order.
         var chains = new List<(Texel[] Pixels, int Width, int Height)>[layers];
         var totalPixels = 0;

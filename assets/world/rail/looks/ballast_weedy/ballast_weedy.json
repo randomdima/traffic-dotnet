@@ -1,0 +1,7 @@
+{
+  "id": "ballast_weedy",
+  "sprite": "ballast_weedy.webp",
+  "kind": "Ballast",
+  "describe": "a railway's ballast bed seen straight down with no track on it: grey crushed granite packed flat across its middle, a few small green weeds among the outer stones, thinning toward both long edges into loose single stones scattered apart into nothing",
+  "footprintM": [6.8254, 4.4]
+}

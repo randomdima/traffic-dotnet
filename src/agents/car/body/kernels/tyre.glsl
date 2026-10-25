@@ -1,6 +1,6 @@
-// TyreModel on the device: one car's four patches for one tick — an impulse and a place to spend it per wheel, what
-// each did to the ground, and the four rims wound on (TyreModel.Step, Loads, AckermannTurns, WheelPointsM, Rim, Scrub,
-// RollingDrag, HoldStill). Line for line with the host, `precise` where it rounds twice; its trigonometry is trig.glsl's
+// TyreModel on the device: one car's patches for one tick — an impulse and a place to spend it per wheel, what
+// each did to the ground, and the rims wound on (TyreModel.Step, AckermannTurns, WheelPointsM, Rim, Scrub,
+// RollingDrag, HoldStill), each wheel weighed by the share of the car it carries (suspension.glsl). Line for line with the host, `precise` where it rounds twice; its trigonometry is trig.glsl's
 // and its quotients and roots rounded.glsl's.
 //
 // The including kernel supplies the tyre figures as TYRE_FIGURES' fields: wheelSpinFadeMps, wheelSpinAllowanceMps,
@@ -11,9 +11,7 @@
 #include "core/geometry/kernels/trig.glsl"
 #include "core/geometry/kernels/rounded.glsl"
 
-const int TyreWheels = 4;
-const int TyreRearRight = 2;
-const int TyreRearLeft = 3;
+const int TyreWheels = CarMostWheels;
 
 // The ground under one patch (SurfaceUnderWheel).
 struct TyreSurface
@@ -41,72 +39,50 @@ float tyreDot(vec2 a, vec2 b) { precise float d = a.x * b.x + a.y * b.y; return 
 float tyreCross(vec2 a, vec2 b) { precise float c = (a.x * b.y) - (a.y * b.x); return c; }
 float tyreLength(vec2 v) { return roundedLength(v); }
 
-vec2 tyreWheelAtM(CarBuildRow car, int wheel)
-{
-    precise float front = car.wheelbaseM - car.centreAheadOfAxleM;
-    return vec2(wheel < 2 ? front : -car.centreAheadOfAxleM, wheel % 2 == 0 ? car.halfTrackM : -car.halfTrackM);
-}
-
-void tyreWheelPointsM(CarBuildRow car, TyrePose pose, out vec2 atM[4])
+void tyreWheelPointsM(CarBuildRow car, TyrePose pose, out vec2 atM[TyreWheels])
 {
     vec2 forward = pose.forward;
     vec2 right = vec2(-forward.y, forward.x);
     for (int wheel = 0; wheel < TyreWheels; wheel++)
     {
-        vec2 atBody = tyreWheelAtM(car, wheel);
+        if (wheel >= int(car.wheelCount)) break;
+
+        vec2 atBody = buildWheelAtM(car, wheel);
         precise vec2 at = pose.positionM + (forward * atBody.x) + (right * atBody.y);
         atM[wheel] = at;
     }
 }
 
-void tyreLoads(CarBuildRow car, TyrePose pose, out float into[4])
-{
-    float alongShare = roundedQuotient(pose.accelerationMps2.x * car.cgHeightM, car.wheelbaseWeightM2PerS2);
-    float acrossShare = roundedQuotient(pose.accelerationMps2.y * car.cgHeightM, car.trackWeightM2PerS2);
-    precise float front = clamp(car.frontWeightShare - alongShare, 0.0, 1.0);
-    precise float toTheSide = clamp(0.5 - acrossShare, 0.0, 1.0);
-    precise float l0 = front * toTheSide;
-    precise float l1 = front * (1.0 - toTheSide);
-    precise float l2 = (1.0 - front) * toTheSide;
-    precise float l3 = (1.0 - front) * (1.0 - toTheSide);
-    into[0] = l0;
-    into[1] = l1;
-    into[2] = l2;
-    into[3] = l3;
-}
-
-// The direction a wheel offM from the circle's centre line and a wheelbase ahead of it rolls along (TyreModel.WheelTurn).
-vec2 tyreWheelTurn(float offM, float wheelbaseM)
-{
-    precise float squared = (offM * offM) + (wheelbaseM * wheelbaseM);
-    float reachM = roundedSqrt(squared);
-    return vec2(roundedQuotient(offM, reachM), roundedQuotient(wheelbaseM, reachM));
-}
-
-// The two front wheels' turns as the directions they turn the car's by (TyreModel.AckermannTurns); only for a rack off nought.
-void tyreAckermannTurns(CarBuildRow car, float steerRad, out vec2 into[2])
+// The steered wheels' turns as the directions they turn the car's by, at each wheel's own index
+// (TyreModel.AckermannTurns); only for a rack off nought.
+void tyreAckermannTurns(CarBuildRow car, float steerRad, out vec2 into[TyreWheels])
 {
     if (abs(steerRad) < TYRE_FIGURES.ackermannLeastSteerRad)
     {
         precise float rackSquared = 1.0 + (steerRad * steerRad);
         float rackM = roundedSqrt(rackSquared);
         vec2 rack = vec2(roundedQuotient(1.0, rackM), roundedQuotient(steerRad, rackM));
-        into[0] = rack;
-        into[1] = rack;
+        for (int wheel = 0; wheel < TyreWheels; wheel++) into[wheel] = rack;
         return;
     }
 
+    // The circle's centre on the line of the axle that does not steer, as far to the side the car turns (TyreModel.OffTheCentre).
     float radiusM = abs(roundedQuotient(car.wheelbaseM, trigTan(steerRad)));
-    precise float innerOffM = radiusM - car.halfTrackM;
-    vec2 inner = tyreWheelTurn(max(TYRE_FIGURES.innerWheelLeastRadiusM, innerOffM), car.wheelbaseM);
-    precise float outerOffM = radiusM + car.halfTrackM;
-    vec2 outer = tyreWheelTurn(outerOffM, car.wheelbaseM);
-
-    vec2 rightWheel = steerRad > 0.0 ? inner : outer;
-    vec2 leftWheel = steerRad > 0.0 ? outer : inner;
     float s = sign(steerRad);
-    into[0] = vec2(rightWheel.x, s * rightWheel.y);
-    into[1] = vec2(leftWheel.x, s * leftWheel.y);
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        into[wheel] = vec2(1.0, 0.0);
+        if (wheel >= int(car.wheelCount) || !buildWheelIs(car, wheel, WheelSteered)) continue;
+
+        vec2 atBody = buildWheelAtM(car, wheel);
+        precise float offRaw = radiusM - (s * atBody.y);
+        float offM = max(TYRE_FIGURES.innerWheelLeastRadiusM, offRaw);
+        precise float aheadM = atBody.x + car.centreAheadOfAxleM;
+        precise float squared = (offM * offM) + (aheadM * aheadM);
+        float reachM = roundedSqrt(squared);
+        precise float turnedAhead = s * aheadM;
+        into[wheel] = vec2(roundedQuotient(offM, reachM), roundedQuotient(turnedAhead, reachM));
+    }
 }
 
 // A direction turned by a turn, both unit vectors (TyreModel.Turned).
@@ -128,8 +104,12 @@ float tyreSyncMassKg(CarBuildRow car, float loadKg)
 
 float tyreAxleShare(float wholeMps2, float share, float axleLoad)
 {
-    float r = roundedQuotient(wholeMps2 * share, axleLoad);
-    return axleLoad > TYRE_FIGURES.liftedAxleLoadShare ? r : 0.0;
+    if (!(axleLoad > TYRE_FIGURES.liftedAxleLoadShare)) return 0.0;
+
+    // A figure of nought is nought, its sign kept, without the rounded quotient: either the drive or the engine's hold is
+    // nought on most ticks, and the quotient is dear.
+    precise float placed = wholeMps2 * share;
+    return wholeMps2 == 0.0 ? placed : roundedQuotient(placed, axleLoad);
 }
 
 float tyreSpinAllowanceMps(float alongMps)
@@ -245,78 +225,124 @@ bool tyreGrips(CarBuildRow car, TyrePose pose, TyreSurface surface, float loadFr
 }
 
 // A car its locks hold, held still (TyreModel.HoldStill, CAR-52): the body's momentum and spin brought to rest at the
-// rear pair, nothing at the front, every rim stopped. False, and nothing written, where either rear patch cannot grip.
+// wheels the handbrake holds, nothing at the others, every rim stopped. False, and nothing written, where any of them
+// cannot grip, or where they stand on one line along the car.
 bool tyreHoldStill(
-    CarBuildRow car, TyrePose pose, float inertiaKgM2, vec2 atM[4], TyreSurface ground[4], float dtS, inout vec4 impulses[4],
-    inout float spinMps[4])
+    CarBuildRow car, TyrePose pose, float inertiaKgM2, float loadFraction[TyreWheels], vec2 atM[TyreWheels],
+    TyreSurface ground[TyreWheels], float dtS, inout vec4 impulses[TyreWheels], inout float spinMps[TyreWheels])
 {
     precise vec2 impulseNs = -pose.velocityMps * pose.massKg;
     precise float spinNms = -pose.yawRateRadPerS * inertiaKgM2;
-
-    precise vec2 rightM = atM[TyreRearRight] - pose.positionM;
-    precise vec2 leftM = atM[TyreRearLeft] - pose.positionM;
     vec2 forward = pose.forward;
-    precise vec2 middleM = (rightM + leftM) * 0.5;
-    precise vec2 acrossM = rightM - leftM;
-    precise float couple = spinNms - tyreCross(middleM, impulseNs);
-    float coupleNs = roundedQuotient(couple, tyreCross(acrossM, forward));
-    precise vec2 rightNs = (impulseNs * 0.5) + (forward * coupleNs);
-    precise vec2 leftNs = (impulseNs * 0.5) - (forward * coupleNs);
+    int wheels = int(car.wheelCount);
 
-    float loadFraction[4];
-    tyreLoads(car, pose, loadFraction);
-    if (!tyreGrips(car, pose, ground[TyreRearRight], loadFraction[TyreRearRight], rightNs, dtS)
-        || !tyreGrips(car, pose, ground[TyreRearLeft], loadFraction[TyreRearLeft], leftNs, dtS))
+    int held = 0;
+    precise vec2 middleSumM = vec2(0.0);
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
     {
-        return false;
+        if (wheel >= wheels) break;
+        if (!buildWheelIs(car, wheel, WheelHandbrake)) continue;
+
+        middleSumM += atM[wheel] - pose.positionM;
+        held++;
     }
 
-    impulses[0] = vec4(0.0, 0.0, atM[0]);
-    impulses[1] = vec4(0.0, 0.0, atM[1]);
-    impulses[TyreRearRight] = vec4(rightNs, atM[TyreRearRight]);
-    impulses[TyreRearLeft] = vec4(leftNs, atM[TyreRearLeft]);
-    for (int wheel = 0; wheel < TyreWheels; wheel++) spinMps[wheel] = 0.0;
+    if (held == 0) return false;
+
+    vec2 middleM = roundedQuotient(middleSumM, float(held));
+    precise float leverSquaredM2 = 0.0;
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        if (wheel >= wheels) break;
+        if (!buildWheelIs(car, wheel, WheelHandbrake)) continue;
+
+        precise vec2 armM = (atM[wheel] - pose.positionM) - middleM;
+        float leverM = tyreCross(armM, forward);
+        leverSquaredM2 += leverM * leverM;
+    }
+
+    if (leverSquaredM2 <= 0.0) return false;
+
+    precise float turnBackNms = spinNms - tyreCross(middleM, impulseNs);
+    float perLeverN = roundedQuotient(turnBackNms, leverSquaredM2);
+    vec2 shareNs = roundedQuotient(impulseNs, float(held));
+    vec2 heldNs[TyreWheels];
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        heldNs[wheel] = vec2(0.0);
+        if (wheel >= wheels || !buildWheelIs(car, wheel, WheelHandbrake)) continue;
+
+        precise vec2 armM = (atM[wheel] - pose.positionM) - middleM;
+        float leverM = tyreCross(armM, forward);
+        precise vec2 pushedNs = shareNs + (forward * (perLeverN * leverM));
+        heldNs[wheel] = pushedNs;
+        if (!tyreGrips(car, pose, ground[wheel], loadFraction[wheel], heldNs[wheel], dtS)) return false;
+    }
+
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        if (wheel >= wheels) break;
+
+        impulses[wheel] = vec4(heldNs[wheel], atM[wheel]);
+        spinMps[wheel] = 0.0;
+    }
+
     return true;
 }
 
 // One car's tyres for one tick (TyreModel.Step): impulses[wheel] = (impulse.xy, at.xy), scrub per wheel, spin wound on.
 void tyreStep(
-    CarBuildRow car, TyrePose pose, TyreCommand command, float axleDriveCeilingMps2, vec2 atM[4], TyreSurface ground[4],
-    inout float spinMps[4], float dtS, out vec4 impulses[4], out TyreScrub scrub[4])
+    CarBuildRow car, TyrePose pose, TyreCommand command, float axleDriveCeilingMps2, float loadFraction[TyreWheels],
+    vec2 atM[TyreWheels], TyreSurface ground[TyreWheels], inout float spinMps[TyreWheels], float dtS,
+    out vec4 impulses[TyreWheels], out TyreScrub scrub[TyreWheels])
 {
     vec2 forward = pose.forward;
-    float drivenFrontShare = car.drivenFrontShare;
+    int wheels = int(car.wheelCount);
 
-    float loadFraction[4];
-    tyreLoads(car, pose, loadFraction);
-
-    vec2 turnedBy[2];
+    vec2 turnedBy[TyreWheels];
     bool steered = command.steerRad != 0.0;
     if (steered) tyreAckermannTurns(car, command.steerRad, turnedBy);
 
-    precise float frontLoad = loadFraction[0] + loadFraction[1];
-    precise float driveMps2 = command.throttleMps2 * tyreGearSign(command);
-    precise float rearShare = 1.0 - drivenFrontShare;
-    precise float rearLoad = 1.0 - frontLoad;
-    float frontDriveMps2 = tyreNoLargerThan(tyreAxleShare(driveMps2, drivenFrontShare, frontLoad), axleDriveCeilingMps2);
-    float rearDriveMps2 = tyreNoLargerThan(tyreAxleShare(driveMps2, rearShare, rearLoad), axleDriveCeilingMps2);
-    float spinAllowanceMps = tyreSpinAllowanceMps(tyreDot(pose.velocityMps, forward));
+    // Drive placed by layout on each axle and divided by the load that axle stands on.
+    float axleLoad[TyreWheels];
+    for (int axle = 0; axle < TyreWheels; axle++) axleLoad[axle] = 0.0;
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        if (wheel >= wheels) break;
 
+        axleLoad[car.wheels[wheel].axle] += loadFraction[wheel];
+    }
+
+    precise float driveMps2 = command.throttleMps2 * tyreGearSign(command);
     float engineMps2 = tyreEngineBrakingMps2(car, command);
-    float frontEngineMps2 = tyreAxleShare(engineMps2, drivenFrontShare, frontLoad);
-    float rearEngineMps2 = tyreAxleShare(engineMps2, rearShare, rearLoad);
+    float axleDriveMps2[TyreWheels];
+    float axleEngineMps2[TyreWheels];
+    for (int axle = 0; axle < TyreWheels; axle++)
+    {
+        axleDriveMps2[axle] = 0.0;
+        axleEngineMps2[axle] = 0.0;
+        if (axle >= int(car.axleCount)) continue;
+
+        float share = car.axleDrive[axle];
+        axleDriveMps2[axle] = tyreNoLargerThan(tyreAxleShare(driveMps2, share, axleLoad[axle]), axleDriveCeilingMps2);
+        axleEngineMps2[axle] = tyreAxleShare(engineMps2, share, axleLoad[axle]);
+    }
+
+    float spinAllowanceMps = tyreSpinAllowanceMps(tyreDot(pose.velocityMps, forward));
 
     for (int wheel = 0; wheel < TyreWheels; wheel++)
     {
+        if (wheel >= wheels) break;
+
+        uint axle = car.wheels[wheel].axle;
         precise vec2 fromCentreM = atM[wheel] - pose.positionM;
         precise vec2 velocityMps = pose.velocityMps + pose.yawRateRadPerS * vec2(-fromCentreM.y, fromCentreM.x);
         vec2 wheelForward = forward;
-        if (steered && wheel < 2) wheelForward = tyreTurned(forward, turnedBy[wheel]);
+        if (steered && buildWheelIs(car, wheel, WheelSteered)) wheelForward = tyreTurned(forward, turnedBy[wheel]);
 
         vec2 wheelRight = vec2(-wheelForward.y, wheelForward.x);
 
-        bool rear = wheel >= 2;
-        bool locked = tyreLocksEveryWheel(command) || (rear && tyreHandbrake(command));
+        bool locked = tyreLocksEveryWheel(command) || (buildWheelIs(car, wheel, WheelHandbrake) && tyreHandbrake(command));
         TyreSurface surface = ground[wheel];
         precise float gripMps2 = car.gripMps2 * surface.coefficient;
         precise float loadKg = pose.massKg * loadFraction[wheel];
@@ -326,13 +352,13 @@ void tyreStep(
 
         if (locked) spinMps[wheel] = 0.0;
         float spin = spinMps[wheel];
-        precise float brakeMps2 = command.brakeMps2 + (rear ? rearEngineMps2 : frontEngineMps2);
+        precise float brakeMps2 = command.brakeMps2 + axleEngineMps2[axle];
 
         float acrossSlipAskMps = -acrossMps;
         precise float wantAcrossNs = -acrossMps * loadKg;
         float alongSlipAskMps;
         float wantAlongNs;
-        float axleDriveMps2 = rear ? rearDriveMps2 : frontDriveMps2;
+        float wheelDriveMps2 = axleDriveMps2[axle];
         if (locked)
         {
             alongSlipAskMps = -alongMps;
@@ -341,7 +367,7 @@ void tyreStep(
         }
         else
         {
-            precise float pedalMps = axleDriveMps2 * dtS - sign(alongMps) * min(brakeMps2 * dtS, abs(alongMps));
+            precise float pedalMps = wheelDriveMps2 * dtS - sign(alongMps) * min(brakeMps2 * dtS, abs(alongMps));
             precise float carriedMps = spin - alongMps;
             precise float carried = sign(carriedMps) * max(abs(carriedMps) - (gripMps2 * dtS), 0.0);
             precise float ask = carried + pedalMps;
@@ -379,7 +405,14 @@ void tyreStep(
             wantAcrossNs = 0.0;
         }
 
-        vec2 dragNs = tyreRollingDrag(velocityMps, wheelForward, alongMps, loadKg, surface.dragMps2, locked, dtS);
+        vec2 leftMps = velocityMps;
+        if (loadKg > 0.0)
+        {
+            precise vec2 left = velocityMps + roundedQuotient(tyreNs, loadKg);
+            leftMps = left;
+        }
+
+        vec2 dragNs = tyreRollingDrag(leftMps, wheelForward, tyreDot(leftMps, wheelForward), loadKg, surface.dragMps2, locked, dtS);
 
         float alongAfterMps = alongMps;
         float acrossAfterMps = acrossMps;
@@ -395,7 +428,7 @@ void tyreStep(
         if (!locked && loadKg > 0.0)
         {
             spinMps[wheel] = tyreRim(
-                car, spin, alongMps, alongAfterMps, wantAlongNs, askedAlongNs, sliding, loadKg, axleDriveMps2, brakeMps2,
+                car, spin, alongMps, alongAfterMps, wantAlongNs, askedAlongNs, sliding, loadKg, wheelDriveMps2, brakeMps2,
                 spinAllowanceMps, dtS);
         }
 

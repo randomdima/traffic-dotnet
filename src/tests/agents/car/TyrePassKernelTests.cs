@@ -12,7 +12,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 
 /// <summary>
 /// <b>Two thousand cars' tyre pass, on the host and on the device</b>: cars of every variant on and off the fixture town's
-/// roads, with every one of the sixteen ways their four wheels may have been laid on a way or off one, at rest, creeping,
+/// roads and a body on three axles, with every way their wheels may have been laid on a way or off one, at rest, creeping,
 /// held by their locks and driven hard, carrying every kind of rim, scrub and mark — <see cref="TyrePass.Step"/> asked of
 /// each, and <c>tyre_pass.comp</c> of all of them at once.
 /// </summary>
@@ -43,21 +43,24 @@ public sealed class StagedTyrePass : IDisposable
         var shapes = new GroundShapes(plan.Paving(Config), Config);
         var grounds = WheelGrounds.Of(Config);
         CarBuild[] builds =
-            [CarBuild.Nominal(Config, Config.Car.DrivenFrontShare), .. CarCatalog.Shared.Variants.Select(look => CarBuild.Of(Config, look))];
+        [
+            CarBuild.Nominal(Config, Config.Car.DrivenFrontShare), Layouts.SixWheels(Config),
+            .. CarCatalog.Shared.Variants.Select(look => CarBuild.Of(Config, look)),
+        ];
         Cars = Staged(2000, 7, builds, shapes, plan.WorldSizeM);
 
         var marks = new List<(int Car, TyreMark Mark)>();
         Host = new Outcome[Cars.Length];
-        Span<TyreMark> laid = stackalloc TyreMark[TyreModel.Wheels];
+        Span<TyreMark> laid = stackalloc TyreMark[TyreModel.MostWheels];
         for (var at = 0; at < Cars.Length; at++)
         {
             var car = Cars[at];
             var (spin, travel, marking, from, intensity) =
                 (car.SpinMps.ToArray(), car.ScrubTravelM.ToArray(), car.Marking.ToArray(), car.MarkFromM.ToArray(), car.MarkIntensity.ToArray());
             var (slipThrottle, slipping) = (car.SlipThrottle, car.DrivenSlipping);
-            var ground = new SurfaceUnderWheel[TyreModel.Wheels];
-            var impulses = new WheelImpulse[TyreModel.Wheels];
-            var scrub = new TyreScrub[TyreModel.Wheels];
+            var ground = new SurfaceUnderWheel[car.Build.WheelCount];
+            var impulses = new WheelImpulse[car.Build.WheelCount];
+            var scrub = new TyreScrub[car.Build.WheelCount];
             var atRest = TyrePass.Step(
                 Config, grounds, car.Build, car.Pose, car.Command, car.Hand, car.InertiaKgM2, car.WheelsOnAWay,
                 new TyreCarry(spin, travel, marking, from, intensity, ref slipThrottle, ref slipping), ground, impulses, scrub, laid,
@@ -77,9 +80,9 @@ public sealed class StagedTyrePass : IDisposable
             tyres.Commands[at] = DeviceTyres.CommandRow.Of(car.Command);
             tyres.Cars[at] = new DeviceTyres.CarRow(
                 car.InertiaKgM2, car.SlipThrottle, DeviceTyres.CarRow.FlagsOf(car.Hand, car.DrivenSlipping, car.WheelsOnAWay));
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+            for (var wheel = 0; wheel < car.Build.WheelCount; wheel++)
             {
-                tyres.Wheels[at * TyreModel.Wheels + wheel] = new DeviceTyres.WheelRow(
+                tyres.Wheels[at * TyreModel.MostWheels + wheel] = new DeviceTyres.WheelRow(
                     car.MarkFromM[wheel], car.SpinMps[wheel], car.ScrubTravelM[wheel], car.MarkIntensity[wheel], car.Marking[wheel] ? 1u : 0u);
             }
         }
@@ -137,7 +140,7 @@ public sealed class StagedTyrePass : IDisposable
         }
 
         var cars = new Car[count];
-        Span<Vector2> atM = stackalloc Vector2[TyreModel.Wheels];
+        Span<Vector2> atM = stackalloc Vector2[TyreModel.MostWheels];
         for (var at = 0; at < count; at++)
         {
             var buildAt = random.Next(builds.Length);
@@ -153,7 +156,9 @@ public sealed class StagedTyrePass : IDisposable
             var yawRate = atRest ? 0f : creeping ? Between(-0.01f, 0.01f) : Between(-1.2f, 1.2f);
             var pose = new CarPose(
                 OneIn(2) ? OnTheRoad() : Anywhere(), heading, velocity, yawRate, build.MassKg,
-                new Vector2(Between(-6f, 6f), Between(-7f, 7f)));
+                new SprungBody(
+                    Between(-0.03f, 0.03f), Between(-0.06f, 0.06f), Between(-0.1f, 0.1f), Between(-0.3f, 0.3f),
+                    Between(-0.6f, 0.6f), Between(-0.8f, 0.8f)));
 
             var brake = random.Next(8) switch
             {
@@ -166,12 +171,13 @@ public sealed class StagedTyrePass : IDisposable
                 OneIn(3) ? 0f : Between(-0.55f, 0.55f), throttle, brake, creeping ? !OneIn(4) : OneIn(6), OneIn(7));
 
             TyreModel.WheelPointsM(build, pose, atM);
-            var spin = new float[TyreModel.Wheels];
-            var travel = new float[TyreModel.Wheels];
-            var marking = new bool[TyreModel.Wheels];
-            var from = new Vector2[TyreModel.Wheels];
-            var intensity = new float[TyreModel.Wheels];
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+            var wheels = build.WheelCount;
+            var spin = new float[wheels];
+            var travel = new float[wheels];
+            var marking = new bool[wheels];
+            var from = new Vector2[wheels];
+            var intensity = new float[wheels];
+            for (var wheel = 0; wheel < wheels; wheel++)
             {
                 var awayM = Between(0f, 2f * Config.Marks.SpacingM);
                 var awayRad = Between(-MathF.PI, MathF.PI);
@@ -191,7 +197,7 @@ public sealed class StagedTyrePass : IDisposable
 
             cars[at] = new Car(
                 buildAt, build, pose, command, OneIn(5), build.MassKg * Between(1.2f, 3.5f),
-                (byte)random.Next(1 << TyreModel.Wheels), spin, travel, marking, from, intensity,
+                (byte)random.Next(1 << wheels), spin, travel, marking, from, intensity,
                 OneIn(3) ? 1f : Between(Config.Tyre.MinSlipThrottleFraction, 1f), OneIn(3));
         }
 
@@ -222,10 +228,10 @@ public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTy
             if (host.AtRest != onDevice) differ.Add($"car {at}: host {host.AtRest}, device {onDevice}");
             if (!onDevice) return;
 
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+            for (var wheel = 0; wheel < car.Build.WheelCount; wheel++)
             {
-                var spent = staged.Impulses[(at * TyreModel.Wheels) + wheel];
-                if (spent != Vector4.Zero || staged.Scrub[(at * TyreModel.Wheels) + wheel] != default)
+                var spent = staged.Impulses[(at * TyreModel.MostWheels) + wheel];
+                if (spent != Vector4.Zero || staged.Scrub[(at * TyreModel.MostWheels) + wheel] != default)
                 {
                     differ.Add($"car {at} wheel {wheel} at rest spent {spent}");
                 }
@@ -291,9 +297,9 @@ public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTy
         var differ = new List<string>();
         Each((at, car, host) =>
         {
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+            for (var wheel = 0; wheel < car.Build.WheelCount; wheel++)
             {
-                var onDevice = staged.WheelsAfter[(at * TyreModel.Wheels) + wheel];
+                var onDevice = staged.WheelsAfter[(at * TyreModel.MostWheels) + wheel];
                 if (!Same(host.ScrubTravelM[wheel], onDevice.ScrubTravelM) || host.Marking[wheel] != (onDevice.Marking != 0)
                     || host.MarkFromM[wheel] != onDevice.MarkFromM || !Same(host.MarkIntensity[wheel], onDevice.MarkIntensity))
                 {
@@ -323,7 +329,7 @@ public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTy
         {
             var (car, mark) = host[at];
             var laid = onDevice[at];
-            if (laid.CarWheel != (uint)((car * TyreModel.Wheels) + mark.Wheel) || laid.FromM != mark.FromM || laid.ToM != mark.ToM
+            if (laid.CarWheel != (uint)((car * TyreModel.MostWheels) + mark.Wheel) || laid.FromM != mark.FromM || laid.ToM != mark.ToM
                 || laid.WidthM != mark.WidthM || !Same(mark.Intensity, laid.Intensity) || (laid.Ploughed != 0) != mark.Ploughed)
             {
                 differ.Add($"mark {at}: host car {car} {mark}, device {laid}");
@@ -340,11 +346,12 @@ public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTy
         {
             if (!asked(car) || host.AtRest) return;
 
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+            for (var wheel = 0; wheel < car.Build.WheelCount; wheel++)
             {
-                var spent = staged.Impulses[(at * TyreModel.Wheels) + wheel];
-                var scrub = staged.Scrub[(at * TyreModel.Wheels) + wheel];
-                var spin = staged.WheelsAfter[(at * TyreModel.Wheels) + wheel].SpinMps;
+                var first = at * TyreModel.MostWheels;
+                var spent = staged.Impulses[first + wheel];
+                var scrub = staged.Scrub[first + wheel];
+                var spin = staged.WheelsAfter[first + wheel].SpinMps;
                 var hostScrub = host.Scrub[wheel];
                 var flags = (hostScrub.Ploughing ? 1u : 0u) | (hostScrub.Sliding ? 2u : 0u);
                 if (!Same(host.Impulses[wheel].ImpulseNs, new Vector2(spent.X, spent.Y))

@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
 
@@ -19,7 +20,7 @@ internal struct CarView
     public float HeadingRad;
     public float YawRateRadPerS;
 
-    /// <summary><see cref="Frozen"/>, <see cref="FrozenThroughLastStep"/>, which wheels stand on a way at bits 8–11, its channels at bits 16–23.</summary>
+    /// <summary><see cref="Frozen"/>, <see cref="FrozenThroughLastStep"/>, which wheels stand on a way at bits 8–15, its channels at bits 16–23.</summary>
     public uint Flags;
 
     /// <summary>
@@ -50,16 +51,22 @@ internal struct CarView
     /// <summary>The wheel pure pursuit asks for to pass through that point of the line (S-1, <c>CarFollower.AimAt</c>).</summary>
     public float AimRad;
 
-    readonly uint _pad;
+    /// <summary>
+    /// <b>How the body stands tilted on its springs</b> (CAR-56, <c>SprungBody.TiltRad</c>) as two halves
+    /// (<see cref="Halves"/>): a picture's, in what would otherwise be the row's padding. Read as <see cref="TiltRad"/>.
+    /// </summary>
+    public uint TiltHalves;
+
+    public readonly Vector2 TiltRad => Halves.Unpack(TiltHalves);
 
     public const uint Frozen = 1, FrozenThroughLastStep = 2;
 
-    public readonly byte WheelsOnAWay => (byte)((Flags >> 8) & 0xF);
+    public readonly byte WheelsOnAWay => (byte)(Flags >> 8);
 
     public readonly byte Channels => (byte)(Flags >> 16);
 
     public static uint FlagsOf(bool frozen, bool frozenThrough, byte wheelsOnAWay, byte channels) =>
-        (frozen ? Frozen : 0) | (frozenThrough ? FrozenThroughLastStep : 0) | ((uint)(wheelsOnAWay & 0xF) << 8)
+        (frozen ? Frozen : 0) | (frozenThrough ? FrozenThroughLastStep : 0) | ((uint)wheelsOnAWay << 8)
         | ((uint)channels << 16);
 }
 

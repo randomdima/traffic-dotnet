@@ -20,6 +20,8 @@
   "maxSteeringDeg": 32,
   "tyreFriction": 0.8,
   "cgHeightM": 0.98,
+  "wheelRateNPerM": 60000,
+  "wheelDampingNsPerM": 4000,
   "frontWeightShare": 0.55,
   "handling": { "maxSpeed": 0.66, "acceleration": 0.53, "braking": 0.74 },
   "lamps": [

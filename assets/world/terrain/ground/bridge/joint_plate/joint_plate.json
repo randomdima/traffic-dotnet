@@ -1,0 +1,8 @@
+{
+  "id": "joint_plate",
+  "sprite": "joint_plate.webp",
+  "kind": "Joint",
+  "describe": "a sliding-plate expansion joint across a bridge deck: one wide flat chequered steel cover plate, dull grey, its long edges bevelled, countersunk bolts along one edge",
+  "footprintM": [2.68, 0.4],
+  "pictureM": 1.8229
+}

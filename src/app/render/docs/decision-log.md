@@ -60,6 +60,33 @@ over 45 m, the walk paved in square slabs — was judged worse: **"dont use 'til
 - **The owner then allowed quality high for the ground** ("try again with better quality setting"): the land is
   painted at high; the water stays as drawn at low, high drawing it in rows of waves.
 
+## 2026-10-25 — the water sways under three trains of sine waves
+
+**The owner: "review how water is rendered - lets add some cheap wave animation, that does not affect performance
+much".** The two drifting looks moved the water but never made it undulate.
+
+- **Analytic, not another texture** (`WaterWaves`): three trains, the longest down the prevailing wind and two crossing
+  it, whose summed height moves the picture downwind and lightens the crests. A water pixel pays three sines, three
+  lumps of value noise and no texture read; every other surface pays one `fwidth`.
+- **Then made not to repeat** (the owner: "can we make the pattern less repeatable?"): straight crests of one height
+  crossed in a lattice that read as stripes. Each train's crests are bent by lumps of their own
+  (`View.WaterWaveBendM`), and the waves run higher where the water's patches show its lively look and lower where
+  they show the still one (`View.WaterWaveSwellShare`) — read off the field the looks are already blended by, so the
+  swell costs nothing.
+- **The waterline laps** (the owner: "can we also make connection to shore have this effect"): the water's fade onto the
+  shore is moved up it under a crest and back under a trough, by the same height the colour is
+  (`View.WaterWaveSwashM`), most at the fade's middle and not at its ends, as the ragging is — so the fade still lies
+  where it is laid and needs no wider band. **Then foam along it** ("make it more visible"): the swash raised to most
+  of the fade's width, a soft edge moving within a metre and a half still read as barely moving, so the fade's middle is
+  whitened wherever the swash has put it, most as a crest runs up (`View.WaterWaveFoamShare`).
+- **The phase is worked out at the corners**: it is linear in the place, so the interpolation is exact and one varying
+  carries it. The rest the ground's fragment stage reads from the camera block (`ground_camera.glsl`), which both heads
+  now show that stage: the figures would have taken three more varyings, and a page has sixteen.
+- **The speed is derived from the length** (deep water, ω = √(g k)), never authored, and the phase is wrapped on the
+  CPU in double so a long-running clock never steps the crests.
+- **A train narrower on screen than `View.WaterWaveLeastPx` fades out**, since a crest a pixel or two across flickers
+  rather than moves; zoomed out, only the long train is drawn, and below about two pixels a metre none.
+
 ## 2026-10-24 — clouds are a field over the frame, not puffs
 
 **The owner: "review smoke mechanics — lets add clouds now — only showing as shadows"** (`OBJ-8`).
@@ -452,22 +479,34 @@ A frame in flight writes 21 MB of instances where it wrote 58; the 37 MB of buil
 Nothing allocates. **Fusing a car's four passes into one was weighed and not done**: over a frame's own short list
 the four cost half a microsecond together.
 
-## 2026-10-06 — a rear tyre is painted under its car, and no tyre rolls
+## 2026-10-25 — every tyre is a quad under its body, because the body tilts and the tyres do not
+
+The rear pair was a black box painted under the bodywork when the atlas page was filled, so it went wherever the
+body's quad went. A body drawn tilted on its springs (CAR-56) would have carried its rear tyres with it while the front
+pair stood still — the first try, which slid the body off its wheels, read as wheels knocked off their line for
+exactly that reason. **Now every wheel is a quad, plain rubber off a one-texel sheet**
+([CarSheets](../CarSheets.cs)), at the offset its impulse acts on, the steered ones at the rack's angle, and **none at
+all once a tyre is under `CarPartLeastPx`**, which is every framing that holds many cars. A four-wheeled car is five
+instances close up, where it was three, and still one from a district out; the room is laid for the catalogue's most
+wheels on one look (`TownSprites.MostWheelsOnALook`), and the device's emit reads each look's wheels off its row. The sheet is the art as cut, no longer padded, so the
+quad is the footprint.
+
+**No tyre is baked into the shipped files**, because the track and the tyre are the variant's own figures and the
+silhouette CAR-12 is measured off is the bodywork alone: a tyre baked into the picture is a second copy of `trackM`
+that a moved track leaves behind.
+
+**The tilt rides in the instance's ID**, which only a building and a wagon used (OBJ-6): nose down and right side
+down a signed byte each, told apart by the sheet being a car body's (`CameraView.CarTilt`). No instance grows, and
+the vertex stage draws the tilted plane with its corners' w set, so the picture across it is the plane's and not two
+triangles bent at their seam.
+
+## 2026-10-06 — no tyre rolls
 
 A tyre was its own quad of a scrolling tread: four instances a car every frame, a fifth texture binding and a
 branch in every sprite fragment for the one sheet that tiled, and a phase per wheel rolled every tick — for a
-detail a few pixels across at any framing past a street. **No tyre rolls now, and the rear pair, which never
-steers, is a black box painted under the bodywork when the atlas page is filled** ([CarSheets](../CarSheets.cs)),
-into a margin the sheet is padded by, since the rubber stands past the art (CAR-12); the quad grows by that
-margin. The front pair stays a quad each, plain rubber off a one-texel sheet, because the steering is worth
-seeing — both at the rack's angle rather than their own Ackermann ones, and **none at all once a tyre is under
-`CarPartLeastPx`**, which is every framing that holds many cars. A car is three instances close up and one
-from a district out, where it was five; 12 baked steering angles was weighed and refused — the variants' tyres
+detail a few pixels across at any framing past a street. **No tyre rolls now**; a front tyre is drawn at the rack's
+angle rather than its own Ackermann one. 12 baked steering angles was weighed and refused — the variants' tyres
 differ, a quad's turn is already free in the vertex stage, and twelve sheets a look does not fit the sheet table.
-
-**Painted at load and not into the shipped files**, because the track and the tyre are the variant's own figures
-and the silhouette CAR-12 is measured off is the bodywork alone: a tyre baked into the picture is a second copy of
-`trackM` that a moved track leaves behind, and a flank the next measurement reads as panels.
 
 ## 2026-10-06 — scenery is twelve bytes, and a frame draws a budget of it
 

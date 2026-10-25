@@ -26,7 +26,7 @@ public class CarFollowerTests
 
     static CarPose At(float alongM, float alongMps) =>
         new(new Vector2(alongM + Car.CentreAheadOfAxleM, 0f), 0f, new Vector2(alongMps, 0f), 0f,
-            Figures.Car.MassKg, Vector2.Zero);
+            Figures.Car.MassKg);
 
     static float Target(ReadOnlySpan<ArcSeg> line, float progressM, float alongMps, in DriveContext context, out DrivingHold hold) =>
         Target(line, progressM, alongMps, context, out hold, out _);

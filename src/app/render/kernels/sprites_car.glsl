@@ -4,8 +4,8 @@
 #ifndef SPRITES_CAR_GLSL
 #define SPRITES_CAR_GLSL
 
-// Its pose and wheel, what its lamps say (a CarLampSet), its look, what it tows (DeviceWorld.TowingCode) and where along
-// that the fork is.
+// Its pose and wheel, what its lamps say (a CarLampSet), its look, what it tows (DeviceWorld.TowingCode), where along
+// that the fork is, and how its body stands tilted on its springs as two halves (CarView.TiltHalves, CAR-56).
 struct CarRow
 {
     vec2 positionM;
@@ -17,7 +17,7 @@ struct CarRow
     uint flags;
     int towing;
     float forkAlongM;
-    uint pad;
+    uint tiltHalves;
 };
 
 const uint CarBroken = 1u;

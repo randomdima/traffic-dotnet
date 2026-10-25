@@ -10,13 +10,25 @@ internal enum GroundPart : byte
 {
     Grass,
 
-    /// <summary>The railway's ballast, sleepers and rails at grade, under the roads and walks that cross it (RAIL-3).</summary>
+    /// <summary>The railway's bed of ballast at grade, under its sleepers and the roads and walks that cross it (RAIL-13).</summary>
+    Ballast,
+
+    /// <summary>
+    /// The grass faded out over the bed's edges (RAIL-13): a part of its own, since filing a part by band reorders it
+    /// (<see cref="GroundBands"/>) and the fade would be drawn under the bed it fades over.
+    /// </summary>
+    Shoulders,
+
+    /// <summary>The railway's sleepers and rails at grade, over its bed and under the roads and walks that cross it (RAIL-3).</summary>
     Track,
     Walk,
     WalkKerb,
     Water,
     Decks,
     Carriageway,
+
+    /// <summary>A bridge's own carriageway over the town's, and the joints across its ends (TER-3b.2).</summary>
+    BridgeRoads,
     Slabs,
     Kerb,
     Paint,
@@ -60,12 +72,13 @@ internal static class GroundParts
 
     /// <summary>
     /// <b>The parts laid as a stack of layers, each over the one before</b> (TER-7b), which only the mesh's own order
-    /// draws right (<see cref="GroundBands"/>): the water's shore, the grass faded over it, the water and its own fade; every deck's rim
-    /// before any deck; the track on a bridge before its rails; and the level above.
+    /// draws right (<see cref="GroundBands"/>): the water's shore, the grass faded over it, the water and its own fade; a
+    /// bridge's piers before its deck and its deck before what stands on it; its road before its joints; the track on a
+    /// bridge before its rails; and the level above.
     /// </summary>
     public const uint Stacked =
-        (1u << (int)GroundPart.Water) | (1u << (int)GroundPart.Decks) | (1u << (int)GroundPart.Rails)
-        | (1u << (int)GroundPart.Above);
+        (1u << (int)GroundPart.Water) | (1u << (int)GroundPart.Decks) | (1u << (int)GroundPart.BridgeRoads)
+        | (1u << (int)GroundPart.Rails) | (1u << (int)GroundPart.Above);
 
     /// <summary>
     /// <b>Printable ASCII only</b>, like every other string the interface draws, and <b>the words the
@@ -74,8 +87,8 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Names =
     [
-        "Grass", "Railway track", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Carriageway", "Paved slabs",
-        "Town kerb", "Paint", "Rails", "Bridges over roads",
+        "Grass", "Ballast", "Track shoulders", "Railway track", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Carriageway", "Bridge roads",
+        "Paved slabs", "Town kerb", "Paint", "Rails", "Bridges over roads",
     ];
 
     /// <summary>
@@ -85,8 +98,8 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Words =
     [
-        "grass", "track", "walk", "walk-kerb", "water", "decks", "carriageway", "slabs", "kerb", "paint", "rails",
-        "overpasses",
+        "grass", "ballast", "shoulders", "track", "walk", "walk-kerb", "water", "decks", "carriageway", "bridge-roads", "slabs", "kerb", "paint",
+        "rails", "overpasses",
     ];
 
     public static uint Bit(GroundPart part) => 1u << (int)part;

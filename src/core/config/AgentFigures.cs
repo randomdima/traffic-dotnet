@@ -75,6 +75,28 @@ internal sealed class CarFigures
     public float CgHeightM { get; init; } = 0.55f;
 
     /// <summary>
+    /// <b>How stiff a road car is sprung, as the rate at one wheel</b>: what a corner's spring pushes back with per metre it
+    /// is compressed, anti-roll bar and all. A variant states its own (<c>wheelRateNPerM</c>) — a van's is twice a
+    /// hatchback's — and absent is this one.
+    /// </summary>
+    /// <remarks>
+    /// A raw term of the body on its springs (<see cref="Agents.Car.Body.Suspension"/>, CAR-56): how far a car rolls in a
+    /// corner and how often it bounces are what it comes to, and are never stated.
+    /// </remarks>
+    public float WheelRateNPerM { get; init; } = 30_000f;
+
+    /// <summary>
+    /// <b>How hard a road car's damper resists, at one wheel</b>: what it pushes back with per metre a second the wheel is
+    /// moving up or down. A variant states its own (<c>wheelDampingNsPerM</c>) — a van's is twice a hatchback's — and
+    /// absent is this one.
+    /// </summary>
+    /// <remarks>
+    /// The other raw term of the body on its springs (<see cref="Agents.Car.Body.Suspension"/>): how quickly a dive dies
+    /// away and whether it rebounds past level first is what it and the spring come to, and is never stated.
+    /// </remarks>
+    public float WheelDampingNsPerM { get; init; } = 2_000f;
+
+    /// <summary>
     /// <b>How much of the nominal car stands on its front axle at rest.</b> An even split, because where
     /// the mass sits along a wheelbase is a fact about <em>a body</em> and this body is the one nobody
     /// drives — half is the only figure that is wrong for every car by the same amount rather than wrong
@@ -188,19 +210,6 @@ internal sealed class TyreFigures
     public float WheelSpinAllowanceMps { get; init; } = 4f;
 
     public float WheelSpinFadeMps { get; init; } = 12f;
-
-    /// <summary>
-    /// How long the load takes to arrive where the tyres are putting it — long enough that one noisy tick
-    /// cannot flick the grip about, which is the whole of what a suspension is in this model.
-    /// </summary>
-    public float LoadSettleS { get; init; } = 0.08f;
-
-    /// <summary>
-    /// The least settled load that is any, along or across: one under it is nought. A load lagged toward nothing
-    /// otherwise runs down to the least denormal, which the lag rounds back to itself, and a parked car is worked out
-    /// for ever — and a device that flushes denormals would read it as nought where the host does not.
-    /// </summary>
-    public float LeastSettledLoadMps2 { get; init; } = 1e-4f;
 
     /// <summary>
     /// Share of a driven tyre's grip along the roll that a car driving <em>itself</em> will ask for, and

@@ -1,0 +1,8 @@
+{
+  "id": "parapet_iron",
+  "sprite": "parapet_iron.webp",
+  "kind": "Parapet",
+  "describe": "a cast-iron bridge railing on a granite plinth seen straight down: a grey granite plinth along its length, on it a dark green-black iron handrail, small square iron posts every 1.5 m",
+  "footprintM": [5.556, 0.5],
+  "pictureM": 4.8958
+}

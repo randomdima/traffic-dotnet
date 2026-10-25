@@ -193,7 +193,7 @@ carrying, because a sliding car carries less than it asks for. A hazard spends t
 
 **CAR-3e** `P3` **One coefficient of friction, at every load and in every direction.** A patch is worth what it
 is carrying and nothing else, so a stop and a corner of the same car are worth the same and a transfer costs
-the four wheels nothing between them. What the loads decide is **which wheel runs out first** — a rear gone
+the four wheels nothing between them. What the loads decide (CAR-57) is **which wheel runs out first** — a rear gone
 light under the brakes, an inside wheel gone light in a corner — and never what the car holds in total.
 **Any figure that separates a stop from a corner is a fudge**: the mechanisms that would separate them
 honestly are each worth about a per cent from the height a town is watched at.
@@ -541,6 +541,24 @@ else**, at the moment of the view the host shows, so its newest puff leaves the 
 car is drawn: the way it is laid along is the device's step's. Where a pipe is is the variant's file (`exhausts`, placed
 on the rear bumper by `qq exhausts`, since the art draws none from above); what it looks like is `SimConfig.Smoke`,
 the air `SimConfig.Wind`.
+
+**CAR-56** `P8` A car **is drawn tilted as it stands on its springs** (CAR-57): its body as the plane its pitch and roll
+put it at — nose down under the brakes, up under power, the outside down in a corner, both at once braking into one,
+and swinging back past level when let go of — its lamps and its arm on that plane, since they are bolted to the body.
+**Its tyres do not tilt**: they stand where the patches are. How far the tilt is drawn is seen from
+`ViewFigures.CarTiltEyeHeightM`, the one exaggeration, which nothing simulated reads.
+
+**CAR-57** `P3` **A car stands on a damped spring at every wheel, and what a wheel carries is what its spring pushes up
+with** — however many wheels it stands on and wherever they are (`CarBuild.Wheels`): two axles of two where its file
+says no more, or the wheels its file lays out (`wheels`), each steered, held by the handbrake or driven as it says, the
+drive shared among the driven axles by what each stands on, and a towed car rolling on the axle furthest from the fork. The body heaves, pitches and rolls about its centre of mass under its springs and under what its tyres push it
+with at the ground, a height below it; a collision pushes nothing here. A wheel whose spring would pull the road up is
+off it and carries nothing — that is contact, not a limit — and the wheels on the ground are the whole car between them
+(CAR-3e). **What is authored is the spring and the damper**, each at one wheel (`SimConfig.Car.WheelRateNPerM` and
+`WheelDampingNsPerM`, a variant's `wheelRateNPerM` and `wheelDampingNsPerM`); how far a body rolls in a corner, how
+often it bounces and how soon it settles are what they, its mass, its size and its balance come to, and are never
+stated. Nothing lags the load and nothing holds it short: the springs are the lag. A car put down stands on them at
+rest, and so does one the solver has frozen (SOL-37).
 
 ## Marks
 

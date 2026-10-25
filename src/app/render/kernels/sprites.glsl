@@ -1,7 +1,7 @@
 // The frame's moving sprites on the device (TownSprites.FillMoving): the walkers, then every part of every car on the
-// ground — the exhausts' smoke, the steered tyres, the bodies, the tow arms, the lamps — then the signal heads, and the
+// ground — the exhausts' smoke, the tyres, the bodies, the tow arms, the lamps — then the signal heads, and the
 // cars on the level above after them, part by part again. Line for line with PersonSprites.Fill,
-// CarSprites.FillFrontTyres, Fill and FillBeams, LampSprites.Fill and SignalSprites.Fill, `precise` wherever the host
+// CarSprites.FillTyres, Fill and FillBeams, LampSprites.Fill and SignalSprites.Fill, `precise` wherever the host
 // rounds — all but the smoke, which is the device's alone (SmokeSprites); the arm's bearing is
 // trig.glsl's arctangent, and every quotient and root a verdict hangs on is rounded.glsl's.
 //
@@ -16,6 +16,7 @@
 // sprites_buffers.glsl declares everything read here.
 
 #include "core/geometry/kernels/trig.glsl"
+#include "core/geometry/kernels/floats.glsl"
 
 // SpriteTint.Plain: the tint everything but a mark and a glow is drawn with.
 const uint SpritePlain = 0xFFFFFFFFu;
@@ -112,40 +113,32 @@ vec2 spritesOnBody(vec2 centreM, vec2 forward, vec2 atBodyM)
     return atM;
 }
 
-// A float to the nearest half, ties to even, as the host's (Half) conversion rounds it — in integer arithmetic, because
-// packHalf2x16's rounding is the driver's to choose.
-uint spritesHalf(float value)
+// A body's tilt on its springs to the step it is drawn at (BodyTilt, CAR-56): nose down and right side down, each a
+// signed count of steps.
+const float BodyTiltStepsPerRad = 512.0;
+const float BodyTiltMostSteps = 127.0;
+
+vec2 spritesTiltSteps(CarRow row)
 {
-    uint bits = floatBitsToUint(value);
-    uint sign = (bits >> 16) & 0x8000u;
-    uint magnitude = bits & 0x7FFFFFFFu;
-
-    // Past the largest finite half once rounded, or not a number: infinity, or a quiet NaN.
-    if (magnitude >= 0x47800000u) return sign | (magnitude > 0x7F800000u ? 0x7E00u : 0x7C00u);
-
-    // Under the least normal half: a subnormal, in units of 2^-24, or nought under half the least of them.
-    if (magnitude < 0x38800000u)
-    {
-        uint exponent = magnitude >> 23;
-        if (exponent < 102u) return sign;
-
-        uint mantissa = (magnitude & 0x7FFFFFu) | 0x800000u;
-        uint shift = 126u - exponent;
-        uint kept = mantissa >> shift;
-        uint rest = mantissa & ((1u << shift) - 1u);
-        uint halfway = 1u << (shift - 1u);
-        if (rest > halfway || (rest == halfway && (kept & 1u) != 0u)) kept += 1u;
-        return sign | kept;
-    }
-
-    // A normal: the exponent rebased, the mantissa cut to ten bits to the nearest, ties to even; a carry into the
-    // exponent is the right answer, up to infinity.
-    uint rebased = magnitude - 0x38000000u;
-    rebased += 0xFFFu + ((rebased >> 13) & 1u);
-    return sign | (rebased >> 13);
+    return clamp(roundEven(unpackHalf2x16(row.tiltHalves) * BodyTiltStepsPerRad), -BodyTiltMostSteps, BodyTiltMostSteps);
 }
 
-uint spritesHalves(vec2 halfSizeM) { return spritesHalf(halfSizeM.x) | (spritesHalf(halfSizeM.y) << 16); }
+// As its instance carries it in the ID (BodyTilt.Id).
+uint spritesTiltId(CarRow row)
+{
+    ivec2 steps = ivec2(spritesTiltSteps(row));
+    return (uint(steps.x) & 0xFFu) | ((uint(steps.y) & 0xFFu) << 8u);
+}
+
+// Where a point of a car's body is drawn, the body tilted (CarSprites.OnBodyM, BodyTilt.OnBodyM).
+vec2 spritesOnTiltedBody(CarRow row, vec2 atBodyM)
+{
+    vec2 tiltRad = spritesTiltSteps(row) * (1.0 / BodyTiltStepsPerRad);
+    precise float sinkM = atBodyM.x * tiltRad.x + atBodyM.y * tiltRad.y;
+    precise float eyeM = figures.carTiltEyeHeightM + sinkM;
+    precise vec2 drawnM = atBodyM * roundedQuotient(figures.carTiltEyeHeightM, eyeM);
+    return spritesOnBody(row.positionM, row.forward, drawnM);
+}
 
 // SpriteCell: a column and a row of a grid of columns and rows, a byte each from the low.
 uint spritesCell(uint column, uint row, uint columns, uint rows) { return column | (row << 8) | (columns << 16) | (rows << 24); }
@@ -155,7 +148,7 @@ SpriteOut spritesQuad(vec2 centreM, vec2 halfSizeM, uint cell, uint tint, uint s
     SpriteOut sprite;
     sprite.centreX = centreM.x;
     sprite.centreY = centreM.y;
-    sprite.halfSize = spritesHalves(halfSizeM);
+    sprite.halfSize = floatHalves(halfSizeM);
     sprite.headingRad = headingRad;
     sprite.cell = cell;
     sprite.tint = tint;
@@ -260,24 +253,26 @@ SpriteOut spritesCrossingLight(uint light)
     return spritesPlain(row.centreM, vec2(figures.lightHalfLengthM, figures.lightHalfWidthM), sheet, row.headingRad);
 }
 
-// CarSprites.FillFrontTyres' cull for one car: two tyres, or none.
+// CarSprites.FillTyres' cull for one car: a tyre a wheel, or none.
 uint spritesTyresShown(uint car)
 {
     if (figures.widestTyreM < frame.leastPartM) return 0u;
 
     CarRow row = cars[car];
     CarLook look = carLooks[row.variant % figures.carSheets];
-    return look.wheelWidthM < frame.leastPartM || spritesOutside(row.positionM, vec2(look.tyreReachM)) ? 0u : 2u;
+    return look.wheelWidthM < frame.leastPartM || spritesOutside(row.positionM, vec2(look.tyreReachM)) ? 0u : look.wheelCount;
 }
 
-// And the steered pair at the rack's angle, in TyreModel's wheel order.
-void spritesTyres(uint car, out SpriteOut first, out SpriteOut second)
+// And one of them, in TyreModel's wheel order: the steered ones at the rack's angle, and none tilted with the body.
+SpriteOut spritesTyre(uint car, uint tyre)
 {
     CarRow row = cars[car];
     CarLook look = carLooks[row.variant % figures.carSheets];
-    precise float tyreRad = row.headingRad + row.steerRad;
-    first = spritesPlain(spritesOnBody(row.positionM, row.forward, look.firstSteeredM), look.tyreHalfM, figures.rubberSheet, tyreRad);
-    second = spritesPlain(spritesOnBody(row.positionM, row.forward, look.secondSteeredM), look.tyreHalfM, figures.rubberSheet, tyreRad);
+    precise float steeredRad = row.headingRad + row.steerRad;
+    bool steered = (look.steeredWheels & (1u << tyre)) != 0u;
+    return spritesPlain(
+        spritesOnBody(row.positionM, row.forward, look.wheelsM[tyre]), look.tyreHalfM, figures.rubberSheet,
+        steered ? steeredRad : row.headingRad);
 }
 
 // CarSprites.Fill's cull for one car: its picture's reach, or its wreck's, in view.
@@ -291,15 +286,16 @@ bool spritesBodyShown(uint car)
     return !spritesOutside(row.positionM, vec2(broken ? look.wreckReachM : look.bodyReachM));
 }
 
-// And its picture, or its wreck's.
+// And its picture, or its wreck's, its tilt its ID (SpriteInstance.Id: the sheet's high half-word).
 SpriteOut spritesBody(uint car)
 {
     CarRow row = cars[car];
     uint variant = row.variant % figures.carSheets;
     CarLook look = carLooks[variant];
     bool broken = (row.flags & CarBroken) != 0u;
-    uint sheet = (broken ? figures.carSheets : 0u) + variant;
-    return spritesPlain(row.positionM, broken ? look.wreckHalfM : look.bodyHalfM, figures.firstCarSheet + sheet, row.headingRad);
+    uint sheet = figures.firstCarSheet + (broken ? figures.carSheets : 0u) + variant;
+    return spritesPlain(
+        row.positionM, broken ? look.wreckHalfM : look.bodyHalfM, sheet | (spritesTiltId(row) << 16u), row.headingRad);
 }
 
 // CarSprites.FillBeams' cull for one car: an arm on an unbroken look, its reach in view.
@@ -318,7 +314,7 @@ SpriteOut spritesBeam(uint car)
     CarRow row = cars[car];
     CarLook look = carLooks[row.variant % figures.carSheets];
     bool towing = row.towing != -1;
-    vec2 hingeM = spritesOnBody(row.positionM, row.forward, look.pivotM);
+    vec2 hingeM = spritesOnTiltedBody(row, look.pivotM);
     precise vec2 alongTheArm = vec2(0.0);
     if (towing)
     {
@@ -385,7 +381,7 @@ uvec2 spritesLamps(uint car)
 SpriteOut spritesGlow(CarRow row, LensRow lens, uint colour)
 {
     return spritesQuad(
-        spritesOnBody(row.positionM, row.forward, lens.atBodyM), vec2(lens.glowM * 0.5), lens.firstCell,
+        spritesOnTiltedBody(row, lens.atBodyM), vec2(lens.glowM * 0.5), lens.firstCell,
         lampTints[colour], figures.glowSheet, row.headingRad);
 }
 
@@ -394,7 +390,7 @@ SpriteOut spritesLens(CarRow row, LensRow lens, uint colour)
 {
     uint cell = colour == (lens.fittingAndFirstColour >> 8) ? lens.firstCell : lens.secondCell;
     return spritesQuad(
-        spritesOnBody(row.positionM, row.forward, lens.atBodyM), vec2(figures.halfLensCellM), cell, SpritePlain,
+        spritesOnTiltedBody(row, lens.atBodyM), vec2(figures.halfLensCellM), cell, SpritePlain,
         figures.lensSheet, row.headingRad);
 }
 

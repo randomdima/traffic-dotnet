@@ -17,12 +17,12 @@ internal sealed partial record TownMap
         {
             var bytes = new Bytes(file);
             if (bytes.UInt32() != Magic) throw new InvalidDataException($"{what}: not a map.");
-            if (bytes.UInt16() is var version && version != Version)
+            if (bytes.UInt16() is var version && version != Version && version != OneWidthVersion)
             {
-                throw new InvalidDataException($"{what}: a map of version {version}, and this build reads {Version}.");
+                throw new InvalidDataException($"{what}: a map of version {version}, and this build reads {Version} and {OneWidthVersion}.");
             }
 
-            map = ReadBody(ref bytes);
+            map = ReadBody(ref bytes, version);
             if (bytes.Left != 0) throw new InvalidDataException($"{what}: {bytes.Left} bytes past the end of the map.");
         }
         catch (Exception cut) when (cut is ArgumentOutOfRangeException or IndexOutOfRangeException)
@@ -43,9 +43,9 @@ internal sealed partial record TownMap
         try
         {
             var bytes = new Bytes(head);
-            if (bytes.UInt32() != Magic || bytes.UInt16() != Version)
+            if (bytes.UInt32() != Magic || bytes.UInt16() is not (Version or OneWidthVersion))
             {
-                throw new InvalidDataException($"{what}: not a map of version {Version}.");
+                throw new InvalidDataException($"{what}: not a map of version {Version} or {OneWidthVersion}.");
             }
 
             return (bytes.String(), bytes.String());
@@ -64,7 +64,7 @@ internal sealed partial record TownMap
         return Read(bytes.ToArray(), Name);
     }
 
-    static TownMap ReadBody(ref Bytes bytes)
+    static TownMap ReadBody(ref Bytes bytes, ushort version)
     {
         var (name, description, licence, osmBase) = (bytes.String(), bytes.String(), bytes.String(), bytes.String());
         var seed = bytes.Varint();
@@ -100,7 +100,7 @@ internal sealed partial record TownMap
         return new TownMap
         {
             Name = name, Description = description, Licence = licence, OsmBase = osmBase, Seed = seed, Frame = frame,
-            PointM = pointM, Roads = roads, Coast = coast, Waters = ReadWaters(ref bytes), Courses = ReadCourses(ref bytes), Buildings = ReadStood(ref bytes),
+            PointM = pointM, Roads = roads, Coast = coast, Waters = ReadWaters(ref bytes), Courses = ReadCourses(ref bytes, version),Buildings = ReadStood(ref bytes),
             Props = ReadProps(ref bytes), Lots = ReadLots(ref bytes), Zones = ReadZones(ref bytes),
             Rails = ReadRails(ref bytes),
         };
@@ -160,23 +160,36 @@ internal sealed partial record TownMap
         return new WaterArrays { Kind = kind, PointOffsets = pointOffsets, PointM = pointM };
     }
 
-    static CourseArrays ReadCourses(ref Bytes bytes)
+    static CourseArrays ReadCourses(ref Bytes bytes, ushort version)
     {
         var (count, points) = (bytes.Count(), bytes.Count());
-        var (kind, across, nearM, farM) = (new WaterBody[count], new Vector2[count], new float[count], new float[count]);
-        var (pointOffsets, pointM) = (new int[count + 1], new Vector2[points]);
+        var (kind, across, parent) = (new WaterBody[count], new Vector2[count], new int[count]);
+        var (pointOffsets, pointM, nearM, farM) = (new int[count + 1], new Vector2[points], new float[points], new float[points]);
         var point = 0;
         for (var water = 0; water < count; water++)
         {
             kind[water] = (WaterBody)bytes.Byte();
-            (across[water], nearM[water], farM[water]) = (new Vector2(bytes.Single(), bytes.Single()), bytes.Single(), bytes.Single());
-            for (var at = bytes.Count(); at > 0; at--) pointM[point++] = new Vector2(bytes.Single(), bytes.Single());
+            across[water] = new Vector2(bytes.Single(), bytes.Single());
+            if (version == OneWidthVersion)
+            {
+                parent[water] = CourseArrays.NoParent;
+                var (near, far) = (bytes.Single(), bytes.Single());
+                for (var at = bytes.Count(); at > 0; at--, point++) (pointM[point], nearM[point], farM[point]) = (new Vector2(bytes.Single(), bytes.Single()), near, far);
+            }
+            else
+            {
+                parent[water] = bytes.Count() - 1;
+                for (var at = bytes.Count(); at > 0; at--, point++)
+                {
+                    (pointM[point], nearM[point], farM[point]) = (new Vector2(bytes.Single(), bytes.Single()), bytes.Single(), bytes.Single());
+                }
+            }
 
             pointOffsets[water + 1] = point;
         }
 
         Tally("courses", count, points, count, point);
-        return new CourseArrays { Kind = kind, Across = across, NearM = nearM, FarM = farM, PointOffsets = pointOffsets, PointM = pointM };
+        return new CourseArrays { Kind = kind, Across = across, Parent = parent, PointOffsets = pointOffsets, PointM = pointM, NearM = nearM, FarM = farM };
     }
 
     static RailArrays ReadRails(ref Bytes bytes)
@@ -439,14 +452,17 @@ internal sealed partial record TownMap
         for (var water = 0; water < courses.Count; water++)
         {
             writer.Write((byte)courses.Kind[water]);
-            foreach (var figure in (ReadOnlySpan<float>)[courses.Across[water].X, courses.Across[water].Y, courses.NearM[water], courses.FarM[water]]) writer.Write(figure);
+            writer.Write(courses.Across[water].X);
+            writer.Write(courses.Across[water].Y);
+            writer.Write7BitEncodedInt(courses.Parent[water] + 1);
 
             var course = courses.CourseOf(water);
+            var nearM = courses.NearOf(water);
+            var farM = courses.FarOf(water);
             writer.Write7BitEncodedInt(course.Length);
-            foreach (var pointM in course)
+            for (var point = 0; point < course.Length; point++)
             {
-                writer.Write(pointM.X);
-                writer.Write(pointM.Y);
+                foreach (var figure in (ReadOnlySpan<float>)[course[point].X, course[point].Y, nearM[point], farM[point]]) writer.Write(figure);
             }
         }
     }

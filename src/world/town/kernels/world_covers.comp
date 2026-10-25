@@ -60,13 +60,6 @@ layout(std430, binding = 9) buffer Counts { uint counts[4]; };
 layout(std430, binding = 10) buffer CarRanges { ivec2 carRanges[]; };
 layout(std430, binding = 11) buffer WalkerRanges { ivec2 walkerRanges[]; };
 
-// TyreModel.WheelAtM.
-vec2 wheelAtM(CarBuildRow car, int wheel)
-{
-    precise float front = car.wheelbaseM - car.centreAheadOfAxleM;
-    return vec2(wheel < 2 ? front : -car.centreAheadOfAxleM, wheel % 2 == 0 ? car.halfTrackM : -car.halfTrackM);
-}
-
 void readTheCar(uint car)
 {
     int body = cars[car].body;
@@ -74,10 +67,13 @@ void readTheCar(uint car)
     vec4 placed = pose[body];
     vec2 forward = placed.zw;
     vec2 right = vec2(-forward.y, forward.x);
-    vec2 wheelsM[4];
-    for (int wheel = 0; wheel < 4; wheel++)
+    int wheels = int(build.wheelCount);
+    vec2 wheelsM[AtlasMostWheels];
+    for (int wheel = 0; wheel < AtlasMostWheels; wheel++)
     {
-        vec2 atBody = wheelAtM(build, wheel);
+        if (wheel >= wheels) break;
+
+        vec2 atBody = buildWheelAtM(build, wheel);
         precise vec2 at = placed.xy + (forward * atBody.x) + (right * atBody.y);
         wheelsM[wheel] = at;
     }
@@ -85,8 +81,8 @@ void readTheCar(uint car)
     uint channels = filterChannels(filter_[body]);
     uint dropped = 0u;
     uint onAWay;
-    int count = atlasUnderWheels(wheelsM, covers.heldAroundAWheelM, channels, dropped, onAWay);
-    carRows[car].flags = (carRows[car].flags & ~0xf00u) | ((onAWay & 0xfu) << 8);
+    int count = atlasUnderWheels(wheelsM, wheels, covers.heldAroundAWheelM, channels, dropped, onAWay);
+    carRows[car].flags = (carRows[car].flags & ~0xff00u) | ((onAWay & 0xffu) << 8);
 
     if (covers.hasChannels != 0u)
     {

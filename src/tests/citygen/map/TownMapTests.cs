@@ -36,7 +36,9 @@ public class TownMapTests
         Assert.Equal(written.Waters.PointM, read.Waters.PointM);
         Assert.Equal(written.Courses.Across, read.Courses.Across);
         Assert.Equal(written.Courses.PointM, read.Courses.PointM);
-        Assert.Equal((written.Courses.NearM[0], written.Courses.FarM[0]), (read.Courses.NearM[0], read.Courses.FarM[0]));
+        Assert.Equal(written.Courses.Parent, read.Courses.Parent);
+        Assert.Equal(written.Courses.NearM, read.Courses.NearM);
+        Assert.Equal(written.Courses.FarM, read.Courses.FarM);
         Assert.Equal(written.Buildings.Look, read.Buildings.Look);
         Assert.Equal(written.Buildings.CentreM, read.Buildings.CentreM);
         Assert.Equal(written.Buildings.SizeM, read.Buildings.SizeM);
@@ -333,8 +335,10 @@ public class TownMapTests
             Waters = new TownMap.WaterArrays { Kind = [TownMap.WaterBody.Lake], PointOffsets = [0, 3], PointM = [new(500, 0), new(520, 0), new(510.5f, 800)] },
             Courses = new TownMap.CourseArrays
             {
-                Kind = [TownMap.WaterBody.River], Across = [new(0.6f, -0.8f)], NearM = [12.345678f], FarM = [-12.5f], PointOffsets = [0, 2],
-                PointM = [new(-200.123456f, 300.987654f), new(1200.5f, 333.333333f)],
+                Kind = [TownMap.WaterBody.River, TownMap.WaterBody.River], Across = [new(0.6f, -0.8f), new(1f, 0f)],
+                Parent = [TownMap.CourseArrays.NoParent, 0], PointOffsets = [0, 2, 4],
+                PointM = [new(-200.123456f, 300.987654f), new(1200.5f, 333.333333f), new(400f, -200f), new(420.25f, 320.5f)],
+                NearM = [12.345678f, 15.5f, 4f, 6.125f], FarM = [-12.5f, -14f, -4f, -6.125f],
             },
             Buildings = new TownMap.StoodArrays { Look = [BuildingLook.School], CentreM = [new(200.25f, 300.5f)], SizeM = [new(30, 18.5f)], HeadingRad = [0f] },
             Props = new TownMap.PropArrays { Kind = [PropKind.UrbanFurniture], CentreM = [new(12.5f, 7.25f)], BearingRad = [0f] },

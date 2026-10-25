@@ -80,44 +80,6 @@ public class SheetAtlasTests
         Assert.Equal(SheetAtlas.Slots, int.Parse(Regex.Match(source, declaration).Groups[1].Value));
     }
 
-    /// <summary>
-    /// <b>An underlay shows where the art is clear and nowhere it is opaque</b>, and the art keeps its
-    /// own texels at the centre of the margin the sheet was padded by.
-    /// </summary>
-    [Fact]
-    public void AnUnderlayShowsOnlyWhereTheArtIsClear()
-    {
-        // Four by two of art: an opaque white left half, a clear right half.
-        var art = new byte[4 * 2 * 4];
-        for (var row = 0; row < 2; row++)
-        {
-            for (var column = 0; column < 2; column++) art.AsSpan(((row * 4) + column) * 4, 4).Fill(byte.MaxValue);
-        }
-
-        var red = new Texel(255, 0, 0, 255);
-        var underlay = new SheetUnderlay(1, 1, [new TexelBox(Vector2.Zero, new Vector2(6f, 4f))], red);
-        var source = SheetSource.Generated(art, 4, 2) with { Underlay = underlay };
-
-        var sheet = SheetAtlas.Decode(source);
-
-        Assert.Equal((6, 4), SheetAtlas.Measure(source));
-        Assert.Equal(new Texel(255, 255, 255, 255), sheet[(1 * 6) + 1]);
-        Assert.Equal(red, sheet[(1 * 6) + 4]);
-        Assert.Equal(red, sheet[0]);
-    }
-
-    /// <summary>A box edge between texels covers the texel it cuts by the share it covers, so a painted edge is no harder than the art's.</summary>
-    [Fact]
-    public void ABoxCoversATexelItCutsByItsShare()
-    {
-        var underlay = new SheetUnderlay(0, 0, [new TexelBox(new Vector2(0.5f, 0f), new Vector2(2f, 1f))], new Texel(0, 0, 0, 255));
-
-        var sheet = underlay.Under(new Texel[2], 2, 1);
-
-        Assert.Equal(128, sheet[0].A);
-        Assert.Equal(255, sheet[1].A);
-    }
-
     /// <summary>A sheet is measured by the packer, so the aspects the town shapes its quads by come out of the same table.</summary>
     [Fact]
     public void ASheetKeepsItsOwnSize()

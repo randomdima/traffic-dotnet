@@ -132,6 +132,9 @@ void takeAnEvent(WorldSignal s)
             poses[car].positionM = s.p01;
             poses[car].forward = s.p23;
             poses[car].headingRad = s.p45.x;
+
+            // Put down at rest, so on its springs at rest too (ManagedWorld.Take).
+            poses[car].sprung = SprungBody(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         }
 
         if (walker >= 0)
@@ -201,7 +204,8 @@ void takeAnEvent(WorldSignal s)
         carRows[car].slipThrottle = 1.0;
         carRows[car].flags &= ~6u;
         vec2 atM = pose[body].xy;
-        for (uint wheel = 0u; wheel < 4u; wheel++) wheelRows[uint(car) * 4u + wheel] = TyreWheelRow(atM, 0.0, 0.0, 0.0, 0u);
+        uint first = uint(car) * uint(CarMostWheels);
+        for (uint wheel = 0u; wheel < uint(CarMostWheels); wheel++) wheelRows[first + wheel] = TyreWheelRow(atM, 0.0, 0.0, 0.0, 0u);
     }
 }
 

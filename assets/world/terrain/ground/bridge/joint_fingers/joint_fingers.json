@@ -1,0 +1,8 @@
+{
+  "id": "joint_fingers",
+  "sprite": "joint_fingers.webp",
+  "kind": "Joint",
+  "describe": "a steel finger expansion joint across a bridge deck: two steel plates whose long interlocking teeth mesh across a narrow dark gap, dull galvanised grey, bolt heads along both edges",
+  "footprintM": [2.765, 0.4],
+  "pictureM": 2.0625
+}

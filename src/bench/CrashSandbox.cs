@@ -42,8 +42,11 @@ internal sealed class CrashSandbox : ISimWorld, IStepRoster, IDisposable
     readonly TyreScrub[] _wheelScrub;
     readonly Vector2[] _velocityIntoTickMps;
 
-    /// <summary>What each car's body did last step, in its own frame — the loads its tyres are weighed by.</summary>
-    readonly Vector2[] _accelerationMps2;
+    /// <summary>The room every per-wheel table keeps a car, as the town's do.</summary>
+    const int Stride = TyreModel.MostWheels;
+
+    /// <summary>Each car's body on its springs, as the town carries it (<see cref="Suspension.Step"/>) — what its tyres are weighed by.</summary>
+    readonly SprungBody[] _sprung;
 
     readonly BodyId[] _personBody, _carBody;
 
@@ -60,16 +63,16 @@ internal sealed class CrashSandbox : ISimWorld, IStepRoster, IDisposable
         _tyres = new TyreCarries(cars);
         _impulseNs = new Vector2[people];
         _declaredMps = new Vector2[people];
-        _wheelImpulses = new WheelImpulse[cars * TyreModel.Wheels];
-        _wheelGround = new SurfaceUnderWheel[cars * TyreModel.Wheels];
+        _wheelImpulses = new WheelImpulse[cars * Stride];
+        _wheelGround = new SurfaceUnderWheel[cars * Stride];
         Array.Fill(
             _wheelGround,
             new SurfaceUnderWheel(
                 config.Terrain.PavedCoefficient, config.PavedDragMps2,
                 config.Marks.PowerM2S3 * config.Terrain.PavedMarkFactor, Ploughs: false));
-        _wheelScrub = new TyreScrub[cars * TyreModel.Wheels];
+        _wheelScrub = new TyreScrub[cars * Stride];
         _velocityIntoTickMps = new Vector2[people + cars];
-        _accelerationMps2 = new Vector2[cars];
+        _sprung = new SprungBody[cars];
         PersonOutcome = new DamageOutcome[people];
         CarOutcome = new DamageOutcome[cars];
     }
@@ -167,10 +170,10 @@ internal sealed class CrashSandbox : ISimWorld, IStepRoster, IDisposable
         _physics.ApplyCentralImpulse(_carBody[tag.Index], velocityMps * Cars.MassKgOf(tag.Index));
         Cars.VelocityMps[tag.Index] = velocityMps;
 
-        // <b>A car set moving has its wheels told in the same breath.</b> The rims are state, and four
-        // of them left at zero under a body doing 20 m/s are four locked wheels: the case would spend
+        // <b>A car set moving has its wheels told in the same breath.</b> The rims are state, and rims
+        // left at zero under a body doing 20 m/s are locked wheels: the case would spend
         // its approach skidding to a halt and arrive at a speed nobody staged.
-        _tyres.SpinOf(tag.Index).Fill(
+        _tyres.SpinOf(tag.Index, Cars.BuildOf(tag.Index).WheelCount).Fill(
             Vector2.Dot(velocityMps, new Vector2(MathF.Cos(Cars.HeadingRad[tag.Index]), MathF.Sin(Cars.HeadingRad[tag.Index]))));
     }
 
@@ -186,9 +189,9 @@ internal sealed class CrashSandbox : ISimWorld, IStepRoster, IDisposable
             _physics.ApplyCentralImpulse(_personBody[person], _impulseNs[person]);
         }
 
-        for (var wheel = 0; wheel < Cars.Count * TyreModel.Wheels; wheel++)
+        for (var car = 0; car < Cars.Count; car++)
         {
-            _physics.ApplyImpulseAt(_carBody[wheel / TyreModel.Wheels], _wheelImpulses[wheel].ImpulseNs, _wheelImpulses[wheel].AtM);
+            foreach (var wheel in WheelsOf(_wheelImpulses, car)) _physics.ApplyImpulseAt(_carBody[car], wheel.ImpulseNs, wheel.AtM);
         }
 
         _physics.Step(dtS);
@@ -199,20 +202,17 @@ internal sealed class CrashSandbox : ISimWorld, IStepRoster, IDisposable
             People.VelocityMps[person] = _physics.VelocityOf(_personBody[person]);
         }
 
+        // Off the patches and never off the body, whose change of velocity is the very collision a case stages.
         for (var car = 0; car < Cars.Count; car++)
         {
-            var was = Cars.VelocityMps[car];
-            var now = _physics.VelocityOf(_carBody[car]);
             Cars.PositionM[car] = _physics.PositionOf(_carBody[car]);
             Cars.HeadingRad[car] = _physics.HeadingOf(_carBody[car]);
             Cars.Forward[car] = _physics.RotationOf(_carBody[car]);
-            Cars.VelocityMps[car] = now;
+            Cars.VelocityMps[car] = _physics.VelocityOf(_carBody[car]);
             Cars.YawRateRadPerS[car] = _physics.YawRateOf(_carBody[car]);
-
-            var changeMps = (now - was) / dtS;
-            var forward = new Vector2(MathF.Cos(Cars.HeadingRad[car]), MathF.Sin(Cars.HeadingRad[car]));
-            _accelerationMps2[car] = new Vector2(
-                Vector2.Dot(changeMps, forward), Vector2.Dot(changeMps, new Vector2(-forward.Y, forward.X)));
+            var pushN = TyreModel.PushN(WheelsOf(_wheelImpulses, car), Cars.Forward[car], dtS);
+            _sprung[car] = Suspension.Step(Cars.BuildOf(car), _sprung[car], pushN, dtS);
+            Cars.TiltRad[car] = _sprung[car].TiltRad;
         }
     }
 
@@ -233,22 +233,25 @@ internal sealed class CrashSandbox : ISimWorld, IStepRoster, IDisposable
             _impulseNs[person] = step.ImpulseNs;
         }
 
-        Span<Vector2> atM = stackalloc Vector2[TyreModel.Wheels];
+        Span<Vector2> atM = stackalloc Vector2[TyreModel.MostWheels];
+        Span<float> loadShare = stackalloc float[TyreModel.MostWheels];
         for (var car = 0; car < Cars.Count; car++)
         {
             var pose = new CarPose(
                 Cars.PositionM[car], Cars.HeadingRad[car], Cars.VelocityMps[car], Cars.YawRateRadPerS[car],
-                Cars.MassKgOf(car), _accelerationMps2[car]);
+                Cars.MassKgOf(car), _sprung[car]);
             ref readonly var build = ref Cars.BuildOf(car);
             TyreModel.WheelPointsM(build, pose, atM);
+            Suspension.Loads(build, pose.Sprung, loadShare);
             TyreModel.Step(
                 _config, build, pose,
-                Cars.Command[car], float.PositiveInfinity, atM,
-                _wheelGround.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels), _tyres.SpinOf(car), dtS,
-                _wheelImpulses.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels),
-                _wheelScrub.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels));
+                Cars.Command[car], float.PositiveInfinity, loadShare, atM, WheelsOf(_wheelGround, car),
+                _tyres.SpinOf(car, build.WheelCount), dtS, WheelsOf(_wheelImpulses, car), WheelsOf(_wheelScrub, car));
         }
     }
+
+    /// <summary>A car's own rows of a per-wheel table.</summary>
+    Span<T> WheelsOf<T>(T[] all, int car) => all.AsSpan(car * Stride, Cars.BuildOf(car).WheelCount);
 
     public DamageSubject SubjectOf(BodyTag tag) => tag.Kind switch
     {

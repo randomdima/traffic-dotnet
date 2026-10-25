@@ -1,0 +1,7 @@
+{
+  "id": "pier_cutwater",
+  "sprite": "pier_cutwater.webp",
+  "kind": "PierNose",
+  "describe": "a bridge pier's stone cutwater seen straight down where it pokes out from under the deck: a pointed nose of grey ashlar blocks, point at the top of the picture, square-cut along the bottom edge where the deck covers it, a little dark wet stone at its foot",
+  "footprintM": [3.0, 2.404]
+}

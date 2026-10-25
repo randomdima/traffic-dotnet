@@ -3,7 +3,7 @@
 
 // A frame's cars and walkers as the emit reads them (sprites_car.glsl's CarRow, sprites_person.glsl's PersonRow), laid
 // off the world's own state on the device (app/devicetick/DeviceWorld) and nothing the host sends: in mode 0 a thread a
-// car — where its body is and how it points, its wheel, what its lamps say and whether it is a wreck as it last
+// car — where its body is, how it points and tilts, its wheel, what its lamps say and whether it is a wreck as it last
 // signalled them, what its arm holds and where on it, and its level off its channels; in mode 1 a thread a walker — where
 // it stands and faces, how far it has walked, inside, down or walking.
 //
@@ -63,7 +63,7 @@ void layTheCar(uint car)
     uint flags = ((row.flags & CarShowsBroken) != 0u ? CarBroken : 0u) | (level << CarLevelShift);
     cars[car] = CarRow(
         seen.positionM, trigUnit(seen.headingRad), seen.headingRad, commands[car].steerRad,
-        (row.flags >> CarShowsShift) & 0xffu, carVariants[car], flags, row.towing, row.forkAlongM, 0u);
+        (row.flags >> CarShowsShift) & 0xffu, carVariants[car], flags, row.towing, row.forkAlongM, seen.tiltHalves);
 }
 
 void layTheWalker(uint walker)

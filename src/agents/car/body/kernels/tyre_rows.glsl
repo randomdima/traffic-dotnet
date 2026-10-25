@@ -6,16 +6,29 @@
 #ifndef TYRE_ROWS_GLSL
 #define TYRE_ROWS_GLSL
 
+#include "agents/car/body/kernels/car_wheels.glsl"
+
+// A body on its springs (SprungBody): sunk, pitched nose down and rolled right side down off where it stands at rest, and
+// how fast each is going.
+struct SprungBody
+{
+    float heaveM;
+    float pitchRad;
+    float rollRad;
+    float heaveMps;
+    float pitchRadPerS;
+    float rollRadPerS;
+};
+
 struct TyrePose
 {
     vec2 positionM;
     vec2 velocityMps;
     vec2 forward;
-    vec2 accelerationMps2;
     float headingRad;
     float yawRateRadPerS;
     float massKg;
-    float pad;
+    SprungBody sprung;
 };
 
 // The pedals and the wheel (DriveCommand): a brake of +inf locks every wheel.
@@ -28,7 +41,7 @@ struct TyreCommand
 };
 
 // One car's own figures and flags (DeviceTyres.CarRow): hand 1, driven wheels slipping 2, at rest 4 (written), and which
-// of its wheels stood on a way when its body was last laid in bits 8–11.
+// of its wheels stood on a way when its body was last laid in bits 8–15.
 struct TyreCarRow
 {
     float inertiaKgM2;
@@ -46,6 +59,6 @@ struct TyreWheelRow
     uint marking;
 };
 
-uint tyreWheelsOnAWayOf(TyreCarRow row) { return (row.flags >> 8) & 0xfu; }
+uint tyreWheelsOnAWayOf(TyreCarRow row) { return (row.flags >> 8) & 0xffu; }
 
 #endif

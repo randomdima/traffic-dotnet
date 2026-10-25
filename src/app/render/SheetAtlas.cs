@@ -160,22 +160,16 @@ internal sealed class SheetAtlas
     /// <summary>The sheet's own texels at the size <see cref="Measure"/> gives it, for a caller that wants the picture rather than the page.</summary>
     public static Texel[] Decode(SheetSource source)
     {
-        var (artWidth, artHeight) = ArtSize(source);
-        var pixels = new Texel[artWidth * artHeight];
+        var (width, height) = Measure(source);
+        var pixels = new Texel[width * height];
         if (source.Rgba is { } raw) MemoryMarshal.Cast<byte, Texel>(raw).CopyTo(pixels);
         else Texels.Decode(source.Path!, pixels);
 
-        return source.Underlay is { } underlay ? underlay.Under(pixels, artWidth, artHeight) : pixels;
+        return pixels;
     }
 
-    /// <summary>What a sheet takes on a page: its art's size, grown by any underlay's margin.</summary>
-    public static (int Width, int Height) Measure(SheetSource source)
-    {
-        var (width, height) = ArtSize(source);
-        return source.Underlay is { } underlay ? underlay.Padded(width, height) : (width, height);
-    }
-
-    static (int Width, int Height) ArtSize(SheetSource source) =>
+    /// <summary>What a sheet takes on a page: its art's size.</summary>
+    public static (int Width, int Height) Measure(SheetSource source) =>
         source.Path is { } path ? ImageHeader.Measure(path) : (source.WidthPx, source.HeightPx);
 
     /// <summary>The sheet into its rectangle, and its own edge into the gutter around it.</summary>

@@ -20,11 +20,6 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     static readonly SimConfig Config = SimConfig.Shipped();
 
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct PoseRow(
-        Vector2 PositionM, Vector2 VelocityMps, Vector2 Forward, Vector2 AccelerationMps2, float HeadingRad, float YawRateRadPerS,
-        float MassKg, float Pad);
-
-    [StructLayout(LayoutKind.Sequential)]
     readonly record struct CommandRow(float SteerRad, float ThrottleMps2, float BrakeMps2, uint HandbrakeAndReverse);
 
     [StructLayout(LayoutKind.Sequential)]
@@ -54,7 +49,9 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             var velocity = new Vector2(Between(-22f, 22f), Between(-22f, 22f)) * (random.Next(5) == 0 ? 0.05f : 1f);
             var pose = new CarPose(
                 new Vector2(Between(0f, 2000f), Between(0f, 2000f)), heading, velocity, Between(-1.2f, 1.2f), build.MassKg,
-                new Vector2(Between(-6f, 6f), Between(-7f, 7f)));
+                new SprungBody(
+                    Between(-0.03f, 0.03f), Between(-0.06f, 0.06f), Between(-0.1f, 0.1f), Between(-0.3f, 0.3f),
+                    Between(-0.6f, 0.6f), Between(-0.8f, 0.8f)));
             var brake = random.Next(8) switch
             {
                 0 => float.PositiveInfinity,
@@ -64,9 +61,9 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             var command = new DriveCommand(
                 random.Next(3) == 0 ? 0f : Between(-0.55f, 0.55f), brake > 0f ? 0f : Between(0f, 4f), brake,
                 random.Next(6) == 0, random.Next(7) == 0);
-            var ground = new SurfaceUnderWheel[TyreModel.Wheels];
-            var spin = new float[TyreModel.Wheels];
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+            var ground = new SurfaceUnderWheel[TyreModel.MostWheels];
+            var spin = new float[TyreModel.MostWheels];
+            for (var wheel = 0; wheel < build.WheelCount; wheel++)
             {
                 ground[wheel] = new SurfaceUnderWheel(Between(0f, 1.1f), random.Next(3) == 0 ? Between(0f, 2f) : 0f, Between(0f, 40f), random.Next(4) == 0);
                 spin[wheel] = Vector2.Dot(velocity, pose.Forward) + Between(-3f, 3f);
@@ -86,24 +83,26 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     [Fact]
     public void TheTyresSpendWhatTheHostsModelSpends()
     {
-        CarBuild[] builds = [CarBuild.Nominal(Config, Config.Car.DrivenFrontShare), .. CarCatalog.Shared.Variants.Select(look => CarBuild.Of(Config, look))];
+        CarBuild[] builds =
+        [
+            CarBuild.Nominal(Config, Config.Car.DrivenFrontShare), Layouts.SixWheels(Config),
+            .. CarCatalog.Shared.Variants.Select(look => CarBuild.Of(Config, look)),
+        ];
         var cars = Cars(2000, 3, builds);
         var dtS = Config.TickSeconds;
 
         using var buildBuffer = device.Holding<CarBuildRow>(builds.Select(build => CarBuildRow.Of(build)).ToArray());
         using var buildOf = device.Holding<uint>(cars.Select(car => (uint)car.BuildAt).ToArray());
-        using var poses = device.Holding<PoseRow>(cars.Select(car => new PoseRow(
-            car.Pose.PositionM, car.Pose.VelocityMps, car.Pose.Forward, car.Pose.AccelerationMps2, car.Pose.HeadingRad,
-            car.Pose.YawRateRadPerS, car.Pose.MassKg, 0f)).ToArray());
+        using var poses = device.Holding<DeviceTyres.PoseRow>(cars.Select(car => DeviceTyres.PoseRow.Of(car.Pose)).ToArray());
         using var commands = device.Holding<CommandRow>(cars.Select(car => new CommandRow(
             car.Command.SteerRad, car.Command.ThrottleMps2, car.Command.BrakeMps2,
             (car.Command.Handbrake ? 1u : 0u) | (car.Command.Reverse ? 2u : 0u))).ToArray());
         using var ceilings = device.Holding<float>(cars.Select(car => car.CeilingMps2).ToArray());
         using var surfaces = device.Holding<SurfaceRow>(cars.SelectMany(car => car.Ground).Select(ground => new SurfaceRow(
             ground.Coefficient, ground.DragMps2, ground.MarkThresholdM2S3, ground.Ploughs ? 1u : 0u)).ToArray());
-        using var spins = device.Holding<Vector4>(cars.Select(car => new Vector4(car.Spin[0], car.Spin[1], car.Spin[2], car.Spin[3])).ToArray());
-        using var impulses = device.Sized<Vector4>(cars.Length * TyreModel.Wheels);
-        using var scrubs = device.Sized<ScrubRow>(cars.Length * TyreModel.Wheels);
+        using var spins = device.Holding<float>(cars.SelectMany(car => car.Spin).ToArray());
+        using var impulses = device.Sized<Vector4>(cars.Length * TyreModel.MostWheels);
+        using var scrubs = device.Sized<ScrubRow>(cars.Length * TyreModel.MostWheels);
 
         GpuBuffer[] buffers = [buildBuffer, buildOf, poses, commands, ceilings, surfaces, spins, impulses, scrubs];
         using var kernel = new ComputeKernel(device.Vk, "tyres_step.comp", buffers.Length, (uint)Marshal.SizeOf<Figures>());
@@ -118,22 +117,26 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         batch.SubmitAndWait();
 
         var differ = new List<string>();
-        Span<Vector2> atM = stackalloc Vector2[TyreModel.Wheels];
-        Span<WheelImpulse> spent = stackalloc WheelImpulse[TyreModel.Wheels];
-        Span<TyreScrub> scrub = stackalloc TyreScrub[TyreModel.Wheels];
+        Span<Vector2> atM = stackalloc Vector2[TyreModel.MostWheels];
+        Span<WheelImpulse> spent = stackalloc WheelImpulse[TyreModel.MostWheels];
+        Span<TyreScrub> scrub = stackalloc TyreScrub[TyreModel.MostWheels];
+        Span<float> loadShare = stackalloc float[TyreModel.MostWheels];
         for (var at = 0; at < cars.Length; at++)
         {
             var car = cars[at];
+            var wheels = car.Build.WheelCount;
             TyreModel.WheelPointsM(car.Build, car.Pose, atM);
+            Suspension.Loads(car.Build, car.Pose.Sprung, loadShare);
             var spin = car.Spin.ToArray();
-            TyreModel.Step(Config, car.Build, car.Pose, car.Command, car.CeilingMps2, atM, car.Ground, spin, dtS, spent, scrub);
+            TyreModel.Step(
+                Config, car.Build, car.Pose, car.Command, car.CeilingMps2, loadShare, atM, car.Ground, spin, dtS, spent, scrub);
 
-            var deviceSpin = spins.Span<Vector4>()[at];
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+            var first = at * TyreModel.MostWheels;
+            for (var wheel = 0; wheel < wheels; wheel++)
             {
-                var onDevice = impulses.Span<Vector4>()[at * 4 + wheel];
-                var scrubbed = scrubs.Span<ScrubRow>()[at * 4 + wheel];
-                var spinOnDevice = wheel switch { 0 => deviceSpin.X, 1 => deviceSpin.Y, 2 => deviceSpin.Z, _ => deviceSpin.W };
+                var onDevice = impulses.Span<Vector4>()[first + wheel];
+                var scrubbed = scrubs.Span<ScrubRow>()[first + wheel];
+                var spinOnDevice = spins.Span<float>()[first + wheel];
                 if (!Same(spent[wheel].ImpulseNs, new Vector2(onDevice.X, onDevice.Y)) || !Same(spin[wheel], spinOnDevice)
                     || !Same(scrub[wheel].SlideSpeedMps, scrubbed.SlideSpeedMps) || scrub[wheel].Sliding != ((scrubbed.Flags & 2u) != 0))
                 {
@@ -142,7 +145,7 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             }
         }
 
-        Assert.True(differ.Count == 0, $"{differ.Count} of {cars.Length * 4} patches differ: {string.Join("; ", differ.Take(6))}");
+        Assert.True(differ.Count == 0, $"{differ.Count} patches differ: {string.Join("; ", differ.Take(6))}");
     }
 
     /// <summary>The same float to the bit.</summary>

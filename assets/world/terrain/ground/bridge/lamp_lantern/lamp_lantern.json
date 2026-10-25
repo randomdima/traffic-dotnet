@@ -1,0 +1,7 @@
+{
+  "id": "lamp_lantern",
+  "sprite": "lamp_lantern.webp",
+  "kind": "Lamp",
+  "describe": "a classic cast-iron bridge lamp post seen straight down from above: a round fluted black base on the parapet, a short curved arm toward the bottom of the picture carrying one lantern with a dark glass top; lamp off",
+  "footprintM": [0.7, 1.524]
+}

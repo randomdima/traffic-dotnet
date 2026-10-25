@@ -69,11 +69,10 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     internal readonly record struct PersonRow(Vector2 PositionM, float HeadingRad, float DistanceWalkedM, uint Variant, uint Flags);
 
     /// <summary>One car as the emit reads it (<c>CarRow</c>, <c>sprites_car.glsl</c>).</summary>
-    /// <remarks><c>Pad</c> rounds it to its vectors' eight bytes, which is std430's stride of the row.</remarks>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CarRow(
         Vector2 PositionM, Vector2 Forward, float HeadingRad, float SteerRad, uint Lamps, uint Variant, uint Flags,
-        int Towing, float ForkAlongM, uint Pad);
+        int Towing, float ForkAlongM, uint TiltHalves);
 
     /// <summary>The push <c>sprites_world.comp</c> is run with.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -83,11 +82,15 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct PersonLook(Vector2 StandingHalfM, Vector2 DownHalfM, float DownReachM, float HeightM);
 
-    /// <summary>One car's look (<c>CarLook</c>): every part's quad and reach, and its arm's two pictures.</summary>
+    /// <summary>
+    /// One car's look (<c>CarLook</c>): every part's quad and reach, where its wheels stand and which steer a bit each, and
+    /// its arm's two pictures.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CarLook(
-        Vector2 BodyHalfM, Vector2 WreckHalfM, float BodyReachM, float WreckReachM, Vector2 TyreHalfM, Vector2 FirstSteeredM,
-        Vector2 SecondSteeredM, float TyreReachM, float WheelWidthM, float LampReachM, uint LensCount, uint ExhaustCount,
+        Vector2 BodyHalfM, Vector2 WreckHalfM, float BodyReachM, float WreckReachM, Vector2 TyreHalfM,
+        DeviceAtlas.WheelPoints WheelsM, uint WheelCount, uint SteeredWheels, float TyreReachM, float WheelWidthM,
+        float LampReachM, uint LensCount, uint ExhaustCount,
         uint HasBeam, Vector2 PivotM, Vector2 CollapsedHalfM, Vector2 ExtendedHalfM, float CollapsedHingeAtM,
         float ExtendedHingeAtM, float CollapsedReachM, float ExtendedReachM, uint CollapsedSheet, uint ExtendedSheet);
 
@@ -157,6 +160,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         public float FlashOnShare;
         public float BeaconHz;
         public float HalfLensCellM;
+        public float CarTiltEyeHeightM;
         public float CarHeadHalfX;
         public float CarHeadHalfY;
         public float WalkHeadHalfX;
@@ -609,6 +613,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             FlashOnShare = lamps.FlashOnShare,
             BeaconHz = config.BeaconHz,
             HalfLensCellM = LampAtlas.CellM * 0.5f,
+            CarTiltEyeHeightM = config.View.CarTiltEyeHeightM,
             CarHeadHalfX = carHeadHalfM.X,
             CarHeadHalfY = carHeadHalfM.Y,
             WalkHeadHalfX = walkHeadHalfM.X,
@@ -692,17 +697,24 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         for (var variant = 0; variant < rows.Length; variant++)
         {
             ref readonly var build = ref cars.BuildOfVariant(variant);
-            var artHalfM = new Vector2(build.LengthM, build.WidthM) * 0.5f;
-            var bodyHalfM = artHalfM * looks.CarSheetScales[variant];
-            var wreckHalfM = artHalfM * catalogue.Variants[variant].WreckScale * looks.CarSheetScales[catalogue.SheetCount + variant];
+            var bodyHalfM = new Vector2(build.LengthM, build.WidthM) * 0.5f;
+            var wreckHalfM = bodyHalfM * catalogue.Variants[variant].WreckScale;
             var halfDiagonalM = new Vector2(build.LengthM, build.WidthM).Length() * 0.5f;
 
             var beam = catalogue.BeamOf(variant);
             var collapsed = beam?.Drawn(false) ?? default;
             var extended = beam?.Drawn(true) ?? default;
+            var wheelsM = new DeviceAtlas.WheelPoints();
+            var steered = 0u;
+            for (var wheel = 0; wheel < build.WheelCount; wheel++)
+            {
+                wheelsM[wheel] = build.WheelAt(wheel).AtM;
+                if (build.WheelAt(wheel).IsSteered) steered |= 1u << wheel;
+            }
+
             rows[variant] = new CarLook(
                 bodyHalfM, wreckHalfM, bodyHalfM.Length(), wreckHalfM.Length(),
-                new Vector2(build.WheelLengthM, build.WheelWidthM) * 0.5f, TyreModel.WheelAtM(build, 0), TyreModel.WheelAtM(build, 1),
+                new Vector2(build.WheelLengthM, build.WheelWidthM) * 0.5f, wheelsM, (uint)build.WheelCount, steered,
                 halfDiagonalM + build.WheelLengthM, build.WheelWidthM, halfDiagonalM, (uint)catalogue.LensesOf(variant).Length,
                 (uint)catalogue.ExhaustsOf(variant).Length, beam is null ? 0u : 1u, beam?.PivotM ?? Vector2.Zero, collapsed.SizeM * 0.5f,
                 extended.SizeM * 0.5f, collapsed.HingeAtM, extended.HingeAtM, ArmReachM(collapsed), ArmReachM(extended),

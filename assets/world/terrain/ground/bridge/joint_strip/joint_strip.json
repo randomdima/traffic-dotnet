@@ -1,0 +1,8 @@
+{
+  "id": "joint_strip",
+  "sprite": "joint_strip.webp",
+  "kind": "Joint",
+  "describe": "a strip-seal expansion joint across a bridge deck: two steel edge rails with a black rubber seal between them, dull grey steel, a row of small bolt heads along each rail",
+  "footprintM": [2.759, 0.4],
+  "pictureM": 1.8229
+}

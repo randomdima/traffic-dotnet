@@ -1,0 +1,7 @@
+{
+  "id": "ballast_granite",
+  "sprite": "ballast_granite.webp",
+  "kind": "Ballast",
+  "describe": "a railway's ballast bed seen straight down with no track on it: grey crushed granite packed flat across its middle, thinning toward both long edges into loose single stones scattered apart into nothing",
+  "footprintM": [6.9206, 4.4]
+}

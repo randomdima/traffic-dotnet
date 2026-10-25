@@ -39,19 +39,6 @@ internal sealed partial class TownWorld
         SignalTheShow(car);
     }
 
-    /// <summary>
-    /// What a car's lagged acceleration closes on its new reading by in one step of <paramref name="dtS"/>: the same on
-    /// every car in the town, and an exponential, which is not a thing to take once a car.
-    /// </summary>
-    public static float LoadSettledShare(SimConfig config, float dtS) => 1f - Powers.Exp(-dtS / config.Tyre.LoadSettleS);
-
-    /// <summary>
-    /// A settled load with each of its two under <paramref name="leastMps2"/> made nought
-    /// (<see cref="TyreFigures.LeastSettledLoadMps2"/>), as the device's view pass makes it (<c>world_view.comp</c>).
-    /// </summary>
-    public static Vector2 AtLeastALoad(Vector2 loadMps2, float leastMps2) => new(
-        MathF.Abs(loadMps2.X) < leastMps2 ? 0f : loadMps2.X, MathF.Abs(loadMps2.Y) < leastMps2 ? 0f : loadMps2.Y);
-
     /// <inheritdoc/>
     /// <remarks>
     /// <b>One step of the world begun and the one before it read</b> (<see cref="WorldLayer"/>, <see cref="WorldLayer.StepsAhead"/>):

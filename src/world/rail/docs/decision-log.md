@@ -1,5 +1,36 @@
 # The railway — decision log
 
+## 2026-10-25 — a rail bridge dressed as a road's, and the track's ballast a bed of its own
+
+**The owner: "Improve railway bridges - similar logic to roadbridges, just difference generated assets. also improve
+rail to grass connections similar to shore to grass"** (`RAIL-12`, `RAIL-13`).
+
+- **The road bridge's drawing, handed a span of track**: piers, wing walls, posts at the landing corners and a side
+  along either shoulder, all from the one bridge sheet (`BridgeSheet`, `GroundMesh.RailDecks`). Its wing walls and
+  posts are shared with the road's (`WingWall`, `Post`); the deck has no lamps, joint or carriageway.
+- **One strip for the side, walkway and parapet together** (`BridgeLookKind.RailParapet`): a ground corner files its
+  surface in four bits beside its fade's, and two more strips would have run past the last. Its wing wall is the
+  parapet's share of that one picture (`ViewFigures.RailBridgeParapetShare`), read across a band of it. The fittings
+  went from four cells to eight to take the rail bridge's pier and post.
+- **The deck stands 1.1 m past the ballast either side**, from 0.6: the side the art draws, a walkway and a girder.
+- **Two tracks side by side are one deck**: what would stand on another span's deck is not laid (`ChordGrid`).
+- **Art**: `bridge_rail-v1`, one attempt, every cell kept; `railparapet_girder`, `railpier_concrete` and
+  `railend_steel` used.
+- **The track is two strips: its bed of ballast, and its sleepers and rails on clear** — the owner: "lets separate
+  rails and rail-track from background and do background separately … rails on the bridge dont need extra background
+  - rail-bridge is the background and road crossigs also". The old track's ballast stopped at the sleepers' ends, two
+  thirds of the 4.4 m band, so a grass fade over the band's edge faded grass onto grass; a bed of its own is the band
+  wide and frays into the grass at both edges, and the grass fades over its outer 0.5 m (`ViewFigures.BallastFadeM`).
+  The bed is laid at grade only: on a bridge the sleepers lie on the deck, and at a crossing the road covers it.
+- **Both strips are bands of the one track picture** (`TrackSheet`): no surface number is free for a second one. The
+  picture is as many sleeper strips as fit a whole number of beds nearest their length.
+- **Three parts, in order** — the bed (`GroundPart.Ballast`), the grass over its edges (`Shoulders`), the sleepers
+  (`Track`): a part is filed by band, which reorders it, and laid in one part the fade was drawn under the bed.
+- **Art**: `rail_track_layers-v1`, one attempt; `sleepers_concrete` and `ballast_granite` used, `sleepers_twinblock`
+  not kept (drawn as plain sleepers). The old all-in-one tracks and a first try at composing a loose shoulder into the
+  old track's margins (`rail_shoulders`) were dropped. `qq sprites use` no longer stretches a track to its drawn length
+  (it spaced the sleepers a fifth apart wider) and crops a bed's tapered ends before making it repeat.
+
 ## 2026-10-19 — a generated railway loops over itself, at 65 m
 
 **The owner: "one hard turn for trains on maps … even more lets make it self 'intesect' but via a bridge … make trains

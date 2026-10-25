@@ -133,7 +133,6 @@ internal static class DeviceAtlasProbe
         var onTheHost = new WayCover[cars.Length * Room];
         var hostCounts = new int[cars.Length];
         var hostWheels = new byte[cars.Length];
-        Span<Vector2> wheelsM = stackalloc Vector2[TyreModel.Wheels];
         var hostMs = double.MaxValue;
         for (var round = 0; round < Rounds; round++)
         {
@@ -141,9 +140,10 @@ internal static class DeviceAtlasProbe
             for (var at = 0; at < cars.Length; at++)
             {
                 ref readonly var car = ref cars[at];
-                (wheelsM[0], wheelsM[1], wheelsM[2], wheelsM[3]) = (car.Wheel0M, car.Wheel1M, car.Wheel2M, car.Wheel3M);
+                var wheelsM = car.WheelsM;
                 hostCounts[at] = atlas.UnderWheels(
-                    wheelsM, car.AroundAWheelM, onTheHost.AsSpan(at * Room, Room), out hostWheels[at], (byte)car.Channels);
+                    wheelsM[..car.Wheels], car.AroundAWheelM, onTheHost.AsSpan(at * Room, Room), out hostWheels[at],
+                    (byte)car.Channels);
             }
 
             hostMs = Math.Min(hostMs, took.Elapsed.TotalMilliseconds);
@@ -208,12 +208,12 @@ internal static class DeviceAtlasProbe
         var terrain = new GroundLocator(world.Plan, SimConfig.Shipped());
         var all = new int[kinds.Length];
         var onAWay = new int[kinds.Length];
-        Span<Vector2> wheelsM = stackalloc Vector2[TyreModel.Wheels];
         Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
         for (var car = 0; car < cars.Length; car++)
         {
             ref readonly var row = ref cars[car];
-            (wheelsM[0], wheelsM[1], wheelsM[2], wheelsM[3]) = (row.Wheel0M, row.Wheel1M, row.Wheel2M, row.Wheel3M);
+            var points = row.WheelsM;
+            ReadOnlySpan<Vector2> wheelsM = points[..row.Wheels];
             world.Atlas.UnderWheels(wheelsM, row.AroundAWheelM, under, out var wheels, (byte)row.Channels);
             for (var wheel = 0; wheel < wheelsM.Length; wheel++)
             {
@@ -226,17 +226,17 @@ internal static class DeviceAtlasProbe
         return string.Join(", ", kinds.Where(kind => all[(int)kind] > 0).Select(kind => $"{kind} {all[(int)kind]} ({onAWay[(int)kind]})"));
     }
 
-    /// <summary>Every car's four wheels where the fleet has it, as the claims lay its body (<c>TownWorld.LayTheCarsBody</c>).</summary>
+    /// <summary>Every car's wheels where the fleet has it, as the claims lay its body (<c>TownWorld.LayTheCarsBody</c>).</summary>
     static DeviceAtlas.WheelsRow[] WheelsOf(CarFleet cars, float aroundAWheelM)
     {
         var rows = new DeviceAtlas.WheelsRow[cars.Count];
-        Span<Vector2> wheelsM = stackalloc Vector2[TyreModel.Wheels];
+        Span<Vector2> wheelsM = stackalloc Vector2[TyreModel.MostWheels];
         for (var car = 0; car < cars.Count; car++)
         {
             ref readonly var build = ref cars.BuildOf(car);
             TyreModel.WheelPointsM(
-                build, new CarPose(cars.PositionM[car], cars.HeadingRad[car], Vector2.Zero, 0f, 0f, Vector2.Zero), wheelsM);
-            rows[car] = new DeviceAtlas.WheelsRow(wheelsM[0], wheelsM[1], wheelsM[2], wheelsM[3], aroundAWheelM, cars.Channels[car]);
+                build, new CarPose(cars.PositionM[car], cars.HeadingRad[car], Vector2.Zero, 0f, 0f), wheelsM);
+            rows[car] = DeviceAtlas.WheelsRow.Of(wheelsM[..build.WheelCount], aroundAWheelM, cars.Channels[car]);
         }
 
         return rows;

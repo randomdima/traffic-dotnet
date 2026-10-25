@@ -104,6 +104,7 @@ internal sealed unsafe partial class TownRenderer
         pictures[ShoreBinding - firstPicture] = Picture(_textures[Math.Min((int)Surface.Shore, _textures.Length - 1)]);
         pictures[KerbBinding - firstPicture] = Picture(_textures[Math.Min((int)Surface.Kerb, _textures.Length - 1)]);
         pictures[EdgingBinding - firstPicture] = Picture(_textures[Math.Min((int)Surface.Edging, _textures.Length - 1)]);
+        pictures[BridgeBinding - firstPicture] = Picture(_bridge);
 
         var buffers = stackalloc DescriptorBufferInfo[Bindings];
         var writes = stackalloc WriteDescriptorSet[Bindings];
@@ -214,7 +215,8 @@ internal sealed unsafe partial class TownRenderer
     static DescriptorType TypeOf(int binding) => binding switch
     {
         CameraBinding or SheetTableBinding or MarkLookBinding or FanTableBinding => DescriptorType.UniformBuffer,
-        < MarkLookBinding or TrackBinding or ShoreBinding or KerbBinding or EdgingBinding => DescriptorType.CombinedImageSampler,
+        < MarkLookBinding or TrackBinding or ShoreBinding or KerbBinding or EdgingBinding or BridgeBinding
+            => DescriptorType.CombinedImageSampler,
         _ => DescriptorType.StorageBuffer,
     };
 

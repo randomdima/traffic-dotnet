@@ -1,0 +1,58 @@
+{
+ "id": "bridge_furniture-v1",
+ "ts": "2026-10-25T18:14:04",
+ "op": "edit",
+ "name": "bridge_furniture",
+ "file": ".tmp/gen/frames/bridge_furniture-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.012539,
+ "usage": {
+  "prompt_tokens": 1342,
+  "completion_tokens": 158,
+  "total_tokens": 1500,
+  "cost": 0.012539,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.012539,
+   "upstream_inference_prompt_cost": 0.007799,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "A sheet of twelve top-down game sprites for a town's river bridge, every one seen exactly straight down from above, in the painted style of the picture sent (a bollard, a bench, a litter bin and a kerb from the same game, at one scale): soft, calm, painted rather than photographic, low contrast, no black outlines. A car beside them would be 4.5 m long and 1.8 m wide.\n\nEverything outside the drawings is fully transparent: no ground, no water, no backdrop, no frame, no cast shadow, no text, no labels. Each drawing whole, a clear gap of transparency between drawings. Every lamp is drawn switched off: unlit glass, no glow, no light cast.\n\nThe sheet is 4 rows, read top to bottom and each row left to right.\n\nRow 1 — two bridge parapets, each a long strip 6 m long and 0.5 m deep (12 times as long as deep), lying horizontally, square-cut ends; each repeats along its length when the game lays it end to end, so its ends continue into each other. The bottom long edge is the side facing the bridge's footway.\n1. parapet_balustrade: a stone balustrade seen from above: a flat pale limestone coping rail along its length, square pedestals exactly every 2 m (3 along it) a little wider than the rail, weathered softly, no two stones quite the same tone.\n2. parapet_iron: a cast-iron railing on a granite plinth seen from above: a grey granite plinth along its length, on it a slim dark green-black iron handrail, small square iron posts exactly every 1.5 m (4 along it).\n\nRow 2 — two more parapets, the same size and the same rules:\n3. parapet_concrete: a modern smooth light grey concrete upstand with a slim galvanised steel handrail along its top, a thin joint square across exactly every 3 m.\n4. parapet_brick: an old dark red brick parapet wall capped with rounded blue-grey engineering bricks along its length, a pale stone pier cap exactly every 3 m slightly wider than the wall.\n\nRow 3 — three bridge lamps and one end pillar, each seen from directly above, so a lamp is its base and the head it holds, never its pole drawn sideways:\n5. lamp_lantern: a classic cast-iron lamp post 1.4 m by 0.7 m: a round fluted black base near the top edge, a short curved black arm reaching toward the bottom, ending in one square lantern with a dark unlit glass top. off: lantern glass, dark.\n6. lamp_double: an ornate black lamp standard 2.0 m by 0.7 m: a round base in the middle, two curved arms reaching left and right, each ending in a globe lantern of milky unlit glass. off: both globes, unlit.\n7. lamp_modern: a modern slim grey steel street light 1.6 m long by 0.5 m: a small round pole top at the top of the drawing, one straight flat arm reaching toward the bottom, a flat rectangular luminaire head at its end. off: the luminaire's glass, dark.\n8. newel_stone: a square pale limestone end pillar of a parapet, 1.0 m by 1.0 m: a pier cap with a shallow pyramid top and a moulded edge.\n\nRow 4 — three bridge pier noses and one more end pillar. A pier nose is the end of a pier standing in the river, seen from above where it pokes out from under the deck: its bottom edge is straight and square-cut where the deck covers it, its point or curve faces the top:\n9. pier_cutwater: 3.0 m wide and 2.6 m deep: a pointed nose of grey ashlar stone blocks with fine joints, a band of darker wet stone just above where it meets the water.\n10. pier_rounded: 3.0 m wide and 2.0 m deep: a half-round end of smooth grey concrete, its curve at the top.\n11. pier_brick: 3.0 m wide and 2.6 m deep: a pointed nose of dark red brick with a pale stone cap course along its edges.\n12. newel_granite: a square grey granite end post of a railing, 1.0 m by 1.0 m: a polished square cap with chamfered edges and a small round bronze stud in the middle.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "a47d8eebc4f40342",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/bridge_furniture_style.png"
+  }
+ ],
+ "cells": [
+  "parapet_balustrade",
+  "parapet_iron",
+  "parapet_concrete",
+  "parapet_brick",
+  "lamp_lantern",
+  "lamp_double",
+  "lamp_modern",
+  "newel_stone",
+  "pier_cutwater",
+  "pier_rounded",
+  "pier_brick",
+  "newel_granite"
+ ]
+}

@@ -63,7 +63,7 @@ internal sealed class ManagedWorld : WorldLayer
     readonly TyreCarries _tyres;
     readonly WheelScratch _wheels;
     readonly byte[] _wheelsOnAWay;
-    readonly Vector2[] _accelerationMps2;
+    readonly SprungBody[] _sprung;
 
     /// <summary>
     /// What each car's covers were last read off, the read itself and where it is in <see cref="_carCovers"/> — so a car
@@ -193,7 +193,7 @@ internal sealed class ManagedWorld : WorldLayer
         _tyres = new TyreCarries(count);
         _wheels = new WheelScratch(count);
         _wheelsOnAWay = new byte[count];
-        _accelerationMps2 = new Vector2[count];
+        _sprung = new SprungBody[count];
         _towLoad = new int[count];
         _towByTheTail = new bool[count];
         _towSlot = new int[count];
@@ -202,8 +202,8 @@ internal sealed class ManagedWorld : WorldLayer
         _carStoodAt = new CarStands[count];
         _carCoverCount = new int[count];
         _carCoversFrom = new int[count];
-        _carCovers = new WayCover[count * TyreModel.Wheels];
-        _carCoversBefore = new WayCover[count * TyreModel.Wheels];
+        _carCovers = new WayCover[count * TyreModel.MostWheels];
+        _carCoversBefore = new WayCover[count * TyreModel.MostWheels];
         _roads = laying.Roads;
         _followed = new LineFollowed[count];
         Array.Fill(_followed, LineFollowed.None);
@@ -373,7 +373,7 @@ internal sealed class ManagedWorld : WorldLayer
         for (var wagon = 0; wagon < _wagonBody.Length; wagon++) StepTheRailWheels(wagon);
 
         _physics.Step(dtS);
-        SettleTheLoads(dtS);
+        StepTheSprings(dtS);
         WriteTheView(into, stepped: true);
         WriteTheTouches(into);
         if (_stepReadsCovers) ReadCovers(into);
@@ -413,6 +413,9 @@ internal sealed class ManagedWorld : WorldLayer
 
             case ControlAction.Place:
                 _physics.Release(body, new Vector2(signal.Params.X, signal.Params.Y), signal.Params.Z);
+
+                // Put down at rest, so on its springs at rest too: not still carrying the manoeuvre it was lifted out of.
+                if (car >= 0) _sprung[car] = default;
                 if (person >= 0)
                 {
                     _inside[person] = false;
@@ -592,7 +595,7 @@ internal sealed class ManagedWorld : WorldLayer
         var body = _carBody[car];
         return new CarPose(
             _physics.PositionOf(body), _physics.HeadingOf(body), _physics.RotationOf(body), _physics.VelocityOf(body),
-            _physics.YawRateOf(body), _physics.MassOf(body), _accelerationMps2[car]);
+            _physics.YawRateOf(body), _physics.MassOf(body), _sprung[car]);
     }
 
     /// <summary>
@@ -602,13 +605,14 @@ internal sealed class ManagedWorld : WorldLayer
     void StepTheTyres(int car)
     {
         var body = _carBody[car];
+        var count = _build[car].WheelCount;
         if (_heldAt[car] != 0)
         {
             TrailerWheels(car);
         }
         else
         {
-            var carry = _tyres.Of(car);
+            var carry = _tyres.Of(car, count);
             if (TyrePass.Settled(_physics.VelocityOf(body), _physics.YawRateOf(body), _command[car], carry))
             {
                 _wheels.Clear(car);
@@ -616,86 +620,72 @@ internal sealed class ManagedWorld : WorldLayer
             }
 
             // Room for every wheel's mark is made first, so the pass writes them where they are kept.
-            if (_marksLaidCount + TyreModel.Wheels > _marksLaid.Length) Array.Resize(ref _marksLaid, _marksLaid.Length * 2);
+            if (_marksLaidCount + count > _marksLaid.Length) Array.Resize(ref _marksLaid, _marksLaid.Length * 2);
 
             TyrePass.Step(
                 Config, _grounds, _build[car], PoseOf(car), _command[car], _underAHand[car],
-                1f / _physics.InverseInertiaOf(body), _wheelsOnAWay[car], carry, _wheels.GroundUnder(car),
-                _wheels.ImpulsesOf(car), _wheels.ScrubOf(car), _marksLaid.AsSpan(_marksLaidCount, TyreModel.Wheels),
+                1f / _physics.InverseInertiaOf(body), _wheelsOnAWay[car], carry, _wheels.GroundUnder(car, count),
+                _wheels.ImpulsesOf(car, count), _wheels.ScrubOf(car, count), _marksLaid.AsSpan(_marksLaidCount, count),
                 out var laid);
             _marksLaidCount += laid;
         }
 
-        var wheels = _wheels.ImpulsesOf(car);
-        for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
-        {
-            _physics.ApplyImpulseAt(body, wheels[wheel].ImpulseNs, wheels[wheel].AtM);
-        }
+        foreach (var wheel in _wheels.ImpulsesOf(car, count)) _physics.ApplyImpulseAt(body, wheel.ImpulseNs, wheel.AtM);
     }
 
     /// <summary>
-    /// <b>The two wheels a towed car is left standing on</b> (EVA-5): the pair at the far end from the fork, the lifted
-    /// pair cleared, and the two down rolling with the road under them — or none, on a car held at both ends.
+    /// <b>The axle a towed car is left standing on</b> (EVA-5): the one at the far end from the fork, the lifted wheels
+    /// spending nothing, and those down rolling with the road under them — or none, on a car held at both ends.
     /// </summary>
     void TrailerWheels(int car)
     {
-        var impulses = _wheels.ImpulsesOf(car);
-        _wheels.ScrubOf(car).Clear();
+        ref readonly var build = ref _build[car];
+        var count = build.WheelCount;
+        var impulses = _wheels.ImpulsesOf(car, count);
+        _wheels.ScrubOf(car, count).Clear();
         if (_heldAt[car] == (HeldAtTheNose | HeldAtTheTail))
         {
             impulses.Clear();
             return;
         }
 
-        var byTheTail = _heldAt[car] == HeldAtTheTail;
-        var down = TowBar.PairOnTheGround(byTheTail);
-        var up = TowBar.PairInTheAir(byTheTail);
-        impulses.Slice(up, TowBar.Wheels).Clear();
-
+        var axle = TowBar.AxleOnTheGround(build, _heldAt[car] == HeldAtTheTail);
         var pose = PoseOf(car);
-        var ground = _wheels.GroundUnder(car);
-        Span<Vector2> atM = stackalloc Vector2[TowBar.Wheels];
-        TowBar.AxleM(_build[car], pose, down, atM);
-        for (var wheel = 0; wheel < TowBar.Wheels; wheel++)
+        var ground = _wheels.GroundUnder(car, count);
+        Span<Vector2> atM = stackalloc Vector2[TyreModel.MostWheels];
+        TyreModel.WheelPointsM(build, pose, atM);
+        for (var wheel = 0; wheel < count; wheel++)
         {
-            ground[down + wheel] = _grounds.Under(_wheelsOnAWay[car], down + wheel);
+            if (build.WheelAt(wheel).Axle == axle) ground[wheel] = _grounds.Under(_wheelsOnAWay[car], wheel);
         }
 
-        TowBar.Step(
-            _build[car], pose, atM, ground.Slice(down, TowBar.Wheels), Config.Evacuator.OnTheTrailerAxleShare,
-            Config.TickSeconds, impulses.Slice(down, TowBar.Wheels));
+        TowBar.Step(build, pose, axle, atM, ground, Config.Evacuator.OnTheTrailerAxleShare, Config.TickSeconds, impulses);
 
         var alongMps = Vector2.Dot(pose.VelocityMps, pose.Forward);
-        var spin = _tyres.SpinOf(car);
-        for (var wheel = 0; wheel < TowBar.Wheels; wheel++) spin[down + wheel] = alongMps;
+        var spin = _tyres.SpinOf(car, count);
+        for (var wheel = 0; wheel < count; wheel++)
+        {
+            if (build.WheelAt(wheel).Axle == axle) spin[wheel] = alongMps;
+        }
     }
 
     /// <summary>
-    /// <b>What each car's four patches spent this step, along and across it</b>, lagged as a car settles onto its springs:
-    /// bounded by construction, since a tyre cannot push harder than it grips.
+    /// <b>Each car's body carried on its springs by this step</b> (<see cref="Suspension.Step"/>), under what its patches
+    /// pushed it with (<see cref="TyreModel.PushN"/>) — as the device's view pass carries it (<c>world_view.comp</c>).
     /// </summary>
     /// <remarks>
-    /// A car frozen through the step spent nothing on it — an impulse would have woken it — so one whose load is already
-    /// nought keeps it, and is passed over.
+    /// <b>A car frozen through the step stands on its springs at rest</b> (SOL-37): the solver froze it half a second
+    /// after it stopped, by which the springs have all but settled, and it is passed over until it wakes.
     /// </remarks>
-    void SettleTheLoads(float dtS)
+    void StepTheSprings(float dtS)
     {
-        var settled = TownWorld.LoadSettledShare(Config, dtS);
-        var leastMps2 = Config.Tyre.LeastSettledLoadMps2;
         for (var car = 0; car < _carBody.Length; car++)
         {
             var body = _carBody[car];
-            if (_accelerationMps2[car] == Vector2.Zero && _physics.FrozenThroughLastStep(body)) continue;
-
-            var wheels = _wheels.ImpulsesOf(car);
-            var spentNs = Vector2.Zero;
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++) spentNs += wheels[wheel].ImpulseNs;
-            var heldMps2 = spentNs / (_physics.MassOf(body) * dtS);
-            var forward = _physics.RotationOf(body);
-            var alongAndAcrossMps2 = new Vector2(
-                Vector2.Dot(heldMps2, forward), Vector2.Dot(heldMps2, Heading.RightOf(forward)));
-            _accelerationMps2[car] = TownWorld.AtLeastALoad(
-                Blend.Lerp(_accelerationMps2[car], alongAndAcrossMps2, settled), leastMps2);
+            _sprung[car] = _physics.FrozenThroughLastStep(body)
+                ? default
+                : Suspension.Step(
+                    _build[car], _sprung[car], TyreModel.PushN(_wheels.ImpulsesOf(car, _build[car].WheelCount), _physics.RotationOf(body), dtS), dtS);
         }
     }
 
@@ -720,6 +710,7 @@ internal sealed class ManagedWorld : WorldLayer
                 _physics.IsFrozen(body), _physics.FrozenThroughLastStep(body), _wheelsOnAWay[car], _physics.ChannelsOf(body));
             row.OverlapM = _physics.OverlapOf(body);
             row.Forward = _physics.RotationOf(body);
+            row.TiltHalves = Halves.Pack(_sprung[car].TiltRad);
 
             ref var followed = ref _followed[car];
             if (stepped && !float.IsNaN(followed.ProgressM)) followed.AroundM = followed.ProgressM;
@@ -834,13 +825,13 @@ internal sealed class ManagedWorld : WorldLayer
     };
 
     /// <summary>
-    /// <b>Every body onto the ribbons it stands on</b> (TER-4c.2): a car under its four wheels on its own channels — which
+    /// <b>Every body onto the ribbons it stands on</b> (TER-4c.2): a car under its wheels on its own channels — which
     /// wheels stand on a way kept for its tyres — and put on the channels of the ways it stands over (PHY-1a); a walker
     /// under its centre as one wheel; a body inside a container on none.
     /// </summary>
     void ReadCovers(WorldView view)
     {
-        Span<Vector2> wheelsM = stackalloc Vector2[TyreModel.Wheels];
+        Span<Vector2> wheelsM = stackalloc Vector2[TyreModel.MostWheels];
         Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
         (_carCovers, _carCoversBefore) = (_carCoversBefore, _carCovers);
         var written = 0;
@@ -858,7 +849,8 @@ internal sealed class ManagedWorld : WorldLayer
             else
             {
                 TyreModel.WheelPointsM(_build[car], PoseOf(car), wheelsM);
-                count = _atlas.UnderWheels(wheelsM, _heldAroundAWheelM, under, out _wheelsOnAWay[car], stands.Channels);
+                count = _atlas.UnderWheels(
+                    wheelsM[.._build[car].WheelCount], _heldAroundAWheelM, under, out _wheelsOnAWay[car], stands.Channels);
                 written = Append(ref _carCovers, written, under[..count]);
                 _carStoodAt[car] = stands;
                 _carCoverCount[car] = count;

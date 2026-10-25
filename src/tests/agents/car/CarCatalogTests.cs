@@ -90,18 +90,14 @@ public class CarCatalogTests
     /// The most a car can accelerate before a driven wheel breaks away: what the patch holds, against the
     /// share of the drive its axle carries divided by the share of the car's weight standing on it.
     /// </summary>
+    /// <remarks>The shipped fleet stands on two axles: the front one carries the balance, the rear the rest.</remarks>
     static float TractionLimitMps2(in CarBuild build)
     {
         var limitMps2 = float.PositiveInfinity;
-        if (build.DrivenFrontShare > 0f)
+        if (build.DriveOf(0) > 0f) limitMps2 = build.GripMps2 * build.FrontWeightShare / build.DriveOf(0);
+        if (build.DriveOf(1) > 0f)
         {
-            limitMps2 = build.GripMps2 * build.FrontWeightShare / build.DrivenFrontShare;
-        }
-
-        if (build.DrivenFrontShare < 1f)
-        {
-            limitMps2 = MathF.Min(
-                limitMps2, build.GripMps2 * (1f - build.FrontWeightShare) / (1f - build.DrivenFrontShare));
+            limitMps2 = MathF.Min(limitMps2, build.GripMps2 * (1f - build.FrontWeightShare) / build.DriveOf(1));
         }
 
         return limitMps2;

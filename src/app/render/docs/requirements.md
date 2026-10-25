@@ -14,7 +14,8 @@ them is on its types. The one thing stated here is how a sheet is stored.
 - **The ground drawn is the ground answered for** (`TER-7`): one mesh from the plan's shapes, textured from
   the world origin so a triangulation cannot show (`GroundVertex`).
 - **The ground is a stack of layers, each a region of the town's boundary** (`TER-7b`), the two kerbs are
-  strokes along their shells (`TER-3d`), and a deck is the one band (`TER-3b.1`). How a shell is cut — the
+  strokes along their shells (`TER-3d`), and a deck is the one band (`TER-3b.1`), dressed from one array of a
+  bridge's art (`TER-3b.2`, `BridgeSheet`) — one binding, a browser's stage sampling sixteen textures at most. How a shell is cut — the
   line for the picture and the fill for the kerb, a stroke's corners and hooks — is `GroundMesh`. **A bridge
   over other roads is the stack again, drawn over the bodies on the ground and under the bodies on it**
   (`TER-7b`, `PHY-1a`): the ground's last part (`GroundPart.Above`) is drawn after those bodies, the ground marks of the level

@@ -36,6 +36,11 @@ namespace TrafficSimulation.App.Render;
 /// the turn, and the picture is drawn as it is. A vector of four for the block's sake; the other two are nought.
 /// </para>
 /// <para>
+/// <b><see cref="CarTilt"/> is the renderer's too</b>: the car bodies' sheets from and past, intact and wrecked, and the
+/// height their tilt on their springs is seen from (CAR-56, <c>ViewFigures.CarTiltEyeHeightM</c>). An instance of those
+/// sheets carries its tilt as its ID (<see cref="BodyTilt"/>), and the vertex stage draws the plane it tilts to.
+/// </para>
+/// <para>
 /// <b><see cref="Clouds"/> is the clouds' shadows at this tick (OBJ-8)</b>, <see cref="CloudShadows.At"/>; left out, a
 /// frame draws none.
 /// </para>
@@ -45,14 +50,15 @@ namespace TrafficSimulation.App.Render;
 /// </para>
 /// <para>
 /// <b><see cref="WaterDriftM"/> is how far the water's two looks have drifted at this tick</b>,
-/// <see cref="GroundPatches.DriftAt"/>; left out, the water stands.
+/// <see cref="GroundPatches.DriftAt"/>; left out, the water stands. <b><see cref="Waves"/> are the waves it sways
+/// under</b>, <see cref="WaterWaves.At"/>; left out, it lies flat.
 /// </para>
 /// </remarks>
 [StructLayout(LayoutKind.Sequential)]
 internal readonly record struct CameraView(
     Vector2 CentreM, Vector2 ClipPerM, Vector2 UiPx, Vector2 Facing, Vector4 SurfacePeriodsM = default,
-    Vector4 WaterPeriodM = default, Vector4 PropCull = default, Vector4 Turning = default, CloudShadow Clouds = default,
-    GroundPatches Patches = default, Vector4 WaterDriftM = default)
+    Vector4 WaterPeriodM = default, Vector4 PropCull = default, Vector4 Turning = default, Vector4 CarTilt = default,
+    CloudShadow Clouds = default, GroundPatches Patches = default, Vector4 WaterDriftM = default, WaterWaves Waves = default)
 {
     /// <summary>How far the fans have turned and the least one is cut across, as <see cref="Turning"/> carries them.</summary>
     public static Vector4 Turned(float turns, float leastAcrossM) => new(turns, leastAcrossM, 0f, 0f);

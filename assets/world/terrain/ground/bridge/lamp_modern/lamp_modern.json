@@ -1,0 +1,7 @@
+{
+  "id": "lamp_modern",
+  "sprite": "lamp_modern.webp",
+  "kind": "Lamp",
+  "describe": "a modern slim grey steel bridge street light seen straight down: a small round pole top at the top of the picture, one straight flat arm reaching toward the bottom, a flat rectangular luminaire head at its end, glass dark; lamp off",
+  "footprintM": [0.5, 1.813]
+}

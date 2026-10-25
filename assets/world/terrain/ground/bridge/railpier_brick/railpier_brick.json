@@ -1,0 +1,7 @@
+{
+  "id": "railpier_brick",
+  "sprite": "railpier_brick.webp",
+  "kind": "RailPierNose",
+  "describe": "a railway viaduct pier's nose seen straight down where it pokes out from under the deck: a pointed cutwater of blue-grey engineering brick with a pale stone cap course along its edges, its point at the top, square-cut along the bottom edge",
+  "footprintM": [3.0, 1.916]
+}

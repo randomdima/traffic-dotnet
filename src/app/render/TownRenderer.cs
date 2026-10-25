@@ -6,6 +6,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Terrain;
 using Semaphore = Silk.NET.Vulkan.Semaphore;
@@ -78,7 +79,10 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
     const int EdgingBinding = KerbBinding + 1;
 
-    const int Bindings = EdgingBinding + 1;
+    /// <summary>A bridge's art, one array of its strips and its fittings (<see cref="BridgeSheet"/>), last for the same reason.</summary>
+    const int BridgeBinding = EdgingBinding + 1;
+
+    const int Bindings = BridgeBinding + 1;
 
     /// <summary>The words a frame's scenery runs open with (<c>scenery.vert</c>'s <c>Spans</c>): the draw, the thinning, how many runs.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -126,6 +130,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     readonly AppWindow? _window;
     readonly Extent2D _offscreenSize;
     readonly GpuTexture[] _textures;
+    readonly GpuTexture _bridge;
     readonly SheetAtlas _atlas;
     readonly GpuTexture _sheetPages;
     readonly GpuBuffer _sheetTable;
@@ -170,6 +175,9 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
     /// <summary>The prop looks' sheets from and past, and the least half-size one is drawn at this frame (<see cref="CameraView.PropCull"/>).</summary>
     Vector4 _propCull;
+
+    /// <summary>The car bodies' sheets from and past, and the height their tilt is seen from (<see cref="CameraView.CarTilt"/>).</summary>
+    Vector4 _carTilt;
 
     float _propLeastPx;
 
@@ -297,13 +305,26 @@ internal sealed unsafe partial class TownRenderer : IDisposable
             hostVisible: false);
 
         _textures = new GpuTexture[surfaceTextures.Count];
-        // Every surface is its looks, a layer a look (GroundPatches); a strip among them — the track's, a kerb's — is one picture.
+        // Every surface is its looks, a layer a look (GroundPatches); a strip among them — the track's, a kerb's — is one picture,
+        // and the track's is composed with its shoulders (TrackSheet).
         for (var texture = 0; texture < _textures.Length; texture++)
         {
-            _textures[texture] = (Surface)texture is Surface.Track or Surface.Kerb or Surface.Edging
-                ? GpuTexture.Load(vk, surfaceTextures[texture])
-                : GpuTexture.LoadLooks(vk, surfaceTextures[texture]);
+            _textures[texture] = (Surface)texture switch
+            {
+                Surface.Track => TrackTexture(vk),
+                Surface.Kerb or Surface.Edging => GpuTexture.Load(vk, surfaceTextures[texture]),
+                _ => GpuTexture.LoadLooks(vk, surfaceTextures[texture]),
+            };
         }
+
+        static GpuTexture TrackTexture(Vk vk)
+        {
+            var (texels, widthPx, heightPx) = TrackSheet.Compose();
+            return GpuTexture.FromTexels(vk, texels, widthPx, heightPx);
+        }
+
+        _bridge = GpuTexture.FromLayers(
+            vk, BridgeSheet.Compose(), BridgeSheet.LayerWidthPx, BridgeSheet.LayerHeightPx, BridgeSheet.Layers);
 
         if (sheetTextures.Count > SheetAtlas.Slots) throw new InvalidOperationException(
             $"{sheetTextures.Count} sheets, and the sprite shader's table holds {SheetAtlas.Slots}.");
@@ -384,12 +405,14 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// <summary>
     /// <b>What of a town is laid on the device once</b>: its buildings and props in the order <see cref="StandingSprites"/>
     /// files them — what <see cref="SpriteCounts.StandingFirst"/> counts from — its scenery's pieces and each look's size
-    /// and sheet, how its marks are drawn, and which sheets are props for the frame to leave out under
-    /// <paramref name="propLeastPx"/> across. Called before the first frame of a town is drawn, and so under no frame
-    /// still reading the buffers.
+    /// and sheet, how its marks are drawn, which sheets are props for the frame to leave out under
+    /// <see cref="ViewFigures.PropLeastPx"/> across, and which are car bodies the vertex stage tilts
+    /// (<see cref="CameraView.CarTilt"/>). Called before the first frame of a town is drawn, and so under no frame still
+    /// reading the buffers.
     /// </summary>
-    public void LayTown(TownSprites looks, float propLeastPx)
+    public void LayTown(TownSprites looks, ViewFigures view)
     {
+        var propLeastPx = view.PropLeastPx;
         var standing = looks.Standing.Instances;
         var count = Math.Min(standing.Length, Math.Max(1, Room.Standing));
         _standing.Upload<SpriteInstance>(
@@ -416,6 +439,8 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _markLook.Upload<MarkLook>(1, into => into[0] = markLook, PipelineStageFlags2.VertexShaderBit, AccessFlags2.UniformReadBit);
 
         _propCull = new Vector4(0f, looks.FirstPropSheet, looks.FirstPropSheet + looks.Props.Count, 0f);
+        _carTilt = new Vector4(
+            looks.FirstCarSheet, looks.FirstCarSheet + (2 * looks.Cars.SheetCount), view.CarTiltEyeHeightM, 0f);
         _fanTable.Upload<uint>(
             looks.Fans, PipelineStageFlags2.VertexShaderBit | PipelineStageFlags2.FragmentShaderBit, AccessFlags2.UniformReadBit);
         _propLeastPx = propLeastPx;
@@ -668,7 +693,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _cameras[image].Span<CameraView>()[0] = view with
         {
             SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, PropCull = _propCull,
-            Patches = _mesh.Patches,
+            CarTilt = _carTilt, Patches = _mesh.Patches,
         };
         WriteTheGround((int)image);
         WrittenBytes = _written + sizeof(CameraView);
@@ -883,6 +908,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _sceneryLooks.Dispose();
         _fanTable.Dispose();
         foreach (var texture in _textures) texture.Dispose();
+        _bridge.Dispose();
     }
 
 }

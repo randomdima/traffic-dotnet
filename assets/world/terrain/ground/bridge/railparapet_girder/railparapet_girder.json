@@ -1,0 +1,8 @@
+{
+  "id": "railparapet_girder",
+  "sprite": "railparapet_girder.webp",
+  "kind": "RailParapet",
+  "describe": "the side of a railway bridge's deck seen straight down: along the bottom edge a narrow grey steel chequer-plate walkway, along the top edge the top flange of a riveted steel plate girder painted dark grey-green, a stiffener plate square across it exactly every 1.5 m",
+  "footprintM": [4.88, 1.1],
+  "pictureM": 3.25
+}

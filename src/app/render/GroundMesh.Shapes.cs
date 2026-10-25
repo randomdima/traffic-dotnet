@@ -83,9 +83,12 @@ internal sealed partial class GroundMesh
     /// <b>What a stroke lays either side of its line</b>: how far it reaches to the left and to the right, and the
     /// shade of its corners on each — one shade both sides for a deck, for a fade (<see cref="Fade"/>) nothing on one
     /// side and the surface going from whole to none across the other, and for a kerb (<see cref="Kerbstones"/>) a
-    /// strip, its corners filing how many of its pictures along the line they stand in place of a shade.
+    /// strip, its corners filing how many of its pictures along the line they stand in place of a shade, and how far
+    /// across the picture its left and right edges read — the whole of it, or a band of it.
     /// </summary>
-    readonly record struct Sides(Vector2 HalfM, uint LeftShade, uint RightShade, Surface? Strip = null, float PicturesPerM = 0f)
+    readonly record struct Sides(
+        Vector2 HalfM, uint LeftShade, uint RightShade, Surface? Strip = null, float PicturesPerM = 0f, float AcrossLeft = 0f,
+        float AcrossRight = 1f)
     {
         public static Sides Even(float widthM, Surface surface, Vector3 tint)
         {
@@ -112,6 +115,7 @@ internal sealed partial class GroundMesh
         var picturesPerM = sides.PicturesPerM;
         var leftShade = sides.LeftShade;
         var rightShade = sides.RightShade;
+        var (acrossLeft, acrossRight) = (sides.AcrossLeft, sides.AcrossRight);
         var last = line.Length - 1;
         var firstLeft = -1;
         var firstRight = -1;
@@ -124,8 +128,8 @@ internal sealed partial class GroundMesh
         {
             if (strip is not { } surface) return;
 
-            leftShade = GroundVertex.OnTheStrip(surface, along, 0f);
-            rightShade = GroundVertex.OnTheStrip(surface, along, 1f);
+            leftShade = GroundVertex.OnTheStrip(surface, along, acrossLeft);
+            rightShade = GroundVertex.OnTheStrip(surface, along, acrossRight);
         }
 
         void Station(Vector2 pointM, Vector2 across, Vector2 reach, bool joined = true)

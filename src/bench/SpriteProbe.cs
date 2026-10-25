@@ -93,14 +93,14 @@ internal static class SpriteProbe
             var people = Us(() => PersonSprites.Fill(
                 world.People, peopleInView.AsSpan(0, walkers), looks.People, looks.Aspects, looks.FirstDownSheet, centreM,
                 spanM, into), out _);
-            var tyres = Us(() => looks.WidestTyreM < leastPartM ? 0 : CarSprites.FillFrontTyres(
+            var tyres = Us(() => looks.WidestTyreM < leastPartM ? 0 : CarSprites.FillTyres(
                 world.Cars, inView.AsSpan(0, listed), looks.RubberSheet, leastPartM, centreM, spanM, into, level), out _);
             var bodies = Us(() => CarSprites.Fill(
-                world.Cars, inView.AsSpan(0, listed), looks.Cars, looks.FirstCarSheet, looks.CarSheetScales, centreM, spanM,
-                into, level), out var cars);
+                world.Cars, inView.AsSpan(0, listed), looks.Cars, looks.FirstCarSheet, centreM, spanM, into, level),
+                out var cars);
             var arms = Us(() => CarSprites.FillBeams(
                 world.Cars, inView.AsSpan(0, listed), looks.Cars, world.Hitches, world.World.View.Wagons, looks.FirstBeamSheet,
-                centreM, spanM, into, level), out _);
+                config.View.CarTiltEyeHeightM, centreM, spanM, into, level), out _);
             var lamps = Us(() => looks.WidestGlowM < leastPartM ? 0 : LampSprites.Fill(
                 world.Cars, inView.AsSpan(0, listed), looks.Cars, config, looks.LensSheet, looks.LampGlowSheet,
                 world.ElapsedS, centreM, spanM, into, level, leastPartM), out _);

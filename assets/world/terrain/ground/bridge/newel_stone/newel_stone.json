@@ -1,0 +1,7 @@
+{
+  "id": "newel_stone",
+  "sprite": "newel_stone.webp",
+  "kind": "Newel",
+  "describe": "a square stone end pillar of a bridge parapet seen straight down: a pale limestone pier cap with a shallow pyramid top and a moulded edge",
+  "footprintM": [1.0, 1.006]
+}

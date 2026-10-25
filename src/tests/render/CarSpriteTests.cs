@@ -35,14 +35,11 @@ public class CarSpriteTests
     /// <summary>Every car of the fleet, in index order, as a frame that shows the whole town hands them over.</summary>
     internal static int[] Every(CarFleet fleet) => Enumerable.Range(0, fleet.Count).ToArray();
 
-    /// <summary>Every car sheet drawn at its art's own box, as though no tyre stood past it.</summary>
-    static Vector2[] Unscaled(CarCatalog catalogue) => Enumerable.Repeat(Vector2.One, catalogue.SheetCount * 2).ToArray();
-
-    static SpriteInstance[] Drawn(CarFleet fleet, CarCatalog catalogue, int firstSheet, Vector2[]? scales = null)
+    static SpriteInstance[] Drawn(CarFleet fleet, CarCatalog catalogue, int firstSheet)
     {
         var into = new SpriteInstance[fleet.Count];
         var written = CarSprites.Fill(
-            fleet, Every(fleet), catalogue, firstSheet, scales ?? Unscaled(catalogue), new Vector2(fleet.Count * 5f, 0f),
+            fleet, Every(fleet), catalogue, firstSheet, new Vector2(fleet.Count * 5f, 0f),
             new Vector2((fleet.Count * 10f) + 100f, 1_000f), into);
 
         Assert.Equal(fleet.Count, written);
@@ -84,12 +81,12 @@ public class CarSpriteTests
         var into = new SpriteInstance[fleet.Count];
 
         var ground = CarSprites.Fill(
-            fleet, Every(fleet), catalogue, 0, Unscaled(catalogue), viewCentreM, new Vector2(1_000f, 1_000f), into,
+            fleet, Every(fleet), catalogue, 0, viewCentreM, new Vector2(1_000f, 1_000f), into,
             TrafficSimulation.CityGen.CityPlan.RoadArrays.Ground);
         Assert.Equal([fleet.PositionM[0]], into[..ground].Select(sprite => sprite.CentreM));
 
         var above = CarSprites.Fill(
-            fleet, Every(fleet), catalogue, 0, Unscaled(catalogue), viewCentreM, new Vector2(1_000f, 1_000f), into,
+            fleet, Every(fleet), catalogue, 0, viewCentreM, new Vector2(1_000f, 1_000f), into,
             TrafficSimulation.CityGen.CityPlan.RoadArrays.Over);
         Assert.Equal([fleet.PositionM[1]], into[..above].Select(sprite => sprite.CentreM));
     }
@@ -135,25 +132,22 @@ public class CarSpriteTests
     }
 
     /// <summary>
-    /// CAR-12a: <b>a car is drawn at the box it is simulated at</b> and not at the nominal car's, grown by
-    /// its own sheet's margin for the tyres. A different margin per sheet, so a fill that read another
-    /// sheet's — or none — is caught. The last assertion keeps the first from being vacuous: over a fleet
-    /// built at one size, a fill drawing every car at that size would pass it.
+    /// CAR-12a: <b>a car is drawn at the box it is simulated at</b> and not at the nominal car's. The last assertion
+    /// keeps the first from being vacuous: over a fleet built at one size, a fill drawing every car at that size would
+    /// pass it.
     /// </summary>
     [Fact]
     public void EveryCarIsDrawnAtItsOwnFootprint()
     {
         var catalogue = CarCatalog.Load();
         var fleet = FleetOf(catalogue.SheetCount);
-        var scales = new Vector2[catalogue.SheetCount * 2];
-        for (var sheet = 0; sheet < scales.Length; sheet++) scales[sheet] = new Vector2(1f + (sheet * 0.01f), 1f + (sheet * 0.02f));
-        var drawn = Drawn(fleet, catalogue, 0, scales);
+        var drawn = Drawn(fleet, catalogue, 0);
 
         var sizes = new HashSet<Vector2>();
         for (var car = 0; car < fleet.Count; car++)
         {
             ref readonly var build = ref fleet.BuildOf(car);
-            Assert.Equal(SpriteInstance.AsDrawn(new Vector2(build.LengthM, build.WidthM) * 0.5f * scales[car]), drawn[car].HalfSizeM);
+            Assert.Equal(SpriteInstance.AsDrawn(new Vector2(build.LengthM, build.WidthM) * 0.5f), drawn[car].HalfSizeM);
             sizes.Add(new Vector2(build.LengthM, build.WidthM));
         }
 
@@ -381,7 +375,8 @@ public class CarSpriteTests
     {
         var into = new SpriteInstance[fleet.Count];
         var written = CarSprites.FillBeams(
-            fleet, Every(fleet), catalogue, hitches, [], firstBeamSheet: 7, new Vector2(0f, 0f), new Vector2(1_000f, 1_000f), into);
+            fleet, Every(fleet), catalogue, hitches, [], firstBeamSheet: 7, Config.View.CarTiltEyeHeightM, new Vector2(0f, 0f),
+            new Vector2(1_000f, 1_000f), into);
 
         return into[..written];
     }
@@ -390,133 +385,103 @@ public class CarSpriteTests
     static readonly EqualityComparer<Vector2> Near =
         EqualityComparer<Vector2>.Create((a, b) => (a - b).Length() < 5e-4f);
 
-    static int FillFrontTyres(CarFleet fleet, float leastWidthM, Span<SpriteInstance> into) =>
-        CarSprites.FillFrontTyres(
+    static int FillTyres(CarFleet fleet, float leastWidthM, Span<SpriteInstance> into) =>
+        CarSprites.FillTyres(
             fleet, Every(fleet), rubberSheet: 9, leastWidthM, new Vector2(fleet.Count * 5f, 0f), new Vector2(1_000f, 1_000f), into);
 
-    static SpriteInstance[] FrontTyres(CarFleet fleet)
+    static SpriteInstance[] Tyres(CarFleet fleet)
     {
-        var into = new SpriteInstance[fleet.Count * TyreModel.SteeredWheels];
-        Assert.Equal(into.Length, FillFrontTyres(fleet, leastWidthM: 0f, into));
+        var into = new SpriteInstance[fleet.Count * fleet.BuildOf(0).WheelCount];
+        Assert.Equal(into.Length, FillTyres(fleet, leastWidthM: 0f, into));
         return into;
     }
 
     /// <summary>
-    /// <b>A steered tyre is drawn at the very offset its impulse acts on</b>, at its build's size. Two
-    /// constructions that agree are the more misleading of the two: they agree until one of them is changed,
-    /// so the drawing asks the model where the wheel is rather than knowing.
+    /// <b>A tyre is drawn at the very offset its impulse acts on</b>, at its build's size, whatever the body above it is
+    /// doing on its springs (CAR-56). Two constructions that agree are the more misleading of the two: they agree until
+    /// one of them is changed, so the drawing asks the model where the wheel is rather than knowing.
     /// </summary>
     [Fact]
-    public void EveryFrontTyreIsDrawnWhereItsImpulseActs()
+    public void EveryTyreIsDrawnWhereItsImpulseActsHoweverTheBodyTilts()
     {
         var fleet = FleetOf(1);
+        fleet.TiltRad[0] = new Vector2(0.05f, -0.07f);
         ref readonly var build = ref fleet.BuildOf(0);
-        var drawn = FrontTyres(fleet);
+        var drawn = Tyres(fleet);
 
-        for (var wheel = 0; wheel < TyreModel.SteeredWheels; wheel++)
+        for (var wheel = 0; wheel < build.WheelCount; wheel++)
         {
             Assert.Equal(fleet.PositionM[0] + TyreModel.WheelAtM(build, wheel), drawn[wheel].CentreM);
             Assert.Equal(SpriteInstance.AsDrawn(new Vector2(build.WheelLengthM, build.WheelWidthM) * 0.5f), drawn[wheel].HalfSizeM);
         }
     }
 
-    /// <summary>Both front tyres are drawn at the rack's angle off the car's heading.</summary>
+    /// <summary>The front tyres are drawn at the rack's angle off the car's heading, and the rear pair along it.</summary>
     [Fact]
-    public void BothFrontTyresAreDrawnAtTheRacksAngle()
+    public void TheFrontTyresAreDrawnAtTheRacksAngleAndTheRearAlongTheBody()
     {
         var fleet = FleetOf(1);
         fleet.HeadingRad[0] = 1f;
         fleet.Command[0] = new DriveCommand(0.4f, 0f, 0f, false, false);
-        var drawn = FrontTyres(fleet);
+        var drawn = Tyres(fleet);
 
         Assert.Equal(1.4f, drawn[0].HeadingRad, 1e-5f);
         Assert.Equal(1.4f, drawn[1].HeadingRad, 1e-5f);
+        Assert.Equal(1f, drawn[2].HeadingRad);
+        Assert.Equal(1f, drawn[3].HeadingRad);
     }
 
-    /// <summary>A car whose tyres are narrower than the frame's least draws none, and one exactly at it draws both.</summary>
+    /// <summary>A car whose tyres are narrower than the frame's least draws none, and one exactly at it draws all four.</summary>
     [Fact]
     public void ATyreNarrowerThanTheFramesLeastIsLeftOut()
     {
         var fleet = FleetOf(1);
         var widthM = fleet.BuildOf(0).WheelWidthM;
-        var into = new SpriteInstance[TyreModel.SteeredWheels];
+        var into = new SpriteInstance[fleet.BuildOf(0).WheelCount];
 
-        Assert.Equal(0, FillFrontTyres(fleet, MathF.BitIncrement(widthM), into));
-        Assert.Equal(TyreModel.SteeredWheels, FillFrontTyres(fleet, widthM, into));
+        Assert.Equal(0, FillTyres(fleet, MathF.BitIncrement(widthM), into));
+        Assert.Equal(into.Length, FillTyres(fleet, widthM, into));
     }
 
     /// <summary>
-    /// <b>The rear pair is painted at the very offset its impulse acts on, at its build's size, and the
-    /// front pair is not painted at all</b> — under its own steered quad it would stand as a straight ghost.
-    /// Probed on the strip of rubber standing past the bodywork (CAR-12): rubber at the middle of its roll and
-    /// clear a few centimetres past either end, through the same metres-to-texels the sprite shader lays the
-    /// quad by.
+    /// <b>A tilted body is drawn where the car stands, its tilt carried as its ID</b> (CAR-56, <see cref="BodyTilt"/>): the
+    /// vertex stage tilts the plane about the middle, so the middle does not move, and the tilt it reads back is the one the
+    /// springs gave to within half a step.
     /// </summary>
     [Fact]
-    public void OnlyTheRearTyresArePaintedAndWhereTheirImpulseActs()
+    public void ATiltedBodyStandsWhereTheCarStandsAndCarriesItsTilt()
     {
-        // Inside the tyre, and past the art's faint rim on the few centimetres of it that show.
-        const float InsideM = 0.015f;
-        var variant = CarCatalog.Shared.Variants[CarCatalog.Shared.Plain];
-        var build = CarBuild.Of(Config, variant);
-        var source = CarSheets.WithTyres(variant.SpritePath, variant.FootprintM, build, out var scale);
-        var sheet = SheetAtlas.Decode(source);
-        var (widthPx, heightPx) = SheetAtlas.Measure(source);
-        var drawnM = variant.FootprintM * scale;
+        var catalogue = CarCatalog.Load();
+        var fleet = FleetOf(1);
+        var tiltRad = new Vector2(0.031f, -0.052f);
+        fleet.TiltRad[0] = tiltRad;
+        var drawn = Drawn(fleet, catalogue, 0)[0];
 
-        Texel At(Vector2 atM)
-        {
-            var uv = (atM / drawnM) + new Vector2(0.5f);
-            return sheet[((int)(uv.Y * heightPx) * widthPx) + (int)(uv.X * widthPx)];
-        }
-
-        var halfTyreM = new Vector2(build.WheelLengthM, build.WheelWidthM) * 0.5f;
-        for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
-        {
-            var atM = TyreModel.WheelAtM(build, wheel);
-            var outerM = atM + new Vector2(0f, MathF.Sign(atM.Y) * (halfTyreM.Y - InsideM));
-            var pastM = new Vector2(halfTyreM.X + InsideM, 0f);
-
-            if (wheel < TyreModel.SteeredWheels)
-            {
-                Assert.Equal(0, At(outerM).A);
-                continue;
-            }
-
-            Assert.Equal(new Texel(0, 0, 0, 255), At(outerM));
-            Assert.Equal(0, At(outerM + pastM).A);
-            Assert.Equal(0, At(outerM - pastM).A);
-        }
+        var steps = new Vector2((sbyte)(drawn.Id & 0xFF), (sbyte)(drawn.Id >> 8));
+        Assert.Equal(fleet.PositionM[0], drawn.CentreM);
+        Assert.Equal(tiltRad.X, steps.X / BodyTilt.StepsPerRad, 0.5f / BodyTilt.StepsPerRad);
+        Assert.Equal(tiltRad.Y, steps.Y / BodyTilt.StepsPerRad, 0.5f / BodyTilt.StepsPerRad);
     }
 
     /// <summary>
-    /// CAR-12a: <b>the padding moves no bodywork</b> — the quad grows by exactly what the sheet grew by, so
-    /// the art is drawn at its own texels per metre and its own box, for the car and the wreck alike.
+    /// <b>A point of the body its spring let down is drawn in towards the middle, and one let up stands out</b>, along the
+    /// line from the middle (<see cref="BodyTilt.OnBodyM"/>) — and the middle, which the plane turns about, stays. Nose
+    /// down and right side down: the front right corner sinks and the rear left rises.
     /// </summary>
     [Fact]
-    public void ATyreMarginLeavesTheArtAtItsOwnBox()
+    public void ACornerLetDownIsDrawnInAndOneLetUpStandsOut()
     {
-        // Tracked out to the footprint's edge, so half of each tyre stands past the art whatever the fleet draws.
-        var plain = CarCatalog.Shared.Variants[CarCatalog.Shared.Plain];
-        var variant = plain with { HalfTrackM = plain.FootprintM.Y * 0.5f };
-        var build = CarBuild.Of(Config, variant);
+        var tiltRad = new Vector2(0.04f, 0.05f);
+        var frontRightM = new Vector2(2f, 0.9f);
+        var rearLeftM = -frontRightM;
 
-        var looks = new[]
-        {
-            (variant.SpritePath, variant.FootprintM),
-            (variant.WreckSpritePath, variant.FootprintM * variant.WreckScale),
-        };
-        foreach (var (path, spanM) in looks)
-        {
-            var source = CarSheets.WithTyres(path, spanM, build, out var scale);
-            var (artWidth, artHeight) = ImageHeader.Measure(path);
-            var (widthPx, heightPx) = SheetAtlas.Measure(source);
-            var artPerM = new Vector2(artWidth, artHeight) / spanM;
-            var drawnPerM = new Vector2(widthPx, heightPx) / (spanM * scale);
+        var sunkM = BodyTilt.OnBodyM(frontRightM, tiltRad, eyeHeightM: 1f);
+        var raisedM = BodyTilt.OnBodyM(rearLeftM, tiltRad, eyeHeightM: 1f);
 
-            Assert.True(widthPx > artWidth || heightPx > artHeight, $"{path}: no tyre stood past the art to pad for");
-            Assert.Equal(artPerM.X, drawnPerM.X, 1e-3f);
-            Assert.Equal(artPerM.Y, drawnPerM.Y, 1e-3f);
-        }
+        Assert.InRange(sunkM.Length(), 0f, frontRightM.Length() * 0.95f);
+        Assert.InRange(raisedM.Length(), rearLeftM.Length() * 1.05f, float.MaxValue);
+        Assert.Equal(Vector2.Normalize(frontRightM), Vector2.Normalize(sunkM), Near);
+        Assert.Equal(Vector2.Normalize(rearLeftM), Vector2.Normalize(raisedM), Near);
+        Assert.Equal(Vector2.Zero, BodyTilt.OnBodyM(Vector2.Zero, tiltRad, eyeHeightM: 1f));
     }
 }

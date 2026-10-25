@@ -4,6 +4,20 @@
 #ifndef CAR_BUILD_GLSL
 #define CAR_BUILD_GLSL
 
+#include "agents/car/body/kernels/car_wheels.glsl"
+
+// One wheel of a body (CarWheel): where it stands, +x the nose and +y the driver's right, its axle, and what it does.
+struct CarWheelRow
+{
+    vec2 atM;
+    uint axle;
+    uint flags;
+};
+
+const uint WheelSteered = 1u;
+const uint WheelHandbrake = 2u;
+const uint WheelDriven = 4u;
+
 struct CarBuildRow
 {
     float wheelbaseM;
@@ -14,7 +28,6 @@ struct CarBuildRow
     float gripMps2;
     float wheelRotatingMassKg;
     float accelerationMps2;
-    float drivenFrontShare;
     float brakingMps2;
     float maxSteerRad;
     float lookaheadFloorM;
@@ -29,9 +42,39 @@ struct CarBuildRow
     float towReachM;
     float towGripFromTheMiddleM;
     float inverseWheelRotatingMassPerKg;
-    float wheelbaseWeightM2PerS2;
-    float trackWeightM2PerS2;
+    float wheelRateNPerM;
+    float wheelDampingNsPerM;
+    float cgAheadOfCentreM;
+    float standingN;
+    float standingNPerMAlong;
+    float standingNPerMAcross;
+    float inverseMassPerKg;
+    float inversePitchInertiaPerKgM2;
+    float inverseRollInertiaPerKgM2;
+    float inverseMassCgHeightPerKgM;
+    uint wheelCount;
+    uint axleCount;
+    CarWheelRow wheels[CarMostWheels];
+    float axleDrive[CarMostWheels];
 };
+
+// Where a wheel stands in the body's own frame, +x forward and +y the driver's side (TyreModel.WheelAtM).
+vec2 buildWheelAtM(CarBuildRow car, int wheel) { return car.wheels[wheel].atM; }
+
+bool buildWheelIs(CarBuildRow car, int wheel, uint what) { return (car.wheels[wheel].flags & what) != 0u; }
+
+// The axle a towed car rolls on, the far one from the fork (TowBar.AxleOnTheGround).
+uint buildAxleOnTheGround(CarBuildRow car, bool byTheTail)
+{
+    int at = 0;
+    for (int wheel = 1; wheel < int(car.wheelCount); wheel++)
+    {
+        precise float aheadM = car.wheels[wheel].atM.x - car.wheels[at].atM.x;
+        if (byTheTail ? aheadM > 0.0 : aheadM < 0.0) at = wheel;
+    }
+
+    return car.wheels[at].axle;
+}
 
 // What it may be braking at at all: the pedal's cap, or what its own patch puts down (CarBuild.UtmostBrakingMps2).
 float buildUtmostBrakingMps2(CarBuildRow car) { return min(car.brakingMps2, car.gripMps2); }

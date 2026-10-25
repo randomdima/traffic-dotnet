@@ -17,6 +17,8 @@ layout(set = 0, binding = 0) uniform Camera {
     vec4 propCull;
     // How far every fan has turned at this tick, in turns, and the least a picture's widest is across (CameraView.Turning).
     vec4 turning;
+    // The car bodies' sheets from and past, and the height their tilt on their springs is seen from (CameraView.CarTilt).
+    vec4 carTilt;
 } camera;
 
 // The town's own metres to clip. **The turn is applied here and nowhere else**: the quad is built about its own heading
@@ -59,6 +61,12 @@ bool quadTooSmall(vec2 halfSizeM, uint sheet) {
     return look >= camera.propCull.y && look < camera.propCull.z && max(halfSizeM.x, halfSizeM.y) < camera.propCull.x;
 }
 
+// A car body's tilt as its ID carries it (BodyTilt.Id): nose down in the low byte and right side down in the high, each a
+// signed count of BodyTilt.StepsPerRad.
+vec2 quadTiltRad(uint id) {
+    return vec2(float(int(id << 24u) >> 24), float(int(id << 16u) >> 24)) * (1.0 / 512.0);
+}
+
 // The quad's corner for this vertex: cell (column, row) of a grid of (columns, rows) of the sheet, tinted; `id` is the
 // body's own (SpriteInstance.Id).
 void quadEmit(vec2 centreM, vec2 halfSizeM, float headingRad, vec2 cell, vec2 grid, vec4 tint, uint sheet, uint id) {
@@ -78,10 +86,21 @@ void quadEmit(vec2 centreM, vec2 halfSizeM, float headingRad, vec2 cell, vec2 gr
     vec2 corner = vec2(float(gl_VertexIndex & 1), float((gl_VertexIndex >> 1) & 1));
     vec2 fromCentreM = (corner * 2.0 - 1.0) * halfSizeM;
 
+    // A car body tilted on its springs (CAR-56, BodyTilt): the plane its corners sink and rise to, as an eye
+    // camera.carTilt.z over its middle sees it. The corner is drawn where that eye sees it and its w is how far off the eye
+    // it is, so the picture across the quad is the tilted plane's and not two triangles bent at their seam.
+    float depth = 1.0;
+    float look = float(sheet);
+    if (look >= camera.carTilt.x && look < camera.carTilt.y) {
+        float sinkM = dot(fromCentreM, quadTiltRad(id));
+        depth = (camera.carTilt.z + sinkM) / camera.carTilt.z;
+        fromCentreM /= depth;
+    }
+
     // Upright is a rotation of nothing, so the walkers pay one sine and one cosine and no branch.
     vec2 along = vec2(cos(headingRad), sin(headingRad));
     vec2 across = vec2(-along.y, along.x);
-    gl_Position = toClip(centreM + along * fromCentreM.x + across * fromCentreM.y);
+    gl_Position = toClip(centreM + along * fromCentreM.x + across * fromCentreM.y) * depth;
 
     SheetPlace place = sheets.place[sheet];
     vec2 uv = (cell + corner) / grid;

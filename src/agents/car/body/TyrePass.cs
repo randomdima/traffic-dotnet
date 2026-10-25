@@ -5,7 +5,7 @@ namespace TrafficSimulation.Agents.Car.Body;
 
 /// <summary>
 /// <b>What a car's tyres carry from one tick to the next</b>, as spans over whoever keeps it — the fleet's own arrays
-/// in the town, a test's in a test: four rims, the scrub each has banked toward a mark, the stretch of mark each has
+/// in the town, a test's in a test, a wheel apiece: the rims, the scrub each has banked toward a mark, the stretch of mark each has
 /// in hand, and the car's own throttle back-off.
 /// </summary>
 internal readonly ref struct TyreCarry
@@ -36,17 +36,17 @@ internal readonly ref struct TyreCarry
     }
 
     /// <summary>
-    /// Whether all four wheels are at a standstill and carrying nothing over: not turning, not part-way through a
+    /// Whether every wheel is at a standstill and carrying nothing over: not turning, not part-way through a
     /// mark, and with no scrub banked toward one.
     /// </summary>
     /// <remarks>
     /// It is the second half of the question asked before the tyres are skipped altogether — the first half being that
-    /// the body itself is not moving — and it exists because the four wheels of a standing car are <em>state</em>,
+    /// the body itself is not moving — and it exists because the wheels of a standing car are <em>state</em>,
     /// and a wheel still holding some of it is a wheel with something left to do.
     /// </remarks>
     public bool WheelsAtRest()
     {
-        for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+        for (var wheel = 0; wheel < SpinMps.Length; wheel++)
         {
             if (SpinMps[wheel] != 0f || Marking[wheel] || ScrubTravelM[wheel] > 0f) return false;
         }
@@ -57,19 +57,19 @@ internal readonly ref struct TyreCarry
 
 /// <summary>
 /// <b>One car's tyres for one tick, whole</b>: the throttle it may ask for, the standstill it may skip, the ground
-/// under each wheel, the four impulses the model spends, the hold of a car its locks keep still, the slide it lifts
+/// under each wheel, the impulses the model spends, the hold of a car its locks keep still, the slide it lifts
 /// for next tick, and the marks it leaves — off the state the car carries and nothing else, so the town's tick and
 /// the device's kernel (<c>kernels/tyre_pass.glsl</c>) are held to one function.
 /// </summary>
 /// <remarks>
 /// The ground is asked under each wheel and never under the car: a car with two wheels off the road grips
-/// asymmetrically, and that asymmetry is a yaw the solver produces out of four impulses at four places rather than
+/// asymmetrically, and that asymmetry is a yaw the solver produces out of an impulse at each wheel rather than
 /// anything decided here. <b>What a wheel stands on is whether it was on a way when the car's body was last laid</b>
 /// (TER-7b) — the very reading that put the body on the ways it stands on (TER-4c.2), taken once a turn and not a tick.
 /// </remarks>
 internal static class TyrePass
 {
-    /// <summary>One car's four patches for this tick, and what each wheel wrote on the ground it stood on.</summary>
+    /// <summary>One car's patches for this tick, and what each wheel wrote on the ground it stood on.</summary>
     /// <param name="grounds">What a wheel on a way and off one stands on, for the figures as they stand.</param>
     /// <param name="hand">Whether a hand is at the wheel (<see cref="Actions.CarAction.Hand"/>), which the ceiling reads.</param>
     /// <param name="inertiaKgM2">The body's own moment of inertia about its centre, for the hold of a car its locks keep still.</param>
@@ -93,7 +93,7 @@ internal static class TyrePass
         WindTheSlipThrottle(config, carry);
         if (AtRest(pose, command, carry))
         {
-            // Cleared rather than left, because the four from the tick it stopped on would otherwise be spent
+            // Cleared rather than left, because those from the tick it stopped on would otherwise be spent
             // again every tick.
             impulses.Clear();
             scrub.Clear();
@@ -101,19 +101,22 @@ internal static class TyrePass
             return true;
         }
 
-        var ceilingMps2 = DriveCeilingMps2(config, car, hand, pose.AccelerationMps2.Y, carry.SlipThrottle);
-        Span<Vector2> atM = stackalloc Vector2[TyreModel.Wheels];
+        Span<float> loadShare = stackalloc float[TyreModel.MostWheels];
+        var acrossMps2 = Suspension.Loads(car, pose.Sprung, loadShare);
+        var ceilingMps2 = DriveCeilingMps2(config, car, hand, acrossMps2, carry.SlipThrottle);
+        Span<Vector2> atM = stackalloc Vector2[TyreModel.MostWheels];
         TyreModel.WheelPointsM(car, pose, atM);
-        for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+        for (var wheel = 0; wheel < car.WheelCount; wheel++)
         {
             ground[wheel] = grounds.Under(wheelsOnAWay, wheel);
         }
 
-        TyreModel.Step(config, car, pose, command, ceilingMps2, atM, ground, carry.SpinMps, config.TickSeconds, impulses, scrub);
+        TyreModel.Step(
+            config, car, pose, command, ceilingMps2, loadShare, atM, ground, carry.SpinMps, config.TickSeconds, impulses, scrub);
 
         // Held by its locks with nobody on the throttle, a car that its tyres can hold is held still, whole.
         if ((command.LocksEveryWheel || command.Handbrake) && command.ThrottleMps2 == 0f
-            && TyreModel.HoldStill(car, pose, inertiaKgM2, atM, ground, config.TickSeconds, impulses, carry.SpinMps))
+            && TyreModel.HoldStill(car, pose, inertiaKgM2, loadShare, atM, ground, config.TickSeconds, impulses, carry.SpinMps))
         {
             scrub.Clear();
         }
@@ -122,9 +125,9 @@ internal static class TyrePass
         // lifts for next tick. An undriven wheel sliding is a corner, not a wheel being over-asked.
         var onThePedal = command.ThrottleMps2 > 0f;
         var slipping = false;
-        for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+        for (var wheel = 0; wheel < car.WheelCount; wheel++)
         {
-            slipping |= scrub[wheel].Sliding && onThePedal && IsDriven(car.DrivenFrontShare, wheel);
+            slipping |= scrub[wheel].Sliding && onThePedal && car.WheelAt(wheel).IsDriven;
             if (LayMark(config, car, wheel, atM[wheel], ground[wheel], scrub[wheel], carry, out marks[marksLaid])) marksLaid++;
         }
 
@@ -135,7 +138,7 @@ internal static class TyrePass
     /// <summary>
     /// Whether this car's tyres have nothing whatever to do this tick, which is the state most of the
     /// town's cars are in most of the time: a body at a dead standstill, nobody on the throttle, and
-    /// four wheels holding nothing over.
+    /// wheels holding nothing over.
     /// </summary>
     /// <remarks>
     /// Every figure the model would produce here is exactly zero: a patch with no velocity under it has
@@ -167,8 +170,8 @@ internal static class TyrePass
     /// <remarks>
     /// <para>
     /// <b>The corner is the one the tyres are actually turning and not the one the profile planned</b>: the
-    /// lateral acceleration the patches themselves put down, lagged exactly as the loads are, so what the
-    /// throttle has left is measured against the corner the rubber is paying for.
+    /// lateral acceleration the springs are carrying (<see cref="Suspension.Loads"/>), which the loads are read off
+    /// too, so what the throttle has left is measured against the corner the rubber is paying for.
     /// </para>
     /// <para>
     /// <b>A hand at the wheel is held to the ellipse and to nothing else.</b> The remainder is a fact about
@@ -205,10 +208,6 @@ internal static class TyrePass
         carry.SlipThrottle = carry.DrivenSlipping
             ? MathF.Max(carry.SlipThrottle - config.TyreSlipBackOffPerTick, config.Tyre.MinSlipThrottleFraction)
             : MathF.Min(carry.SlipThrottle + config.TyreSlipRecoverPerTick, 1f);
-
-    /// <summary>Whether the engine is turning this wheel at all, which is what makes a slide worth lifting for.</summary>
-    static bool IsDriven(float drivenFrontShare, int wheel) =>
-        wheel < 2 ? drivenFrontShare > 0f : drivenFrontShare < 1f;
 
     /// <summary>
     /// One wheel's mark for this tick. Nothing is laid until the wheel has travelled a whole segment's

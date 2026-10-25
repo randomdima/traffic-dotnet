@@ -227,13 +227,27 @@ still looking like a perfectly good closed line, which is why this is a rule and
 carriageway, its exposed edges walkable, **running the whole road rather than only the wet part**, so
 what it carries reaches standable ground at both ends.
 
-**TER-3b.1** `P6` A deck is **wide enough for the town's pavement to cross it** and **carries none of its
-own**: it is the deck out to its own half-width, and the margin either side of the carriageway is what a
-parapet stands on. A deck sized to a walk of its own is a deck the street's pavement does not fit on, which
-is what the width on its plan record is for — but a deck that lays that walk itself is a line beside a road
-struck by arithmetic of its own, which is the one thing no line beside a road may be (TER-3c.3). **The walk
-across a deck is the street's own, carried over it because the street is** (WLK-1): a road over water is a
-road, and what is walked beside it is walked beside it there as anywhere else.
+**TER-3b.1** `P6` A deck is **wide enough for the town's pavement to cross it, and a parapet past it**, and
+**carries no walk of its own**: it is its road's carriageway, the street's walk either side and a parapet's
+width beyond each (`SimConfig.CityGen.BridgeParapetWidthM`), which nothing walks on. A deck sized to a walk of
+its own is a deck the street's pavement does not fit on, which is what the width on its plan record is for —
+but a deck that lays that walk itself is a line beside a road struck by arithmetic of its own, which is the one
+thing no line beside a road may be (TER-3c.3). **The walk across a deck is the street's own, carried over it
+because the street is** (WLK-1): a road over water is a road, and what is walked beside it is walked beside it
+there as anywhere else.
+
+**TER-3b.2** `P7` **A bridge is dressed as one, and the dressing is drawn and stands nothing.** Laid along its
+straight span from art of its own (`BridgeLooks`): its walkway either side and its carriageway, each a picture
+repeating along it; a parapet along each edge of the deck; and where it lands on the road it carries on into,
+an expansion joint across the whole deck, a newel at each corner and a wing wall turned back along the bank
+from it — the joint the one mark of where the lanes become the bridge's, for a bridgehead is not a junction
+anyone turns at. Lamps stand along both parapets opposite each other, and on the ground a pier noses out
+from under the deck at every pitch where it stands in the water. **The town's own lines stay the town's**
+(TER-3c.3): a walkway's inner edge lies under the carriageway and the carriageway's edge under the town's kerb,
+so the deck's edge is the one line a bridge strikes, as TER-3b.1 already has it. **And a deck is carried back
+off the shore** where its road ends on it, so no shore shows between the deck and the walk the road has on
+land; the wing walls and the piers are the ground's alone, since on the level above they would be drawn over
+the bodies on the road beneath.
 
 ## The edge line
 
@@ -241,8 +255,8 @@ The outside of the pavement and of a bridge deck each carry a line, the way the 
 kerb. **An edge is the surface drawn darker; paint is the surface drawn brighter**, and the grain of
 the ground comes through both.
 
-**A deck's edge is a rim** (TER-7b), a deck being a ribbon about a road's own line with no shell to strike
-anything off; **the pavement's is a kerb**, struck along the walk's outer face (TER-3d). Nothing walks an
+**A deck's edge is its parapet** (TER-3b.2), a deck being a ribbon about a road's own line with no shell to
+strike anything off; **the pavement's is a kerb**, struck along the walk's outer face (TER-3d). Nothing walks an
 edge or probes a region.
 
 **TER-3d** `P6` **A kerb straddles the ground it bounds, and is a stroke along that ground's own shell.**

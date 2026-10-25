@@ -1,5 +1,7 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
@@ -51,10 +53,27 @@ internal sealed partial class DeviceAtlas : IDisposable
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CountRow(uint Count, uint Dropped);
 
-    /// <summary>One car's four wheels asked (<c>atlas_wheels.comp</c>), in the tyre model's order, and how far its body is held either side of each.</summary>
+    /// <summary>
+    /// One car's wheels asked (<c>atlas_wheels.comp</c>), in the tyre model's order, with <see cref="TyreModel.MostWheels"/> of
+    /// room, and how far its body is held either side of each.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct WheelsRow(
-        Vector2 Wheel0M, Vector2 Wheel1M, Vector2 Wheel2M, Vector2 Wheel3M, float AroundAWheelM, uint Channels);
+    internal readonly record struct WheelsRow(WheelPoints WheelsM, float AroundAWheelM, uint Channels, int Wheels, uint Pad)
+    {
+        public static WheelsRow Of(ReadOnlySpan<Vector2> wheelsM, float aroundAWheelM, uint channels)
+        {
+            var points = new WheelPoints();
+            wheelsM.CopyTo(points);
+            return new WheelsRow(points, aroundAWheelM, channels, wheelsM.Length, 0u);
+        }
+    }
+
+    /// <summary>A car's wheels' points, as many as a car may stand on.</summary>
+    [InlineArray(TyreModel.MostWheels)]
+    internal struct WheelPoints
+    {
+        Vector2 _first;
+    }
 
     /// <summary>The ask's push constants (<c>atlas_under.comp</c>): every figure the read takes that is a number.</summary>
     [StructLayout(LayoutKind.Sequential)]

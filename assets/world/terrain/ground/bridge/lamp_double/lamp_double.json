@@ -1,0 +1,7 @@
+{
+  "id": "lamp_double",
+  "sprite": "lamp_double.webp",
+  "kind": "Lamp",
+  "describe": "an ornate black bridge lamp standard seen straight down from above: a round base in the middle, two curved arms reaching left and right each ending in a globe lantern of milky unlit glass",
+  "footprintM": [2.0, 0.597]
+}

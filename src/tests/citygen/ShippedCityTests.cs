@@ -57,6 +57,10 @@ public class ShippedCityTests
 
     [Theory]
     [MemberData(nameof(Cities))]
+    public void NothingStandsInItsWater(string map) => Conformance.NothingStandsInItsWater(map);
+
+    [Theory]
+    [MemberData(nameof(Cities))]
     public void NothingItCarriesStandsOffIt(string map) => Conformance.NothingItCarriesStandsOffIt(map);
 
     [Theory]

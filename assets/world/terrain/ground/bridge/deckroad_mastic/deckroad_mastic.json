@@ -1,0 +1,8 @@
+{
+  "id": "deckroad_mastic",
+  "sprite": "deckroad_mastic.webp",
+  "kind": "DeckRoad",
+  "describe": "a bridge's carriageway: smooth dark mastic asphalt on the deck, a little darker and cooler than street asphalt, very fine even grain, two faint darker wheel-polished bands running its length",
+  "footprintM": [15.667, 6.8],
+  "pictureM": 10.8002
+}

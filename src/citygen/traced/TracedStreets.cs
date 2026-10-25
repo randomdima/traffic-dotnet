@@ -1178,8 +1178,8 @@ internal static partial class TracedStreets
 
     /// <summary>
     /// <b>A deck under every bridge</b> (TER-3b): each bridge is a road of its own (<see cref="Places"/>), so its deck
-    /// runs the whole of it — as wide as its carriageway and the walk either side, which is what the ground answers
-    /// as the deck's margin.
+    /// runs the whole of it — as wide as its carriageway, the walk either side and a parapet past each (TER-3b.1),
+    /// which is what the ground answers as the deck's margin.
     /// </summary>
     static CityPlan.BridgeArrays Decks(CityPlan.RoadArrays roads, SimConfig config)
     {
@@ -1190,7 +1190,7 @@ internal static partial class TracedStreets
 
             road.Add(at);
             toM.Add(Spline.TotalLengthM(roads.SegmentsOf(at)));
-            deckWidthM.Add(roads.WidthM[at] + (2f * config.WalkOuterM));
+            deckWidthM.Add(roads.WidthM[at] + (2f * (config.WalkOuterM + config.CityGen.BridgeParapetWidthM)));
         }
 
         return new CityPlan.BridgeArrays

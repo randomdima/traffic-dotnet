@@ -2,7 +2,7 @@
 // skip, the ground under each wheel, the model's four impulses, the hold of a car its locks keep still, the slide it
 // lifts for next tick, and the marks it lays. Line for line with the host, `precise` where it rounds twice.
 //
-// The including kernel includes car_build.glsl, tyre.glsl and tyre_marks.glsl first, defines TYRE_WHEEL_GROUNDS_BINDING,
+// The including kernel includes car_build.glsl, tyre.glsl, suspension.glsl and tyre_marks.glsl first, defines TYRE_WHEEL_GROUNDS_BINDING,
 // and its TYRE_FIGURES also carries slipBackOffPerTick, slipRecoverPerTick (SimConfig.TyreSlipBackOffPerTick and
 // TyreSlipRecoverPerTick), minSlipThrottleFraction, tractionThrottleFraction, nominalGripMps2 and markSpacingM.
 
@@ -12,16 +12,16 @@ layout(std430, binding = TYRE_WHEEL_GROUNDS_BINDING) readonly buffer TyreWheelGr
 // What a car's tyres carry from one tick to the next (TyreCarry).
 struct TyreCarry
 {
-    float spinMps[4];
-    float scrubTravelM[4];
-    vec2 markFromM[4];
-    float markIntensity[4];
-    bool marking[4];
+    float spinMps[TyreWheels];
+    float scrubTravelM[TyreWheels];
+    vec2 markFromM[TyreWheels];
+    float markIntensity[TyreWheels];
+    bool marking[TyreWheels];
     float slipThrottle;
     bool drivenSlipping;
 };
 
-// One stretch of mark a wheel laid (TyreMark); its width is the car's and its wheel is where it stands in the four.
+// One stretch of mark a wheel laid (TyreMark); its width is the car's and its wheel is where it stands among the car's.
 struct TyreMark
 {
     vec2 fromM;
@@ -55,8 +55,9 @@ float tyrePassCeilingMps2(CarBuildRow car, bool hand, float acrossMps2, float sl
     return ceilingMps2;
 }
 
-// A body at a dead standstill, nobody on the throttle, and four wheels holding nothing over (TyrePass.AtRest). A device
-// that flushes denormals (RADV) reads a denormal velocity as none, so a body the host left one is at rest here.
+// A body at a dead standstill, nobody on the throttle, and wheels holding nothing over (TyrePass.AtRest) — the room past
+// the car's own wheels carried as nothing. A device that flushes denormals (RADV) reads a denormal velocity as none, so
+// a body the host left one is at rest here.
 bool tyrePassAtRest(TyrePose pose, TyreCommand command, TyreCarry carry)
 {
     if (pose.velocityMps != vec2(0.0) || pose.yawRateRadPerS != 0.0 || command.throttleMps2 != 0.0) return false;
@@ -74,11 +75,6 @@ bool tyrePassAtRest(TyrePose pose, TyreCommand command, TyreCarry carry)
 bool tyrePassSettled(TyrePose pose, TyreCommand command, TyreCarry carry)
 {
     return carry.slipThrottle == 1.0 && !carry.drivenSlipping && tyrePassAtRest(pose, command, carry);
-}
-
-bool tyrePassIsDriven(float drivenFrontShare, int wheel)
-{
-    return wheel < 2 ? drivenFrontShare > 0.0 : drivenFrontShare < 1.0;
 }
 
 // One wheel's mark for this tick (TyrePass.LayMark): true where a stretch was laid, which is then `laid`.
@@ -122,12 +118,13 @@ bool tyrePassLayMark(vec2 atM, TyreSurface surface, TyreScrub scrub, int wheel, 
     return lays;
 }
 
-// One car's four patches for this tick (TyrePass.Step): true where the car was at rest and nothing was asked of its
-// tyres. `wheelsOnAWay` has a bit a wheel that stood on a way when the car's body was last laid; `laid` has a bit a wheel
-// that laid a mark, which is then that wheel's of `marks`.
+// One car's patches for this tick (TyrePass.Step): true where the car was at rest and nothing was asked of its tyres.
+// `wheelsOnAWay` has a bit a wheel that stood on a way when the car's body was last laid; `laid` has a bit a wheel that
+// laid a mark, which is then that wheel's of `marks`.
 bool tyrePass(
     CarBuildRow car, TyrePose pose, TyreCommand command, bool hand, float inertiaKgM2, uint wheelsOnAWay, float dtS,
-    inout TyreCarry carry, out vec4 impulses[4], out TyreScrub scrub[4], out TyreMark marks[4], out uint laid)
+    inout TyreCarry carry, out vec4 impulses[TyreWheels], out TyreScrub scrub[TyreWheels], out TyreMark marks[TyreWheels],
+    out uint laid)
 {
     laid = 0u;
     for (int wheel = 0; wheel < TyreWheels; wheel++)
@@ -144,16 +141,24 @@ bool tyrePass(
         return true;
     }
 
-    float ceilingMps2 = tyrePassCeilingMps2(car, hand, pose.accelerationMps2.y, carry.slipThrottle);
-    vec2 atM[4];
+    int wheels = int(car.wheelCount);
+    float loadShare[TyreWheels];
+    float acrossMps2 = suspensionLoads(car, pose.sprung, loadShare);
+    float ceilingMps2 = tyrePassCeilingMps2(car, hand, acrossMps2, carry.slipThrottle);
+    vec2 atM[TyreWheels];
     tyreWheelPointsM(car, pose, atM);
-    TyreSurface ground[4];
-    for (int wheel = 0; wheel < TyreWheels; wheel++) ground[wheel] = tyreWheelGrounds[(wheelsOnAWay >> uint(wheel)) & 1u];
+    TyreSurface ground[TyreWheels];
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        if (wheel >= wheels) break;
 
-    tyreStep(car, pose, command, ceilingMps2, atM, ground, carry.spinMps, dtS, impulses, scrub);
+        ground[wheel] = tyreWheelGrounds[(wheelsOnAWay >> uint(wheel)) & 1u];
+    }
+
+    tyreStep(car, pose, command, ceilingMps2, loadShare, atM, ground, carry.spinMps, dtS, impulses, scrub);
 
     if ((tyreLocksEveryWheel(command) || tyreHandbrake(command)) && command.throttleMps2 == 0.0
-        && tyreHoldStill(car, pose, inertiaKgM2, atM, ground, dtS, impulses, carry.spinMps))
+        && tyreHoldStill(car, pose, inertiaKgM2, loadShare, atM, ground, dtS, impulses, carry.spinMps))
     {
         for (int wheel = 0; wheel < TyreWheels; wheel++) scrub[wheel] = TyreScrub(0.0, 0.0, 0.0, 0u);
     }
@@ -162,8 +167,10 @@ bool tyrePass(
     bool slipping = false;
     for (int wheel = 0; wheel < TyreWheels; wheel++)
     {
+        if (wheel >= wheels) break;
+
         bool sliding = (scrub[wheel].flags & 2u) != 0u;
-        slipping = slipping || (sliding && onThePedal && tyrePassIsDriven(car.drivenFrontShare, wheel));
+        slipping = slipping || (sliding && onThePedal && buildWheelIs(car, wheel, WheelDriven));
         if (tyrePassLayMark(atM[wheel], ground[wheel], scrub[wheel], wheel, dtS, carry, marks[wheel])) laid |= 1u << uint(wheel);
     }
 

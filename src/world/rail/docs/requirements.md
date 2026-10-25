@@ -36,6 +36,18 @@ and a wagon any of which is on it is on a collision channel of its own and meets
 short enough that every train is over itself on it. The bridge is as long as climbing to its clearance at the ruling
 grade takes either side (`SimConfig.Rail`), and never reaches the track it passes over.
 
+**RAIL-12** `P7` **A rail bridge is dressed as a road's is** (`TER-3b.2`), **from art of its own** (`BridgeLooks`), and
+the dressing is drawn and stands nothing: a deck the ballast's band wide and past it either side, its sleepers laid on
+the deck itself, carrying a side — walkway and parapet — along each edge; where it lands on the track at grade, a post
+at each corner and a wing wall turned back along the bank from it; and on the ground a pier noses out from under the
+deck at every pitch where it stands in the water. Two tracks side by side are one deck, dressed along its outer edges
+only.
+
+**RAIL-13** `P8` **A track at grade lies on a bed of ballast that runs out into the grass as a shore does** (`GEN-2c`):
+the bed is drawn apart from the sleepers and rails laid over it, the band the town keeps clear wide (`RAIL-4`), its
+stones thinning toward both edges, and the grass beside it fades out over them rather than meeting the track along a
+line — but where it meets another track's bed. On a bridge the deck is what the sleepers lie on, and no bed is drawn.
+
 ## The level crossing
 
 **RAIL-1** `P0` **A level crossing closes ahead of every train.** Where a road or a walk meets a track at

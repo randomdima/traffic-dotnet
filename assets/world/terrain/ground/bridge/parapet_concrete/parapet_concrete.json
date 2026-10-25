@@ -1,0 +1,8 @@
+{
+  "id": "parapet_concrete",
+  "sprite": "parapet_concrete.webp",
+  "kind": "Parapet",
+  "describe": "a modern concrete bridge parapet seen straight down: a smooth light grey concrete upstand with a galvanised steel handrail along its top, a thin joint square across every 3 m",
+  "footprintM": [5.239, 0.5],
+  "pictureM": 3.6042
+}

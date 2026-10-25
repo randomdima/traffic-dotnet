@@ -1,0 +1,8 @@
+{
+  "id": "deckroad_concrete",
+  "sprite": "deckroad_concrete.webp",
+  "kind": "DeckRoad",
+  "describe": "a bridge's carriageway of cast concrete deck slabs, mid grey, a fine brushed texture running square across, a thin dark sealed joint square across every 4 m",
+  "footprintM": [15.633, 6.8],
+  "pictureM": 12.7997
+}

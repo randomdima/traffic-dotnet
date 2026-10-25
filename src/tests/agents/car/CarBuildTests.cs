@@ -155,10 +155,9 @@ public class CarBuildTests
             Assert.Equal(Figures.Car.MassKg, build.MassKg);
             Assert.Equal(Figures.Car.WheelbaseM, build.WheelbaseM);
             Assert.Equal(Figures.Car.MaxSpeedMps, build.MaxSpeedMps);
-            Assert.Equal(
-                Catalogue.Variants[variant].DrivenFrontShare(Figures.Car.StaticFrontShare),
-                build.DrivenFrontShare);
-            if (build.DrivenFrontShare != Figures.Car.DrivenFrontShare) layouts++;
+            // The front axle's share of the drive, its two axles being the nominal car's.
+            Assert.Equal(Catalogue.Variants[variant].DrivenFrontShare(Figures.Car.StaticFrontShare), build.DriveOf(0));
+            if (build.DriveOf(0) != Figures.Car.DrivenFrontShare) layouts++;
         }
 
         Assert.True(layouts > 0, "the fleet varies its drive layouts and the lab keeps that much");

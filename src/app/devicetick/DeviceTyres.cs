@@ -24,12 +24,13 @@ internal sealed class DeviceTyres : IDisposable
 {
     /// <summary>The body at the start of the tick (<c>TyrePose</c>).</summary>
     [StructLayout(LayoutKind.Sequential)]
+    /// <remarks><c>Pad</c> rounds it to its vectors' eight bytes, which is std430's stride of the row.</remarks>
     internal readonly record struct PoseRow(
-        Vector2 PositionM, Vector2 VelocityMps, Vector2 Forward, Vector2 AccelerationMps2, float HeadingRad, float YawRateRadPerS,
-        float MassKg, float Pad)
+        Vector2 PositionM, Vector2 VelocityMps, Vector2 Forward, float HeadingRad, float YawRateRadPerS, float MassKg,
+        SprungBody Sprung, float Pad)
     {
         public static PoseRow Of(in CarPose pose) => new(
-            pose.PositionM, pose.VelocityMps, pose.Forward, pose.AccelerationMps2, pose.HeadingRad, pose.YawRateRadPerS, pose.MassKg, 0f);
+            pose.PositionM, pose.VelocityMps, pose.Forward, pose.HeadingRad, pose.YawRateRadPerS, pose.MassKg, pose.Sprung, 0f);
     }
 
     /// <summary>The pedals and the wheel (<c>TyreCommand</c>).</summary>
@@ -70,7 +71,7 @@ internal sealed class DeviceTyres : IDisposable
         public const uint Ploughing = 1u, Sliding = 2u;
     }
 
-    /// <summary>One mark laid (<c>TyreMarkRow</c>): <see cref="CarWheel"/> is the car times four plus the wheel.</summary>
+    /// <summary>One mark laid (<c>TyreMarkRow</c>): <see cref="CarWheel"/> is the car times <see cref="TyreModel.MostWheels"/> plus the wheel.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct MarkRow(Vector2 FromM, Vector2 ToM, float WidthM, float Intensity, uint CarWheel, uint Ploughed);
 
@@ -103,7 +104,7 @@ internal sealed class DeviceTyres : IDisposable
         public uint HandsBack;
     }
 
-    const int WheelsACar = TyreModel.Wheels;
+    const int WheelsACar = TyreModel.MostWheels;
 
     readonly Vk _vk;
     readonly Figures _figures;
@@ -247,7 +248,7 @@ internal sealed class DeviceTyres : IDisposable
 
     public ReadOnlySpan<ScrubRow> Scrub => _scrubs.AllRead[..(_cars * WheelsACar)];
 
-    /// <summary>How many marks the last <see cref="Step"/> laid, which may be more than the records hold (<see cref="Capacity"/> × 4).</summary>
+    /// <summary>How many marks the last <see cref="Step"/> laid, which may be more than the records hold (<see cref="Capacity"/> × <see cref="TyreModel.MostWheels"/>).</summary>
     public int MarkCount => (int)_markCountOut.Span<uint>()[0];
 
     /// <summary>

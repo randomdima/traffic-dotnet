@@ -8,12 +8,12 @@ internal sealed partial class TownWorld
 {
     /// <summary>A car as its driver reads it: where it is and how it moves.</summary>
     /// <remarks>
-    /// <b>Not how it is loaded</b>: the acceleration the tyres weigh their loads by is the world's, which steps them off
-    /// a pose of its own, and nothing a driver decides reads it — so this one carries none.
+    /// <b>Not how it is loaded</b>: the body on its springs the tyres weigh their loads by is the world's, which steps it
+    /// off a pose of its own, and nothing a driver decides reads it — so this one carries none.
     /// </remarks>
     CarPose PoseOf(int car) => new(
         Cars.PositionM[car], Cars.HeadingRad[car], Cars.Forward[car], Cars.VelocityMps[car], Cars.YawRateRadPerS[car],
-        Cars.MassKgOf(car), Vector2.Zero);
+        Cars.MassKgOf(car));
 
     /// <summary>
     /// <b>This car's command delivered</b>: handed to the world, whose tyres turn it into four contact patches

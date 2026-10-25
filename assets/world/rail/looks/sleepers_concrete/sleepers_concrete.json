@@ -1,0 +1,8 @@
+{
+  "id": "sleepers_concrete",
+  "sprite": "sleepers_concrete.webp",
+  "kind": "Track",
+  "sleeperLengthM": 2.6,
+  "describe": "a straight stretch of railway track seen from straight above with no ballast: pale grey concrete sleepers lying across the strip, evenly spaced, clear between them; two steel rails along the whole length, each a bright polished running strip with a darker rusty-brown edge either side, held by dark clips",
+  "footprintM": [6.0952, 2.6]
+}

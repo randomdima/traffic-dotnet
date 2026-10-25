@@ -1,0 +1,7 @@
+{
+  "id": "railpier_columns",
+  "sprite": "railpier_columns.webp",
+  "kind": "RailPierNose",
+  "describe": "the end of a railway bridge's steel trestle pier seen straight down where it pokes out from under the deck: a dark grey-green steel crosshead beam along the bottom edge, one round steel column standing in the water below it toward the top",
+  "footprintM": [3.0, 1.667]
+}

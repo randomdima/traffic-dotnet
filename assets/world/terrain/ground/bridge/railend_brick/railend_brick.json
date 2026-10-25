@@ -1,0 +1,7 @@
+{
+  "id": "railend_brick",
+  "sprite": "railend_brick.webp",
+  "kind": "RailEndPost",
+  "describe": "the pilaster a railway viaduct's parapet ends on at the abutment, seen straight down: a square of dark red brick under a pale stone cap with a shallow pyramid top",
+  "footprintM": [1.2, 1.213]
+}

@@ -1,0 +1,55 @@
+{
+ "id": "rail_track_layers-v1",
+ "ts": "2026-10-25T21:12:27",
+ "op": "edit",
+ "name": "rail_track_layers",
+ "file": ".tmp/gen/frames/rail_track_layers-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.010333,
+ "usage": {
+  "prompt_tokens": 989,
+  "completion_tokens": 158,
+  "total_tokens": 1147,
+  "cost": 0.010333,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.010333,
+   "upstream_inference_prompt_cost": 0.005593,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "A sheet of nine top-down game sprites for a railway, every one seen exactly straight down from above, flat, in the painted style of the picture sent (a stretch of railway track from the same game, 4.4 m across, at the scale these are to be drawn at): soft, calm, painted rather than photographic, low contrast, no black outlines. A car beside them would be 4.5 m long and 1.8 m wide.\n\nThe game draws a track in two layers, and this sheet is both: a bed of ballast stones on its own, and the sleepers and rails on their own, which the game lays on top of the bed. So the sleepers and rails have NO ballast and NO ground: fully transparent between the sleepers. And the beds have NO sleepers and NO rails.\n\nEverything outside the drawings is fully transparent: no ground, no grass, no backdrop, no frame, no cast shadow, no text, no labels. Each drawing whole, a clear gap of transparency between drawings. Every drawing is a long strip lying horizontally that the game repeats along its length, so it runs on evenly from one end to the other with nothing special at either end.\n\nThe sheet is 3 rows of 3, read top to bottom and each row left to right.\n\nCells 1 to 4 — sleepers and rails, each strip about 7 m long and 2.6 m deep (about 2.8 times as long as deep). Each sleeper lies square across the strip, 2.6 m long — the strip's whole depth, its ends on the strip's two long edges — and 0.25 m wide, one every 0.6 m, about 12 along it, evenly spaced, clear transparency between them. Two rails run the whole length, straight and parallel, centred across the strip, their inner faces 1.52 m apart (a little more than half the strip's depth), each rail a bright polished running strip with a darker rusty-brown edge either side, held to every sleeper.\n1. sleepers_concrete: pale grey concrete sleepers, dark clips at each rail.\n2. sleepers_timber: dark brown creosoted timber sleepers, the rails on small steel base plates.\n3. sleepers_worn: weathered grey concrete sleepers stained with rust and oil.\n4. sleepers_twinblock: twin-block sleepers — a pale concrete block under each rail, the two joined by a thin dark steel tie bar across the strip.\n\nCells 5 to 9 — ballast beds, each strip about 7 m long and 4.4 m deep (about 1.6 times as long as deep). A bed is a flat layer of crushed stone lying on the ground like a gravel path, each stone lit evenly from above with no dark underside and no shadow line: packed solid across its middle 3 m, its stones the same size as the track's ballast in the picture sent, no larger; and toward both long edges it frays out the way a gravel path's edge frays into a lawn — stones thinning at random, small clusters and single stones scattered at different distances, gaps of clear transparency opening between them, no even row of stones along either edge, no repeating pattern.\n5. ballast_granite: grey crushed granite, the colour of the track's ballast in the picture sent.\n6. ballast_bluegrey: blue-grey basalt chippings.\n7. ballast_dusty: grey crushed stone with pale dust settled on it.\n8. ballast_weedy: grey crushed granite with a few small green weeds among the outer stones.\n9. ballast_rusty: grey crushed stone stained rusty brown down its middle, where trains drop their rust.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "0734b036a7b87581",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/rail_track_layers_style.png"
+  }
+ ],
+ "cells": [
+  "sleepers_concrete",
+  "sleepers_timber",
+  "sleepers_worn",
+  "sleepers_twinblock",
+  "ballast_granite",
+  "ballast_bluegrey",
+  "ballast_dusty",
+  "ballast_weedy",
+  "ballast_rusty"
+ ]
+}

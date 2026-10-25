@@ -48,10 +48,11 @@ layout(push_constant) uniform Pass
 #include "agents/car/body/kernels/car_build.glsl"
 #include "agents/car/body/kernels/tyre_rows.glsl"
 #include "agents/car/body/kernels/tyre.glsl"
+#include "agents/car/body/kernels/suspension.glsl"
 #include "agents/car/body/kernels/tyre_marks.glsl"
 #include "agents/car/body/kernels/tyre_pass.glsl"
 
-// One mark laid (DeviceTyres.MarkRow): car × 4 + wheel says whose.
+// One mark laid (DeviceTyres.MarkRow): car × CarMostWheels + wheel says whose.
 struct TyreMarkRow
 {
     vec2 fromM;
@@ -88,10 +89,16 @@ void main()
     if (car >= pass.carCount) return;
 
     TyreCarRow row = carRows[car];
+    uint buildAt = buildOf[car];
+    int wheels = int(builds[buildAt].wheelCount);
+    uint firstRow = car * uint(CarMostWheels);
+
+    // The car's own wheels read, and the room past them carried as nothing.
     TyreCarry carry;
     for (int wheel = 0; wheel < TyreWheels; wheel++)
     {
-        TyreWheelRow held = wheelRows[car * 4u + uint(wheel)];
+        TyreWheelRow held = TyreWheelRow(vec2(0.0), 0.0, 0.0, 0.0, 0u);
+        if (wheel < wheels) held = wheelRows[firstRow + uint(wheel)];
         carry.spinMps[wheel] = held.spinMps;
         carry.scrubTravelM[wheel] = held.scrubTravelM;
         carry.markFromM[wheel] = held.markFromM;
@@ -108,7 +115,7 @@ void main()
     if (tyrePassSettled(pose, command, carry))
     {
         carRows[car].flags = row.flags | 4u;
-        for (uint at = car * 4u; at < car * 4u + 4u; at++)
+        for (uint at = firstRow; at < firstRow + uint(wheels); at++)
         {
             impulseRows[at] = vec4(0.0);
             if (pass.handsBack != 0u) scrubRows[at] = TyreScrub(0.0, 0.0, 0.0, 0u);
@@ -117,10 +124,10 @@ void main()
         return;
     }
 
-    CarBuildRow build = builds[buildOf[car]];
-    vec4 spent[4];
-    TyreScrub scrub[4];
-    TyreMark laidMarks[4];
+    CarBuildRow build = builds[buildAt];
+    vec4 spent[TyreWheels];
+    TyreScrub scrub[TyreWheels];
+    TyreMark laidMarks[TyreWheels];
     uint laid;
     bool atRest = tyrePass(
         build, pose, command, (row.flags & 1u) != 0u, row.inertiaKgM2, tyreWheelsOnAWayOf(row), pass.figures.dtS,
@@ -130,7 +137,9 @@ void main()
     carRows[car].flags = (row.flags & ~6u) | (carry.drivenSlipping ? 2u : 0u) | (atRest ? 4u : 0u);
     for (int wheel = 0; wheel < TyreWheels; wheel++)
     {
-        uint at = car * 4u + uint(wheel);
+        if (wheel >= wheels) break;
+
+        uint at = firstRow + uint(wheel);
         wheelRows[at] = TyreWheelRow(
             carry.markFromM[wheel], carry.spinMps[wheel], carry.scrubTravelM[wheel], carry.markIntensity[wheel],
             carry.marking[wheel] ? 1u : 0u);

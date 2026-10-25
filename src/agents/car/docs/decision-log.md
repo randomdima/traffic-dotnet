@@ -3,6 +3,70 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-25 — a car stands on damped springs, and the loads and the tilt are that body's state
+
+**The owner: "cars have N wheels, each a damped spring at a point; all of that decides the tilt and the load — no
+artificial limiters and caps", and the physics on the device.** The loads were an algebra over four fixed corners — a
+front share times a side share, clamped to nought and one — fed by the tyres' pushes through a first-order lag
+(`LoadSettleS`) with a floor under it (`LeastSettledLoadMps2`), and the tilt a straight line off that. It had no
+suspension in it: nothing could overshoot or rebound, the clamp stood in for a wheel lifting, and the lag stood in for
+the springs. Now (CAR-57, `Suspension`):
+
+- **A rigid body with three motions — heave, pitch, roll — on a spring and a damper at every wheel**, pushed at the
+  ground by the tyres a centre-of-mass height below it, stepped once a tick semi-implicitly. A wheel's load is its
+  spring's push, a wheel whose spring would pull is off the ground, and the shares are the pushes over their sum, so
+  the wheels are always the whole car (CAR-3e). The lag, its floor, the clamp and the per-g tilt figures are gone. The
+  only floor left is the float's (`Suspension.LeastState`, 2⁻¹⁰⁰): a decaying state would reach the subnormals, which a
+  device that flushes them reads differently from the host.
+- **Written over the wheels and not over four corners**: what each wheel stands on at rest is solved off where the
+  wheels are, as the plane whose pushes hold up the weight and turn nothing (`Suspension.StandingShare`), so two pairs on
+  two axles stand as the balance splits the wheelbase and any other layout as its springs have it.
+- **And so is everything else about a tyre** — a wheel table on the build (`CarBuild.Wheels`: where, which axle, steered,
+  handbrake, driven) under a most of eight a car, every per-wheel table striding eight and every loop running the car's
+  own count:
+  - **A variant lays its own wheels out or keeps its axles** (`wheels`): the axles and track stay the shorthand for two
+    axles of two, which is every shipped look, and the axles stay what the car is driven from and turns about.
+  - **Drive is placed per axle as it was**, divided by the load that axle stands on; a laid-out car shares it among its
+    driven axles by what each stands on, as driving all four already did.
+  - **Every steered wheel points round one centre** on the line of the axle the car turns about, so a wheel steered
+    behind it turns the other way (`TyreModel.AckermannTurns`).
+  - **A hold-still spends at whatever wheels the handbrake holds**: the momentum shared, the yaw turned back by a push
+    along the car at each by its lever about where they stand together — the pair's couple, said for any number.
+  - **A towed car rolls on its axle furthest from the fork**, the rest of it up on the arm.
+  - **Eight is room, not a size**: the kernels loop to it and stop at the car's count, so each loop unrolls and its
+    arrays stay in registers; the cost of the room is in `docs/tech-debt.md`.
+- **The spring and the damper are the inputs, at one wheel, and nothing else is.** A roll gradient, a ride frequency or
+  a damping ratio is what a reader would look up, so each is derived. The fleet's 30 kN/m on a body three times a
+  hatchback's mass rolled a recovery truck 14° a g, so the vans, ambulances and recovery trucks state 60 kN/m and
+  4 kN·s/m and the heavy SUVs, pickups and off-roaders 45 kN/m and 3 kN·s/m, by kind and not solved from any wanted
+  figure; the rest stand on 30 kN/m and 2 kN·s/m. Across the fleet the modes come to damping ratios of 0.23–0.52 and the
+  stiffest, a microcar's roll at 2.5 Hz, is a quarter of a radian a tick. The inertias are a box of the body's length,
+  width and twice its height.
+- **The corner a driven axle has paid for is the roll moment the springs carry** over the height it acts through
+  (`Suspension.Loads`), which at a steady corner is the corner itself.
+- **A body frozen through a step stands at rest on its springs**, and one put down is reset to rest on both worlds:
+  freezing waits half a second at rest (SOL-37), by which a dive has all but died away.
+- **On the device in the view pass** (`world_view.comp`, `suspension.glsl`), which already read the step's impulses for
+  the old lag: six floats of state in each car's pose, no buffer, no crossing and nothing back across the bus but the
+  tilt the view row already carried. The host's world is the same function to the bit (`ManagedWorld.StepTheSprings`).
+
+**Drawn** (CAR-56):
+
+- **As a tilted plane, not as a shift.** The first cut slid the body off its wheels by where the centre of mass
+  went: two centimetres, under two pixels, and what showed was the body sliding against tyres that stood still, which
+  read as wheels knocked off their line. Now the body is drawn as an eye `ViewFigures.CarTiltEyeHeightM` over its
+  middle sees the plane — the sunk corner drawn in, the raised one out — and that height is the one exaggeration: from a
+  real camera's height a few centimetres of roll is under a pixel. All four tyres stand on the ground as their own quads
+  (app/render's log), and the lamps and the arm are placed on the tilted plane.
+- **Carried in the view row's spare word as two halves** (`ManagedWorld.WriteTheView`, `world_view.comp`): no byte more
+  across the bus, no crossing more a frame, and the device's emit reads the same word the host's fill does, so the two
+  draw it to the bit.
+
+**And a brake no longer reverses a car with the rolling resistance on top of it**: the drag was spent against the speed
+the corner had before its own brake stopped it, so a car braked to a stop rolled back by the drag of a tick, a couple
+of millimetres a second — enough to draw a plan back (TER-4c.1) once the loads moved. It is spent against what the tyre
+left (`TyreModel.Step`).
+
 ## 2026-10-24 — a lit road lamp burns a hot core, and spills further
 
 **The owner: "make turned on lamps more contrast".** An amber or clear lens the art already paints near full came on
@@ -226,12 +290,6 @@ alone, the amber's moved none). Mean speed 1–3 % lower. The Exam's soak over 9
 (`ManagedWorld.StepTheTyres`) and on the device (`tyre_pass.comp`) alike. The host had skipped every parked car frozen
 through the step, which left its throttle's recovery unwound where the device's wound it; the two worlds now keep the
 same carry, and either is the same to the bit as running every car.
-
-**A settled load under `TyreFigures.LeastSettledLoadMps2` is nought** on both worlds (`TownWorld.AtLeastALoad`,
-`world_view.comp`): lagged toward nothing, a parked car's load ran down to the least denormal and stayed there, so every
-car was worked out every tick, and a device flushing denormals would read it as nought where the host did not. The
-host passes over a car frozen through the step whose load is nought (`ManagedWorld.SettleTheLoads`). It moves the
-digests by loads under a ten-thousandth of a metre a second squared.
 
 ## 2026-10-12 — a car reads what it already has, and only a few cars hold room for a pass
 

@@ -69,8 +69,6 @@ internal sealed partial class DeviceWorld : WorldLayer
         public uint Count;
         public uint Mode;
         public float DtS;
-        public float LoadSettledShare;
-        public float LeastSettledLoadMps2;
         public uint EnabledBit;
         public uint FrozenBit;
         public uint FiledFrozenBit;
@@ -316,8 +314,6 @@ internal sealed partial class DeviceWorld : WorldLayer
         _push = new WorldPush
         {
             DtS = config.TickSeconds,
-            LoadSettledShare = TownWorld.LoadSettledShare(config, config.TickSeconds),
-            LeastSettledLoadMps2 = config.Tyre.LeastSettledLoadMps2,
             EnabledBit = (uint)BodyFlags.Enabled,
             FrozenBit = (uint)BodyFlags.Frozen,
             FiledFrozenBit = (uint)BodyFlags.FiledFrozen,
@@ -473,12 +469,12 @@ internal sealed partial class DeviceWorld : WorldLayer
             var body = new BodyId(BodyOfCar(car) + 1);
             _tyres.BuildOf[car] = laid.Variant;
             _tyres.Poses[car] = DeviceTyres.PoseRow.Of(new CarPose(
-                laid.PositionM, laid.HeadingRad, Vector2.Zero, 0f, stood.MassOf(body), Vector2.Zero));
+                laid.PositionM, laid.HeadingRad, Vector2.Zero, 0f, stood.MassOf(body)));
             _tyres.Commands[car] = DeviceTyres.CommandRow.Of(DriveCommand.Parked);
             _tyres.Cars[car] = new DeviceTyres.CarRow(1f / stood.InverseInertiaOf(body), 1f, 0u);
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+            for (var wheel = 0; wheel < TyreModel.MostWheels; wheel++)
             {
-                _tyres.Wheels[(car * TyreModel.Wheels) + wheel] = new DeviceTyres.WheelRow(laid.PositionM, 0f, 0f, 0f, 0u);
+                _tyres.Wheels[(car * TyreModel.MostWheels) + wheel] = new DeviceTyres.WheelRow(laid.PositionM, 0f, 0f, 0f, 0u);
             }
         }
 
@@ -581,11 +577,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         _rail.ForgetThePutDowns();
         var signals = WriteTheSignals();
         RestTheLinkedAfresh();
-        if (dtS != _push.DtS)
-        {
-            _push.DtS = dtS;
-            _push.LoadSettledShare = TownWorld.LoadSettledShare(Config, dtS);
-        }
+        _push.DtS = dtS;
 
         var commands = _batch.Begin();
         _solver.Send(commands);

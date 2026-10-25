@@ -8,7 +8,10 @@ namespace TrafficSimulation.World.Rail;
 /// <remarks>A file of a kind not named here (a relay cabinet's) is a candidate nothing lists yet.</remarks>
 internal enum RailLookKind : byte
 {
-    /// <summary>A strip of track — ballast, sleepers and rails — the ground repeats along every track (RAIL-3).</summary>
+    /// <summary>
+    /// A strip of track — its sleepers and two rails, clear between the sleepers — the ground repeats along every track
+    /// over its ballast at grade and its deck on a bridge (RAIL-3).
+    /// </summary>
     Track,
 
     /// <summary>A level crossing's arm, its tip at +x, laid at its body's length across whatever lanes it closes (RAIL-7).</summary>
@@ -22,6 +25,12 @@ internal enum RailLookKind : byte
 
     /// <summary>A crossing's X light over a lane coming in, drawn flat as a junction's head is, and its lit twin (<see cref="RailLookFile.Lit"/>).</summary>
     Light,
+
+    /// <summary>
+    /// The bed of ballast under a track at grade (RAIL-3, RAIL-13): a strip the band the town keeps clear deep (RAIL-4),
+    /// packed across its middle and fraying into the grass along both long edges.
+    /// </summary>
+    Ballast,
 }
 
 /// <summary>One piece's file (<c>assets/world/rail/looks/&lt;id&gt;/&lt;id&gt;.json</c>).</summary>
@@ -63,11 +72,14 @@ internal readonly record struct RailLook(string Id, RailLookKind Kind, string Sp
 /// </summary>
 internal sealed class RailLooks
 {
-    RailLooks(RailLook track, RailLook barrier, RailLook drive, RailLook light) =>
-        (Track, Barrier, Drive, Light) = (track, barrier, drive, light);
+    RailLooks(RailLook track, RailLook ballast, RailLook barrier, RailLook drive, RailLook light) =>
+        (Track, Ballast, Barrier, Drive, Light) = (track, ballast, barrier, drive, light);
 
-    /// <summary>The strip the ground lays along every track, end to end.</summary>
+    /// <summary>The sleepers and rails the ground lays along every track, end to end.</summary>
     public RailLook Track { get; }
+
+    /// <summary>The bed of ballast it lays under them where the track stands at grade.</summary>
+    public RailLook Ballast { get; }
 
     public RailLook Barrier { get; }
 
@@ -94,7 +106,8 @@ internal sealed class RailLooks
         var light = Listed(RailLookKind.Light);
         if (light.LitSpritePath is null) throw new InvalidDataException($"{light.Id} is a crossing's light and has no lit twin.");
 
-        return new RailLooks(Listed(RailLookKind.Track), Listed(RailLookKind.Barrier), Listed(RailLookKind.Drive), light);
+        return new RailLooks(
+            Listed(RailLookKind.Track), Listed(RailLookKind.Ballast), Listed(RailLookKind.Barrier), Listed(RailLookKind.Drive), light);
 
         RailLook Listed(RailLookKind kind) => first[(int)kind] ?? throw new InvalidDataException($"{list} lists no {kind}.");
     }

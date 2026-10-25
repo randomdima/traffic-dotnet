@@ -265,6 +265,7 @@ internal sealed partial class TownWorld
         Cars.Forward[car] = Heading.Unit(headingRad);
         Cars.VelocityMps[car] = Vector2.Zero;
         Cars.YawRateRadPerS[car] = 0f;
+        Cars.TiltRad[car] = Vector2.Zero;
         _carSetBy[car] = NextBatch;
         Signal(ControlSignal.Place(AgentOfCar(car), atM, headingRad));
     }
@@ -361,6 +362,7 @@ internal sealed partial class TownWorld
             Cars.Forward[car] = row.Forward;
             Cars.VelocityMps[car] = row.VelocityMps;
             Cars.YawRateRadPerS[car] = row.YawRateRadPerS;
+            Cars.TiltRad[car] = row.TiltRad;
             Cars.Channels[car] = row.Channels;
         }
 

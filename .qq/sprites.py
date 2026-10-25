@@ -116,14 +116,28 @@ WEBP_ERROR = 6.0
 #: has its nose along +x (CarCatalog); a building's street front is at the bottom.
 FAMILIES = {"agents/car/": ("CarSpritePixelsPerMetre", "right", "grid"), "agents/train/": ("ArtPixelsPerMetre", "right", "rows"),
             "world/rail/": ("ArtPixelsPerMetre", "right", "grid"),
-            "world/terrain/ground/kerbs/": ("CarSpritePixelsPerMetre", "bottom", "grid")}
+            "world/terrain/ground/kerbs/": ("CarSpritePixelsPerMetre", "bottom", "grid"),
+            "world/terrain/ground/bridge/": ("CarSpritePixelsPerMetre", "bottom", "grid")}
 DEFAULT_FAMILY = ("ArtPixelsPerMetre", "bottom", "grid")
 #: A variant file of this kind is a strip the ground repeats along its length (RAIL-3), installed seamless (`seamless`).
 TRACK = "Track"
+#: And the bed of ballast the ground lays under a track's sleepers at grade (RAIL-3, RAIL-13), repeated along it the same
+#: way: packed across its middle, both long edges fraying into the grass.
+BALLAST = "Ballast"
+#: How long a stretch of a bed's end is cross-faded into its start to make it repeat: a few stones' length.
+BED_SEAM_M = 0.6
+#: A column of a bed is its body where it is at least this share as solid, top to bottom, as the bed's median column:
+#: the model frays and tapers a strip's ends as well as its edges, and a taper cross-faded into a taper repeats as a
+#: step in the bed's width (`rail_track_layers`).
+BED_SOLID_SHARE = 0.97
 #: And these are a kerb's strip (TER-3d), repeated along the line it is laid on the same way: its bottom edge is its low
 #: side, where the riser drops to the road or the grass, and it is installed cut at two of its joints (`at_joints`). Laid
 #: at the cars' grid, a kerb being a fifth of a metre across and read up close.
 KERBS = ("Kerb", "Edging")
+#: And a bridge's strips (TER-3b), laid along its straight span, a picture's bottom edge on the side it names in its
+#: file: installed the same way as a kerb's, cut joint to joint — a flag, a slab, a post or a tooth being the joint.
+BRIDGE_STRIPS = ("Walkway", "DeckRoad", "Joint", "Parapet", "RailParapet")
+STRIPS = (*KERBS, *BRIDGE_STRIPS)
 #: What an asset switches, by the key its variant file lists the parts under — each a `fitting`, `atM` from the
 #: footprint's centre in the sprite's axes (x right, y down) and `sizeM`, the area it is drawn inside in whatever
 #: shape the art gives it — and per fitting the colour a layout frames its area in and the words a brief
@@ -365,7 +379,8 @@ def body(base, found, i):
         describe = f"TOW ARM, {arm}, of the {describe}"
     return {"id": i, "asset": _sim.rel(base, path), "w": w, "d": depth, "shape": shape, "sw": sw, "sd": sd,
             "r": r, "standOff": stand, "describe": describe,
-            "parts": parts, "outside": 0, "track": d.get("kind") == TRACK, "kerb": d.get("kind") in KERBS, "surface": False,
+            "parts": parts, "outside": 0, "track": d.get("kind") == TRACK, "bed": d.get("kind") == BALLAST,
+            "kerb": d.get("kind") in STRIPS, "surface": False,
             "sleeperM": float(d.get("sleeperLengthM", 0.0)),
             "walls": walls, "offM": offM}
 
@@ -625,7 +640,7 @@ def cut_described(base, fid, ids):
                 per_m, filed = w_px / side_m, (side_m, side_m)
             elif "diameterM" in d:
                 per_m, filed = max(w_px, h_px) / float(d["diameterM"]), (float(d["diameterM"]),) * 2
-            elif d.get("kind") in (TRACK, *KERBS):
+            elif d.get("kind") in (TRACK, BALLAST, *STRIPS):
                 # A strip is repeated along its line, so its length is whatever was drawn and its depth is the one
                 # figure the ground needs (a kerb's 0.2 m, a track's ballast): sized by it, never squashed to it.
                 per_m, filed = h_px / float(d["footprintM"][1]), tuple(float(v) for v in d["footprintM"])
@@ -1166,9 +1181,9 @@ def drop(base, a):
     found, named = assets(base), named_pictures(base)
     for name in a.refs:
         i = VERSIONED.fullmatch(name).group(1)
-        if i not in found:
-            cli.fail(f"no variant file under assets/ has the id {i}")
-        folder = raw_dir(base, found[i], i)
+        folder = raw_dir(base, found[i], i) if i in found else retired_dir(base, i)
+        if folder is None:
+            cli.fail(f"no variant file under assets/ has the id {i}, and no folder under {RAW}/ keeps it")
         records = read_jsonl(folder / VARIANTS)
         record = next((r for r in records if r["variant"] == name), None)
         if record is None:
@@ -1314,8 +1329,9 @@ def use(base, a):
     if b["kerb"]:
         shrunk = at_joints(shrunk, density)
         write_picture_m(base, described, round(shrunk.width / density, 4))
-    elif b["track"]:
-        shrunk = seamless(shrunk, density)
+    elif b["track"] or b["bed"]:
+        shrunk = seamless(shrunk, density) if b["track"] else seamless_plain(shrunk, density)
+        write_length_m(base, described, round(shrunk.width / density, 4))
     data, how = art.encode(shrunk, "webp", WEBP_ERROR)
     fmt = "webp"
 
@@ -1437,7 +1453,9 @@ def seamless(image, density):
     The model draws a strip, not a tile, so its two ends do not meet. Its sleepers' pitch is read off the drawing's
     own column profile (the autocorrelation's first peak), the strip is cut to the most whole pitches that leave one
     pitch over, and that last pitch is cross-faded into the first — the two in the same phase, so a sleeper fades
-    into a sleeper — then stretched back to the width the art grid gives it: a few per cent, along the track only.
+    into a sleeper. Not stretched back: a strip a pitch short of whole stretched to its drawn width spaced its sleepers
+    up to a fifth wider (`rail_track_layers`), so the strip is as long as its whole pitches and `use` writes its file's
+    length from it.
     """
     import numpy as np
     from PIL import Image
@@ -1453,8 +1471,27 @@ def seamless(image, density):
     fade = (np.arange(pitch, dtype=np.float32) + 0.5) / pitch
     out[:, :pitch] = rgba[:, period:period + pitch] * (1 - fade)[None, :, None] + rgba[:, :pitch] * fade[None, :, None]
     tile = Image.fromarray(out.clip(0, 255).astype(np.uint8), "RGBA")
-    print(f"seamless: sleepers every {pitch} px, {period // pitch} of them in {period} px, stretched to {width} px")
-    return cut_out(np.asarray(tile.resize((width, height), Image.LANCZOS)).copy())
+    print(f"seamless: sleepers every {pitch} px, {period // pitch} of them in {period} px")
+    return cut_out(np.asarray(tile).copy())
+
+
+def seamless_plain(image, density):
+    """A strip with no pitch of its own (a ballast bed) made to repeat along x: cut to the columns as solid as its
+    median one (BED_SOLID_SHARE), then its last BED_SEAM_M cross-faded into its first and cut off, so its end runs into
+    its start. Nothing stretched."""
+    import numpy as np
+
+    rgba = np.asarray(image.convert("RGBA")).astype(np.float32)
+    solid = (rgba[..., 3] >= CUT_OUT_ALPHA).mean(0)
+    body = np.flatnonzero(solid >= BED_SOLID_SHARE * np.median(solid))
+    rgba = rgba[:, body[0]:body[-1] + 1]
+    width = rgba.shape[1]
+    seam = max(2, min(width // 3, round(BED_SEAM_M * density)))
+    out = rgba[:, :width - seam].copy()
+    fade = (np.arange(seam, dtype=np.float32) + 0.5) / seam
+    out[:, :seam] = rgba[:, width - seam:] * (1 - fade)[None, :, None] + rgba[:, :seam] * fade[None, :, None]
+    print(f"seamless: {seam} px of its end faded into its start, {width - seam} px a picture")
+    return cut_out(out.clip(0, 255).astype(np.uint8))
 
 
 #: How far in from a kerb strip's drawn ends a joint is looked for: the model rounds and darkens the ends themselves.
@@ -1527,6 +1564,14 @@ def write_picture_m(base, described: Path, picture_m: float):
         text, n = re.subn(r'("footprintM":\s*\[[^\]]*\])', rf'\1,\n  {line}', text, count=1)
     if not n:
         cli.fail(f"{_sim.rel(base, described)} has no footprintM line to write the picture's length after")
+    described.write_text(text, encoding="utf-8")
+
+
+def write_length_m(base, described: Path, length_m: float):
+    """A track's or a bed's footprint as long as its seamless picture: how far along the line one picture runs."""
+    text, n = re.subn(r'("footprintM":\s*\[)\s*[0-9.]+', rf'\g<1>{length_m}', described.read_text(encoding="utf-8"), count=1)
+    if not n:
+        cli.fail(f"{_sim.rel(base, described)} has no footprintM line to write the picture's length into")
     described.write_text(text, encoding="utf-8")
 
 
@@ -1793,6 +1838,12 @@ def raw_dir(base, described: Path, i: str) -> Path:
     """raw_assets/ at the path the variant file has under assets/, one folder per asset id."""
     mirrored = base / RAW / described.parent.relative_to(base / "assets")
     return mirrored if described.parent.name == i else mirrored / i
+
+
+def retired_dir(base, i: str) -> Path | None:
+    """The raw_assets/ folder of an asset whose variant file is gone from assets/ — a look the game no longer has, its
+    kept variants left marked used until they are dropped."""
+    return next((listing.parent for listing in (base / RAW).rglob(f"{i}/{VARIANTS}")), None)
 
 
 def family(asset_rel: str) -> tuple[str, str, str]:

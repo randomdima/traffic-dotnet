@@ -1,0 +1,7 @@
+{
+  "id": "pier_brick",
+  "sprite": "pier_brick.webp",
+  "kind": "PierNose",
+  "describe": "an old brick bridge pier's cutwater seen straight down where it pokes out from under the deck: a pointed nose of dark red brick with a pale stone cap course, point at the top of the picture, square-cut along the bottom edge",
+  "footprintM": [3.0, 2.383]
+}

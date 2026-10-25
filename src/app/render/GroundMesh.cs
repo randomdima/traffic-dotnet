@@ -48,6 +48,24 @@ internal enum Surface : uint
     /// </summary>
     Shadow = 9,
 
+    /// <summary>
+    /// <b>A bridge's footway</b> (TER-3b.2), the first of its pieces: a strip of its art laid along the span, as a kerb's
+    /// is, reading the layer of <see cref="BridgeSheet"/> its number past this one names — so the strips stand in the
+    /// order <see cref="World.Terrain.BridgeLookKind"/> files them, and the fittings last.
+    /// </summary>
+    BridgeWalkway = 10,
+
+    BridgeRoad = 11,
+    BridgeJoint = 12,
+    BridgeParapet = 13,
+    RailBridgeParapet = 14,
+
+    /// <summary>
+    /// A bridge's lamps, piers and end pillars, a road's and a railway's, each a cell of the one layer
+    /// (<see cref="BridgeSheet.CellOf"/>). The last surface a corner can file (<see cref="GroundVertex.Fading"/>).
+    /// </summary>
+    BridgeFittings = 15,
+
     /// <summary>Not a surface: the tint alone, for anything that is not ground.</summary>
     Paint = 255,
 }
@@ -119,7 +137,8 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
     /// </summary>
     public const float TrackPicturesFiled = ((1u << 18) / TrackStepsPerPicture) - 1;
 
-    const uint AcrossSteps = (1u << 9) - 1;
+    /// <summary>The steps a strip's corner files how far across it it stands in.</summary>
+    public const uint AcrossSteps = (1u << 9) - 1;
 
     /// <summary>How far across its strip a strip's corner stands, from nought on the left of its line to one on the right.</summary>
     public float Across => ((Shade >> 18) & AcrossSteps) / (float)AcrossSteps;
@@ -497,12 +516,23 @@ internal sealed partial class GroundMesh
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain);
         mesh.Laid(GroundPart.Grass, grass);
 
-        // <b>The track at grade under all the town's ground</b> (RAIL-3, TER-7b): laid whole, so a road and its walk crossing
-        // it are laid over it, and its rails are laid again over them (GroundPart.Rails).
+        // <b>The track at grade under all the town's ground</b> (RAIL-3, TER-7b): its bed, the grass faded out over the bed's
+        // edges as onto a shore (RAIL-13), then its sleepers and rails — laid whole, so a road and its walk crossing it are
+        // laid over it, and its rails are laid again over them (GroundPart.Rails).
         var tracks = TrackLine.Of(plan.Rails);
+        var ballast = mesh.Starting();
+        mesh.Ballast(tracks, config, worldM);
+        mesh.Laid(GroundPart.Ballast, ballast);
+
+        var shoulders = mesh.Starting();
+        mesh.BallastFade(tracks, config, worldM);
+        mesh.Laid(GroundPart.Shoulders, shoulders);
+
         var track = mesh.Starting();
-        mesh.Track(tracks, config, worldM, bridged: false);
+        mesh.Track(tracks, worldM, bridged: false);
         mesh.Laid(GroundPart.Track, track);
+        var railSpans = RailSpans(tracks, worldM);
+        var railDecks = RailDeckGrid(railSpans, config);
 
         // <b>The merge apart from the layers struck off it</b>: the two are one ask (<c>Paving.Rings</c>)
         // and the first of them is the expensive half by two orders of magnitude, so a ground that takes
@@ -566,15 +596,12 @@ internal sealed partial class GroundMesh
         mesh.Fade(plan.Water.Outline, OnTheEdge, fadeM, inside: false, Surface.Water);
         mesh.Laid(GroundPart.Water, water);
 
-        // A deck is drawn out to its own half-width, with a rim rather than a stroke: the piece at full size
-        // in the edge shade, then a line's width smaller in its own. A ribbon about a road's line has no
-        // shell of its own to strike a kerb along, which is the one place a rim is what is left.
-        // <b>And nothing but the deck</b> — a pavement carried across one at the width it has on land would be
-        // a line beside a road struck by arithmetic of its own (TER-3c.3), so the margin outside the
-        // carriageway is deck all the way out. <b>The ground's decks only</b>:
-        // a bridge over other roads is drawn over them (<see cref="Above"/>).
+        // A deck is drawn out to its own half-width and edged by its parapets, a ribbon about a road's line having no
+        // shell of its own to strike a kerb along (TER-3b.2). <b>The ground's decks only</b>: a bridge over other roads is
+        // drawn over them (<see cref="Above"/>).
         var decks = mesh.Starting();
         mesh.Decks(plan, paving.Lanes, CityPlan.RoadArrays.Ground, config);
+        mesh.RailPiers(railSpans, railDecks, plan.Water.Outline, config);
         mesh.Laid(GroundPart.Decks, decks);
 
         // <b>The carriageway at its own size</b> (TER-7b): the boundary filled as the shape it is, over the
@@ -583,6 +610,12 @@ internal sealed partial class GroundMesh
         var carriageway = mesh.Starting();
         mesh.Shell(carriagewayShell, Surface.Tarmac, Plain);
         mesh.Laid(GroundPart.Carriageway, carriageway);
+
+        // <b>A bridge's own road over the town's carriageway, and its joints across it</b> (TER-3b.2): under the kerb, which
+        // is the town's along the span as anywhere else.
+        var bridgeRoads = mesh.Starting();
+        mesh.BridgeRoads(plan, paving.Lanes, CityPlan.RoadArrays.Ground, config);
+        mesh.Laid(GroundPart.BridgeRoads, bridgeRoads);
 
         // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab. It is where
         // the answer puts it (<c>GroundShapes.At</c>).
@@ -659,11 +692,11 @@ internal sealed partial class GroundMesh
         mesh.Rails(tracks, config, worldM, bridged: false);
         mesh.Laid(GroundPart.Rails, rails);
 
-        // <b>A rail bridge is of the level above</b> (RAIL-8, PHY-1a): its deck, track and rails over the bodies on the
-        // ground, as a road's bridge is, and under the bodies on it.
+        // <b>A rail bridge is of the level above</b> (RAIL-8, PHY-1a): its deck, sleepers and rails over the bodies on the
+        // ground, as a road's bridge is, and under the bodies on it. No bed: the deck is what the sleepers lie on.
         var above = mesh.Starting();
-        mesh.RailDecks(tracks, config);
-        mesh.Track(tracks, config, worldM, bridged: true);
+        mesh.RailDecks(railSpans, railDecks, config);
+        mesh.Track(tracks, worldM, bridged: true);
         mesh.Rails(tracks, config, worldM, bridged: true);
         mesh.Above(plan, paving, config, held, crossed, bars, arrows, runs, surveyed);
         mesh.Laid(GroundPart.Above, above);

@@ -413,24 +413,40 @@ bool atlasGrowUnderAWheel(vec2 wheelM, uint channels, inout int written, inout u
     return atlasGrowOverTheRun(first, end, column, channels, written, dropped);
 }
 
-// Which of a car's four wheels stand on a way, a bit a wheel in `onAWay`, and every way they stand on, in wheel order,
-// with the stretch its body holds of each — the least and most metre its wheels stand at, widened by half a step and by
-// `aroundAWheelM`; how many (RibbonAtlas.UnderWheels). Each lookup is asked for all four wheels before the next.
-int atlasUnderWheels(vec2 wheelsM[4], float aroundAWheelM, uint channels, inout uint dropped, out uint onAWay)
-{
-    int slots[4];
-    int columns[4];
-    int startsInSlot[4];
-    for (int wheel = 0; wheel < 4; wheel++) slots[wheel] = atlasNearestSlot(wheelsM[wheel], columns[wheel], startsInSlot[wheel]);
+// The most wheels a body asks after at once, a bit each of `onAWay` (RibbonAtlas.UnderWheels).
+const int AtlasMostWheels = 8;
 
-    int firsts[4];
-    int ends[4];
-    for (int wheel = 0; wheel < 4; wheel++) atlasRunIn(slots[wheel], startsInSlot[wheel], firsts[wheel], ends[wheel]);
+// Which of a car's wheels stand on a way, a bit a wheel in `onAWay`, and every way they stand on, in wheel order,
+// with the stretch its body holds of each — the least and most metre its wheels stand at, widened by half a step and by
+// `aroundAWheelM`; how many (RibbonAtlas.UnderWheels). Each lookup is asked for every wheel before the next.
+int atlasUnderWheels(
+    vec2 wheelsM[AtlasMostWheels], int wheels, float aroundAWheelM, uint channels, inout uint dropped, out uint onAWay)
+{
+    int slots[AtlasMostWheels];
+    int columns[AtlasMostWheels];
+    int startsInSlot[AtlasMostWheels];
+    for (int wheel = 0; wheel < AtlasMostWheels; wheel++)
+    {
+        if (wheel >= wheels) break;
+
+        slots[wheel] = atlasNearestSlot(wheelsM[wheel], columns[wheel], startsInSlot[wheel]);
+    }
+
+    int firsts[AtlasMostWheels];
+    int ends[AtlasMostWheels];
+    for (int wheel = 0; wheel < AtlasMostWheels; wheel++)
+    {
+        if (wheel >= wheels) break;
+
+        atlasRunIn(slots[wheel], startsInSlot[wheel], firsts[wheel], ends[wheel]);
+    }
 
     int written = 0;
     onAWay = 0u;
-    for (int wheel = 0; wheel < 4; wheel++)
+    for (int wheel = 0; wheel < AtlasMostWheels; wheel++)
     {
+        if (wheel >= wheels) break;
+
         if (atlasGrowOverTheRun(firsts[wheel], ends[wheel], columns[wheel], channels, written, dropped)) onAWay |= 1u << uint(wheel);
     }
 

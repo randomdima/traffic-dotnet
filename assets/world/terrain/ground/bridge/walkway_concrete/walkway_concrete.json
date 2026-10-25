@@ -1,0 +1,8 @@
+{
+  "id": "walkway_concrete",
+  "sprite": "walkway_concrete.webp",
+  "kind": "Walkway",
+  "describe": "a bridge footway of smooth light grey precast concrete slabs spanning the whole width, a slab every 1.5 m along it, hairline joints square across, very fine even grain",
+  "footprintM": [13.101, 2.4],
+  "pictureM": 6.5505
+}

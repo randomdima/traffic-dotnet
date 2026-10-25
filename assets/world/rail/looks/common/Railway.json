@@ -1,6 +1,13 @@
 {
   "variants": [
-    "../track_concrete/track_concrete.json",
+    "../sleepers_concrete/sleepers_concrete.json",
+    "../sleepers_timber/sleepers_timber.json",
+    "../sleepers_worn/sleepers_worn.json",
+    "../ballast_granite/ballast_granite.json",
+    "../ballast_weedy/ballast_weedy.json",
+    "../ballast_dusty/ballast_dusty.json",
+    "../ballast_bluegrey/ballast_bluegrey.json",
+    "../ballast_rusty/ballast_rusty.json",
     "../barrier_arm/barrier_arm.json",
     "../barrier_drive/barrier_drive.json",
     "../crossing_light/crossing_light.json"

@@ -33,9 +33,11 @@ layout(push_constant) uniform Ask
 // One car's wheels asked (DeviceAtlas.WheelsRow).
 struct AtlasWheels
 {
-    vec2 wheelsM[4];
+    vec2 wheelsM[AtlasMostWheels];
     float aroundAWheelM;
     uint channels;
+    int wheels;
+    uint pad;
 };
 
 layout(std430, binding = 0) readonly buffer Cars { AtlasWheels cars[]; };
@@ -50,7 +52,7 @@ void main()
     AtlasWheels asked = cars[car];
     uint dropped = 0u;
     uint onAWay;
-    int count = atlasUnderWheels(asked.wheelsM, asked.aroundAWheelM, asked.channels, dropped, onAWay);
+    int count = atlasUnderWheels(asked.wheelsM, asked.wheels, asked.aroundAWheelM, asked.channels, dropped, onAWay);
     counts[car] = uvec4(uint(count), dropped, onAWay, 0u);
     uint first = car * uint(AtlasMostWaysUnderABody);
     for (int at = 0; at < count; at++) covers[first + uint(at)] = atlasFound[at];

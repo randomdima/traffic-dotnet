@@ -1,0 +1,7 @@
+{
+  "id": "newel_granite",
+  "sprite": "newel_granite.webp",
+  "kind": "Newel",
+  "describe": "a square grey granite end post of a bridge railing seen straight down: a polished square cap with chamfered edges and a small round bronze stud in the middle",
+  "footprintM": [1.0, 1.023]
+}

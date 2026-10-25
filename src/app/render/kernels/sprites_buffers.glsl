@@ -90,6 +90,8 @@ layout(std430, binding = 1) readonly buffer Figures
     float flashOnShare;
     float beaconHz;
     float halfLensCellM;
+    // How high a body's tilt on its springs is seen from (ViewFigures.CarTiltEyeHeightM, CAR-56).
+    float carTiltEyeHeightM;
     float carHeadHalfX;
     float carHeadHalfY;
     float walkHeadHalfX;
@@ -213,8 +215,10 @@ struct CarLook
     float bodyReachM;
     float wreckReachM;
     vec2 tyreHalfM;
-    vec2 firstSteeredM;
-    vec2 secondSteeredM;
+    // Where its wheels stand on the body, how many it stands on, and which steer a bit each (CarBuild.Wheels).
+    vec2 wheelsM[8];
+    uint wheelCount;
+    uint steeredWheels;
     float tyreReachM;
     float wheelWidthM;
     float lampReachM;

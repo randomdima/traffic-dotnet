@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.Core.Config;
@@ -10,15 +11,17 @@ using TrafficSimulation.World.Terrain;
 namespace TrafficSimulation.App.Render;
 
 /// <summary>
-/// <b>The railway, drawn</b> (RAIL-3, TER-7b): every track a strip of its art laid whole along its own line under the
-/// roads and walks that cross it, and its two rails laid again over them — the track, then the road, then the rails.
+/// <b>The railway, drawn</b> (RAIL-3, TER-7b): at grade every track's bed of ballast, the grass faded over its edges, and
+/// its sleepers and rails over that, all under the roads and walks that cross it; its two rails laid again over them —
+/// the track, then the road, then the rails. On a bridge the deck is what the sleepers lie on, and no bed is laid.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A track is a line and its strip is swept along it</b>, the way a road's ribbon is swept along its lane's: every chord
-/// a quad, mitred to the next at the point they share so the strip runs round a bend without a gap, its picture repeating
-/// along the track by how far along it the corner stands (<see cref="GroundVertex.OnTheTrack"/>) rather than where in the
-/// world. What the picture leaves clear past its ballast is not drawn, and the ground beneath shows.
+/// <b>A track is a line and its strips are swept along it</b>, the way a road's ribbon is swept along its lane's: every
+/// chord a quad, mitred to the next at the point they share so the strip runs round a bend without a gap, its picture
+/// repeating along the track by how far along it the corner stands (<see cref="GroundVertex.OnTheTrack"/>) rather than
+/// where in the world. Each strip reads its own band of the one picture (<see cref="TrackSheet"/>), and what it leaves
+/// clear is not drawn: the ground beneath shows.
 /// </para>
 /// <para>
 /// <b>The rails are each rail's own band of the strip's picture</b>, laid along the whole track so nothing has to know where
@@ -39,68 +42,110 @@ internal sealed partial class GroundMesh
     ];
 
     /// <summary>
-    /// Every track's strip where it stands at grade, under the whole of the town's ground, or on a bridge, over it — laid
-    /// whole: a road crossing it at grade is laid over it, and its rails over that (<see cref="Rails"/>).
+    /// Every track's sleepers and rails where it stands at grade, under the whole of the town's ground, or on a bridge,
+    /// over it — laid whole: a road crossing it at grade is laid over it, and its rails over that (<see cref="Rails"/>).
     /// </summary>
-    void Track(TrackLine[] tracks, SimConfig config, Vector2 sizeM, bool bridged)
+    void Track(TrackLine[] tracks, Vector2 sizeM, bool bridged)
     {
-        var look = TrackLook(config);
-        foreach (var track in tracks) TrackStrip(track, 0f, look.FootprintM.Y * 0.5f, 0f, 1f, look.FootprintM.X, sizeM, bridged);
+        var laid = TrackSheet.Laid;
+        var halfM = RailLooks.Shared.Track.FootprintM.Y * 0.5f;
+        foreach (var track in tracks) TrackStrip(track, 0f, halfM, laid.Track.From, laid.Track.To, laid.PictureM, sizeM, bridged);
     }
 
     /// <summary>
-    /// <b>The deck every track on a bridge is borne on</b> (RAIL-8), its ballast and parapets wide, rimmed as a road's deck
-    /// is: every run's rim first and every run's deck over them, so two tracks side by side are one deck.
+    /// <b>Every track's bed of ballast where it stands at grade</b> (RAIL-13), the band the town keeps clear wide (RAIL-4),
+    /// under the sleepers and the whole of the town's ground: a road crossing it is laid over it, and a bridge's deck is
+    /// what its sleepers lie on instead.
     /// </summary>
-    void RailDecks(TrackLine[] tracks, SimConfig config)
+    void Ballast(TrackLine[] tracks, SimConfig config, Vector2 sizeM)
     {
-        var widthM = config.Rail.BallastWidthM + (2f * config.Rail.BridgeDeckOverhangM);
-        var rimM = config.Road.EdgeLineWidthM * 2f;
-        foreach (var (shade, inM) in (ReadOnlySpan<(Vector3, float)>)[(Edge, 0f), (Plain, rimM)])
+        var laid = TrackSheet.Laid;
+        var halfM = BallastLook(config).FootprintM.Y * 0.5f;
+        foreach (var track in tracks) TrackStrip(track, 0f, halfM, laid.Bed.From, laid.Bed.To, laid.PictureM, sizeM, bridged: false);
+    }
+
+    /// <summary>
+    /// <b>The grass faded out onto every track's ballast from its shoulders</b> (RAIL-3), as it is onto a shore
+    /// (<see cref="Fade"/>): whole at the shoulder and gone <see cref="ViewFigures.BallastFadeM"/> in, so the track lies in
+    /// the grass rather than on it. Laid where the track stands at grade and on the map, and not where a shoulder stands
+    /// on another track's ballast.
+    /// </summary>
+    void BallastFade(TrackLine[] tracks, SimConfig config, Vector2 sizeM)
+    {
+        var halfM = config.Rail.BallastWidthM * 0.5f;
+        var innerM = halfM - config.View.BallastFadeM;
+        var ballast = new ChordGrid(config.Grid.Main.CellM);
+        for (var track = 0; track < tracks.Length; track++) ballast.Add(track, tracks[track].PointM, halfM);
+
+        var whole = GroundVertex.Fading(Surface.Grass, 1f);
+        var gone = GroundVertex.Fading(Surface.Grass, 0f);
+        var run = new List<Vector2>();
+        for (var track = 0; track < tracks.Length; track++)
         {
-            foreach (var track in tracks)
+            var pointM = tracks[track].PointM;
+            var atM = tracks[track].AtM;
+            foreach (var side in (ReadOnlySpan<float>)[-1f, 1f])
             {
-                var pointM = track.PointM;
-                var atM = track.AtM;
-                for (var from = 0; from + 1 < pointM.Length;)
+                var sides = side > 0f ? new Sides(new Vector2(-innerM, halfM), gone, whole) : new Sides(new Vector2(halfM, -innerM), whole, gone);
+                for (var chord = 0; chord + 1 < pointM.Length; chord++)
                 {
-                    var to = from;
-                    while (to + 1 < pointM.Length && track.LevelAt((atM[to] + atM[to + 1]) * 0.5f) != TownMap.RailArrays.AtGrade) to++;
-                    if (to > from) Stroke(pointM[from..(to + 1)], widthM - inM, closed: false, Surface.Deck, shade);
-                    from = to + 1;
+                    var (fromM, toM) = (pointM[chord], pointM[chord + 1]);
+                    var shoulderM = ((fromM + toM) * 0.5f) + (LeftOf(fromM, toM) * (side * halfM));
+                    if (atM[chord + 1] <= atM[chord]
+                        || tracks[track].LevelAt((atM[chord] + atM[chord + 1]) * 0.5f) != TownMap.RailArrays.AtGrade
+                        || !MapCut.Shares(fromM, toM, sizeM, out var enters, out var leaves) || leaves <= enters
+                        || ballast.OnAnother(track, shoulderM))
+                    {
+                        Struck();
+                        continue;
+                    }
+
+                    if (run.Count == 0) run.Add(Vector2.Lerp(fromM, toM, enters));
+                    run.Add(Vector2.Lerp(fromM, toM, leaves));
+                    if (leaves < 1f) Struck();
+                }
+
+                Struck();
+
+                void Struck()
+                {
+                    Stroke(CollectionsMarshal.AsSpan(run), closed: false, sides);
+                    run.Clear();
                 }
             }
         }
     }
 
     /// <summary>
-    /// Both rails of every track, each its own band of the strip's picture, laid over the ground where it stands at grade
+    /// Both rails of every track, each its own band of the sleepers' picture, laid over the ground where it stands at grade
     /// or on a bridge (<paramref name="bridged"/>) — so a bridge's deck is laid between the two.
     /// </summary>
     void Rails(TrackLine[] tracks, SimConfig config, Vector2 sizeM, bool bridged)
     {
         var rail = config.Rail;
-        var look = TrackLook(config);
-        var widthM = look.FootprintM.Y;
+        var laid = TrackSheet.Laid;
+        var widthM = RailLooks.Shared.Track.FootprintM.Y;
+        var bandShare = laid.Track.To - laid.Track.From;
         var railOffM = (rail.GaugeM + rail.RailHeadWidthM) * 0.5f;
         var bandHalfM = rail.RailBandM * 0.5f;
         foreach (var track in tracks)
         {
             foreach (var offM in (ReadOnlySpan<float>)[-railOffM, railOffM])
             {
-                var middle = 0.5f + (offM / widthM);
-                TrackStrip(track, offM, bandHalfM, middle - (bandHalfM / widthM), middle + (bandHalfM / widthM), look.FootprintM.X, sizeM, bridged);
+                var (fromM, toM) = ((widthM * 0.5f) + offM - bandHalfM, (widthM * 0.5f) + offM + bandHalfM);
+                TrackStrip(track, offM, bandHalfM, laid.Track.From + (bandShare * fromM / widthM),
+                    laid.Track.From + (bandShare * toM / widthM), laid.PictureM, sizeM, bridged);
             }
         }
     }
 
     /// <summary>
-    /// The track's art, held to the ballast the town keeps clear (RAIL-4): the strip is drawn across the band nobody is
-    /// let onto, and a picture laid at another width would draw one band and keep another.
+    /// The bed's art, held to the ballast the town keeps clear (RAIL-4): the bed is drawn across the band nobody is let
+    /// onto, and a picture laid at another width would draw one band and keep another.
     /// </summary>
-    static RailLook TrackLook(SimConfig config)
+    static RailLook BallastLook(SimConfig config)
     {
-        var look = RailLooks.Shared.Track;
+        var look = RailLooks.Shared.Ballast;
         if (MathF.Abs(look.FootprintM.Y - config.Rail.BallastWidthM) > 1e-3f)
         {
             throw new InvalidDataException($"{look.Id} is drawn {look.FootprintM.Y} m across, and the ballast is {config.Rail.BallastWidthM} m.");

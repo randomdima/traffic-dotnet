@@ -18,6 +18,9 @@ public class TyreModelTests
     /// <summary>The nominal car: the arithmetic here is the model's and not a variant's.</summary>
     static readonly CarBuild Car = CarBuild.Nominal(Figures, Figures.Car.DrivenFrontShare);
 
+    /// <summary>Its wheels: two axles of two, front right, front left, rear right, rear left.</summary>
+    static int Wheels => Car.WheelCount;
+
     static SurfaceUnderWheel Paved => new(
         Figures.Terrain.PavedCoefficient, Figures.PavedDragMps2,
         Figures.Marks.PowerM2S3 * Figures.Terrain.PavedMarkFactor, Ploughs: false);
@@ -28,7 +31,7 @@ public class TyreModelTests
     static SurfaceUnderWheel[] AllOf(SurfaceUnderWheel surface) => [surface, surface, surface, surface];
 
     static CarPose Rolling(float alongMps, float acrossMps = 0f, float yawRateRadPerS = 0f) =>
-        new(Vector2.Zero, 0f, new Vector2(alongMps, acrossMps), yawRateRadPerS, Figures.Car.MassKg, Vector2.Zero);
+        new(Vector2.Zero, 0f, new Vector2(alongMps, acrossMps), yawRateRadPerS, Figures.Car.MassKg);
 
     /// <summary>
     /// A car whose wheels are turning with the road under them, which is what a car that drove up to
@@ -47,14 +50,30 @@ public class TyreModelTests
     static WheelImpulse[] Step(
         in CarPose pose, in DriveCommand command, SurfaceUnderWheel[] ground, float[] spinMps, out TyreScrub[] scrub)
     {
-        var wheels = new WheelImpulse[TyreModel.Wheels];
-        scrub = new TyreScrub[TyreModel.Wheels];
-        var atM = new Vector2[TyreModel.Wheels];
+        var wheels = new WheelImpulse[Wheels];
+        scrub = new TyreScrub[Wheels];
+        var atM = new Vector2[Wheels];
         TyreModel.WheelPointsM(Car,pose, atM);
         TyreModel.Step(
-            Figures, Car, pose, command, float.PositiveInfinity, atM, ground, spinMps,
+            Figures, Car, pose, command, float.PositiveInfinity, LoadsOf(Car, pose), atM, ground, spinMps,
             Figures.TickSeconds, wheels, scrub);
         return wheels;
+    }
+
+    /// <summary>What each wheel carries, as its share of the car, off the body on its springs.</summary>
+    static float[] LoadsOf(in CarBuild car, in CarPose pose)
+    {
+        var loads = new float[Wheels];
+        Suspension.Loads(car, pose.Sprung, loads);
+        return loads;
+    }
+
+    /// <summary>The body as its springs come to hold it under a steady push at the ground, ten seconds of it on.</summary>
+    static SprungBody SettledUnder(in CarBuild car, Vector2 pushN)
+    {
+        var body = default(SprungBody);
+        for (var tick = 0; tick < 10 * Figures.Sim.TickRateHz; tick++) body = Suspension.Step(car, body, pushN, Figures.TickSeconds);
+        return body;
     }
 
     /// <summary>
@@ -71,15 +90,16 @@ public class TyreModelTests
     static float HeldMps2(SimConfig figures, in CarBuild car, Vector2 atMps2, bool sideways)
     {
         var slidingMps = sideways ? new Vector2(0f, 40f) : new Vector2(40f, 0f);
-        var pose = new CarPose(Vector2.Zero, 0f, slidingMps, 0f, figures.Car.MassKg, atMps2);
-        var wheels = new WheelImpulse[TyreModel.Wheels];
-        var scrub = new TyreScrub[TyreModel.Wheels];
-        var atM = new Vector2[TyreModel.Wheels];
-        var spinMps = new float[TyreModel.Wheels];
+        var pose = new CarPose(
+            Vector2.Zero, 0f, slidingMps, 0f, figures.Car.MassKg, SettledUnder(car, atMps2 * figures.Car.MassKg));
+        var wheels = new WheelImpulse[Wheels];
+        var scrub = new TyreScrub[Wheels];
+        var atM = new Vector2[Wheels];
+        var spinMps = new float[Wheels];
         var free = new SurfaceUnderWheel(figures.Terrain.PavedCoefficient, 0f, 0f, Ploughs: false);
         TyreModel.WheelPointsM(car, pose, atM);
         TyreModel.Step(
-            figures, car, pose, DriveCommand.Locked, float.PositiveInfinity, atM, AllOf(free), spinMps,
+            figures, car, pose, DriveCommand.Locked, float.PositiveInfinity, LoadsOf(car, pose), atM, AllOf(free), spinMps,
             figures.TickSeconds, wheels, scrub);
 
         var heldNs = 0f;
@@ -156,11 +176,9 @@ public class TyreModelTests
     {
         var pose = Rolling(alongMps, acrossMps);
         var wheels = Step(pose, new DriveCommand(0.4f, Figures.CarAccelerationMps2, 0f, false, false));
+        var loads = LoadsOf(Car, pose);
 
-        Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Car,pose,loads);
-
-        for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+        for (var wheel = 0; wheel < Wheels; wheel++)
         {
             var mostNs = (Figures.TyreGripMps2 + Figures.PavedDragMps2)
                          * Figures.Car.MassKg * loads[wheel] * Figures.TickSeconds;
@@ -170,7 +188,11 @@ public class TyreModelTests
         }
     }
 
-    /// <summary>A brake takes what the wheel is carrying and never more, so it cannot push a car backwards.</summary>
+    /// <summary>
+    /// A brake and the rolling resistance together take what the wheel is carrying and never more, so they cannot push a
+    /// car backwards: at a twentieth of a metre a second the whole braking pedal is worth more than the car has, and the
+    /// drag has nothing left to roll against.
+    /// </summary>
     [Fact]
     public void BrakingDoesNotDriveTheCarBackwards()
     {
@@ -179,10 +201,7 @@ public class TyreModelTests
         var alongNs = 0f;
         foreach (var wheel in wheels) alongNs += wheel.ImpulseNs.X;
 
-        // At a twentieth of a metre a second the whole braking pedal is worth more than the car has, and
-        // the rolling resistance is the only thing that may be spent beside it.
-        var mostNs = (0.05f + (Figures.PavedDragMps2 * Figures.TickSeconds)) * Figures.Car.MassKg;
-        Assert.InRange(alongNs, -mostNs * 1.001f, 0f);
+        Assert.InRange(alongNs, -0.05f * Figures.Car.MassKg * 1.0001f, 0f);
     }
 
     /// <summary>The handbrake locks the <b>rear</b> pair only, so the back drags while the front keeps rolling and steering.</summary>
@@ -192,9 +211,7 @@ public class TyreModelTests
         var pose = Rolling(10f);
         var spinMps = SpinningWith(pose);
         var wheels = Step(pose, DriveCommand.Parked, AllOf(Paved), spinMps, out _);
-
-        Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Car,pose,loads);
+        var loads = LoadsOf(Car, pose);
 
         // A rolling front wheel spends its rolling resistance and the engine's share of holding the car back,
         // the front being the driven pair, and nothing else, and is still turning with the road; the rear
@@ -222,12 +239,13 @@ public class TyreModelTests
     {
         var pose = Rolling(9e-4f, -1.7e-4f, 4.1e-3f);
         var inertiaKgM2 = Figures.Car.MassKg * 2f;
-        var atM = new Vector2[TyreModel.Wheels];
+        var atM = new Vector2[Wheels];
         TyreModel.WheelPointsM(Car, pose, atM);
-        var wheels = new WheelImpulse[TyreModel.Wheels];
+        var wheels = new WheelImpulse[Wheels];
         float[] spinMps = [2e-3f, -2e-3f, 0f, 0f];
 
-        Assert.True(TyreModel.HoldStill(Car, pose, inertiaKgM2, atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
+        Assert.True(TyreModel.HoldStill(
+            Car, pose, inertiaKgM2, LoadsOf(Car, pose), atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
 
         var momentumNs = Vector2.Zero;
         var spinNms = 0f;
@@ -252,80 +270,26 @@ public class TyreModelTests
     public void ACarItsTyresCannotStopInATickIsNotHeld()
     {
         var pose = Rolling(5f);
-        var atM = new Vector2[TyreModel.Wheels];
+        var atM = new Vector2[Wheels];
         TyreModel.WheelPointsM(Car, pose, atM);
-        var wheels = new WheelImpulse[TyreModel.Wheels];
+        var wheels = new WheelImpulse[Wheels];
         float[] spinMps = [5f, 5f, 0f, 0f];
 
         Assert.False(TyreModel.HoldStill(
-            Car, pose, Figures.Car.MassKg * 2f, atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
+            Car, pose, Figures.Car.MassKg * 2f, LoadsOf(Car, pose), atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
         Assert.All(wheels, wheel => Assert.Equal(Vector2.Zero, wheel.ImpulseNs));
         Assert.Equal(5f, spinMps[0]);
-    }
-
-    /// <summary>Every corner carries a quarter of the car at rest, and the four of them are the whole car whatever it is doing.</summary>
-    [Theory]
-    [InlineData(0f, 0f)]
-    [InlineData(-9f, 0f)]
-    [InlineData(6f, 4f)]
-    public void TheLoadsAreAlwaysTheWholeCar(float alongMps2, float acrossMps2)
-    {
-        var pose = new CarPose(
-            Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, new Vector2(alongMps2, acrossMps2));
-
-        Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Car,pose,loads);
-
-        var total = 0f;
-        foreach (var load in loads)
-        {
-            Assert.InRange(load, 0f, 1f);
-            total += load;
-        }
-
-        Assert.Equal(1f, total, 1e-4f);
-    }
-
-    /// <summary>
-    /// However hard the body is thrown about, <b>the four corners are still the whole car and none of them
-    /// carries less than nothing</b>. A wheel asked for more transfer than it stands on lifts, which is a
-    /// budget of zero and an impulse of zero; what it may never be is negative, since that is a tyre
-    /// holding the road on from underneath and a friction pushing the way the wheel is already sliding.
-    /// </summary>
-    /// <remarks>
-    /// Thrown about far harder than the tyres could manage, because the pose is set here rather than
-    /// measured: the loads are read from what the patches themselves spent, so nothing this violent
-    /// reaches them in a town.
-    /// </remarks>
-    [Fact]
-    public void TheFourCornersAreTheWholeCarAndNoneOfThemIsNegative()
-    {
-        Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(
-            Car, new CarPose(Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, new Vector2(-40f, 30f)), loads);
-
-        var total = 0f;
-        foreach (var load in loads)
-        {
-            Assert.True(load >= 0f, $"a corner was left carrying {load:F4} of the car");
-            total += load;
-        }
-
-        Assert.Equal(1f, total, 1e-4f);
     }
 
     /// <summary>Braking moves load onto the front axle, which is what makes weight transfer a fact rather than a fudge.</summary>
     [Fact]
     public void BrakingLoadsTheFrontAxle()
     {
-        Span<float> resting = stackalloc float[TyreModel.Wheels];
-        Span<float> braking = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(
-            Car, new CarPose(Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, Vector2.Zero), resting);
-        TyreModel.Loads(
-            Car, new CarPose(Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, new Vector2(-9f, 0f)), braking);
+        var resting = LoadsOf(Car, Rolling(0f));
+        var braking = LoadsOf(
+            Car, Rolling(0f) with { Sprung = SettledUnder(Car, new Vector2(-9f * Figures.Car.MassKg, 0f)) });
 
-        Assert.Equal(0.5f, resting[0] + resting[1], 1e-4f);
+        Assert.Equal(0.5f, resting[0] + resting[1], 1e-6f);
         Assert.True(braking[0] + braking[1] > 0.5f);
         Assert.True(braking[2] + braking[3] < 0.5f);
     }
@@ -334,7 +298,7 @@ public class TyreModelTests
     [Fact]
     public void TheInnerFrontWheelTurnsFurtherThanTheOuter()
     {
-        Span<float> steer = stackalloc float[TyreModel.Wheels];
+        Span<float> steer = stackalloc float[Wheels];
         TyreModel.Ackermann(Figures, Car, 0.4f, steer);
 
         Assert.True(steer[0] > steer[1], $"right {steer[0]:F3} should out-turn left {steer[1]:F3} on a right-hander");
@@ -355,9 +319,7 @@ public class TyreModelTests
     {
         var alongNs = Step(Rolling(30f), DriveCommand.Locked)[0].ImpulseNs.Length();
         var acrossNs = Step(Rolling(0f, 30f), DriveCommand.Locked)[0].ImpulseNs.Length();
-
-        Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Car,Rolling(30f), loads);
+        var loads = LoadsOf(Car, Rolling(30f));
 
         var budgetNs = Figures.TyreGripMps2 * Figures.Car.MassKg * loads[0] * Figures.TickSeconds;
         var dragNs = Figures.PavedDragMps2 * Figures.Car.MassKg * loads[0] * Figures.TickSeconds;
@@ -378,9 +340,7 @@ public class TyreModelTests
     {
         var pose = Rolling(5f);
         var wheels = Step(pose, new DriveCommand(0f, Figures.CarAccelerationMps2, 0f, false, false));
-
-        Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Car,pose,loads);
+        var loads = LoadsOf(Car, pose);
 
         var alongNs = 0f;
         foreach (var wheel in wheels) alongNs += wheel.ImpulseNs.X;
@@ -400,14 +360,14 @@ public class TyreModelTests
     public void ARearDrivenCarPushesWithItsRearAxle()
     {
         var pose = Rolling(5f);
-        var wheels = new WheelImpulse[TyreModel.Wheels];
-        var scrub = new TyreScrub[TyreModel.Wheels];
-        var atM = new Vector2[TyreModel.Wheels];
+        var wheels = new WheelImpulse[Wheels];
+        var scrub = new TyreScrub[Wheels];
+        var atM = new Vector2[Wheels];
         TyreModel.WheelPointsM(Car,pose, atM);
         TyreModel.Step(
             Figures, CarBuild.Nominal(Figures, drivenFrontShare: 0f), pose,
             new DriveCommand(0f, Figures.CarAccelerationMps2, 0f, false, false),
-            float.PositiveInfinity, atM, AllOf(Paved), SpinningWith(pose), Figures.TickSeconds, wheels, scrub);
+            float.PositiveInfinity, LoadsOf(Car, pose), atM, AllOf(Paved), SpinningWith(pose), Figures.TickSeconds, wheels, scrub);
 
         Assert.True(wheels[2].ImpulseNs.X > 0f && wheels[3].ImpulseNs.X > 0f);
         Assert.True(wheels[0].ImpulseNs.X < 0f, "an undriven front wheel is only its rolling resistance");
@@ -423,7 +383,7 @@ public class TyreModelTests
         var onGrass = Step(
             pose, command, AllOf(Turf with { DragMps2 = Figures.PavedDragMps2 }), SpinningWith(pose), out _);
 
-        for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+        for (var wheel = 0; wheel < Wheels; wheel++)
         {
             Assert.True(onGrass[wheel].ImpulseNs.Length() < onTarmac[wheel].ImpulseNs.Length());
         }
@@ -470,7 +430,7 @@ public class TyreModelTests
     [Fact]
     public void AWheelTheEngineOutrunsSpinsUpAndIsHeldToItsAllowance()
     {
-        var spinMps = new float[TyreModel.Wheels];
+        var spinMps = new float[Wheels];
         var command = new DriveCommand(0f, Figures.CarAccelerationMps2 * 4f, 0f, false, false);
         for (var tick = 0; tick < 30; tick++)
         {
@@ -498,7 +458,7 @@ public class TyreModelTests
     [Fact]
     public void ARollingWheelKeepsUpWithTheRoad()
     {
-        var spinMps = new float[TyreModel.Wheels];
+        var spinMps = new float[Wheels];
         Array.Fill(spinMps, 12f);
         Step(Rolling(12f), new DriveCommand(0f, 1f, 0f, false, false), AllOf(Paved), spinMps, out var scrub);
 
@@ -538,7 +498,7 @@ public class TyreModelTests
     [Fact]
     public void AParkedCarDoesNotScrubTheRoad()
     {
-        Step(Rolling(0f), DriveCommand.Parked, AllOf(Paved), new float[TyreModel.Wheels], out var scrub);
+        Step(Rolling(0f), DriveCommand.Parked, AllOf(Paved), new float[Wheels], out var scrub);
 
         foreach (var wheel in scrub)
         {
@@ -567,7 +527,7 @@ public class TyreModelTests
     [Fact]
     public void AWheelStandingOnSoftGroundPloughsNothing()
     {
-        Step(Rolling(0f), DriveCommand.Parked, AllOf(Turf), new float[TyreModel.Wheels], out var scrub);
+        Step(Rolling(0f), DriveCommand.Parked, AllOf(Turf), new float[Wheels], out var scrub);
 
         Assert.Equal(0f, TyreModel.GroundMarkIntensity(Figures, Turf, scrub[0], 0f));
     }

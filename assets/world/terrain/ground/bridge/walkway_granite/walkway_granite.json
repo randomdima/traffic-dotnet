@@ -1,0 +1,8 @@
+{
+  "id": "walkway_granite",
+  "sprite": "walkway_granite.webp",
+  "kind": "Walkway",
+  "describe": "a bridge footway of large pale grey granite flagstones laid in one course across the whole width, each flag about 1.2 m along the footway, joints square across, fine speckled stone, softly worn smooth",
+  "footprintM": [13.242, 2.4],
+  "pictureM": 7.8774
+}

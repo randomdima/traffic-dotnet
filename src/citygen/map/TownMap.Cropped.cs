@@ -61,7 +61,8 @@ internal sealed partial record TownMap
             Waters = CroppedWaters(),
             Courses = new CourseArrays
             {
-                Kind = Courses.Kind, Across = Courses.Across, NearM = Courses.NearM, FarM = Courses.FarM, PointOffsets = Courses.PointOffsets,
+                Kind = Courses.Kind, Across = Courses.Across, Parent = Courses.Parent, NearM = Courses.NearM, FarM = Courses.FarM,
+                PointOffsets = Courses.PointOffsets,
                 PointM = [.. Courses.PointM.Select(atM => atM - offsetM)],
             },
             Buildings = CroppedStood(),

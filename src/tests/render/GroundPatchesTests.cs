@@ -72,6 +72,21 @@ public class GroundPatchesTests
         Assert.Equal(1f, Vector2.Dot(Vector2.Normalize(lively), downwind), 1e-4f);
     }
 
+    /// <summary>The longest train's crests run the way the wind prevails.</summary>
+    [Fact]
+    public void TheLongestWavesRunDownThePrevailingWind()
+    {
+        var config = new SimConfig();
+        var wind = new Wind(config.Wind, seed: 7);
+        var before = WaterWaves.At(wind, config, tick: 0);
+        var after = WaterWaves.At(wind, config, tick: config.Sim.TickRateHz / 10);
+
+        var numberPerM = new Vector2(after.NumberXPerM.X, after.NumberYPerM.X);
+        var crestMovedM = numberPerM * ((after.PhaseRad.X - before.PhaseRad.X) / numberPerM.LengthSquared());
+        var (sin, cos) = MathF.SinCos(wind.PrevailingRad);
+        Assert.Equal(1f, Vector2.Dot(Vector2.Normalize(crestMovedM), new Vector2(cos, sin)), 1e-4f);
+    }
+
     /// <summary>Half the ground in each look puts the hand-over's middle on the field's mean.</summary>
     [Fact]
     public void AnEvenShareHandsOverAtTheMean()

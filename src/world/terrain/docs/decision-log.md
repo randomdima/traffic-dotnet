@@ -1,5 +1,22 @@
 # Terrain — decision log
 
+## 2026-10-25 — a bridge is dressed from art of its own
+
+**The owner asked for bridges drawn from new generated art: "new sidewalk, new road, new props along the way and
+general props for bridge itself, also connectors to the road".** A deck had been one concrete band with a darkened
+rim. Now (TER-3b.2) a walkway and a carriageway are strips laid along the span, a parapet edges the deck in place of the
+rim, and each landing end has an expansion joint, newels and wing walls; lamps stand on the parapets and piers nose out
+into the water. Twenty-one looks were generated, the first of each kind in `Bridge.json` used and the rest kept to choose
+from (`raw_assets/world/terrain/ground/bridge/prompting.md`).
+
+- **Strips and not world-anchored surfaces**, because a span is straight and a flag or a slab joint square across it is
+  what a bridge looks like; the ground's surfaces stay directionless (the owner, 2026-10-24) and are not touched.
+- **One array, a layer a kind, and the fittings sharing one layer as cells**: a corner files its surface in five bits
+  with one taken for a fade, which leaves room for five more surfaces and not seven, and a browser's stage samples
+  sixteen textures at most where the ground already took eleven.
+- **The deck grew by a parapet either side** (TER-3b.1), and a generated one is sized off its own road's width and
+  walk as a traced one already was, so the walkway is the street's walk to the kerb's width.
+
 ## 2026-10-19 — the track under the town's ground, its rails over it
 
 **The owner set the stack** (`TER-7b` is theirs), "Tracks <- Road <- Rails": the railway's track is laid right after

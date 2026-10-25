@@ -15,8 +15,8 @@ namespace TrafficSimulation.Agents.Car.Body;
 internal readonly record struct CarPose
 {
     public CarPose(
-        Vector2 positionM, float headingRad, Vector2 velocityMps, float yawRateRadPerS, float massKg, Vector2 accelerationMps2)
-        : this(positionM, headingRad, Heading.Unit(headingRad), velocityMps, yawRateRadPerS, massKg, accelerationMps2)
+        Vector2 positionM, float headingRad, Vector2 velocityMps, float yawRateRadPerS, float massKg, SprungBody sprung = default)
+        : this(positionM, headingRad, Heading.Unit(headingRad), velocityMps, yawRateRadPerS, massKg, sprung)
     {
     }
 
@@ -28,7 +28,7 @@ internal readonly record struct CarPose
     /// </remarks>
     public CarPose(
         Vector2 positionM, float headingRad, Vector2 forward, Vector2 velocityMps, float yawRateRadPerS, float massKg,
-        Vector2 accelerationMps2)
+        SprungBody sprung = default)
     {
         PositionM = positionM;
         HeadingRad = headingRad;
@@ -36,7 +36,7 @@ internal readonly record struct CarPose
         VelocityMps = velocityMps;
         YawRateRadPerS = yawRateRadPerS;
         MassKg = massKg;
-        AccelerationMps2 = accelerationMps2;
+        Sprung = sprung;
     }
 
     public Vector2 PositionM { get; init; }
@@ -49,7 +49,11 @@ internal readonly record struct CarPose
 
     public float MassKg { get; init; }
 
-    public Vector2 AccelerationMps2 { get; init; }
+    /// <summary>
+    /// <b>The body on its springs</b> (<see cref="SprungBody"/>): what each wheel carries is read off it
+    /// (<see cref="Suspension.Loads"/>), and so is the corner a driven axle has already paid for.
+    /// </summary>
+    public SprungBody Sprung { get; init; }
 
     /// <summary>
     /// The way the car is pointing, taken once when the pose is read off the body. Five places in a

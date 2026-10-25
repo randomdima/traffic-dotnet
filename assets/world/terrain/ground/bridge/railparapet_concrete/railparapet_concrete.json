@@ -1,0 +1,8 @@
+{
+  "id": "railparapet_concrete",
+  "sprite": "railparapet_concrete.webp",
+  "kind": "RailParapet",
+  "describe": "the side of a railway bridge's deck seen straight down: along the bottom edge a row of pale concrete cable-trough lids, along the top edge a smooth light grey concrete upstand with a slim galvanised handrail on it, a thin joint square across exactly every 3 m",
+  "footprintM": [4.7, 1.1],
+  "pictureM": 4.3333
+}

@@ -42,6 +42,7 @@ internal sealed class CarFleet
         Forward = new Vector2[capacity];
         VelocityMps = new Vector2[capacity];
         YawRateRadPerS = new float[capacity];
+        TiltRad = new Vector2[capacity];
         Variant = new byte[capacity];
         Draw = new Rng[capacity];
         Owner = new int[capacity];
@@ -140,6 +141,12 @@ internal sealed class CarFleet
     public Vector2[] VelocityMps { get; }
 
     public float[] YawRateRadPerS { get; }
+
+    /// <summary>
+    /// <b>How each body stands tilted on its springs</b> as the world last read it (CAR-56, <see cref="SprungBody.TiltRad"/>),
+    /// nose down and right side down. A picture's, and nothing decides on it.
+    /// </summary>
+    public Vector2[] TiltRad { get; }
 
     /// <summary>What the car weighs — its build's (<see cref="CarBuild.MassKg"/>), which nothing changes while it runs.</summary>
     public float MassKgOf(int car) => BuildOf(car).MassKg;
@@ -727,6 +734,7 @@ internal sealed class CarFleet
         Forward[car] = Heading.Unit(headingRad);
         VelocityMps[car] = Vector2.Zero;
         YawRateRadPerS[car] = 0f;
+        TiltRad[car] = Vector2.Zero;
         Variant[car] = variant;
         Draw[car] = draw;
         Owner[car] = NoOwner;

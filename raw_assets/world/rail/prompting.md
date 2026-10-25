@@ -3,10 +3,11 @@
 What the railway's briefs taught, set by set. Read before writing the next one; the brief itself is in each frame's
 record (`qq sprites trace <id> --full`).
 
-**A track is a strip the ground repeats along every line** (`RAIL-3`): `use` makes it seamless. The tracks were asked
-from a layout that drew the rails' lines at the gauge (before 2026-10-25); asked again, the gauge and where the sleepers
-end are the brief's words, and the strip is sized by its depth. Where its rails land off the gauge is a correction for
-the cut to make, if a minor one still looks right; nothing yet makes it.
+**A track is two strips the ground repeats along every line** (`RAIL-3`, `RAIL-13`): its sleepers and rails on clear
+(`Track`, sized by the sleepers' length), and the bed of ballast under them at grade (`Ballast`, sized by the 4.4 m
+band); `use` makes each seamless. The gauge and the sleepers' length are the brief's words. Where its rails land off the
+gauge is a correction for the cut to make, if a minor one still looks right; nothing yet makes it. The all-in-one
+tracks of `railway_a` were dropped on 2026-10-25.
 
 ## railway_a (2026-10-19) — four tracks and five pieces of crossing gear, three attempts, four kept, $0.10
 
@@ -72,3 +73,31 @@ Kept from v1: `crossing_light-v1` and `crossing_light_lit-v1` (used), `crossing_
   the housing, first time.
 - **Square, symmetric, flat from the front**, "no visor, hood, post or side face", gave housings that read the same at
   any turn — what a light turned with its lane needs. Every cell landed within 1 % of its outline.
+
+## rail_track_layers (2026-10-25) — four sleeper strips and five ballast beds, one attempt, eight kept, $0.01
+
+Kept from v1 at 4: `sleepers_concrete` (used), `sleepers_timber`, `sleepers_worn`, `ballast_granite` (used),
+`ballast_bluegrey`, `ballast_dusty`, `ballast_weedy`, `ballast_rusty`. Not kept: `sleepers_twinblock`, drawn as plain
+concrete sleepers.
+
+- **"The game draws a track in two layers, and this sheet is both"**, then "NO ballast and NO ground: fully transparent
+  between the sleepers" and "the beds have NO sleepers and NO rails", gave both halves clean at once.
+- **"Frays out the way a gravel path's edge frays into a lawn … lit evenly from above with no dark underside"** cured
+  both faults `rail_shoulders` could not shake: the beds came back flat, their edges scattered at random.
+- **The beds fray at their short ends too**, which repeats as a step in the bed's width; `use` crops a bed to the
+  columns as solid as its median one before making it seamless.
+- **Rails at about the gauge** (1.47 m between centres for 1.6) with "inner faces 1.52 m apart, a little more than half
+  the strip's depth", the sleepers the strip's whole depth.
+
+## rail_shoulders (2026-10-25) — nine ballast shoulders, two attempts, all dropped, $0.03
+
+The loose stone past the sleepers' ends, composed into the old track's clear margins: given up for a bed of its own
+(`rail_track_layers`), and dropped.
+
+- **Worked:** the stones at the track's own size from the style picture of `track_concrete` alone, the nine tones
+  asked, a straight solid bottom edge.
+- **Failed, both attempts:** every strip a low heap seen a little from the side — each stone shaded underneath, a dark
+  line along the bottom — and its top edge one even row of bumps rather than stones scattering. Naming both faults
+  with v1 as image 1 (v2) changed almost nothing: the edit held image 1 too closely.
+- **Next:** a fresh frame from the style picture alone, describing the strip as a flat bed "like a gravel path's edge
+  fraying into a lawn" rather than a heap; strips came back 4 : 1, not the 9 : 1 asked.

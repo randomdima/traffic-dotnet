@@ -399,7 +399,10 @@ internal sealed class DriveHands(
         var pose = $"at {atM.X:F1},{atM.Y:F1}, {velocityMps.Length() * 3.6f:F1} km/h";
         return unit.Kind switch
         {
-            SelectionKind.Car => $"{pose}, facing {float.RadiansToDegrees(world.Cars.HeadingRad[unit.Index]):F0}°",
+            SelectionKind.Car =>
+                $"{pose}, facing {float.RadiansToDegrees(world.Cars.HeadingRad[unit.Index]):F0}°, tilted "
+                + $"{float.RadiansToDegrees(world.Cars.TiltRad[unit.Index].X):F1}° nose down and "
+                + $"{float.RadiansToDegrees(world.Cars.TiltRad[unit.Index].Y):F1}° right down",
             SelectionKind.Locomotive or SelectionKind.Wagon =>
                 $"{pose}, facing {float.RadiansToDegrees(world.World.View.Wagons[world.WagonOf(unit)].HeadingRad):F0}°",
             _ => pose,

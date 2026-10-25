@@ -52,6 +52,9 @@ internal sealed class TownRenderer : IDisposable
     const int GlyphTexture = 1;
     const int FirstSurfaceTexture = 2;
 
+    /// <summary>A bridge's art (<see cref="BridgeSheet"/>), after the surfaces.</summary>
+    const int BridgeTexture = FirstSurfaceTexture + Surfaces;
+
     static readonly int CameraBytes = Unsafe.SizeOf<CameraView>();
 
     public const int OverlayCapacity = 65536;
@@ -147,11 +150,14 @@ internal sealed class TownRenderer : IDisposable
 
     /// <summary>
     /// The town's buildings and props handed to the page once, as the desktop's are (<see cref="StandingSprites.Range"/>),
-    /// and the looks a frame's marks and scenery are written from. A page draws every prop it is handed.
+    /// and the looks a frame's marks and scenery are written from, and which sheets are car bodies the vertex stage tilts
+    /// (<see cref="CameraView.CarTilt"/>). A page draws every prop it is handed.
     /// </summary>
-    public void LayTown(TownSprites looks, float propLeastPx)
+    public void LayTown(TownSprites looks, ViewFigures view)
     {
         _looks = looks;
+        _carTilt = new Vector4(
+            looks.FirstCarSheet, looks.FirstCarSheet + (2 * looks.Cars.SheetCount), view.CarTiltEyeHeightM, 0f);
         var standing = looks.Standing.Instances;
         var count = Math.Min(standing.Length, Math.Max(1, Room.Standing));
         if (count == 0) return;
@@ -169,6 +175,9 @@ internal sealed class TownRenderer : IDisposable
 
     TownSprites? _looks;
     int _underCount;
+
+    /// <summary>The car bodies' sheets from and past, and the height their tilt is seen from (<see cref="CameraView.CarTilt"/>).</summary>
+    Vector4 _carTilt;
 
     /// <summary>
     /// <b>The engine's own tables drawn where its kernels wrote them</b> (<see cref="IEngineDraw"/>), from the next frame on —
@@ -257,7 +266,7 @@ internal sealed class TownRenderer : IDisposable
         var counts = _spriteCounts;
         var camera = view with
         {
-            SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, Patches = _mesh.Patches,
+            SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, CarTilt = _carTilt, Patches = _mesh.Patches,
         };
         MemoryMarshal.Write(_camera, in camera);
         WrittenBytes = CameraBytes + ((long)(counts.Under + counts.Over + counts.Above) * size)
@@ -358,8 +367,39 @@ internal sealed class TownRenderer : IDisposable
             }
 
             var path = surfaceTextures[Math.Min(surface, surfaceTextures.Count - 1)];
-            if ((Surface)surface is Surface.Track or Surface.Kerb or Surface.Edging) Picture(FirstSurfaceTexture + surface, path, mipped: true);
-            else Looks(FirstSurfaceTexture + surface, path);
+            if ((Surface)surface is Surface.Track)
+            {
+                var (texels, widthPx, heightPx) = TrackSheet.Compose();
+                Upload(FirstSurfaceTexture + surface, texels, widthPx, heightPx, mipped: true);
+            }
+            else if ((Surface)surface is Surface.Kerb or Surface.Edging)
+            {
+                Picture(FirstSurfaceTexture + surface, path, mipped: true);
+            }
+            else
+            {
+                Looks(FirstSurfaceTexture + surface, path);
+            }
+        }
+
+        // A bridge's art after them, one array of its strips and fittings (BridgeSheet), and a stand-in where there is no ground.
+        if (surfaceTextures.Count == 0)
+        {
+            Upload(BridgeTexture, new Texel[1], 1, 1, mipped: false);
+            return;
+        }
+
+        var sheet = BridgeSheet.Compose();
+        const int layerTexels = BridgeSheet.LayerWidthPx * BridgeSheet.LayerHeightPx;
+        for (var layer = 0; layer < BridgeSheet.Layers; layer++)
+        {
+            var chain = MipChain.Build(
+                sheet.AsSpan(layer * layerTexels, layerTexels).ToArray(), BridgeSheet.LayerWidthPx, BridgeSheet.LayerHeightPx);
+            for (var level = 0; level < chain.Count; level++)
+            {
+                var (pixels, width, height) = chain[level];
+                WebGpu.Texture(BridgeTexture, MemoryMarshal.AsBytes(pixels.AsSpan()), width, height, BridgeSheet.Layers, layer, level, chain.Count);
+            }
         }
     }
 

@@ -98,7 +98,7 @@ internal static class LampSprites
 
             var headingRad = cars.HeadingRad[car];
             var forward = Heading.Unit(headingRad);
-            var right = new Vector2(-forward.Y, forward.X);
+            var eyeHeightM = config.View.CarTiltEyeHeightM;
 
             // The glow under the lens rather than over it: a lamp is a lit lens with light around it,
             // and a fade laid on top of the lens washes the lens out.
@@ -113,8 +113,7 @@ internal static class LampSprites
                 if (glowM < leastGlowM) continue;
 
                 into[written++] = new SpriteInstance(
-                    centreM + (forward * lens.AtBodyM.X) + (right * lens.AtBodyM.Y),
-                    new Vector2(glowM * 0.5f), LensCell(variant, lamp, 0, rows, lenses), GlowTint(shown[lamp].Colour),
+                    CarSprites.OnBodyM(cars, car, forward, lens.AtBodyM, eyeHeightM), new Vector2(glowM * 0.5f), LensCell(variant, lamp, 0, rows, lenses), GlowTint(shown[lamp].Colour),
                     (uint)glowSheet, headingRad);
             }
 
@@ -130,8 +129,7 @@ internal static class LampSprites
                 var lens = shown[lamp].Lens;
                 var state = LampAtlas.StateOf(lens.Fitting, shown[lamp].Colour);
                 into[written++] = new SpriteInstance(
-                    centreM + (forward * lens.AtBodyM.X) + (right * lens.AtBodyM.Y),
-                    halfCellM, LensCell(variant, lamp, state, rows, lenses), SpriteTint.Plain, (uint)lensSheet, headingRad);
+                    CarSprites.OnBodyM(cars, car, forward, lens.AtBodyM, eyeHeightM), halfCellM, LensCell(variant, lamp, state, rows, lenses), SpriteTint.Plain, (uint)lensSheet, headingRad);
             }
         }
 

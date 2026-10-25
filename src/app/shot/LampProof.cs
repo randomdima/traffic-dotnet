@@ -19,7 +19,7 @@ namespace TrafficSimulation.App.Shot;
 /// <para>
 /// <b>Every answer in it is the engine's.</b> Where a body, a tyre and a lamp are drawn, from which sheet and which
 /// cell, at what tint and when a flashing one is on, are the instances the town's own frame is built from —
-/// <see cref="CarSprites.Fill"/>, <see cref="CarSprites.FillFrontTyres"/> and <see cref="LampSprites.Fill"/> — over the
+/// <see cref="CarSprites.Fill"/>, <see cref="CarSprites.FillTyres"/> and <see cref="LampSprites.Fill"/> — over the
 /// very sheets the renderer uploads: each look's sprite and wreck with their tyres painted in
 /// (<see cref="CarSheets"/>), the lamp sheet a told fleet was cut to or the committed one, and the glow. Only laying
 /// a quad onto the picture is done here, with the sprite pipeline's blend: the sample times the tint, over — or, from
@@ -99,11 +99,11 @@ internal static class LampProof
             fleet.Add(centresPx[look] / PxPerM, 0f, (byte)look, backsIntoBays: false, new Rng(1, (ulong)look + 1));
         }
 
-        var sheets = Sheets(catalogue, config, out var scales, out var firstLens);
+        var sheets = Sheets(catalogue, config, out var firstLens);
         var drawn = Enumerable.Range(0, looks).ToArray();
         var viewSpanM = new Vector2(picturePx.Width, picturePx.Height) / PxPerM;
         var viewCentreM = viewSpanM * 0.5f;
-        var into = new SpriteInstance[looks * (2 + TyreModel.SteeredWheels + (2 * CarLamps.MostLenses))];
+        var into = new SpriteInstance[looks * (2 + TyreModel.MostWheels + (2 * CarLamps.MostLenses))];
 
         using var proof = new Image<Rgba32>(picturePx.Width, picturePx.Height);
         Image<Rgba32>? last = null;
@@ -120,10 +120,9 @@ internal static class LampProof
                     fleet.Broken[car] = phase.Wrecked;
                 }
 
-                // The steered tyres under the bodies, as the town draws them (TownSprites.FillCars).
-                var written = CarSprites.FillFrontTyres(fleet, drawn, sheets.Length - 1, 0f, viewCentreM, viewSpanM, into);
-                written += CarSprites.Fill(
-                    fleet, drawn, catalogue, 0, scales, viewCentreM, viewSpanM, into.AsSpan(written));
+                // The tyres under the bodies, as the town draws them (TownSprites.FillCars).
+                var written = CarSprites.FillTyres(fleet, drawn, sheets.Length - 1, 0f, viewCentreM, viewSpanM, into);
+                written += CarSprites.Fill(fleet, drawn, catalogue, 0, viewCentreM, viewSpanM, into.AsSpan(written));
                 var glowSheet = firstLens + 1;
                 var lampsFrom = written;
                 written += LampSprites.Fill(
@@ -157,20 +156,17 @@ internal static class LampProof
 
     /// <summary>
     /// The sheets the instances index, laid out as the proof numbers them: every look intact, every look wrecked, the
-    /// lamp sheet and the glow, and the rubber a steered tyre is stretched over last.
+    /// lamp sheet and the glow, and the rubber a tyre is stretched over last.
     /// </summary>
-    static Sheet[] Sheets(CarCatalog catalogue, SimConfig config, out Vector2[] scales, out int firstLens)
+    static Sheet[] Sheets(CarCatalog catalogue, SimConfig config, out int firstLens)
     {
         var looks = catalogue.SheetCount;
         var sheets = new Sheet[(looks * 2) + 3];
-        scales = new Vector2[looks * 2];
         for (var look = 0; look < looks; look++)
         {
             ref readonly var variant = ref catalogue.Variants[look];
-            var build = CarBuild.Of(config, variant);
-            sheets[look] = Sheet.Of(CarSheets.WithTyres(variant.SpritePath, variant.FootprintM, build, out scales[look]));
-            sheets[looks + look] = Sheet.Of(CarSheets.WithTyres(
-                variant.WreckSpritePath, variant.FootprintM * variant.WreckScale, build, out scales[looks + look]));
+            sheets[look] = Sheet.Of(SheetSource.File(variant.SpritePath));
+            sheets[looks + look] = Sheet.Of(SheetSource.File(variant.WreckSpritePath));
         }
 
         firstLens = looks * 2;

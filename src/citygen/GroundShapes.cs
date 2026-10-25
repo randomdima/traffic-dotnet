@@ -148,6 +148,15 @@ internal sealed partial class GroundShapes
     /// </remarks>
     public Ground At(Vector2 pointM) => At(_ownScan, pointM);
 
+    /// <summary>
+    /// <b>Whether the water stands here, whatever is laid over it</b>: <see cref="At(Vector2)"/> answers what is on top,
+    /// and a road or a track laid into the river is road or track there — this is the question that finds it.
+    /// </summary>
+    public bool Wet(Vector2 pointM) => _water.Covers(pointM);
+
+    /// <summary>Whether the water or the shore it is set in stands here (GEN-2c), whatever is laid over it.</summary>
+    public bool Waterside(Vector2 pointM) => _water.Covers(pointM) || _shore.Covers(pointM);
+
     /// <inheritdoc cref="At(Vector2)"/>
     /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for an ask off its own thread.</param>
     public Ground At(Scan scan, Vector2 pointM)
