@@ -2,8 +2,8 @@
   "id": "retail_19",
   "sprite": "retail_19.webp",
   "footprintM": [
-    33.5,
-    22.0
+    43.6,
+    28.6
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,13 @@
     "supermarket",
     "mall"
   ],
-  "describe": "supermarket or shopping centre, broad flat white roof with HVAC units, skylight strips and a loading bay at the back"
+  "describe": "supermarket or shopping centre, broad flat white roof with HVAC units, skylight strips and a loading bay at the back",
+  "fans": [
+    { "atM": [14.8664, -10.3917], "rimAtM": [14.8973, -10.3934], "rimM": [0.6697, 0.6843] },
+    { "atM": [-15.0178, -6.7258], "rimAtM": [-15.0084, -6.7223], "rimM": [0.6949, 0.7126] },
+    { "atM": [-12.2928, -6.7258], "rimAtM": [-12.2824, -6.7122], "rimM": [0.7073, 0.702] },
+    { "atM": [14.8664, -3.8477], "rimAtM": [14.8739, -3.8361], "rimM": [0.7127, 0.7006] },
+    { "atM": [17.5914, -3.8477], "rimAtM": [17.5921, -3.835], "rimM": [0.7054, 0.69] },
+    { "atM": [-16.895, 6.5441], "rimAtM": [-16.8844, 6.548], "rimM": [0.6946, 0.7076] }
+  ]
 }

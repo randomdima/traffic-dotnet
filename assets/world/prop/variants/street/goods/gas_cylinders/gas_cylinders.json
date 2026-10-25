@@ -1,0 +1,9 @@
+{
+  "id": "gas_cylinders",
+  "sprite": "gas_cylinders.webp",
+  "kind": 2,
+  "footprintM": [1.2, 1.217],
+  "share": 0.2,
+  "turns": true,
+  "describe": "steel mesh cage holding four red gas cylinders, their round valve tops"
+}

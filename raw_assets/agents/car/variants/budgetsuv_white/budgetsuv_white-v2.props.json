@@ -24,7 +24,7 @@
       [400.03, 54.12, 0.00],
       [394.98, 41.15, 0.05]
     ]},
-    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 102.5, "mirrorDx": -1.0, "points": [
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 103.0, "mirrorDx": 0.5, "points": [
       [372.16, 27.70, 0.87],
       [370.75, 30.13, -0.15],
       [378.18, 37.47, 0.76],

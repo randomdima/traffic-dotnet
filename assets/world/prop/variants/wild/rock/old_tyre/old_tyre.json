@@ -1,0 +1,8 @@
+{
+  "id": "old_tyre",
+  "sprite": "old_tyre.webp",
+  "kind": 0,
+  "diameterM": 0.7,
+  "share": 0.3,
+  "describe": "old car tyre lying flat in grass, black rubber ring, weeds growing through the middle"
+}

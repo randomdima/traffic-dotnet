@@ -85,7 +85,7 @@ internal static class Warmup
         // see inside a measured window. Its dozen cars are the traffic; it stands no walker (GEN-7). It is named rather than taken off the front of the
         // list: whichever map that happened to be was never a choice anybody made, and a city here would
         // be its whole generation paid twice over for a warm-up.
-        var plan = Maps.Plan(Maps.Fixture, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(Maps.Fixture, config, ShippedArt.Sizes);
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
 

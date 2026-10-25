@@ -1,8 +1,9 @@
 {
   "id": "religious_05",
+  "sprite": "religious_05.webp",
   "footprintM": [
-    18.5,
-    15.5
+    20.4,
+    17.1
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -10,9 +11,9 @@
   "tags": [
     "religious",
     "church",
-    "cross-shaped roof",
+    "cross-ridged roof",
     "green sheet metal",
     "domes"
   ],
-  "describe": "Orthodox church, cross-shaped roof of green-painted sheet metal with a large central dome and smaller gilded domes"
+  "describe": "Orthodox church, a roof filling its whole rectangle, of green-painted sheet metal with two ridges crossing at the middle, with a large central dome and smaller gilded domes"
 }

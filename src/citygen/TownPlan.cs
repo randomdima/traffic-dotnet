@@ -29,13 +29,13 @@ namespace TrafficSimulation.CityGen;
 internal static class TownPlan
 {
     /// <summary>A map read off its file and laid, the reading of it the plan's first stage.</summary>
-    public static CityPlan Read(string path, SimConfig config, BuildingSizes sizes) => Reading(path, config, sizes).Through();
+    public static CityPlan Read(string path, SimConfig config, ArtSizes sizes) => Reading(path, config, sizes).Through();
 
     /// <summary><see cref="Read"/> a stage at a time: each of the plan's own stages one it may pause after.</summary>
-    public static Staged<CityPlan> Reading(string path, SimConfig config, BuildingSizes sizes) =>
+    public static Staged<CityPlan> Reading(string path, SimConfig config, ArtSizes sizes) =>
         new(made => Reading(path, config, sizes, made));
 
-    static IEnumerable<string> Reading(string path, SimConfig config, BuildingSizes sizes, Action<CityPlan> made)
+    static IEnumerable<string> Reading(string path, SimConfig config, ArtSizes sizes, Action<CityPlan> made)
     {
         var clock = Stopwatch.StartNew();
         var survey = Survey.Of(TownMap.Read(path), config);
@@ -43,16 +43,17 @@ internal static class TownPlan
     }
 
     /// <param name="sizes">
-    /// The prefabs its buildings are stood as and the roofs its services wear, handed down from the catalogue that read
-    /// them (<see cref="BuildingSizes"/>). A town handed none stands no building.
+    /// The prefabs its buildings are stood as, the roofs its services wear and the looks its props are laid as, handed
+    /// down from the catalogues that read them (<see cref="ArtSizes"/>). A town handed no roofs stands no building, and
+    /// one handed no looks lays no prop.
     /// </param>
-    public static CityPlan Lay(TownMap map, SimConfig config, BuildingSizes sizes) => Lay(Survey.Of(map, config), config, sizes);
+    public static CityPlan Lay(TownMap map, SimConfig config, ArtSizes sizes) => Lay(Survey.Of(map, config), config, sizes);
 
-    public static CityPlan Lay(Survey survey, SimConfig config, BuildingSizes sizes) =>
+    public static CityPlan Lay(Survey survey, SimConfig config, ArtSizes sizes) =>
         new Staged<CityPlan>(made => Laying(survey, config, sizes, [], made)).Through();
 
     static IEnumerable<string> Laying(
-        Survey survey, SimConfig config, BuildingSizes sizes, (string Stage, double Ms)[] before, Action<CityPlan> made)
+        Survey survey, SimConfig config, ArtSizes sizes, (string Stage, double Ms)[] before, Action<CityPlan> made)
     {
         var laidMs = new List<(string Stage, double Ms)>(before);
         var clock = Stopwatch.StartNew();
@@ -84,7 +85,7 @@ internal static class TownPlan
 
         // A wheel's streets say their own stages, and are not paused in.
         var streets = wheel
-            ? Laid(WheelStreets.Lay(zoned, survey.Seed, worldSizeM, water, rails, survey.Bridgeable, config, sizes, stage => Took(stage)))
+            ? Laid(WheelStreets.Lay(zoned, survey.Seed, worldSizeM, water, rails, survey.Bridgeable, config, sizes.Buildings, stage => Took(stage)))
             : Laid(TracedCarParks.Bays(survey, TracedStreets.Lay(survey, config), config), config);
         if (!wheel) yield return Took("streets");
 
@@ -108,13 +109,13 @@ internal static class TownPlan
         // <b>The buildings stand against the walk the finished town is laid with</b> (GEN-54): what the map sets down,
         // then the services on their yards (GEN-55), then whatever the zones build.
         var yards = wheel && streets.CarParks.Count > 0
-            ? BuildingStage.Lay(streets.CarParks, streets.Roads, paving, ground, worldSizeM, sizes, config)
+            ? BuildingStage.Lay(streets.CarParks, streets.Roads, paving, ground, worldSizeM, sizes.Buildings, config)
             : BuildingStage.Yards.None(config);
-        var buildings = ZoneBuildings.Lay(zones, survey, yards, paving, ground, sizes, config);
+        var buildings = ZoneBuildings.Lay(zones, survey, yards, paving, ground, sizes.Buildings, config);
         yield return Took("buildings");
 
         // <b>The props stand on what is left beside what is built</b> (GEN-6b), so they are laid last.
-        var (props, scenery) = TownProps.Lay(survey, zones, streets.Roads, streets.Junctions, paving, ground, buildings, config);
+        var (props, scenery) = TownProps.Lay(survey, zones, streets.Roads, streets.Junctions, paving, ground, buildings, sizes.Props, config);
         yield return Took("props");
 
         // <b>The roster stands at the doors and on the lanes</b>, so it is laid once both are.
@@ -184,8 +185,7 @@ internal static class TownPlan
     {
         return new CityPlan.WaterArrays
         {
-            Outline = Rings(one.Outline, other.Outline), Shore = Rings(one.Shore, other.Shore), ShoreEdge = Rings(one.ShoreEdge, other.ShoreEdge),
-            WaterEdge = Rings(one.WaterEdge, other.WaterEdge),
+            Outline = Rings(one.Outline, other.Outline), Shore = Rings(one.Shore, other.Shore),
         };
 
         static CityPlan.RingArrays Rings(CityPlan.RingArrays one, CityPlan.RingArrays other) => new()

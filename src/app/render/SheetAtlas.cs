@@ -11,12 +11,12 @@ namespace TrafficSimulation.App.Render;
 /// </summary>
 /// <remarks>
 /// <c>WidthPx</c> and <c>HeightPx</c> are the sheet's own size and not the page's, which is what the
-/// aspects are measured from; the shader reads only the layer of that second <c>vec4</c>, and its last
-/// float is std140's padding.
+/// aspects are measured from; the shader reads the layer of that second <c>vec4</c> and its last float,
+/// <paramref name="Light"/>: one for a sheet that adds light (<see cref="SheetSource.AddsLight"/>), nought for one laid over.
 /// </remarks>
 [StructLayout(LayoutKind.Sequential, Size = 32)]
 internal readonly record struct SheetPlace(
-    Vector2 OriginUv, Vector2 ScaleUv, float Layer, float WidthPx, float HeightPx);
+    Vector2 OriginUv, Vector2 ScaleUv, float Layer, float WidthPx, float HeightPx, float Light);
 
 /// <summary>
 /// Every sprite sheet the town draws with, packed into the layers of one array texture: a sheet is
@@ -134,7 +134,7 @@ internal sealed class SheetAtlas
             places[sheet] = new SheetPlace(
                 new Vector2(rect.X / (float)PagePx, rect.Y / (float)PagePx),
                 new Vector2(width / (float)PagePx, height / (float)PagePx),
-                rect.Page, width, height);
+                rect.Page, width, height, sources[sheet].AddsLight ? 1f : 0f);
         }
 
         return new SheetAtlas(sources, rects, places, Math.Max(1, pages.Count));

@@ -1,0 +1,38 @@
+{
+ "id": "roofs_house_h-v2",
+ "ts": "2026-10-20T13:47:32",
+ "op": "edit",
+ "name": "roofs_house_h",
+ "file": ".tmp/gen/frames/roofs_house_h-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.032086,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 4 building outlines seen from above on flat magenta, in a 2×2 grid. Redraw cells 1, 2, 3 and 4 (the transparent areas) as the same roofs, keeping each one's material, colour, ridge lines and outline exactly as image 1 has them, and fixing only these faults:\n\n- The chimneys were drawn about 50 px across, about 1.6 m: nearly three times their true size. A chimney is 0.6 m, about 19 px here — a quarter of a car's width. Draw every chimney that small.\n- Cell 2's dormer showed its front wall with a row of windows, seen from the side. Looking straight down no wall is seen: the dormer is a small roof shape about 2 m wide (about 64 px), with no window showing.\n- The porch roofs in cells 1 and 3 showed a strip of wall along their bottom edge. Only the porch's roof is seen from above, its bottom edge on the outline's thick bottom edge.\n\nFor each redrawn cell, trace the outline in image 2 exactly, keep its proportions and its corners (cell 2's wide rounded corners included), top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. A skylight is about 1 m (about 32 px). No text.\n\n1. 8.4 × 13.3 m (1.6× deeper than wide) — detached family house, hipped roof of faded terracotta tiles, a chimney and a skylight, small porch roof over the door, standing narrow end to the street with the entrance on that short front wall\n2. 16.8 × 13.3 m (1.3× wider than deep, corners widely rounded) — two-storey villa, hipped roof of red clay tiles with a dormer and two chimneys, a balcony roof over the entrance, its corners rounded in wide curves\n3. 15.4 × 13.3 m (1.2× wider than deep) — detached family house, gabled roof of green-painted sheet metal, a chimney and a skylight, small porch roof over the door\n4. 22.4 × 9.8 m (2.3× wider than deep) — long low courtyard house of the old suburbs, one ridge along its length, roof of red clay tiles, several chimneys spaced along the ridge",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "a03482d873ebfe37",
+   "ext": "png",
+   "frame": "roofs_house_h-v1",
+   "was": ".tmp/gen/frames/roofs_house_h-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "80a4c991182f23d3",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_house_h.png"
+  },
+  {
+   "role": "mask",
+   "sha": "f49a4eb1acbb7b0e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_house_h-v1/_mask_house_deep_22_house_rounded_03_house_35_house_37.png"
+  }
+ ]
+}

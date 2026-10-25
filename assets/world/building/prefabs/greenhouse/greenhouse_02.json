@@ -1,8 +1,9 @@
 {
   "id": "greenhouse_02",
+  "sprite": "greenhouse_02.webp",
   "footprintM": [
-    16.0,
-    13.0
+    22.4,
+    18.2
   ],
   "cornerRadiusM": 0.3,
   "partsM": [],

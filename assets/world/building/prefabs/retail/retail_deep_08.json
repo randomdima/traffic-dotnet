@@ -2,8 +2,8 @@
   "id": "retail_deep_08",
   "sprite": "retail_deep_08.webp",
   "footprintM": [
-    28.5,
-    35.0
+    37.1,
+    45.5
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -17,5 +17,14 @@
     "mall",
     "narrow front"
   ],
-  "describe": "supermarket or shopping centre, broad flat white roof with HVAC units, skylight strips and a loading bay at the back, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "supermarket or shopping centre, broad flat white roof with HVAC units, skylight strips and a loading bay at the back, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [-8.8113, -14.6342], "rimAtM": [-8.8092, -14.5873], "rimM": [0.6493, 0.5957] },
+    { "atM": [-13.0623, -14.5311], "rimAtM": [-13.0474, -14.526], "rimM": [1.0137, 0.9929] },
+    { "atM": [11.3876, -14.5311], "rimAtM": [11.3691, -14.5098], "rimM": [1.0069, 0.9889] },
+    { "atM": [13.7837, -14.5311], "rimAtM": [13.7965, -14.5109], "rimM": [1.012, 0.9905] },
+    { "atM": [8.399, 13.1656], "rimAtM": [8.4181, 13.198], "rimM": [1.0141, 0.9972] }
+  ],
+  "chimneys": [[-0.47, -12.76], [-13.6, -4.7], [13.33, -3.7], [-0.47, 6.9]],
+  "potWidthM": 0.7
 }

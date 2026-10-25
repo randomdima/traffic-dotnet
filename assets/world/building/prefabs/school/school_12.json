@@ -1,8 +1,9 @@
 {
   "id": "school_12",
+  "sprite": "school_12.webp",
   "footprintM": [
-    29.5,
-    22.5
+    47.2,
+    36.0
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],

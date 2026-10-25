@@ -2,8 +2,8 @@
   "id": "shed_deep_03",
   "sprite": "shed_deep_03.webp",
   "footprintM": [
-    2.5,
-    4.5
+    3.2,
+    5.9
   ],
   "cornerRadiusM": 0.3,
   "partsM": [],
@@ -16,5 +16,5 @@
     "outbuilding",
     "narrow front"
   ],
-  "describe": "small yard outbuilding or shed, lean-to roof of tar paper, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "small yard outbuilding or shed, lean-to roof of tar paper, standing narrow end to the street with the entrance on that short front wall, its one slope falling to a long side"
 }

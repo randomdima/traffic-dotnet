@@ -7,7 +7,7 @@ using Vk = TrafficSimulation.Runtime.Vk;
 
 namespace TrafficSimulation.App.Render;
 
-/// <summary>The four pipelines and the layouts they are built against, created once and outliving every swapchain.</summary>
+/// <summary>The pipelines and the layouts they are built against, created once and outliving every swapchain.</summary>
 internal sealed unsafe partial class TownRenderer
 {
     RenderTarget NewTarget() => _window is null
@@ -25,6 +25,8 @@ internal sealed unsafe partial class TownRenderer
         _overlayFragmentShader = _vk.LoadShader("overlay.frag");
         _markVertexShader = _vk.LoadShader("mark.vert");
         _sceneryVertexShader = _vk.LoadShader("scenery.vert");
+        _cloudVertexShader = _vk.LoadShader("cloud.vert");
+        _cloudFragmentShader = _vk.LoadShader("cloud.frag");
 
         // One set for the whole frame: every pipeline reads the same camera and every picture the
         // town is drawn with is bound here once, so nothing is bound twice in a recording. Two
@@ -40,7 +42,8 @@ internal sealed unsafe partial class TownRenderer
                 Binding = (uint)binding,
                 DescriptorType = type,
                 DescriptorCount = 1,
-                StageFlags = type == DescriptorType.CombinedImageSampler ? ShaderStageFlags.FragmentBit : ShaderStageFlags.VertexBit,
+                StageFlags = binding == FanTableBinding ? ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit
+                    : type == DescriptorType.CombinedImageSampler ? ShaderStageFlags.FragmentBit : ShaderStageFlags.VertexBit,
             };
         }
 
@@ -67,10 +70,14 @@ internal sealed unsafe partial class TownRenderer
     }
 
     /// <summary>
-    /// The town's standing ground: one vertex per corner, no blending, and a triangle list. Opaque
-    /// and drawn first, because there is no depth buffer and painter's order is the whole of the
-    /// sorting story.
+    /// The town's standing ground: one vertex per corner and a triangle list. Opaque and drawn first, because
+    /// there is no depth buffer and painter's order is the whole of the sorting story.
     /// </summary>
+    /// <remarks>
+    /// <b>Blended all the same</b>, for the one place the ground is not opaque: a surface faded out over the
+    /// ground laid before it along the shore's edges (<see cref="GroundMesh.Fade"/>). Everywhere else the
+    /// fragment stage writes a cover of one, and the blend hands back what it was given.
+    /// </remarks>
     void CreateGroundPipeline()
     {
         var binding = new VertexInputBindingDescription
@@ -84,7 +91,7 @@ internal sealed unsafe partial class TownRenderer
         attributes[0] = new VertexInputAttributeDescription(0, 0, Format.R32G32Sfloat, 0);
         attributes[1] = new VertexInputAttributeDescription(1, 0, Format.R32Uint, 8);
 
-        _pipeline = BuildPipeline(_vertexShader, _fragmentShader, binding, attributes, 2, PrimitiveTopology.TriangleList, blended: false);
+        _pipeline = BuildPipeline(_vertexShader, _fragmentShader, binding, attributes, 2, PrimitiveTopology.TriangleList, blended: true);
     }
 
     /// <summary>
@@ -102,17 +109,18 @@ internal sealed unsafe partial class TownRenderer
         };
 
         // SpriteInstance's packing, field for field: the centre, the half-size's two halves, the heading, the cell's four
-        // bytes, the tint's four normalised, the sheet.
+        // bytes, the tint's four normalised, the sheet and the ID.
         var attributes = stackalloc VertexInputAttributeDescription[6];
         attributes[0] = new VertexInputAttributeDescription(0, 0, Format.R32G32Sfloat, 0);
         attributes[1] = new VertexInputAttributeDescription(1, 0, Format.R16G16Sfloat, 8);
         attributes[2] = new VertexInputAttributeDescription(2, 0, Format.R32Sfloat, 12);
         attributes[3] = new VertexInputAttributeDescription(3, 0, Format.R8G8B8A8Uint, 16);
         attributes[4] = new VertexInputAttributeDescription(4, 0, Format.R8G8B8A8Unorm, 20);
-        attributes[5] = new VertexInputAttributeDescription(5, 0, Format.R32Uint, 24);
+        attributes[5] = new VertexInputAttributeDescription(5, 0, Format.R16G16Uint, 24);
 
         _spritePipeline = BuildPipeline(
-            _spriteVertexShader, _spriteFragmentShader, binding, attributes, 6, PrimitiveTopology.TriangleStrip, blended: true);
+            _spriteVertexShader, _spriteFragmentShader, binding, attributes, 6, PrimitiveTopology.TriangleStrip, blended: true,
+            premultiplied: true);
     }
 
     /// <summary>
@@ -150,16 +158,31 @@ internal sealed unsafe partial class TownRenderer
     /// </summary>
     void CreateMarkPipeline() =>
         _markPipeline = BuildPipeline(
-            _markVertexShader, _spriteFragmentShader, null, null, 0, PrimitiveTopology.TriangleStrip, blended: true);
+            _markVertexShader, _spriteFragmentShader, null, null, 0, PrimitiveTopology.TriangleStrip, blended: true,
+            premultiplied: true);
 
     /// <summary>The scenery, out of its pieces by the frame's runs (<c>scenery.vert</c>), on the same terms.</summary>
     void CreateSceneryPipeline() =>
         _sceneryPipeline = BuildPipeline(
-            _sceneryVertexShader, _spriteFragmentShader, null, null, 0, PrimitiveTopology.TriangleStrip, blended: true);
+            _sceneryVertexShader, _spriteFragmentShader, null, null, 0, PrimitiveTopology.TriangleStrip, blended: true,
+            premultiplied: true);
 
+    /// <summary>
+    /// The clouds' shadows (<see cref="CloudShadows"/>): one triangle over the whole target out of <c>gl_VertexIndex</c>, black
+    /// laid over at the shadow's alpha, so what is under it keeps its colour and loses that share of its light.
+    /// </summary>
+    void CreateCloudPipeline() =>
+        _cloudPipeline = BuildPipeline(
+            _cloudVertexShader, _cloudFragmentShader, null, null, 0, PrimitiveTopology.TriangleList, blended: true);
+
+    /// <param name="premultiplied">
+    /// Whether the fragment stage writes its colour already times its alpha (<c>sprite.frag</c>): blended One over
+    /// OneMinusSrcAlpha, which lays a texel over at its alpha and, with that alpha nought, adds it as light.
+    /// </param>
     Pipeline BuildPipeline(
         ShaderModule vertex, ShaderModule fragment, VertexInputBindingDescription? binding,
-        VertexInputAttributeDescription* attributes, uint attributeCount, PrimitiveTopology topology, bool blended)
+        VertexInputAttributeDescription* attributes, uint attributeCount, PrimitiveTopology topology, bool blended,
+        bool premultiplied = false)
     {
         var bound = binding.GetValueOrDefault();
         var api = _vk.Api;
@@ -225,7 +248,7 @@ internal sealed unsafe partial class TownRenderer
             {
                 ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit | ColorComponentFlags.BBit | ColorComponentFlags.ABit,
                 BlendEnable = blended,
-                SrcColorBlendFactor = BlendFactor.SrcAlpha,
+                SrcColorBlendFactor = premultiplied ? BlendFactor.One : BlendFactor.SrcAlpha,
                 DstColorBlendFactor = BlendFactor.OneMinusSrcAlpha,
                 ColorBlendOp = BlendOp.Add,
                 SrcAlphaBlendFactor = BlendFactor.One,

@@ -14,8 +14,8 @@ namespace TrafficSimulation.App.Render;
 /// <remarks>
 /// <para>
 /// <b>Twelve bytes a prop and not an instance's fifty-six</b>: a traced city's scenery is millions of props, and
-/// all a frame needs of one is its place, its look and its girth. Its look is chosen here, once, as a standing
-/// prop's is; its size off that look's aspect when it is drawn.
+/// all a frame needs of one is its place and its look. The look is the plan's (GEN-6e), and the size it is drawn
+/// at is the look's own, kept once a look rather than once a prop.
 /// </para>
 /// <para>
 /// <b>A view holding more than the budget draws an even share of it</b>: every n-th prop in the filing, n the least
@@ -42,8 +42,8 @@ internal sealed class ScenerySprites
     /// <summary>How far the widest piece reaches from its centre, which a view is grown by.</summary>
     readonly float _reachM;
 
-    /// <summary>Each look's half-size for a metre of diameter: its longest side the diameter, the other its aspect's.</summary>
-    readonly Vector2[] _halfSizePerM;
+    /// <summary>Each look's half-size: the look's own (GEN-6e).</summary>
+    readonly Vector2[] _halfSizeM;
 
     readonly int _firstSheet;
     readonly int _mostDrawn;
@@ -55,14 +55,14 @@ internal sealed class ScenerySprites
     (int Start, int End)[] _rowsInView = [];
 
     ScenerySprites(
-        SceneryPiece[] pieces, int[] rowOffsets, GridWindow window, float reachM, Vector2[] halfSizePerM, int firstSheet,
+        SceneryPiece[] pieces, int[] rowOffsets, GridWindow window, float reachM, Vector2[] halfSizeM, int firstSheet,
         int mostDrawn)
     {
         _pieces = pieces;
         _rowOffsets = rowOffsets;
         _window = window;
         _reachM = reachM;
-        _halfSizePerM = halfSizePerM;
+        _halfSizeM = halfSizeM;
         _firstSheet = firstSheet;
         _mostDrawn = mostDrawn;
     }
@@ -83,17 +83,12 @@ internal sealed class ScenerySprites
     /// <param name="worldSizeM">The town's extent, which the cull grid covers.</param>
     /// <param name="level">The level of the grid the pieces are filed at — its main one.</param>
     public static ScenerySprites Lay(
-        CityPlan.SceneryArrays scenery, Vector2 worldSizeM, PropCatalog props, int firstPropSheet, ReadOnlySpan<float> aspects,
-        GridLevel level, int mostDrawn)
+        CityPlan.SceneryArrays scenery, Vector2 worldSizeM, PropCatalog props, int firstPropSheet, GridLevel level, int mostDrawn)
     {
         if (scenery.Count == 0) return Nothing;
 
-        var halfSizePerM = new Vector2[props.Count];
-        for (var variant = 0; variant < halfSizePerM.Length; variant++)
-        {
-            var aspect = aspects[firstPropSheet + variant];
-            halfSizePerM[variant] = new Vector2(aspect, 1f) * (0.5f / MathF.Max(aspect, 1f));
-        }
+        var halfSizeM = new Vector2[props.Count];
+        for (var variant = 0; variant < halfSizeM.Length; variant++) halfSizeM[variant] = props.Variants[variant].SizeM * 0.5f;
 
         // A counting sort, as the standing instances are filed: the offsets are the running total, and the second
         // pass drops each piece where its cell says. What is kept of them is where each row starts.
@@ -116,20 +111,19 @@ internal sealed class ScenerySprites
         var reachM = 0f;
         for (var at = 0; at < scenery.Count; at++)
         {
-            var diameterM = scenery.RadiusM[at] * 2f;
-            var variant = props.Look((int)PropKind.WildNature, diameterM, at);
-            reachM = MathF.Max(reachM, (halfSizePerM[variant] * diameterM).Length());
-            pieces[offsets[cellOf[at]]++] = new SceneryPiece(scenery.CentreM[at], (ushort)variant, (Half)diameterM);
+            var look = scenery.Look[at];
+            reachM = MathF.Max(reachM, halfSizeM[look].Length());
+            pieces[offsets[cellOf[at]]++] = new SceneryPiece(scenery.CentreM[at], look);
         }
 
-        return new ScenerySprites(pieces, rowOffsets, window, reachM, halfSizePerM, firstPropSheet, mostDrawn);
+        return new ScenerySprites(pieces, rowOffsets, window, reachM, halfSizeM, firstPropSheet, mostDrawn);
     }
 
     /// <summary>Every piece as it is kept, filed by cell: what the device is handed once (<see cref="TownRenderer.LayTown"/>).</summary>
     public ReadOnlySpan<SceneryPiece> Pieces => _pieces;
 
-    /// <summary>Each look's half-size for a metre of diameter, by prop look.</summary>
-    public ReadOnlySpan<Vector2> HalfSizePerM => _halfSizePerM;
+    /// <summary>Each look's half-size as it is drawn, by prop look.</summary>
+    public ReadOnlySpan<Vector2> HalfSizeM => _halfSizeM;
 
     /// <summary>The sheet of the first prop look, which a piece's look counts from.</summary>
     public int FirstSheet => _firstSheet;
@@ -192,8 +186,8 @@ internal sealed class ScenerySprites
             {
                 ref readonly var piece = ref _pieces[(int)spans[span].First + ((at - (int)spans[span].Before) * every)];
                 into[at] = new SpriteInstance(
-                    piece.CentreM, _halfSizePerM[piece.Variant] * (float)piece.DiameterM, SpriteCell.Whole, SpriteTint.Plain,
-                    (uint)(_firstSheet + piece.Variant), 0f);
+                    piece.CentreM, _halfSizeM[piece.Look], SpriteCell.Whole, SpriteTint.Plain,
+                    (uint)(_firstSheet + piece.Look), 0f);
             }
         }
 
@@ -224,11 +218,11 @@ internal sealed class ScenerySprites
 }
 
 /// <summary>
-/// One prop of scenery as it is kept: where it stands, the look it was given and its girth — twelve bytes, as the device
-/// reads it too (<c>scenery.vert</c>: the look in the low half of the last word, the girth a half in the high).
+/// One prop of scenery as it is kept: where it stands and the look the plan gave it — twelve bytes, as the device reads
+/// it too (<c>scenery.vert</c>'s <c>Piece</c>).
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 4)]
-internal readonly record struct SceneryPiece(Vector2 CentreM, ushort Variant, Half DiameterM);
+internal readonly record struct SceneryPiece(Vector2 CentreM, uint Look);
 
 /// <summary>One row's run of the scenery a frame draws (<see cref="ScenerySprites.Spans"/>): its first piece, and how many the frame draws before it.</summary>
 [StructLayout(LayoutKind.Sequential)]

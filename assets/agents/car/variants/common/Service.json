@@ -1,7 +1,31 @@
 {
   "variants": [
     "../ambulance_white/ambulance_white.json",
+    "../ambulanceloaf_white/ambulanceloaf_white.json",
+    "../ambulancevan_white/ambulancevan_white.json",
+    "../ambulanceestate90s_white/ambulanceestate90s_white.json",
+    "../ambulancepassvan90s_white/ambulancepassvan90s_white.json",
+    "../ambulancevan90s_white/ambulancevan90s_white.json",
+    "../ambulancebus_white/ambulancebus_white.json",
+    "../ambulancelight_white/ambulancelight_white.json",
+    "../ambulancebig_white/ambulancebig_white.json",
     "../police_white/police_white.json",
-    "../evacuator_yellow/evacuator_yellow.json"
+    "../policeniva_white/policeniva_white.json",
+    "../policesaloon80s_white/policesaloon80s_white.json",
+    "../policehatch_white/policehatch_white.json",
+    "../policesuv_white/policesuv_white.json",
+    "../policevan_white/policevan_white.json",
+    "../policehybrid_white/policehybrid_white.json",
+    "../policecrossover_white/policecrossover_white.json",
+    "../policesaloon_white/policesaloon_white.json",
+    "../evacuator_yellow/evacuator_yellow.json",
+    "../evacuatorloaf_yellow/evacuatorloaf_yellow.json",
+    "../evacuatoroffroad_yellow/evacuatoroffroad_yellow.json",
+    "../evacuatorpassvan90s_yellow/evacuatorpassvan90s_yellow.json",
+    "../evacuatorvan90s_yellow/evacuatorvan90s_yellow.json",
+    "../evacuatorbus_yellow/evacuatorbus_yellow.json",
+    "../evacuatorpickup_yellow/evacuatorpickup_yellow.json",
+    "../evacuatorhightop_yellow/evacuatorhightop_yellow.json",
+    "../evacuatorbig_yellow/evacuatorbig_yellow.json"
   ]
 }

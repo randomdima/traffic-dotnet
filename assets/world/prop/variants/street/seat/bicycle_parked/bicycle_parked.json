@@ -1,0 +1,9 @@
+{
+  "id": "bicycle_parked",
+  "sprite": "bicycle_parked.webp",
+  "kind": 2,
+  "footprintM": [1.8, 0.744],
+  "share": 0.8,
+  "turns": true,
+  "describe": "parked bicycle on its stand, a blue frame, the front wheel to the right"
+}

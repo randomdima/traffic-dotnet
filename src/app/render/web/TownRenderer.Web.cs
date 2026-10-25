@@ -33,10 +33,10 @@ namespace TrafficSimulation.App.Render;
 internal sealed class TownRenderer : IDisposable
 {
     /// <summary>
-    /// The six the ground is painted with, the track's strip last (<see cref="Surface.Track"/>), each its own binding. See
-    /// the Vulkan half for why they are not an array.
+    /// The nine the ground is painted with, in the order <see cref="Surface"/> files them — the track's strip, the shore
+    /// and the two kerbs' strips last — each its own binding. See the Vulkan half for why they are not an array.
     /// </summary>
-    const int Surfaces = 6;
+    const int Surfaces = 9;
 
     const int GroundStream = 0;
     const int IndexStream = 1;
@@ -46,6 +46,7 @@ internal sealed class TownRenderer : IDisposable
     const int CameraStream = 5;
     const int TableStream = 6;
     const int StandingStream = 7;
+    const int FanStream = 8;
 
     const int PagesTexture = 0;
     const int GlyphTexture = 1;
@@ -104,6 +105,7 @@ internal sealed class TownRenderer : IDisposable
         WebGpu.Reserve(OverlayStream, _overlay.Length, WebGpu.Vertex);
         WebGpu.Reserve(UnderlayStream, _underlay.Length, WebGpu.Vertex);
         WebGpu.Reserve(CameraStream, CameraBytes, WebGpu.Uniform);
+        WebGpu.Reserve(FanStream, FanTable.Words * sizeof(uint), WebGpu.Uniform);
 
         // Every sheet onto the layers of one array texture. The table is laid to the shader's full
         // length, so a slot nothing uses is zero.
@@ -153,6 +155,9 @@ internal sealed class TownRenderer : IDisposable
         var standing = looks.Standing.Instances;
         var count = Math.Min(standing.Length, Math.Max(1, Room.Standing));
         if (count == 0) return;
+
+        // A buffer given anew, which the Rebuild below binds.
+        WebGpu.Buffer(FanStream, MemoryMarshal.AsBytes(looks.Fans.AsSpan()), WebGpu.Uniform);
 
         WebGpu.Buffer(StandingStream, Bytes<SpriteInstance>(standing.Span[..count]), WebGpu.Vertex);
         Rebuild();
@@ -250,7 +255,10 @@ internal sealed class TownRenderer : IDisposable
         var size = Unsafe.SizeOf<SpriteInstance>();
         var quad = Unsafe.SizeOf<OverlayQuad>();
         var counts = _spriteCounts;
-        var camera = view with { SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM };
+        var camera = view with
+        {
+            SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, Patches = _mesh.Patches,
+        };
         MemoryMarshal.Write(_camera, in camera);
         WrittenBytes = CameraBytes + ((long)(counts.Under + counts.Over + counts.Above) * size)
                        + ((long)(_overlayCount + _underlayCount + _underlayAboveCount) * quad);
@@ -331,7 +339,7 @@ internal sealed class TownRenderer : IDisposable
     }
 
     /// <summary>
-    /// What the ground is drawn from, or stand-ins where there is no ground — the five bindings the
+    /// What the ground is drawn from, or stand-ins where there is no ground — the seven bindings the
     /// shader declares must be filled whether or not anything samples them.
     /// </summary>
     /// <remarks>
@@ -349,8 +357,32 @@ internal sealed class TownRenderer : IDisposable
                 continue;
             }
 
-            Picture(FirstSurfaceTexture + surface, surfaceTextures[Math.Min(surface, surfaceTextures.Count - 1)],
-                mipped: true);
+            var path = surfaceTextures[Math.Min(surface, surfaceTextures.Count - 1)];
+            if ((Surface)surface is Surface.Track or Surface.Kerb or Surface.Edging) Picture(FirstSurfaceTexture + surface, path, mipped: true);
+            else Looks(FirstSurfaceTexture + surface, path);
+        }
+    }
+
+    /// <summary>A surface's looks, a layer each and each its own chain, as the desktop lays them (<c>GpuTexture.LoadLooks</c>).</summary>
+    static void Looks(int slot, string path)
+    {
+        var (widthPx, heightPx) = ImageHeader.Measure(path);
+        if (heightPx % widthPx != 0)
+        {
+            throw new InvalidDataException($"{path} is {widthPx}x{heightPx}: a surface's looks are squares stacked top to bottom.");
+        }
+
+        var all = new Texel[widthPx * heightPx];
+        Texels.Decode(path, all);
+        var layers = heightPx / widthPx;
+        for (var layer = 0; layer < layers; layer++)
+        {
+            var chain = MipChain.Build(all.AsSpan(layer * widthPx * widthPx, widthPx * widthPx).ToArray(), widthPx, widthPx);
+            for (var level = 0; level < chain.Count; level++)
+            {
+                var (pixels, width, height) = chain[level];
+                WebGpu.Texture(slot, MemoryMarshal.AsBytes(pixels.AsSpan()), width, height, layers, layer, level, chain.Count);
+            }
         }
     }
 

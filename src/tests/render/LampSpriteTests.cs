@@ -43,7 +43,6 @@ public class LampSpriteTests
         // The turn the bend is for, since an indicator answers a junction and not a curve (CAR-14.1).
         fleet.ToTheBoxM[0] = 30f;
         fleet.TurningAtTheBox[0] = true;
-        fleet.FuseJitter[0] = 1f;
         return fleet;
     }
 
@@ -68,7 +67,7 @@ public class LampSpriteTests
 
     /// <summary>
     /// Which cells of the sheet these instances drew, read back through <see cref="LampAtlas.CellOf"/>: the column
-    /// within its look's block (a lens's state) and the look it is (<c>Row</c>).
+    /// within its look's block (<see cref="LampAtlas.LensAt"/> says whose) and the look it is (<c>Row</c>).
     /// </summary>
     static HashSet<(int Column, int Row)> CellsOf(SpriteInstance[] drawn, int written)
     {
@@ -97,9 +96,11 @@ public class LampSpriteTests
         police.BlueLight[0] = false;
         police.Command[0] = DriveCommand.Parked;
 
-        // The bar's two ends, which on this car are its fifth and sixth lenses.
+        // The bar's burning end (CAR-14.4).
         var drawn = Drawn(police, police.PositionM[0], out var written, handDrivenCar: 0);
-        Assert.Equal(2, CellsOf(drawn, written).Count(cell => cell.Column >= 8));
+        var lenses = Catalogue.LensesOf(Catalogue.Police).ToArray();
+        Assert.Equal(1, CellsOf(drawn, written).Count(cell => lenses[LampAtlas.LensAt(cell.Column, lenses).Lens].Fitting
+            is CarLampFitting.BeaconRed or CarLampFitting.BeaconBlue));
 
         // And the same car with nobody's hand on it draws nothing at all: every lamp it has is off,
         // and an unlit lens is the car's own picture.
@@ -121,7 +122,9 @@ public class LampSpriteTests
         // Counted off the art rather than written down, since how many lamps an end is made of is the
         // variant's business and this claim is about ends.
         var end = AmberLenses(Catalogue.Evacuator) / 2;
-        Assert.Equal(end, CellsOf(drawn, written).Count(cell => cell.Column >= 8));
+        var lenses = Catalogue.LensesOf(Catalogue.Evacuator).ToArray();
+        Assert.Equal(end, CellsOf(drawn, written).Count(cell =>
+            lenses[LampAtlas.LensAt(cell.Column, lenses).Lens].Fitting == CarLampFitting.BeaconAmber));
     }
 
     /// <summary>How many amber beacon lenses this variant's art draws, which is its bar's two ends.</summary>
@@ -149,7 +152,7 @@ public class LampSpriteTests
         Span<ShownLamp> lamps = stackalloc ShownLamp[CarLamps.MostLenses];
         var count = CarLamps.Shown(
             Catalogue.LensesOf(fleet.Variant[0]), CarLamps.Showing(fleet, 0, Config, handAtTheWheel: false),
-            Config, elapsedS: 0f, rateJitter: 1f, lamps);
+            Config, elapsedS: 0f, lamps);
 
         var forward = new Vector2(MathF.Cos(HeadingRad), MathF.Sin(HeadingRad));
         var right = new Vector2(-forward.Y, forward.X);
@@ -180,11 +183,11 @@ public class LampSpriteTests
     }
 
     /// <summary>
-    /// CAR-14.8 through the renderer: <b>a driven car's headlamps are their lenses burning and no glow</b>, so each
-    /// head lens is one quad on the lens sheet and no glow stands where it is.
+    /// CAR-14.8 through the renderer: <b>a driven car's headlamps glow as every lit lamp does</b>, so each head lens
+    /// stands as two quads — its glow on the glow sheet, then its lens on the lens sheet over it.
     /// </summary>
     [Fact]
-    public void AHeadlampBurnsItsLensAndLaysNoGlow()
+    public void AHeadlampBurnsItsLensOverItsGlow()
     {
         var variant = FirstWithHeadlamps();
         var fleet = Lit(variant);
@@ -200,7 +203,7 @@ public class LampSpriteTests
             heads++;
             var atM = fleet.PositionM[0] + (forward * lens.AtBodyM.X) + (right * lens.AtBodyM.Y);
             var standing = drawn.AsSpan(0, written).ToArray().Where(quad => Vector2.Distance(quad.CentreM, atM) < 1e-4f).ToArray();
-            Assert.Equal(LensSheet, (int)Assert.Single(standing).Sheet);
+            Assert.Equal([GlowSheet, LensSheet], standing.Select(quad => (int)quad.Sheet));
         }
 
         Assert.Equal(2, heads);
@@ -253,12 +256,12 @@ public class LampSpriteTests
             Assert.Equal(LampAtlas.SheetRows(rows), drawn[lamp].Cell.Rows);
         }
 
-        // Every cell is this car's own block, and the lamps lit are the rear pair braking (the first
-        // column of each), the indicator on the side it is turning to — its right, the fourth lens —
-        // and the two ends of each of its two bars.
+        // Every cell is this car's own block, and the lamps lit are the rear pair braking (each lens's own
+        // column), the headlamps of a driven car, the indicators on the side it is turning to — its right, the
+        // sixth and eighth lenses — and the left end of its bar, which burns first on a bar of blue alone (CAR-14.4).
         var cells = CellsOf(drawn, written);
         Assert.All(cells, cell => Assert.Equal(ambulance.Variant[0], cell.Row));
-        Assert.Equal([0, 2, 6, 9, 11, 13, 15, 17, 19], cells.Select(cell => cell.Column).Order());
+        Assert.Equal([0, 1, 2, 3, 5, 7, .. LeftEndCells(ambulance.Variant[0])], cells.Select(cell => cell.Column).Order());
 
         // One glow a lit lamp, and nothing is drawn for the lamps that are off.
         Assert.Equal(cells.Count, glows);
@@ -287,31 +290,54 @@ public class LampSpriteTests
     }
 
     /// <summary>
-    /// <b>The beacon's two ends swap rather than blink</b> (CAR-14.4), and what swaps is the cell each of
-    /// them draws: the end that was red draws the red cell and half a period later the blue one.
+    /// <b>The beacon's ends burn in turn, each its own colour</b> (CAR-14.4): the red ends draw their one cell, and half
+    /// a period later the blue ends draw theirs. No end ever draws a cell of the other colour.
     /// </summary>
     [Fact]
-    public void TheBeaconsEndsExchangeTheirCells()
+    public void TheBeaconsEndsTakeTheBurnInTurn()
     {
-        var ambulance = Ticked(Lit(Catalogue.Ambulance));
-        var halfPeriodS = 0.5f / Config.Lamps.BeaconHz;
+        var police = Ticked(Lit(Catalogue.Police));
+        var halfPeriodS = 0.5f * Config.Lamps.BeaconPeriodS;
 
         var into = new SpriteInstance[CarLamps.Most];
         var first = LampSprites.Fill(
-            ambulance, CarSpriteTests.Every(ambulance), Catalogue, Config, LensSheet, GlowSheet, 0f, ambulance.PositionM[0],
+            police, CarSpriteTests.Every(police), Catalogue, Config, LensSheet, GlowSheet, 0f, police.PositionM[0],
             new Vector2(200f, 200f), into);
-        var atStart = CellsOf(into, first).Where(cell => cell.Column >= 8).Select(cell => cell.Column).Order().ToArray();
+        var atStart = BarCells(CellsOf(into, first), police.Variant[0]);
 
-        var swapped = LampSprites.Fill(
-            ambulance, CarSpriteTests.Every(ambulance), Catalogue, Config, LensSheet, GlowSheet, halfPeriodS, ambulance.PositionM[0],
+        var later = LampSprites.Fill(
+            police, CarSpriteTests.Every(police), Catalogue, Config, LensSheet, GlowSheet, halfPeriodS, police.PositionM[0],
             new Vector2(200f, 200f), into);
-        var later = CellsOf(into, swapped).Where(cell => cell.Column >= 8).Select(cell => cell.Column).Order().ToArray();
 
-        // The bars are the last six lenses, so their cells are columns 8 to 19: one instant draws every
-        // end in the other's colour and the next draws each in its own. Which of the two the clock
-        // starts on is not the claim; that half a period exchanges them is.
-        Assert.Equal([9, 11, 13, 15, 17, 19], atStart);
-        Assert.Equal([8, 10, 12, 14, 16, 18], later);
+        Assert.Equal(RedEndCells(police.Variant[0]), atStart);
+        Assert.Equal(EndCells(police.Variant[0], CarLampFitting.BeaconBlue), BarCells(CellsOf(into, later), police.Variant[0]));
+    }
+
+    /// <summary>The first cells of a look's lenses of one beacon fitting, which is the one cell an end burns in.</summary>
+    static int[] EndCells(int variant, CarLampFitting fitting)
+    {
+        var lenses = Catalogue.LensesOf(variant);
+        var cells = new List<int>();
+        for (var lens = 0; lens < lenses.Length; lens++)
+        {
+            if (lenses[lens].Fitting == fitting) cells.Add(lens);
+        }
+
+        return [.. cells];
+    }
+
+    static int[] RedEndCells(int variant) => EndCells(variant, CarLampFitting.BeaconRed);
+
+    static int[] LeftEndCells(int variant) =>
+        [.. EndCells(variant, CarLampFitting.BeaconBlue).Where(lens => Catalogue.LensesOf(variant)[lens].AtBodyM.Y < 0f)];
+
+    /// <summary>The columns drawn for a look's beacon ends, in order.</summary>
+    static int[] BarCells(IEnumerable<(int Column, int Row)> cells, int variant)
+    {
+        var lenses = Catalogue.LensesOf(variant).ToArray();
+        return [.. cells.Select(cell => cell.Column)
+            .Where(column => lenses[LampAtlas.LensAt(column, lenses).Lens].Fitting is CarLampFitting.BeaconRed or CarLampFitting.BeaconBlue)
+            .Order()];
     }
 
     /// <summary>

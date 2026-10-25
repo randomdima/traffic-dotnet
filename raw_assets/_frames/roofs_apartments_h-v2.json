@@ -1,0 +1,38 @@
+{
+ "id": "roofs_apartments_h-v2",
+ "ts": "2026-10-20T13:37:31",
+ "op": "edit",
+ "name": "roofs_apartments_h",
+ "file": ".tmp/gen/frames/roofs_apartments_h-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.030981,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 1×2 grid. Redraw only cell 1 (the transparent area). Keep the other cell exactly as it is, and match its style, colours and fine detail.\n\nThe faults in cell 1: its light well shows the courtyard walls from the side, with rows of windows, as if seen at an angle. Seen straight down, a light well shows no walls and no windows: it is a small flat dark grey paved courtyard floor, about 6 × 4 m, framed by the roof's inner eaves. Its chimney stacks are about 1.8 m across; each must be about 0.6–0.8 m, a third of that size.\n\nFor the redrawn cell, trace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: this building stands beside cars 4 m long; a chimney is about 0.6 m, a dormer about 1.5 m wide, sheet ribs about 0.25 m apart. No text.\n\n1. 24.7 × 20.8 m (1.2× wider than deep) — deep old-town apartment block, hipped roof of grey sheet metal round a light well, dormers and chimney stacks",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "8a45b53e00b935f5",
+   "ext": "png",
+   "frame": "roofs_apartments_h-v1",
+   "was": ".tmp/gen/frames/roofs_apartments_h-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "0ee3ae1a4ec25fcd",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_apartments_h.png"
+  },
+  {
+   "role": "mask",
+   "sha": "68c993c8b8b99181",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_apartments_h-v1/_mask_apartments_22.png"
+  }
+ ]
+}

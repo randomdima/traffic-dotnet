@@ -1,8 +1,9 @@
 {
   "id": "industrial_12",
+  "sprite": "industrial_12.webp",
   "footprintM": [
-    20.0,
-    5.0
+    30.0,
+    7.5
   ],
   "cornerRadiusM": 0.75,
   "partsM": [],
@@ -14,5 +15,7 @@
     "tar paper",
     "workshop"
   ],
-  "describe": "small workshop or depot shed, shallow pitched roof of tar paper"
+  "describe": "small workshop or depot shed, shallow pitched roof of tar paper",
+  "chimneys": [[11.0, -2.4, 11.6, -2.4]],
+  "potWidthM": 0.6
 }

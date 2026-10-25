@@ -1,0 +1,13 @@
+{
+  "car": "school_wings",
+  "sprite": {"variant": "raw_assets/world/building/variants/school_wings/school_wings-v1.png", "sizePx": [598, 581]},
+  "axisY": {"rear": 288.50, "front": 288.50},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [348.01, 391.12, 4.40],
+      [361.19, 402.96, 2.94],
+      [369.95, 390.73, 3.38],
+      [357.02, 381.69, 2.18]
+    ]}
+  ]
+}

@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_af-v2",
+ "ts": "2026-10-20T14:08:37",
+ "op": "edit",
+ "name": "roofs_mixed_af",
+ "file": ".tmp/gen/frames/roofs_mixed_af-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.034261,
+ "prompt": "Faults of the previous attempt, to fix in this one:\n- Cell 2 was drawn about 30% too wide and 25% too deep, far past its outline. This time only the transparent area of the first image may be painted: cell 2, its outline with a thin margin. Leave cell 1 as it is in the first image. Colour cell 2's outline in exactly as it is given, without moving or resizing it: in this 1536×1024 picture it runs x 708–829 (121 px wide) and y 537–999 (462 px deep). Its edge is a crisp bold dark outline on those lines, with flat pure magenta outside them.\n- Looking straight down no garage door is seen: only seven flat roofs one behind another and the low brick parapets between them, each about 0.3 m (5 px) wide.\n\nTwo images are attached. The first is a layout: 2 building outlines seen from above, in a 1×2 grid on a flat magenta background. The second is finished art from the same game, to match in style only — not its layout, shapes, colours or the size of its details.\n\nMake one image with exactly the same 1×2 layout as the first image. Inside each outline, draw the roof of the building described for that cell below, as a top-down sprite for a 2D city game.\n\nShape comes first. Before painting a cell, trace its outline exactly, then paint only inside the traced border:\n- Keep every outline's proportions: match each one's width and height. Each cell's proportion is given below; check it. Never make an outline squarer, shorter or fatter.\n- Every edge is straight and square to the others. Never slant, skew or taper an edge to show perspective. An outline built of several rectangles (an L, a T, a stepped block) is followed corner by corner.\n- Draw nothing outside the outline: no eaves, steps, porches, canopies, ramps or shadows past it. A porch or an entrance canopy is drawn inside the outline at its bottom edge. Inside a roof there is no magenta at all.\n\nScale is the second rule, and it is strict. Every size below is true metres, width × depth, and every detail is drawn at its true size against them. These buildings stand beside cars 4 m long and 1.8 m wide; keep that in mind for every detail. True sizes:\n- tower: a lift machine room about 3 × 5 m; a hatch or vent shaft about 1 m; a TV antenna about 2 m across; a parapet about 0.4 m thick; drain funnels about 0.4 m.\n- garages: each lock-up is about 3 m wide with a 2.5 m door on the street edge; a parapet between units about 0.3 m.\n- No detail is bigger than its true size. When in doubt, draw it smaller and keep fewer of them. A large roof has many small details, never a few huge ones.\n\nRules for every cell:\n- Look straight down (orthographic). No perspective, no walls seen from the side, no tilt, no ground, no plants, no cars, no people.\n- The thick bottom edge of each outline is the street front, where the entrance is. The top edge is the back.\n- A gabled roof shows its ridge as one line with the two slopes shaded differently; a lean-to roof is one slope with no ridge; a flat roof has a parapet round its edge.\n- Style: match the style image. Clean, flat-shaded cartoon game art, bold dark outlines, muted natural colours, simple readable details, soft light from the top-left.\n- Outside the roofs, keep the background flat pure magenta #FF00FF. No text, letters, numbers, labels, logos, grid lines or frames anywhere.\n\nCells, left to right, top to bottom:\n\nRow 1\n1. 46.1 × 16.2 m (2.8× wider than deep, a thin strip) — tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge\n\nRow 2\n2. 7.8 × 29.2 m (3.7× deeper than wide, a thin strip) — row of 7 lock-up garages of a garage cooperative, flat roof of grey slate sheets parted by low brick parapets between the units, patched in places, standing narrow end to the street with the entrance on that short front wall",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "e032107e5b8c438b",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_af.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "5e265601fd062b8e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_af_style.png"
+  },
+  {
+   "role": "mask",
+   "sha": "40fb147a8b77e064",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_af-v1/_mask_garages_deep_06.png"
+  }
+ ]
+}

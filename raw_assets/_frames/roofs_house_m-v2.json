@@ -1,0 +1,38 @@
+{
+ "id": "roofs_house_m-v2",
+ "ts": "2026-10-20T13:49:16",
+ "op": "edit",
+ "name": "roofs_house_m",
+ "file": ".tmp/gen/frames/roofs_house_m-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031331,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 3 building outlines seen from above on flat magenta, in a 3×1 grid. Redraw only cells 1 and 2 (the transparent areas). Keep cell 3 exactly as it is, and match its style, colours and fine detail.\n\nThe faults in cells 1 and 2: each dormer showed its front wall with a window, seen from the side; and the chimneys were drawn about 50 px across, about 1.7 m, nearly three times their true size. Looking straight down no wall is seen: a dormer is a small roof shape about 2 m wide (about 58 px here) with no window showing. A chimney is 0.6 m, about 17 px here — a quarter of a car's width. The balcony roof over the entrance stays inside the outline, its bottom edge on the outline's thick bottom edge.\n\nFor each redrawn cell, trace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. No text.\n\n1. 16.1 × 19.6 m (1.2× deeper than wide) — two-storey villa, hipped roof of dark grey bitumen shingles with a dormer and two chimneys, a balcony roof over the entrance, standing narrow end to the street with the entrance on that short front wall\n2. 11.9 × 19.6 m (1.6× deeper than wide) — two-storey villa, hipped roof of green-painted sheet metal with a dormer and two chimneys, a balcony roof over the entrance, standing narrow end to the street with the entrance on that short front wall",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "c4bf8f811a0f2200",
+   "ext": "png",
+   "frame": "roofs_house_m-v1",
+   "was": ".tmp/gen/frames/roofs_house_m-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "5620d06c87b3b32c",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_house_m.png"
+  },
+  {
+   "role": "mask",
+   "sha": "8907b38f0b367ec7",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_house_m-v1/_mask_house_deep_30_house_deep_29.png"
+  }
+ ]
+}

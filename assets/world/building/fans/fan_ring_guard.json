@@ -1,0 +1,7 @@
+{
+  "id": "fan_ring_guard",
+  "sprite": "fan_ring_guard.webp",
+  "footprintM": [3.4, 3.384],
+  "tags": ["fan", "five blades", "guard"],
+  "describe": "a rooftop cooling fan with five grey blades seen through a wire guard of thin concentric rings, a pale hub, a thin steel rim"
+}

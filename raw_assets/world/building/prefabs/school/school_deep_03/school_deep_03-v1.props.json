@@ -1,0 +1,20 @@
+{
+  "car": "school_deep_03",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/school/school_deep_03/school_deep_03-v1.png", "sizePx": [240, 384]},
+  "axisY": {"rear": 192.00, "front": 192.25},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [177.94, 315.14, 0.02],
+      [177.92, 317.64, 4.29],
+      [192.40, 329.03, 3.07],
+      [203.05, 316.42, 3.73],
+      [189.98, 304.92, 3.33]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [149.08, 309.89, 1.79],
+      [148.27, 322.71, 6.71],
+      [170.77, 322.63, 2.57],
+      [168.13, 308.03, 4.10]
+    ]}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "edging_concrete",
+  "sprite": "edging_concrete.webp",
+  "kind": "Edging",
+  "describe": "a footway edging of light grey precast concrete edging stones half a metre long: softly rounded tops, each stone a slightly different shade, faint grime, a little soil along the low side",
+  "footprintM": [
+    6.0,
+    0.2
+  ],
+  "pictureM": 4.694
+}

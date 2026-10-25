@@ -2,8 +2,8 @@
   "id": "apartments_deep_05",
   "sprite": "apartments_deep_05.webp",
   "footprintM": [
-    6.0,
-    10.0
+    7.8,
+    13.0
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -17,5 +17,7 @@
     "19th century",
     "narrow front"
   ],
-  "describe": "19th-century Odesa tenement house, pitched roof of rust-red painted sheet metal with brick chimney stacks and roof hatches, a parapet along the street front, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "19th-century Odesa tenement house, pitched roof of rust-red painted sheet metal with brick chimney stacks and roof hatches, a parapet along the street front, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back",
+  "chimneys": [[-2.35, -0.45, -1.95, -0.45]],
+  "potWidthM": 0.4
 }

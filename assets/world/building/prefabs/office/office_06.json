@@ -2,8 +2,8 @@
   "id": "office_06",
   "sprite": "office_06.webp",
   "footprintM": [
-    37.0,
-    10.5
+    42.5,
+    12.1
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +15,9 @@
     "dark bitumen",
     "office block"
   ],
-  "describe": "mid-rise office or public building, flat roof of dark bitumen with rooftop plant, a lift room and a parapet"
+  "describe": "mid-rise office or public building, flat roof of dark bitumen with rooftop plant, a lift room and a parapet",
+  "fans": [
+    { "atM": [-13.7162, -0.2017], "rimAtM": [-13.7362, -0.2178], "rimM": [0.699, 0.6862] },
+    { "atM": [-11.9046, -0.2305], "rimAtM": [-11.9045, -0.2212], "rimM": [0.7004, 0.6832] }
+  ]
 }

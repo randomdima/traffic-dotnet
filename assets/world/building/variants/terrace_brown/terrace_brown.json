@@ -1,8 +1,11 @@
 {
   "id": "terrace_brown",
   "sprite": "terrace_brown.webp",
+  "describe": "two terraced houses, gabled roof of brown clay tiles, a dormer each, chimneys on the party wall",
   "footprintM": [14.00, 14.03],
   "partsM": [
     { "atM": [0.02, -0.26], "sizeM": [13.51, 12.87] }
-  ]
+  ],
+  "chimneys": [[-1.33, -2.2, -0.68, -2.2], [0.67, -2.2, 1.32, -2.2]],
+  "potWidthM": 0.65
 }

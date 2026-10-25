@@ -7,10 +7,11 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
 
-/// <summary>Which of the six surfaces a triangle wears, or <see cref="Paint"/> for a flat colour.</summary>
+/// <summary>Which surface a triangle wears, or <see cref="Paint"/> for a flat colour.</summary>
 internal enum Surface : uint
 {
     Grass = 0,
@@ -25,6 +26,27 @@ internal enum Surface : uint
     /// leaves clear is not drawn at all.
     /// </summary>
     Track = 5,
+
+    /// <summary>The shore along every bank (GEN-2c): a surface of its own, last so no number before it moved when it came.</summary>
+    Shore = 6,
+
+    /// <summary>
+    /// <b>The town's kerb, laid as its kerbstones</b> (TER-3d): a strip of its art along its line, as the track's is, its
+    /// corners filing how many pictures along it they stand (<see cref="GroundVertex.OnTheStrip"/>), the picture's low
+    /// side — its bottom — on the right of the line, the driven ground's side (<see cref="KerbLooks.Kerb"/>).
+    /// </summary>
+    Kerb = 7,
+
+    /// <summary>The walk's own kerb, its edging stones laid the same way, the low side on the left of the line: the grass's
+    /// side (<see cref="KerbLooks.Edging"/>).</summary>
+    Edging = 8,
+
+    /// <summary>
+    /// <b>The shadow a kerb casts on the ground beside its low side</b>: no picture, the ground darkened by a cover that
+    /// fades out away from the stone (<see cref="GroundVertex.Fading"/>), so a kerb reads as a stone standing up off the
+    /// road or the grass rather than a stripe painted on it.
+    /// </summary>
+    Shadow = 9,
 
     /// <summary>Not a surface: the tint alone, for anything that is not ground.</summary>
     Paint = 255,
@@ -61,37 +83,67 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
 
     public Vector3 Tint => new(Channel(Shade), Channel(Shade >> 9), Channel(Shade >> 18));
 
-    public Surface Surface => (Shade >> SurfaceShift) == PaintFiled ? Surface.Paint : (Surface)(Shade >> SurfaceShift);
+    public Surface Surface => (Shade >> SurfaceShift) == PaintFiled ? Surface.Paint : (Surface)((Shade >> SurfaceShift) & ~FadingFiled);
+
+    /// <summary>
+    /// What a surface is filed as where it is laid fading over the ground under it (<see cref="Fading"/>): its own number
+    /// with this bit, which every surface but <see cref="Surface.Paint"/> leaves clear.
+    /// </summary>
+    /// <remarks>Said again in both vertex stages (<c>ground.vert</c>, <c>town.wgsl</c>).</remarks>
+    const uint FadingFiled = 16;
+
+    /// <summary>How much of a fading corner's surface covers the ground laid before it, from nought to one.</summary>
+    public float Cover => Fades ? Channel(Shade) / BrightestTint : 1f;
+
+    /// <summary>Whether the corner is a surface fading out over the ground before it (<see cref="Fading"/>), whole or not.</summary>
+    public bool Fades =>(Shade >> SurfaceShift) != PaintFiled && ((Shade >> SurfaceShift) & FadingFiled) != 0;
+
+    /// <summary>
+    /// <b>A corner of a surface fading out over the ground laid before it</b> (GEN-2c): how much of it covers that
+    /// ground, filed where a tint is, the surface drawn as itself and the blend doing the rest.
+    /// </summary>
+    public static uint Fading(Surface surface, float cover) =>
+        Filed(Math.Clamp(cover, 0f, 1f) * BrightestTint) | (((uint)surface | FadingFiled) << SurfaceShift);
 
     /// <summary>A shade and a surface as one word: each channel to the nearest of its steps up to <see cref="BrightestTint"/>.</summary>
     public static uint Pack(Vector3 tint, Surface surface) =>
         Filed(tint.X) | (Filed(tint.Y) << 9) | (Filed(tint.Z) << 18)
         | ((surface == Surface.Paint ? PaintFiled : (uint)surface) << SurfaceShift);
 
-    /// <summary>The steps a track's corner files how far along its strip it stands: a picture's length in a few hundred.</summary>
+    /// <summary>The steps a strip's corner files how far along it it stands: a picture's length in a few hundred.</summary>
     public const uint TrackStepsPerPicture = 256;
 
     /// <summary>
-    /// How many of the strip's pictures one filing runs over before it starts again, which the strip is cut at
+    /// How many of a strip's pictures one filing runs over before it starts again, which the strip is cut at
     /// (<see cref="GroundMesh.TrackStrip"/>): the whole pictures eighteen bits of steps hold.
     /// </summary>
     public const float TrackPicturesFiled = ((1u << 18) / TrackStepsPerPicture) - 1;
 
     const uint AcrossSteps = (1u << 9) - 1;
 
+    /// <summary>Whether the corner is on a strip laid along a line (<see cref="OnTheStrip"/>), which files no tint.</summary>
+    public bool OnAStrip => Surface is Surface.Track or Surface.Kerb or Surface.Edging;
+
+    /// <summary>How far across its strip a strip's corner stands, from nought on the left of its line to one on the right.</summary>
+    public float Across => ((Shade >> 18) & AcrossSteps) / (float)AcrossSteps;
+
+    /// <summary>A corner of the track's strip (<see cref="Surface.Track"/>), as <see cref="OnTheStrip"/> files it.</summary>
+    public static uint OnTheTrack(float picturesAlong, float acrossShare) => OnTheStrip(Surface.Track, picturesAlong, acrossShare);
+
     /// <summary>
-    /// <b>A corner of the track's strip</b> (<see cref="Surface.Track"/>): how many of its pictures along the strip it
-    /// stands, and how far across it from nought to one, where a corner of any other surface files its tint.
+    /// <b>A corner of a strip laid along a line</b> — the track's, or a kerb's: how many of its pictures along the strip
+    /// it stands, and how far across it from nought, the left of the line, to one, where a corner of any other surface
+    /// files its tint.
     /// </summary>
     /// <remarks>
     /// <b>Along is counted on and not wrapped at every picture</b>, so a seam where the coordinate wraps falls once in
     /// <see cref="TrackPicturesFiled"/> pictures and not at every one: a wrap inside a pixel quad reads as a smear the
     /// width of the whole picture's smallest mip.
     /// </remarks>
-    public static uint OnTheTrack(float picturesAlong, float acrossShare) =>
+    public static uint OnTheStrip(Surface strip, float picturesAlong, float acrossShare) =>
         (uint)MathF.Round(Math.Clamp(picturesAlong, 0f, TrackPicturesFiled) * TrackStepsPerPicture)
         |((uint)MathF.Round(Math.Clamp(acrossShare, 0f, 1f) * AcrossSteps) << 18)
-        | ((uint)Surface.Track << SurfaceShift);
+        | ((uint)strip << SurfaceShift);
 
     static uint Filed(float channel) => (uint)MathF.Round(Math.Clamp(channel / BrightestTint, 0f, 1f) * ChannelSteps);
 
@@ -126,13 +178,15 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
 /// laid at the width a kerbstone is with that shell running down the middle of it, over the fills rather
 /// than cut out of them, and there are two — the town's own boundary and the walk's outer face. Neither
 /// borrows a triangle from a fill, so each is two hundred millimetres wherever its line runs, on a bend as on
-/// a straight, whatever the fills either side of it were thinned to. <b>And a kerb is the only edge of a
-/// layer anybody sees</b> (<see cref="Line"/>, <see cref="HiddenShare"/>): the fill beneath it is the kerb's
-/// own line thinned by what the stone hides, so what is cut for the picture is the line and what is cut for
-/// the kerb is the fill. <b>A rim is the other way of drawing a line and is what is left where
-/// nothing has a boundary to strike one off</b> — the region twice, a line's width apart, the outer in the
-/// line's shade and the inner laid over it in the surface's own. A deck's edge and the shore are drawn that
-/// way, a deck being a ribbon about a road's own line.
+/// a straight, whatever the fills either side of it were thinned to. <b>Each is laid as its stones</b>
+/// (<see cref="Kerbstones"/>), a strip along its line. <b>And a kerb is the only edge of a layer anybody sees</b>
+/// (<see cref="Line"/>, <see cref="HiddenShare"/>): the fill beneath it is the kerb's own line thinned by what the
+/// stone hides, so what is cut for the picture is the line and what is cut for the kerb is the fill. <b>A rim is
+/// the other way of drawing a line and is what is left where nothing has a boundary to strike one off</b> — the
+/// region twice, a line's width apart, the outer in the line's shade and the inner laid over it in the surface's
+/// own. A deck's edge is drawn that way, a deck being a ribbon about a road's own line. <b>The shore's edges are
+/// fades</b> (<see cref="Fade"/>), the ground beside it faded out onto it: a fade is the one place the ground is
+/// blended rather than laid opaque.
 /// </para>
 /// <para>
 /// What is <b>not</b> here is anything that is not ground: buildings, props, agents and their sprites
@@ -232,24 +286,7 @@ internal sealed partial class GroundMesh
     /// It is a measurement like <see cref="Edge"/> and not the inverse of one — 1/0.58 is 1.72 and lays a
     /// dash two and a half times too dark.
     /// </summary>
-    /// <remarks>
-    /// <b>The town's kerb is drawn in it, on the carriageway's own grain</b>: the line along the driven
-    /// ground's boundary is the white line at the edge of the road and reads as the dashes down the middle
-    /// of it do, which is one white in the town rather than two that nearly agree. It is still ground and
-    /// not a mark (<see cref="FirstMarkVertex"/>).
-    /// </remarks>
     public static readonly Vector3 Paint = new(2.6f, 2.6f, 2.5f);
-
-    /// <summary>
-    /// <b>And the walk's own kerb is the pavement's own stone in shadow</b>: the concrete it bounds, on the
-    /// same grain, taken down to two thirds — the back of a pavement is the same slab standing on its side,
-    /// so what tells it from the walk is the light on it and not a second material.
-    /// </summary>
-    /// <remarks>
-    /// <b>Well short of <see cref="Edge"/>, which is a rim and not a kerb.</b> A line that dark beside the
-    /// turf reads as a shadow cast on the concrete rather than as the stone at the back of it.
-    /// </remarks>
-    public static readonly Vector3 Stone = new(0.66f, 0.66f, 0.69f);
 
     readonly List<GroundVertex> _vertices = [];
     readonly List<uint> _indices = [];
@@ -319,8 +356,11 @@ internal sealed partial class GroundMesh
     /// </summary>
     public Vector4 SurfacePeriodsM { get; private init; } = Vector4.One;
 
-    /// <summary>And the water's, the fifth surface, alone in its first place.</summary>
+    /// <summary>And the water's, the fifth surface, then the shore's (<see cref="Surface.Shore"/>).</summary>
     public Vector4 WaterPeriodM { get; private init; } = Vector4.One;
+
+    /// <summary>The tint every surface takes from where it lies, from the same config (<see cref="CameraView.Patches"/>).</summary>
+    public GroundPatches Patches { get; private init; }
 
     /// <summary>How tall a band of rows a frame draws the ground by is (<see cref="GroundBands"/>): the town's own grid's cell (SIM-8).</summary>
     public float BandM { get; private init; } = 1f;
@@ -438,7 +478,8 @@ internal sealed partial class GroundMesh
             SurfacePeriodsM = new Vector4(
                 config.View.GroundPeriodGrassM, config.View.GroundPeriodTarmacM, config.View.GroundPeriodPavementM,
                 config.View.GroundPeriodDeckM),
-            WaterPeriodM = new Vector4(config.View.GroundPeriodWaterM, 0f, 0f, 0f),
+            WaterPeriodM = new Vector4(config.View.GroundPeriodWaterM, config.View.GroundPeriodShoreM, 0f, 0f),
+            Patches = GroundPatches.From(config.View),
             BandM = config.Grid.Main.CellM,
             _laidFrom = (plan, config),
         };
@@ -506,28 +547,26 @@ internal sealed partial class GroundMesh
         // it means and what spares this fill a second copy of the boundary to carry and thin.
         // <b>The line is struck along the walk's own outer face and not cut out of the fill</b> (TER-3d): it
         // is a kerb's width about that line wherever it runs, which is what the thinning either fill is laid
-        // at cannot promise, and it is laid after the fill so the fill cannot eat into it. <b>And it wears
-        // the concrete it bounds, darkened</b> (<see cref="Stone"/>): the same surface as the walk, told
-        // from it by the light on the stone alone.
+        // at cannot promise, and it is laid after the fill so the fill cannot eat into it. <b>Laid as its
+        // edging stones</b> (<see cref="Surface.Edging"/>), their shadow cast on the grass.
         var walk = mesh.Starting();
         mesh.Shell(walkShell, Surface.Pavement, Plain);
         mesh.Laid(GroundPart.Walk, walk);
 
         var walkKerb = mesh.Starting();
-        mesh.Stroke(walkLine, OnTheEdge, kerbM, Surface.Pavement, Stone);
+        mesh.KerbShadow(walkLine, OnTheEdge, kerbM, config.View.KerbShadowM, config.View.KerbShadowShare, onTheRight: false);
+        mesh.Kerbstones(walkLine, OnTheEdge, kerbM, Surface.Edging, KerbLooks.Shared.Edging.PictureM);
         mesh.Laid(GroundPart.WalkKerb, walkKerb);
 
-        // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
-        // of the one under it showing, which is the same trick every other line here is drawn by: what
-        // survives is one line where the shore meets the grass and another where it meets the water. <b>Each
-        // takes the colour of the ground it meets</b> — green against the grass and blue against the water —
-        // and each is drawn darker than that ground, so the edge reads as the shore's own shadow on it
-        // rather than as a highlight laid over it.
+        // The shore and the water set in it (GEN-2c), <b>each edge a fade and not a line</b> (<see cref="Fade"/>): the
+        // grass fades out onto the shore from its outer edge, and the water out onto it from its own, so both lie on
+        // the shore and neither reaches past it onto a walk.
         var water = mesh.Starting();
-        Water(mesh, plan.Water.Shore, Surface.Pavement, Shade(0.3f, 0.48f, 0.22f));
-        Water(mesh, plan.Water.ShoreEdge, Surface.Pavement, Plain);
-        Water(mesh, plan.Water.WaterEdge, Surface.Pavement, Shade(0.08f, 0.2f, 0.3f));
+        var fadeM = config.View.ShoreFadeM;
+        Water(mesh, plan.Water.Shore, Surface.Shore, Plain);
+        mesh.Fade(plan.Water.Shore, OnTheEdge, fadeM, inside: true, Surface.Grass);
         Water(mesh, plan.Water.Outline, Surface.Water, Plain);
+        mesh.Fade(plan.Water.Outline, OnTheEdge, fadeM, inside: false, Surface.Water);
         mesh.Laid(GroundPart.Water, water);
 
         // A deck is drawn out to its own half-width, with a rim rather than a stroke: the piece at full size
@@ -562,10 +601,11 @@ internal sealed partial class GroundMesh
         // about the boundary itself, over everything the layers left along it. Last of the ground, so what it
         // covers is a kerb wherever the boundary runs — and so the place the walk meets the carriageway, each
         // of them thinned on its own terms, is under the middle of it rather than beside it.
-        // <b>Drawn as the road's own edge line</b> (<see cref="Paint"/>): the carriageway's grain through the
-        // shade every other white line in the town is laid in, and not the pavement's.
+        // <b>Laid as its kerbstones</b> (<see cref="Surface.Kerb"/>), the riser on the carriageway's side and its shadow
+        // cast on the road.
         var kerb = mesh.Starting();
-        mesh.Stroke(carriagewayLine, OnTheEdge, kerbM, Surface.Tarmac, Paint);
+        mesh.KerbShadow(carriagewayLine, OnTheEdge, kerbM, config.View.KerbShadowM, config.View.KerbShadowShare, onTheRight: true);
+        mesh.Kerbstones(carriagewayLine, OnTheEdge, kerbM, Surface.Kerb, KerbLooks.Shared.Kerb.PictureM);
         mesh.Laid(GroundPart.Kerb, kerb);
 
         // <b>Then the paint, which is the one layer above the ground rather than in it</b> (TER-7b): a mark
@@ -660,11 +700,4 @@ internal sealed partial class GroundMesh
     {
         for (var ring = 0; ring < rings.Count; ring++) mesh.Polygon(rings.RingOf(ring), surface, tint);
     }
-
-
-    /// <summary>
-    /// A multiplier and not a colour: paint is the surface <em>brighter</em>, so the factor is above one, which is
-    /// why a corner files it against <see cref="GroundVertex.BrightestTint"/> and not against one.
-    /// </summary>
-    static Vector3 Shade(float r, float g, float b) => new(r, g, b);
 }

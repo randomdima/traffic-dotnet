@@ -1,0 +1,9 @@
+{
+  "id": "bed_lavender",
+  "sprite": "bed_lavender.webp",
+  "kind": 1,
+  "footprintM": [2.0, 0.714],
+  "cornerRadiusM": 0.2,
+  "turns": true,
+  "describe": "strip of lavender, silvery mounds with purple flower spikes, gravel between"
+}

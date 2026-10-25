@@ -1,0 +1,9 @@
+{
+  "id": "yew_round",
+  "sprite": "yew_round.webp",
+  "kind": 0,
+  "diameterM": 2.4,
+  "colliderM": 0.5,
+  "share": 0.8,
+  "describe": "old yew, a dense very dark green rounded mound of fine needles"
+}

@@ -1,8 +1,11 @@
 {
   "id": "block_courtyard",
   "sprite": "block_courtyard.webp",
+  "describe": "four-storey block of flats round a small inner courtyard, flat dark bitumen roof with a parapet, roof hatches and vent stacks, the courtyard paved and open in the middle",
   "footprintM": [18.00, 18.09],
   "partsM": [
     { "atM": [0.02, -0.44], "sizeM": [17.7, 17.2] }
-  ]
+  ],
+  "chimneys": [[1.82, -7.23], [-6.83, -0.57], [-5.86, 0.3], [5.86, -0.48], [1.82, 5.78]],
+  "potWidthM": 0.6
 }

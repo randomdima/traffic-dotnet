@@ -1,2 +1,4 @@
 {"variant": "classic_red-v1", "frame": "fleet100_b03-v1", "cell": 1, "pxPerM": 103.686, "score": 4, "status": "candidate", "ts": "2026-10-22T01:18:01"}
-{"variant": "classic_red-v8", "frame": "fleet100_b03-v1", "cell": 1, "pxPerM": 103.686, "score": 4, "lampsMirroredFrom": "classic_red-v1", "props": "raw_assets/agents/car/variants/classic_red/classic_red-v1.props.json", "status": "used", "ts": "2026-10-22T04:32:15"}
+{"variant": "classic_red-v8", "frame": "fleet100_b03-v1", "cell": 1, "pxPerM": 103.686, "score": 4, "lampsMirroredFrom": "classic_red-v1", "props": "raw_assets/agents/car/variants/classic_red/classic_red-v1.props.json", "status": "candidate", "ts": "2026-10-22T04:32:15"}
+{"variant": "classic_red-v9", "frame": "fleet100_r04-v1", "cell": 1, "pxPerM": 91.155, "score": 3, "status": "candidate", "ts": "2026-10-22T19:17:37"}
+{"variant": "classic_red-v10", "frame": "fleet100_r04-v1", "cell": 1, "pxPerM": 91.155, "score": 3, "lampsMirroredFrom": "classic_red-v9", "props": "raw_assets/agents/car/variants/classic_red/classic_red-v9.props.json", "status": "used", "ts": "2026-10-22T19:18:58"}

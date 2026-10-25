@@ -169,7 +169,7 @@ internal static class Towns
     public static CityPlan Fresh(string map) =>
         map == City
             ? LayFresh(Brief(CitySeed))
-            : Maps.Plan(map, Figures, BuildingCatalog.Roofs);
+            : Maps.Plan(map, Figures, ShippedArt.Sizes);
 
     /// <summary>
     /// A generated town at one seed and one water, laid once per pair however many questions are asked of
@@ -191,7 +191,7 @@ internal static class Towns
     /// (<see cref="TownAuthor"/>, <see cref="TownPlan"/>).
     /// </summary>
     public static CityPlan LayFresh(TownBrief brief) =>
-        TownPlan.Lay(TownAuthor.Of(brief, Figures), Figures, BuildingCatalog.Roofs);
+        TownPlan.Lay(TownAuthor.Of(brief, Figures), Figures, ShippedArt.Sizes);
 
     /// <summary>
     /// <b>The suite's own city with buildings standing on it</b> (GEN-54), laid once — the one brief that
@@ -376,13 +376,12 @@ internal static class Towns
     }
 
     /// <summary>
-    /// The four ring sets a town's water is drawn from, each with the name to say which one a failure is
+    /// The two ring sets a town's water is drawn from, each with the name to say which one a failure is
     /// about — so a question asked of the water is asked of every ring of it and not of the wet one alone.
     /// </summary>
     public static (string What, CityPlan.RingArrays Rings)[] WaterRingsOf(CityPlan.WaterArrays water) =>
     [
         ("outline", water.Outline), ("shore", water.Shore),
-        ("shore edge", water.ShoreEdge), ("water edge", water.WaterEdge),
     ];
 
     /// <summary>

@@ -1,8 +1,9 @@
 {
   "id": "canopy_01",
+  "sprite": "canopy_01.webp",
   "footprintM": [
-    6.5,
-    2.5
+    7.2,
+    2.8
   ],
   "cornerRadiusM": 0.3,
   "partsM": [],
@@ -14,5 +15,5 @@
     "corrugated metal",
     "shelter"
   ],
-  "describe": "open roof on posts \u2014 a market shelter or carport \u2014 corrugated metal or polycarbonate sheets"
+  "describe": "open roof on posts — a market shelter or carport — corrugated metal or polycarbonate sheets"
 }

@@ -1,0 +1,11 @@
+{
+  "id": "kerb_granite_warm",
+  "sprite": "kerb_granite_warm.webp",
+  "kind": "Kerb",
+  "describe": "an old city kerb of warm pinkish-grey granite kerbstones a metre long: coarse speckled stone worn smooth on top, each stone a slightly different warmth, a few chipped corners, dirt along the low face",
+  "footprintM": [
+    6.0,
+    0.2
+  ],
+  "pictureM": 3.8664
+}

@@ -1,2 +1,4 @@
 {"variant": "family90s_silver-v1", "frame": "fleet100_b05-v2", "cell": 8, "pxPerM": 95.089, "score": 4, "status": "candidate", "ts": "2026-10-22T04:49:30"}
-{"variant": "family90s_silver-v2", "frame": "fleet100_b05-v2", "cell": 8, "pxPerM": 95.089, "score": 4, "lampsMirroredFrom": "family90s_silver-v1", "props": "raw_assets/agents/car/variants/family90s_silver/family90s_silver-v1.props.json", "status": "used", "ts": "2026-10-22T04:52:14"}
+{"variant": "family90s_silver-v2", "frame": "fleet100_b05-v2", "cell": 8, "pxPerM": 95.089, "score": 4, "lampsMirroredFrom": "family90s_silver-v1", "props": "raw_assets/agents/car/variants/family90s_silver/family90s_silver-v1.props.json", "status": "candidate", "ts": "2026-10-22T04:52:14"}
+{"variant": "family90s_silver-v3", "frame": "fleet100_r01-v1", "cell": 9, "pxPerM": 107.812, "score": 4, "status": "candidate", "ts": "2026-10-22T16:32:12"}
+{"variant": "family90s_silver-v4", "frame": "fleet100_r01-v1", "cell": 9, "pxPerM": 107.812, "score": 4, "lampsMirroredFrom": "family90s_silver-v3", "props": "raw_assets/agents/car/variants/family90s_silver/family90s_silver-v3.props.json", "status": "used", "ts": "2026-10-22T16:37:32"}

@@ -2,8 +2,8 @@
   "id": "garages_10",
   "sprite": "garages_10.webp",
   "footprintM": [
-    25.0,
-    5.5
+    32.5,
+    7.2
   ],
   "cornerRadiusM": 0.3,
   "partsM": [],

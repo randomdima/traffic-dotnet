@@ -1,0 +1,8 @@
+{
+  "id": "sand_pile",
+  "sprite": "sand_pile.webp",
+  "kind": 2,
+  "diameterM": 1.8,
+  "share": 0.3,
+  "describe": "heap of yellow building sand, footprints and a spade stuck in it"
+}

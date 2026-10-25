@@ -1,15 +1,15 @@
 {
   "id": "hightopvan_white",
   "sprite": "hightopvan_white.webp",
-  "wreck": { "sprite": "hightopvan_white_broken.webp" },
   "zones": "hightopvan_white_zones.png",
+  "wreck": { "sprite": "hightopvan_white_broken.webp" },
   "describe": "modern high-roof panel van, average condition, white, short sloping bonnet, very tall flat roof, two square rear doors, large headlamps, tall narrow tail lamps",
-  "footprintM": [5.410, 2.500],
-  "collisionM": { "sizeM": [5.410, 2.124], "cornerRadiusM": 0.692 },
+  "footprintM": [5.410, 2.563],
+  "collisionM": { "sizeM": [5.410, 2.214], "cornerRadiusM": 0.644 },
   "massKg": 2100,
   "frontAxleM": 1.905,
   "rearAxleM": -1.655,
-  "trackM": 2.196,
+  "trackM": 2.121,
   "drivetrain": 1,
   "maxSteeringDeg": 32,
   "tyreFriction": 0.8,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.6,
   "handling": { "maxSpeed": 0.8, "acceleration": 0.75, "braking": 0.85 },
   "lamps": [
-    { "fitting": "brake", "atM": [-2.455, -0.75], "sizeM": [0.261, 0.312] },
-    { "fitting": "brake", "atM": [-2.455, 0.74], "sizeM": [0.261, 0.312] },
-    { "fitting": "indicator", "atM": [-2.507, -0.708], "sizeM": [0.104, 0.156] },
-    { "fitting": "indicator", "atM": [-2.507, 0.708], "sizeM": [0.104, 0.156] },
-    { "fitting": "head", "atM": [2.403, -0.646], "sizeM": [0.198, 0.323] },
-    { "fitting": "head", "atM": [2.403, 0.667], "sizeM": [0.198, 0.323] },
-    { "fitting": "indicator", "atM": [2.278, -0.854], "sizeM": [0.24, 0.135] },
-    { "fitting": "indicator", "atM": [2.278, 0.875], "sizeM": [0.24, 0.135] },
-    { "fitting": "reverse", "atM": [-2.517, -0.542], "sizeM": [0.136, 0.125] },
-    { "fitting": "reverse", "atM": [-2.517, 0.51], "sizeM": [0.136, 0.125] }
-  ]
+    { "fitting": "brake", "atM": [-2.476, -0.823], "sizeM": [0.198, 0.396] },
+    { "fitting": "brake", "atM": [-2.476, 0.74], "sizeM": [0.198, 0.396] },
+    { "fitting": "indicator", "atM": [-2.497, -0.823], "sizeM": [0.073, 0.104] },
+    { "fitting": "indicator", "atM": [-2.476, 0.781], "sizeM": [0.073, 0.104] },
+    { "fitting": "head", "atM": [2.465, -0.719], "sizeM": [0.167, 0.26] },
+    { "fitting": "head", "atM": [2.465, 0.74], "sizeM": [0.167, 0.26] },
+    { "fitting": "indicator", "atM": [2.34, -0.906], "sizeM": [0.261, 0.188] },
+    { "fitting": "indicator", "atM": [2.34, 0.906], "sizeM": [0.261, 0.188] },
+    { "fitting": "reverse", "atM": [-2.517, -0.698], "sizeM": [0.115, 0.135] },
+    { "fitting": "reverse", "atM": [-2.517, 0.615], "sizeM": [0.115, 0.135] }
+  ],
+  "exhausts": [[-2.653, -0.769]]
 }

@@ -1,0 +1,8 @@
+{
+  "id": "litter_urn_concrete",
+  "sprite": "litter_urn_concrete.webp",
+  "kind": 2,
+  "diameterM": 0.6,
+  "share": 1.5,
+  "describe": "old Soviet concrete litter urn, a thick round grey rim, dark inside with litter"
+}

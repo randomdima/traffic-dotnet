@@ -16,13 +16,13 @@ public class FleetListTests
     public void AnIdIsTheVariantFileOfTheSameName()
     {
         Assert.Equal(
-            [Path.Combine(ProjectPaths.Assets, "agents", "car", "variants", "hatch_teal", "hatch_teal.json")],
-            FleetList.FilesOf(["hatch_teal"]));
+            [Path.Combine(ProjectPaths.Assets, "agents", "car", "variants", "hatch_blue", "hatch_blue.json")],
+            FleetList.FilesOf(["hatch_blue"]));
     }
 
     [Fact]
     public void AnIdWithNoVariantFileIsRefused()
     {
-        Assert.Throws<FileNotFoundException>(() => FleetList.FilesOf(["hatch_teall"]));
+        Assert.Throws<FileNotFoundException>(() => FleetList.FilesOf(["hatch_bluee"]));
     }
 }

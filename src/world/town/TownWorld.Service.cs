@@ -184,7 +184,7 @@ internal sealed partial class TownWorld
 
     int StandAnAmbulance(int bay, int hospital)
     {
-        var car = FillAnApronBay(bay, (byte)CarCatalog.Shared.Ambulance, RescueStream);
+        var car = FillAnApronBay(bay, (byte)CarCatalog.Shared.AmbulanceLook(Ambulances), RescueStream);
         if (car < 0) return NoCar;
 
         TakeUpTheRescue(car, hospital);
@@ -195,7 +195,7 @@ internal sealed partial class TownWorld
 
     int StandAPoliceCar(int bay, int station)
     {
-        var car = FillAnApronBay(bay, (byte)CarCatalog.Shared.Police, PoliceStream);
+        var car = FillAnApronBay(bay, (byte)CarCatalog.Shared.PoliceLook(PoliceCars), PoliceStream);
         if (car < 0) return NoCar;
 
         BeginTheBeat(car, station, bay);
@@ -206,7 +206,7 @@ internal sealed partial class TownWorld
 
     int StandAnEvacuator(int bay, int depot, int yard)
     {
-        var car = FillAnApronBay(bay, (byte)CarCatalog.Shared.Evacuator, EvacuatorStream);
+        var car = FillAnApronBay(bay, (byte)CarCatalog.Shared.EvacuatorLook(Evacuators), EvacuatorStream);
         if (car < 0) return NoCar;
 
         TakeUpTheRecovery(car, depot, yard);

@@ -5,6 +5,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
 
@@ -28,10 +29,14 @@ namespace TrafficSimulation.App.Render;
 internal sealed partial class GroundMesh
 {
     /// <summary>
-    /// The pictures the ground is painted with: the five surfaces anchored to the world, then the track's strip — in the
-    /// order <see cref="Surface"/> files them.
+    /// The pictures the ground is painted with: the five surfaces anchored to the world, then the track's strip, then the
+    /// shore, then the two kerbs' strips — in the order <see cref="Surface"/> files them.
     /// </summary>
-    public static string[] SurfaceFiles() => [.. ProjectPaths.GroundSurfaceFiles(), RailLooks.Shared.Track.SpritePath];
+    public static string[] SurfaceFiles() =>
+    [
+        .. ProjectPaths.GroundSurfaceFiles(), RailLooks.Shared.Track.SpritePath, ProjectPaths.ShoreSurfaceFile(),
+        KerbLooks.Shared.Kerb.SpritePath, KerbLooks.Shared.Edging.SpritePath,
+    ];
 
     /// <summary>
     /// Every track's strip where it stands at grade, under the whole of the town's ground, or on a bridge, over it — laid

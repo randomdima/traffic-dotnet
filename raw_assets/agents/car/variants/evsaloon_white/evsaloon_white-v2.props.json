@@ -12,7 +12,7 @@
       [26.06, 48.30, -2.89],
       [38.46, 33.36, 0.90]
     ]},
-    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 104.5, "mirrorDx": 0.0, "points": [
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 103.25, "mirrorDx": -0.5, "points": [
       [16.95, 42.70, 2.05],
       [16.81, 50.19, 0.57],
       [19.43, 50.03, 0.65],

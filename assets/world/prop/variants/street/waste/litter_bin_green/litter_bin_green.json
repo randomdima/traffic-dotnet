@@ -1,0 +1,8 @@
+{
+  "id": "litter_bin_green",
+  "sprite": "litter_bin_green.webp",
+  "kind": 2,
+  "diameterM": 0.5,
+  "share": 2.0,
+  "describe": "round green steel litter bin with an open top, a black bag lining inside"
+}

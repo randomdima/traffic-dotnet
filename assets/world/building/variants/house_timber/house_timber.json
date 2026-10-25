@@ -1,9 +1,12 @@
 {
   "id": "house_timber",
   "sprite": "house_timber.webp",
+  "describe": "detached house, hipped roof of brown timber shingles, one brick chimney, a lower single-storey garage wing to one side",
   "footprintM": [13.00, 12.37],
   "partsM": [
     { "atM": [0.17, -0.05], "sizeM": [11.75, 9.93] },
     { "atM": [-2.31, 1.67], "sizeM": [7.65, 7.17] }
-  ]
+  ],
+  "chimneys": [[3.5, -3.1, 3.9, -3.1]],
+  "potWidthM": 0.4
 }

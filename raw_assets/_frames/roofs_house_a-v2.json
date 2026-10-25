@@ -1,0 +1,38 @@
+{
+ "id": "roofs_house_a-v2",
+ "ts": "2026-10-20T13:30:43",
+ "op": "edit",
+ "name": "roofs_house_a",
+ "file": ".tmp/gen/frames/roofs_house_a-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.032536,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 16 building outlines seen from above on flat magenta, in a 4×4 grid. Redraw only cells 5, 8, 9, 10, 12, 14 and 15 (the transparent areas). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe fault in those seven cells: each drew its porch as a box sticking out below the outline's thick bottom edge, about 15–20 px past it. Nothing may be drawn outside an outline. Each of these cottages' roof now fills its outline exactly, edge to edge, and the porch is a small lean-to roof drawn INSIDE the outline, along the middle of the thick bottom edge, about 1.5 m deep (a fifth of the roof's depth), its bottom edge on the outline's bottom edge.\n\nFor each redrawn cell, trace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: these are small cottages next to cars 4 m long; a brick chimney is a small square about 0.6 m across, roof courses fine and closely spaced. No text.\n\n5. 7 × 4.2 m (1.7× wider than deep) — small single-storey cottage, gabled roof of dark grey bitumen shingles, ridge along the long axis, one small brick chimney, a small lean-to porch roof inside the bottom edge\n8. 8.4 × 4.9 m (1.7× wider than deep) — small single-storey cottage, gabled roof of faded terracotta tiles, one small brick chimney, porch inside the bottom edge\n9. 7 × 5.6 m (1.25× wider than deep) — small single-storey cottage, gabled roof of brown metal tiles, one small brick chimney, porch inside the bottom edge\n10. 6.3 × 5.6 m (nearly square) — small single-storey cottage, gabled roof of red clay tiles, one small brick chimney, porch inside the bottom edge\n12. 8.4 × 5.6 m (1.5× wider than deep) — small single-storey cottage, gabled roof of grey corrugated asbestos-cement slate, one small brick chimney, porch inside the bottom edge\n14. 9.1 × 4.9 m (1.9× wider than deep) — small single-storey cottage, gabled roof of red clay tiles, one small brick chimney, porch inside the bottom edge\n15. 9.1 × 4.2 m (2.2× wider than deep) — small single-storey cottage, gabled roof of grey corrugated asbestos-cement slate, one small brick chimney, porch inside the bottom edge",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "dc79a727465826e8",
+   "ext": "png",
+   "frame": "roofs_house_a-v1",
+   "was": ".tmp/gen/frames/roofs_house_a-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "bf708e748d641197",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_house_a.png"
+  },
+  {
+   "role": "mask",
+   "sha": "6cb3148f15bd6c1d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_house_a-v1/_mask_house_06_house_10_house_09_house_07_house_14_house_13_house_08.png"
+  }
+ ]
+}

@@ -65,7 +65,7 @@ internal static class StuckProbe
     public static void Run(string map, SimConfig config, double seconds = 0)
     {
         var measuredTicks = seconds > 0 ? (int)(seconds * config.Sim.TickRateHz) : MeasuredTicks;
-        using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Roofs), config);
+        using var world = new TownWorld(Maps.Plan(map, config, ShippedArt.Sizes), config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 

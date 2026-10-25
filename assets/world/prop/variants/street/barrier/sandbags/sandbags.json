@@ -1,0 +1,10 @@
+{
+  "id": "sandbags",
+  "sprite": "sandbags.webp",
+  "kind": 2,
+  "footprintM": [1.2, 0.657],
+  "cornerRadiusM": 0.1,
+  "share": 0.3,
+  "turns": true,
+  "describe": "stack of beige sandbags in two rows"
+}

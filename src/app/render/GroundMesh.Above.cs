@@ -3,6 +3,7 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
 
@@ -70,7 +71,7 @@ internal sealed partial class GroundMesh
 
         var line = MapCut.Rings(Line(rings), plan.WorldSizeM);
         Shell(line, Surface.Tarmac, Plain);
-        KerbAbove(line, Landings(paving.Lanes), plan.WorldSizeM, kerbM * 0.5f, kerbM);
+        KerbAbove(line, Landings(paving.Lanes), plan.WorldSizeM, kerbM * 0.5f, kerbM, config);
 
         LaneDashes(runs, plan, config, held, crossed, Paint, above);
         RoadsideLines(plan, config, held, crossed, Paint, above);
@@ -122,13 +123,14 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// The level above's kerb: each ring struck as the town's kerb is (<see cref="Paint"/>), less every stretch that
-    /// runs straight across a bridge's end or along the map's edge.
+    /// The level above's kerb: each ring laid as the town's kerbstones are (<see cref="Kerbstones"/>) with their shadow,
+    /// less every stretch that runs straight across a bridge's end or along the map's edge.
     /// </summary>
     void KerbAbove(
-        ReadOnlySpan<Vector2[]> line, List<Landing> landings, Vector2 worldM, float withinM, float kerbM)
+        ReadOnlySpan<Vector2[]> line, List<Landing> landings, Vector2 worldM, float withinM, float kerbM, SimConfig config)
     {
-        Stroke(line, Across, kerbM, Surface.Tarmac, Paint);
+        KerbShadow(line, Across, kerbM, config.View.KerbShadowM, config.View.KerbShadowShare, onTheRight: true);
+        Kerbstones(line, Across, kerbM, Surface.Kerb, KerbLooks.Shared.Kerb.PictureM);
 
         bool Across(Vector2 fromM, Vector2 toM)
         {

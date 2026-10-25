@@ -1,9 +1,12 @@
 {
   "id": "corner_shop",
   "sprite": "corner_shop.webp",
+  "describe": "two-storey corner shop with a flat over it, red sheet-metal roof, a small chimney and a striped awning drawn inside the street edge",
   "footprintM": [10.00, 10.87],
   "partsM": [
     { "atM": [0.02, -0.3], "sizeM": [9.6, 10.27] },
     { "atM": [-0.55, 0.0], "sizeM": [8.27, 10.87] }
-  ]
+  ],
+  "chimneys": [[2.35, -3.75, 2.75, -3.75]],
+  "potWidthM": 0.4
 }

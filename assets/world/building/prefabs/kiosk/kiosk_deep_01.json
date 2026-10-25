@@ -16,5 +16,8 @@
     "street kiosk",
     "narrow front"
   ],
-  "describe": "street kiosk, flat white sheet-metal roof with a signboard along the front edge and a small air conditioner, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "street kiosk, flat white sheet-metal roof with a signboard along the front edge and a small air conditioner, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [0.4589, -0.9574], "rimAtM": [0.455, -0.9523], "rimM": [0.1967, 0.1931] }
+  ]
 }

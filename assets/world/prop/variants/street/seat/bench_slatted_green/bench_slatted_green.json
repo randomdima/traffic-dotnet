@@ -1,0 +1,8 @@
+{
+  "id": "bench_slatted_green",
+  "sprite": "bench_slatted_green.webp",
+  "kind": 2,
+  "footprintM": [1.8, 0.804],
+  "turns": true,
+  "describe": "park bench of green painted wooden slats with a back rail along the back edge, cast iron ends"
+}

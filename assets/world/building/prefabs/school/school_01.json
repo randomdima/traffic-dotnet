@@ -1,8 +1,9 @@
 {
   "id": "school_01",
+  "sprite": "school_01.webp",
   "footprintM": [
-    6.0,
-    4.0
+    9.6,
+    6.4
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -14,5 +15,5 @@
     "bitumen",
     "annex"
   ],
-  "describe": "small single-storey annex of a school \u2014 an entrance porch or a boiler house \u2014 flat bitumen roof with a vent"
+  "describe": "small single-storey annex of a school — an entrance porch or a boiler house — flat bitumen roof with a vent"
 }

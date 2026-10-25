@@ -1,0 +1,60 @@
+{
+ "id": "props_d_planted_small-v1",
+ "ts": "2026-10-25T02:10:02",
+ "op": "edit",
+ "name": "props_d_planted_small",
+ "file": ".tmp/gen/frames/props_d_planted_small-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.013947,
+ "usage": {
+  "prompt_tokens": 1545,
+  "completion_tokens": 158,
+  "total_tokens": 1703,
+  "cost": 0.013947,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.013947,
+   "upstream_inference_prompt_cost": 0.009207,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image is attached: finished art from the same game — the grass these things stand on and two cars, at one scale — to match in style, finish and scale only, not its contents or colours.\n\nMake one image of 14 separate sprites for a 2D city game seen from above: small things that stand in a town's grass verges, parks and yards. Lay them in a 4 by 4 grid — 4 rows of 4, read left to right and top to bottom in the order listed below — each centred in its place in the grid, well apart from its neighbours and from the picture's edge, never touching another.\n\nSize and shape:\n- Each is drawn at the true size given, in metres, against the cars in the style image (4.5 m long, 1.8 m wide): a smaller thing is drawn smaller than a larger one, in proportion. A round thing is as wide as it is deep; a rectangular one keeps the proportion given.\n- A crown, a bush or a patch of plants has its own natural soft edge. A made object (a bin, a bench, a planter) has clean straight or round edges. Nothing is cut off.\n- A patch of low plants (grass, moss, clover, wildflowers, weeds) lies flat on the ground: an irregular, ragged, soft-edged patch with gaps and stray tufts at its edge, never a round ball, dome or cushion, and no shading that makes it bulge.\n- A narrow upright tree or shrub (a poplar, a thuja, a juniper) is seen from above too: a small round dome of its foliage, never its tall side silhouette.\n- No hole inside a drawing: where a crown or a bush is thin, darker leaves or branches deeper inside it show.\n\nScale of the details is strict: a leaf is a few centimetres, a flower head a few centimetres, a bench slat 10 cm wide, a bin lid's handle a hand wide. A small thing keeps its details few, simple and readable.\n\nThe view:\n- A thing marked \"front at the bottom\" is turned in the game to face the footway, so it is seen strictly from directly above (orthographic plan view, like a map), its front at the bottom edge: no perspective, no tilt, no side faces.\n- Everything else is never turned, so it may be seen from high above at a slight angle, a little of its side showing towards the bottom, as long as it reads mostly from above: a tree is mostly its crown, a bin mostly its lid.\n- No cast shadow on the ground; soft shading on the thing itself, light from the top-left.\n\nStyle: painted game art like the style image, natural and believable rather than cartoonish: soft detailed painting, no heavy black outlines, rich but natural colours, every drawing clearly different from its neighbours. Summer, in a Black Sea port city.\n\nEverything outside the drawings is fully transparent: no background colour, no ground, no grass under them, no shadow, nothing half-transparent. No text, letters, numbers, logos, labels, grid lines or frames anywhere.\n\nDrawings, row by row, left to right:\n\n\nRow 1\n1. round, 1.4 m across — large clipped box ball, perfectly round, dense tiny dark green leaves\n2. round, 1.2 m across — group of four mixed pots, terracotta and glazed blue, geraniums, a fern and a small palm\n3. round, 1.2 m across — hydrangea bush, big round blue-mauve flower heads among broad leaves\n4. round, 1 m across — three terracotta pots of different sizes, red geraniums and a herb\n\nRow 2\n5. round, 1 m across — rose bush, dark green leaves and many deep red roses\n6. round, 1 m across — peony bush, deeply cut leaves and big frilly pink flowers\n7. round, 1 m across — ornamental grass clump, fine arching striped green and cream blades\n8. round, 0.9 m across — clipped box ball in a square grey pot\n\nRow 3\n9. round, 0.9 m across — lavender clump, a silvery dome with purple spikes\n10. round, 0.8 m across — large terracotta pot with a small olive tree, silvery leaves\n11. round, 0.8 m across — clipped cone of yew seen from above, a round dark green point at the middle, in a black pot\n12. round, 0.8 m across — hosta, broad blue-green ribbed leaves in a rosette\n\nRow 4\n13. round, 0.8 m across — small clump of pink and white tulips with broad leaves\n14. round, 0.7 m across — spiral clipped box in a dark glazed pot, rings of dark green",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "fa8eff6a33e96d75",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/props_planted_small_style.png"
+  }
+ ],
+ "cells": [
+  "topiary_ball_large",
+  "pots_mixed_group",
+  "hydrangea_blue",
+  "pots_terracotta",
+  "rose_bush_red",
+  "peony_pink",
+  "grass_ornamental",
+  "topiary_ball",
+  "lavender_clump",
+  "pot_olive",
+  "topiary_cone",
+  "hosta_clump",
+  "tulips_cluster",
+  "boxwood_spiral"
+ ]
+}

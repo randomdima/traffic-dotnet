@@ -1,0 +1,8 @@
+{
+  "id": "bollard_cast_black",
+  "sprite": "bollard_cast_black.webp",
+  "kind": 2,
+  "diameterM": 0.3,
+  "share": 2.0,
+  "describe": "black cast iron bollard, a round domed top with a ring"
+}

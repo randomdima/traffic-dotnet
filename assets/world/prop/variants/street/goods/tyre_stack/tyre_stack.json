@@ -1,0 +1,8 @@
+{
+  "id": "tyre_stack",
+  "sprite": "tyre_stack.webp",
+  "kind": 2,
+  "diameterM": 0.8,
+  "share": 0.5,
+  "describe": "stack of old car tyres, the top tyre's ring and tread"
+}

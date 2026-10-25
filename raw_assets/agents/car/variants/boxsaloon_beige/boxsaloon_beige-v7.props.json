@@ -1,0 +1,35 @@
+{
+  "car": "boxsaloon_beige",
+  "sprite": {"variant": "raw_assets/agents/car/variants/boxsaloon_beige/boxsaloon_beige-v7.png", "sizePx": [396, 185]},
+  "axisY": {"rear": 92.00, "front": 90.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 92.5, "mirrorDx": 0.0, "points": [
+      [9.59, 29.51, 0.00],
+      [9.48, 59.98, 0.00],
+      [19.01, 60.00, 0.00],
+      [19.39, 29.62, 0.00]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 92.5, "mirrorDx": 0.0, "points": [
+      [9.60, 29.60, 0.00],
+      [9.55, 47.49, 0.00],
+      [19.20, 47.50, 0.00],
+      [19.40, 29.60, 0.00]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 93.0, "mirrorDx": 0.0, "pull": "frame", "points": [
+      [371.92, 38.18, 0.03],
+      [375.55, 52.22, 0.66],
+      [381.16, 54.53, 0.86],
+      [381.37, 39.09, 0.99],
+      [371.98, 35.27, 0.15]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 93.0, "mirrorDx": 0.0, "points": [
+      [366.03, 27.04, 0.00],
+      [366.17, 30.90, 0.00],
+      [371.50, 32.34, 0.00],
+      [377.18, 35.04, 0.00],
+      [377.71, 30.00, -0.80],
+      [370.88, 26.46, 1.51]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

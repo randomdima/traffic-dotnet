@@ -1,0 +1,38 @@
+{
+ "id": "roofs_house_b-v2",
+ "ts": "2026-10-20T13:43:29",
+ "op": "edit",
+ "name": "roofs_house_b",
+ "file": ".tmp/gen/frames/roofs_house_b-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031351,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 9 building outlines seen from above on flat magenta, in a 3×3 grid. Redraw only cells 1 and 7 (the transparent areas). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe faults in those two cells: each roof stops a few px short of the outline's thick bottom edge, leaving a thin gap of background along the street front; cell 1 also drew its roof about 7% too shallow, with the ridge well above the middle. Each roof now fills its outline in image 2 exactly, edge to edge, its bottom edge on the outline's thick bottom edge, the ridge along the middle of the depth, the two slopes equal. The porch is a small lean-to roof drawn INSIDE the outline along the middle of the bottom edge, about a fifth of the roof's depth.\n\nFor each redrawn cell, trace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: small cottages next to cars 4 m long; a brick chimney is a small square about 0.6 m across, roof courses fine and closely spaced. No text.\n\n1. 9.8 × 6.3 m (1.6× wider than deep) — small single-storey cottage, gabled roof of dark grey bitumen shingles, one brick chimney, a lean-to porch on the street side\n7. 11.2 × 4.2 m (2.7× wider than deep, a thin strip) — small single-storey cottage, gabled roof of brown metal tiles, one brick chimney, a lean-to porch on the street side",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "423f43abc373cd78",
+   "ext": "png",
+   "frame": "roofs_house_b-v1",
+   "was": ".tmp/gen/frames/roofs_house_b-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "328936ffab67c090",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_house_b.png"
+  },
+  {
+   "role": "mask",
+   "sha": "55c4926492e0d952",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_house_b-v1/_mask_house_18_house_15.png"
+  }
+ ]
+}

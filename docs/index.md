@@ -66,7 +66,7 @@ retired number, which the owning slice's log records.
 |---|---|---|
 | `TEC-1`, `TEC-2` | What no engine is taken for, and what the physics layer owes | [requirements.md](requirements.md#purpose-and-scope) |
 | `SIM-1`, `SIM-2`, `SIM-6`, `SIM-7` | Hard vs soft, body state, ban vs price, one mechanism | [requirements.md](requirements.md#the-two-rule-classes) |
-| `OBJ-2`, `OBJ-4…5a` | The object catalogue, and what a building is collided as | [requirements.md](requirements.md#the-object-catalogue) |
+| `OBJ-2`, `OBJ-4…8` | The object catalogue, what a building is collided as, its roof's fans and chimneys, and the clouds' shadows | [requirements.md](requirements.md#the-object-catalogue) |
 | `AGT-5`, `AGT-7` | The terminal state; every leg bounded | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `SIM-3`, `SIM-4`, `SIM-8`, `AGT-6` | Units, the two seeds, the one grid, where randomness comes from | [core](../src/core/docs/requirements.md) |
@@ -186,8 +186,9 @@ owning slice's log; this list says only what is absent now and what closes it.
 - **A traced city's buildings are its zones' and not its footprints** (`GEN-57`, `GEN-58`): each zone builds its
   measured frontage, front, skew, looks and the ground behind it, but a building's place is drawn and not surveyed,
   a building behind the frontage looks as the zone's front row does, and the prefabs are smaller than an old town's
-  courtyard blocks — so its zones cover about two-thirds to nine-tenths of the ground the place's buildings do, and
-  its squares of a hundred metres correlate with the place's at about 0.46 (`--bench zones`).
+  courtyard blocks — so most kinds of zone cover seven- to nine-tenths of the ground the place's buildings do, a
+  residential or high-rise quarter a little more, and its squares of a hundred metres correlate with the place's at
+  about 0.44 (`--bench zones`).
 - **A traced city's bridges over its roads carry no walk** (`PHY-1a`, `TER-7b`). A bridge is a level of its own,
   drawn over the road under it with its cars over that, but the walk is struck off the ground's boundary and a
   walker is on the ground, so a walk reaching a bridgehead turns round the ground's end under the deck. A bridge

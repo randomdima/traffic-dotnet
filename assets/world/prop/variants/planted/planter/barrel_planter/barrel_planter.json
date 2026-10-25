@@ -1,0 +1,7 @@
+{
+  "id": "barrel_planter",
+  "sprite": "barrel_planter.webp",
+  "kind": 1,
+  "diameterM": 0.8,
+  "describe": "half wooden barrel with iron hoops, purple and white petunias"
+}

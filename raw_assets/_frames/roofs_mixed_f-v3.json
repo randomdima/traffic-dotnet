@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_f-v3",
+ "ts": "2026-10-20T13:52:13",
+ "op": "edit",
+ "name": "roofs_mixed_f",
+ "file": ".tmp/gen/frames/roofs_mixed_f-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031636,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 4 building outlines seen from above on flat magenta, in a 2×2 grid. Redraw only cells 1 and 3 (the transparent areas, top left and bottom left). Keep the other cells exactly as they are, and match their style, colours and fine detail.\n\nThe faults in those two cells: both roofs were drawn too shallow and left a strip of background along the top. Cell 1 is about 12% too shallow, its top edge about 45 px below the outline's top edge. Cell 3 is about 7% too shallow, its top edge about 30 px below the outline's top edge, and its top dome and cross were drawn above the outline. Each roof now fills its outline in image 2 exactly, edge to edge: its top edge on the outline's top edge, its bottom edge on the thick bottom edge. In cell 3 every dome sits well inside the roof, the top one at least 2 m below the top edge; the domes, seen straight down, are circles with a small cross lying flat on top.\n\nFor each redrawn cell, trace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: buildings next to cars 4 m long; an air conditioner unit about 1–1.5 m, a lift room about 3 × 4 m, a small dome 3–6 m across. No text.\n\n1. 19.5 × 14.4 m (1.4× wider than deep) — mid-rise office or public building, flat roof of dark bitumen with rooftop plant, a lift room and a parapet\n3. 23.1 × 13.8 m (1.7× wider than deep, a full rectangle) — Orthodox church, roof of green-painted sheet metal filling the whole rectangle, its ridges forming a cross, with a large central dome and smaller gilded domes",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "c6984f3a2db04bbc",
+   "ext": "png",
+   "frame": "roofs_mixed_f-v2",
+   "was": ".tmp/gen/frames/roofs_mixed_f-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "6140e888f4b7592d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_f.png"
+  },
+  {
+   "role": "mask",
+   "sha": "6a52cec054e4c992",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_f-v2/_mask_office_03_religious_04.png"
+  }
+ ]
+}

@@ -1,0 +1,53 @@
+{
+ "variant": "raw_assets/world/terrain/ground/surfaces/grass_a1/grass_a1-v2.png",
+ "variants": [
+  "raw_assets/world/terrain/ground/surfaces/grass_a1/grass_a1-v2.png",
+  "raw_assets/world/terrain/ground/surfaces/grass_a2/grass_a2-v2.png",
+  "raw_assets/world/terrain/ground/surfaces/grass_a3/grass_a3-v2.png",
+  "raw_assets/world/terrain/ground/surfaces/grass_a4/grass_a4-v2.png",
+  "raw_assets/world/terrain/ground/surfaces/grass_b1/grass_b1-v2.png",
+  "raw_assets/world/terrain/ground/surfaces/grass_b2/grass_b2-v2.png",
+  "raw_assets/world/terrain/ground/surfaces/grass_b3/grass_b3-v2.png",
+  "raw_assets/world/terrain/ground/surfaces/grass_b4/grass_b4-v2.png"
+ ],
+ "looks": [
+  [
+   [
+    "grass_a1",
+    false
+   ],
+   [
+    "grass_a2",
+    false
+   ],
+   [
+    "grass_a3",
+    false
+   ],
+   [
+    "grass_a4",
+    false
+   ]
+  ],
+  [
+   [
+    "grass_b1",
+    false
+   ],
+   [
+    "grass_b2",
+    false
+   ],
+   [
+    "grass_b3",
+    false
+   ],
+   [
+    "grass_b4",
+    false
+   ]
+  ]
+ ],
+ "pxPerM": 31.5,
+ "encoding": "webp q90"
+}

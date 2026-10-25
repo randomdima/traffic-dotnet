@@ -1,0 +1,65 @@
+{
+ "id": "walk_trial_b-v2",
+ "ts": "2026-10-24T23:43:15",
+ "op": "edit",
+ "name": "walk_trial_b",
+ "file": ".tmp/gen/frames/walk_trial_b-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "high",
+  "background": "transparent"
+ },
+ "costUsd": 0.077282,
+ "usage": {
+  "prompt_tokens": 4648,
+  "completion_tokens": 1372,
+  "total_tokens": 6020,
+  "cost": 0.077282,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.077282,
+   "upstream_inference_prompt_cost": 0.036122,
+   "upstream_inference_completions_cost": 0.04116
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 1372
+  }
+ },
+ "prompt": "Three images are attached. The first is a finished sheet of 12 ground textures for a top-down 2D city game, in a 4×3 grid; the second is its layout; the third shows the game's finished art. Cells 3 and 4 — the last two squares of row 1 — are to be painted again; keep every other square exactly as it is.\n\nWhat was wrong: the first attempt drew orange leaves about 20 cm long on these squares. They catch the eye and repeat every few metres across the town, so draw no leaves at all.\n\nCells 3 and 4: the same city footway asphalt as cells 1 and 2 beside them — the same mid grey, the same tight fine grain of tiny pale and dark specks — a little more used: soft, faint, lighter worn patches where people walk, and a few small faint dark gum spots no bigger than a coin. No leaves, no cracks, no stains bigger than a hand, nothing orange or brown. Both squares the same footway, so they join cells 1 and 2 without a seam.\n\nEach repainted square is filled edge to edge, right into all four corners, and stops exactly where the old square's edges were: no border, frame, rim, bevel, outline, shadow or vignette. Outside the squares the background stays fully transparent. No text anywhere. Look straight down. No direction and no pattern: nothing runs one way. Crisp clean hand-painted look matching cells 1 and 2; no blur, no photographic noise.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "16637782fb4cf294",
+   "ext": "png",
+   "frame": "walk_trial_b-v1",
+   "was": ".tmp/gen/frames/walk_trial_b-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "55249867d7722c34",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/walk_trial_b.png"
+  },
+  {
+   "role": "image 3",
+   "sha": "c753fd607933bc53",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_style.png"
+  },
+  {
+   "role": "mask",
+   "sha": "c0ba4a71ef7b2c5f",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/walk_trial_b-v1/_mask_sidewalk_l1-whole_sidewalk_l2-whole.png"
+  }
+ ]
+}

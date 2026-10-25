@@ -12,16 +12,27 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (2026-10-19). Not the railway loop's: it fails as well with the suite's line laid straight, the old train and rail
   figures and the ballast answered over the walk. Not traced; which of `WalkingGround.StateIntents`' two pieces comes
   back empty for walker 29, and why, closes it.
-- **A plan draws back with nothing cutting it, under one fleet** (`PlansInATownTests.APlanNothingCutNeverDrawsBack`,
-  map "Laid", 2026-10-22): with batch 1's ten cars out of `Fleet.json` it failed, "tick 2764, car 42 drew its plan back
-  4.77 m with nothing cutting it, doing 0.1 m/s"; with them in, as now, it passes. No code moved it: the fleet's mix
-  hands car 42 a look whose size reaches a plan bug the present mix does not. Tracing why that plan draws back closes
-  it; the fleet as it is only hides it.
-- **`SheetAtlasTests.TheShippedArtPacksIntoAHandfulOfPages`** (unit) fails: 6 pages against 5 (2026-10-22). Fleet
-  batch 5's eight cars, their wrecks and zone maps tipped it (without them in `Fleet.json` it packs into five), and
-  batches 6 to 11 still fit the sixth (the lamp sheet laid four looks a row, `LampAtlas.LooksARow`). Each page is
-  64 MB of sprite memory. _owner_: paying for the sixth page, dropping the sixteen legacy looks and nine earlier ones
-  (below) to make room, or holding the fleet at what five pages take closes it.
+- **A plan draws back with nothing cutting it** (`PlansInATownTests.APlanNothingCutNeverDrawsBack`, map "Laid") fails
+  or passes by what the fleet is (2026-10-22): with batch 1 out, "car 42 drew its plan back 4.77 m"; with the tracks
+  narrowed to CAR-12's sliver, "tick 886, car 42 drew its plan back 0.03 m with nothing cutting it, doing 0.1 m/s" (and
+  0.01 m once nine cars were drawn again); passing again since eighteen were — hidden, not fixed. No code moved it
+  any of those times, only what the cars are. Traced as far as
+  `Following.Plan`: car 42 (`panelvan_white`) creeps at 0.1–0.7 m/s for a second and more, its plan's end held by its
+  horizon (`HorizonM` 1.66 m, hold `Reach`); at tick 886 the horizon lets go, the plan becomes what the car wants
+  (`wantedToM`, which follows its speed), and that is 3 cm short of where the horizon had held it. A wanted end that
+  falls with the speed while it is hidden under a horizon is the bug; deciding whether the plan should keep its
+  reached end, or the creep itself is the fault, closes it.
+- **`SolverGateTests.AStepAllocatesNothing(bodyCount: 1000, packed: True)`** (perf) failed once in a light
+  `qq tests --changed` run, "Expected: 0, Actual: 1" (2026-10-22), and passed twice on its own after: one allocation
+  in the measured window that the solver's own code did not make, or did only when the run was loaded. A run of the
+  perf tier that catches it again, with the allocation's stack, closes it.
+- **`SheetAtlasTests.TheShippedArtPacksIntoAHandfulOfPages`** (unit) fails: 7 pages against 5 (2026-10-23). Fleet
+  batch 5's eight cars, their wrecks and zone maps tipped it to six (without them in `Fleet.json` it packs into five),
+  and batches 6 to 11 still fit the sixth (the lamp sheet laid four looks a row, `LampAtlas.LooksARow`); dropping the
+  sixteen legacy looks freed none, and `loafvan_grey`, the hundredth, still fits the sixth, as did the eight new
+  ambulance looks. The eight new evacuator looks tipped it to seven; the 203 props that replaced the 60 legacy ones
+  (2026-10-25) still fit it. Each page is 64 MB of sprite memory. _owner_:
+  paying for the pages, or holding the fleet and the service looks at what five or six take, closes it.
 - **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
   the leg it had before the hand" (2026-10-19, the hand's change in hand). Closed by that change.
 - **Four tests fail since the town's arithmetic left libm** (2026-10-20, core log); all four pass on 79dddfaf:
@@ -44,8 +55,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   bend accounts for it — then re-measuring the bound or reading the gap in the lane's own metres — closes it.
 - **`AllocationGateTests.AWholeTickOfAWholeTownAllocatesNothing(Laid)`** (perf, `P0`) failed once at 120 B over 600
   ticks on 2026-10-16, with the machine at a load of ~25 and the test host already on the shipped collector; it has
-  passed every run since, five in a row on a quiet machine. What allocated under load is not known; an allocation
-  trace (`dotnet-trace`'s GC allocation ticks) of a failing run closes it.
+  passed every run since, five in a row on a quiet machine. It failed again on 2026-10-23, the same 120 B, on `(Test)`
+  inside `qq tests --changed`, and passed alone three times and in two whole perf runs after (and once more that day,
+  the same 120 B inside a `--changed` run, passing alone after; and on 2026-10-24, the same 120 B on `(Test)` inside a
+  `--changed` run, passing in the whole perf tier after; and later that day the same 120 B on `(Laid)` inside a
+  `--changed` run, then on `(Test)` and on `AWholeTickWithATrainCrossingTheTownAllocatesNothing` in one run of the gate
+  alone, passing alone twice after); the town is the same every
+  run, so what allocates is not the tick's own work. What allocated is not known; an allocation trace (`dotnet-trace`'s
+  GC allocation ticks) of a failing run closes it.
 - **Nine exam cards fail** (2026-10-16; 60, 82, 85 and 86 pass since a car short of a box plans none of one it could
   not get out of, and yields what it holds there at rest, the road log):
   - 110, failing on 79dddfaf as on the tree after it (2026-10-20), and not looked at.
@@ -75,6 +92,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   became `Trig` (2026-10-15, core log; it passes on 5a973d8): `Heading.Unit` lays the town as well as turning it, so the
   suite's town stands a float off where it stood. Since the buildings grew (2026-10-20) building 163 stands 10.4 m off
   the middle of a rank reaching 10.8 m with 2.6 m of frontage either side — 2.2 m onto the rounding, where it was 0.1 m.
+  Read again 2026-10-25: building 57 at (1976.3, 980.7), 8.0 m off with 4.2 m either side, 1.4 m onto it.
   Not traced: `ZoneBuildings.Stand` asks `Yards.Allows` of the place before `Face.Seat` moves the building to the
   face's true nearest (GEN-15), which may be the whole of it; asking it of the seated wall closes it if so.
 - **The kernels have not been held to `Trig` on a GPU** (2026-10-15): `TrigKernelTests` and `RoundedKernelTests` pass
@@ -82,31 +100,95 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Regressions and figures not taken
 
-- **`loafvan_grey` has no picture** (batch 5, 2026-10-22): `fleet100_b05`'s three attempts drew a modern minivan, a
-  loaf tilted side-on and 13 % wide, and a sliver (raw_assets/agents/car/prompting.md), so the car has no variant
-  file and batch 5 is eight cars. Asking it again on a later batch's sheet closes it.
-- **Two cars keep their far side's lamps as drawn** (`citycar_lime`, `cityhatch_silver`, 2026-10-22): their lower
-  tail lamp is drawn as another lamp than the upper (a longer arm, elsewhere), and `qq props mirror` left a second red
-  shape beside the reflection however far it followed the drawn lamp, so both stay on their unmirrored pictures with
-  the lamps cut on them. Painting the copy side's lamp out before the reflection goes on — an in-paint of the body
-  there, not a recolour of lamp-like texels, which took windows and red paint (tried) — closes it.
+- **A page fills four times the scenery it did at a district's framing and wider** (`GEN-6g`, `ScenerySprites.Fill`,
+  2026-10-25): Odesa's scenery grew from 28 266 pieces to 104 509, past `SimConfig.View.SceneryMostDrawn` (65 536), so
+  `--bench sprites` reads the fill at 1 058 µs a frame at 1 500 m across, where it was 317, and 943 µs over the whole
+  town, where it was 540 — an eighth of a 120 Hz frame on the browser head, which fills the scenery on the CPU. The desktop
+  hands the device runs (`ScenerySprites.Spans`) and is untouched, 43 µs at 300 m. A budget halved for a view wide enough
+  that a tree is a pixel or two, or the page drawing runs as the desktop does, closes it; `qq prof` on the page, which was
+  not taken, says whether it is felt.
+
+- **The ground's looks cost up to six texture samples and the patches' field per ground fragment, not measured**
+  (`ground.frag`, `town.wgsl`, `GroundPatches`, 2026-10-25): four octaves of value noise, then each look read by the
+  three hexes it is scattered in — three samples where one look is whole, six where two hand over — where there was one
+  sample; a fade adds a second field for its ragging, and the whole ground pass is blended for the fades
+  (`GroundMesh.Fade`) where it was opaque. The browser head was seen at 120 Hz on River; `qq prof --gpu` on OdesaOsm is
+  the figure that closes it.
+- **The smoke's cost was not taken against itself** (`CAR-54`, `OBJ-7`, 2026-10-23): OdesaOsm's 16.6 % busy with every
+  chimney and car smoking is set beside the 16–19 % the render log quotes from before any smoke, another session's. The
+  over run is laid 2 × 57 instances a car, 2 × 234 a rail vehicle (a stack's longest-lived grid, laid for every wagon and
+  not only a diesel) and 16 384 for the chimneys larger, and the emit walks a pipe's whole fine grid of puffs twice a
+  frame — a wide pot's where a house's is 31, and a twin stack's two pots each. Not retaken since puffs vary with
+  throttle and pot, nor since a twin stack smokes from both its pots, which doubled the pots smoking (OdesaOsm 69 753),
+  nor since 75 more roofs' flues and cowls were marked (2026-10-24, 198 of 376 roofs hold chimneys), nor since every pot
+  is laid and its fire takes turns (2026-10-24, Odesa 4 291 pots where two in five were laid). Two `qq prof --gpu`
+  runs one after the other, the second with `SimConfig.Chimneys.SmokingShare` and the opacities in `SimConfig.Smoke` at
+  nought, close it.
+- **A car past 45 km/h strings its puffs out again** (`SmokeSprites`, 2026-10-23): the finest grid a puff is split to
+  (`SimConfig.Smoke.PuffSplits`) leaves them a fifth of a metre apart there and further the faster, and at 90 km/h the
+  young ones read as blots. A split of eight, at the price of twice the emit's walk, or a puff stretched along its
+  velocity, closes it.
+- **A rushing diesel's trail is thin** (`TRN-15`, 2026-10-23): a stack's puffs are split over its way at speed, each its
+  share of the time's thickness, so at 40 km/h its 40 m trail reads fainter than its plume standing and pulling, where
+  real soot behind a working diesel is darkest. A stack's puff grown wider or thicker with the speed it left at, an
+  authored relation in `SimConfig.Smoke`, closes it, if the owner wants it darker.
+- **`qq town --roofs` lays the showroom differently from a run** (2026-10-23): it named `industrial_27` at 196, 97 on
+  Showroom, where a live run stands a car park. Laying the showroom's roofs through the run's own path closes it.
+- **`pickup_silver` and `hightopvan_white` keep their far side's lamps as drawn** (2026-10-22): `qq props mirror` left
+  grey paint on the bonnet inboard of the copy-side headlamp (the copy side drawn 1.75–2 texels off the mirror image),
+  so both are on their unmirrored pictures (`-v3`) with their lamps cut on them. A mirror that paints only the lamp's
+  own texels, or an in-paint of the copy side's lamp before the reflection, closes it.
+- **`qq props restore` cannot take back a mirror** (2026-10-22): `mirror` installs its picture, so `restore` brings
+  back the props kept for the mirrored one, stray and all. Going back is `qq sprites use <car>-v<N>` on the unmirrored
+  variant, then `restore` and `install`; the manual's step 7 saying so, or a `qq props unmirror`, closes it.
+- **`mirror` moves the report it is judged by** (`qq props`, 2026-10-22, three agents): after it, SPARE flags and
+  authored-side rim figures change though the authored shapes did not, and each copy re-placed on its own axis can
+  make an undeclared overlap (`wedgesaloon_cherry`'s head and front indicator, cleared by `axis --prop=ind_front`).
+  A report that reads the authored side alone after a mirror, as before it, closes it.
+- **`trace` keeps a section clear of its housing below `SECTION_SHARE`** (2026-10-22): a traced amber section under
+  80 % inside the brake is not declared `over` it but re-traced outside it, a sliver (`oka_red`, `citymini_green`);
+  the agents grew the housing, traced, and snapped it back. The manual saying so, or `trace --over=brake`, closes it.
+- **`qq props undo` steps past a step that changed nothing** (2026-10-22): a snap of zero passes, or a failed
+  `trace`, writes no history, so the undo after it takes back the step before — on `offroad4x4_khaki` and
+  `coupe_yellow` a good snap, redone by hand. Every step recording itself whatever it kept, or an undo that refuses
+  when the last step wrote nothing, closes it.
+- **Lamp readings on the thirty-five redrawn cars that are guesses** (2026-10-22, cut by agents). _owner_: a look at
+  `.tmp/proof/r01.gif` to `r04.gif` settles each; a retrace (`qq props trace`) changes one.
+  - `fleet100_r04`: the amber in a red tail taken as an indicator on `liftback90s_green`, `execsaloon90s_beige`,
+    `panelvan_white`, `pickup_silver` and `hightopvan_white`, as a highlight on `classic_red`, `cab_white` (the
+    closest call) and `offroader_black`. `coupe_yellow` draws two boxes a corner, not three bars: the outer the brake,
+    the inboard's amber-brown square the indicator, the inboard's red bar unlit (ten lenses at most).
+    `panelvan_white`'s tail, past the lamp cell, is divided into `reverse`, so its inboard red lights white.
+    `hightopvan_white`'s front indicator is the upper half of its headlamp housing, holding two amber glows.
+  - A soft unframed amber glow inside a red tail is taken as the rear indicator on `samara_silver`, `golf3_red`,
+    `budgethatch_orange` and `boxsaloon_beige`, and as a highlight on `kombiold_red` and `saloon00s_green` (smaller,
+    brighter); `remove --prop=ind_rear` turns one back into the brake's half.
+  - `kombiold_red`'s and `saloon00s_green`'s front indicators are a cream tip and a tan band `divide` cut off the
+    headlamp; `samara_silver`'s is the whole amber-and-pale strip along its headlamp's top.
+  - `estate90s_red`'s tail runs on round the corner as a red wedge `trace` cannot read with any `--lens`, left unlit;
+    `kombiold_red`'s red-on-red tail was placed by hand for the same reason.
+  - `loafvan_grey`'s long rear housing (past the lamp cell) is divided: the red outboard end the brake, the most
+    amber segment the indicator; its head takes in the grey glass under the pale lens.
+  - `budgetsuv_brown`'s rear indicator blinks over a small red wedge `divide` cut off the brake: the art draws no amber.
+  - `offroad4x4_khaki`'s tail has an orange-pink patch, taken as a highlight, not a lens.
+  - `citycar_lime`'s front indicator is the bright amber spot in the head strip, not the darker orange tip beyond it.
+  - `oka_red`'s brake is the whole rear housing, most of it drawn amber; the red is a small corner.
+  - `citymini_green`'s amber spot in the red tail is read as a highlight; `citymini_yellow`'s edged column as a lens.
+  - `rearengine_sky`'s front indicator is an amber area in the headlamp, maybe a warm reflection.
+  - `niva_olive`'s amber rear lens is three times its red brake: it may be an orange tail lamp.
+  - `wedgesaloon_cherry` and `saloon70s_teal` draw one orange-red tail strip with no sections, though asked for them.
+  - `vanbus_white`'s rear indicator is the red tip `divide` cut off its long crescent; a yellow strip beside it was
+    read as a highlight.
 - **`mirror` always paints the lower side from the upper** (`qq props`, 2026-10-22): the authored side is the upper
-  half, and where the lower draws a lamp better — `retro500_cream`'s rear indicator, orange below and dark red above —
+  half, and where the lower draws a lamp better — `retro500_cream`'s rear indicator on its earlier picture, orange
+  below and dark red above —
   the better one is painted over. An authored side chosen per car (`"authored": "lower"` in the props file, the
   reflection the other way) closes it.
-- **Nine earlier looks are on disk and in no fleet** (`assets/agents/car/variants/`: `citybox_sky`, `estate_navy`,
-  `hatch_coral`, `micro_mint`, `minivan_wine`, `panelvan_forest`, `retro_cream`, `saloon_beige`, `suv_graphite`;
-  2026-10-22): trial cars the hundred-car plan does not ask again, so nothing draws them and their raw_assets
-  lineage is kept for nothing. _owner_: deleting them with the legacy looks below closes it.
 - **A variant's `handling.braking` moves nothing but the pedal's ramp** (`CarBuild.Resolve`, 2026-10-22): the brake
   is `CarBrakingMps2` (three of the road's grips) times it, and every planned stop is the lesser of that and the
   car's own grip, so across the fleet's 0.72–1.2 the tyre always decides and the figure reaches only
   `PedalRateMps3`. The plan's worn cars author weaker brakes that stop as short as new ones. Dropping the figure, or
   a brake authored as a raw term that can bind, closes it.
-- **Sixteen legacy looks still stand in `Fleet.json`** (2026-10-21) beside the new fleet's first batch, so a town is
-  not all small cars while the hundred are drawn: `muscle_orange` … `pickup_maroon`, art on the legacy list, lamps
-  by rectangle. Dropping them once the new fleet spans every size closes it, and with it the entries below on the
-  legacy looks.
 
 - **The `debug-collision` scenario frames bare grass** (`tests/e2e/scenarios/InterfaceScenarios.cs`, `Test` at 270, 60):
   its subject is "a lit T junction at close range", and the frame holds scenery and no body at all, so the picture says
@@ -567,6 +649,46 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 
 ## Inconsistencies
 
+- **The town kept is kept by its name and figures and not by the art it was laid with** (`Maps._kept`, 2026-10-25):
+  a caller handing other `ArtSizes` for the same map under the same `SimConfig` is handed the town laid with the
+  first, whose `PropArrays.Look` then names looks of a catalogue it is not drawing with. Every caller hands
+  `ShippedArt.Sizes` today, so nothing reads it wrong yet. Keying `Kept` on the art's reference as well closes it.
+- **A page draws no clouds' shadows** (`OBJ-8`, 2026-10-24): the Vulkan heads draw them (`CloudShadows`, `cloud.vert`,
+  `cloud.frag`) and the browser's `town.wgsl` has no pass for them, so the same town at the same tick has a sky on the
+  desktop and none in a browser. A page's camera block already carries `CameraView.Clouds`; a WGSL triangle and its
+  pipeline in `town.js`, drawn where `TownRenderer.Recording.cs` draws it, closes it.
+- **The clouds' field is stated twice** (`OBJ-8`, 2026-10-24): `CloudShadows`' `FieldMean`, `FieldSpread` and
+  `FieldSlope` were measured off `cloud.frag`'s noise and are not re-derived from it, so a change to its octaves moves
+  the cover and the edge the figures ask for and nothing fails. A device-tier test reading the shaded share of a frame
+  against `CloudFigures.CoverShare` closes it.
+
+- **Some drawn fans stand still** (found 2026-10-23, `OBJ-6`): the catalogue's fans were cut with `qq props seed` and
+  looked over roof by roof, and these were left out. A roof that draws one fan and not its twin looks half-built only
+  where both are cut, so each is all or nothing.
+  - The bladeless brown twin units on `industrial_*`, `retail_03`, `retail_05`, `retail_06`, `retail_09`,
+    `retail_deep_02` and `school_deep_02`: left out while a fan turned its own picture, where a dark disc turned shows
+    nothing; a fan is now drawn in a look of its own (2026-10-24), so each is worth cutting.
+  - Fans drawn too small to separate: `warehouse_saw`'s pair, and `hospital_deep_04`'s four upright units.
+  - `retail_deep_06`'s second unit, whose right fan is drawn grey as a dome is.
+  - `retail_deep_07`'s smaller second fan on four of its seven units, which now stands beside its twin's look.
+
+  Cutting each by hand (`qq props trace … --at=X,Y`), or a sheet drawn again with blades, closes it.
+- **A sliver of a roof's own fan shows past its look** (found 2026-10-24, `OBJ-6`, `FanTable.RimOutsetPx`): the look is
+  laid out to the ellipse fitted through the art's rim and a texel and a half past it, and where the art's opening
+  wanders wider — one side of `retail_deep_07`'s units at a close framing — a dark crescent of it shows. A wider outset
+  closes it at the cost of covering the housing round the tidy ones; a rim fitted to the opening's widest reach instead
+  closes it outright.
+- **Four fans' looks are named for a blade count they do not draw** (found 2026-10-24): `fan_six_grey` draws eight,
+  `fan_five_curved` six, `fan_seven_sickle` eight, `fan_four_rust` five. Nothing reads the name for it; renaming them by
+  their blades' shape, or asking them again, closes it.
+- **A car's patience jitter is a literal** (found 2026-10-23, `CarFleet.FuseJitterShare = 0.2f`): a figure in behaviour
+  code rather than on `SimConfig`. Moving it to `DrivingFigures` beside `CarPatienceS`, which it scales, closes it.
+- **The shipped lamp sheet can disagree with the catalogue's lenses, and nothing fails** (found 2026-10-23,
+  `assets/agents/car/variants/common/lamp_atlas.webp`): it is cut only by `dotnet run -- --lamps`, which `qq props
+  install` does not run, so lenses reinstalled under another fitting keep burning their old colours in the game. The
+  ambulances' bars, repainted blue, burned red until the sheet was cut again. `qq proof --looks` bakes a sheet of its own
+  and cannot show it, and no test compares the shipped sheet with a fresh bake. `qq beacons swap` now cuts it again; a
+  unit test baking the sheet and comparing it, or `qq props install` cutting it, closes it.
 - **A district may stand no depot** (2026-10-20, GEN-55, GEN-56; accepted by the owner): a yard is as wide as its
   building's frontage (`CarParks.YardBays`), eight bays for the 23.4 m civic roofs, and one district of `Odesa` finds no
   kerb straight for that long (depots 7 of 8 in `--bench census`). A site search that holds a long yard on a curving
@@ -613,7 +735,8 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   approaches, or deleting what no crossing will wear, closes it.
 - **A car meeting a crossing's arm allocates** (2026-10-19, `RAIL-10`): with arms that met cars inside its window,
   `AWholeTickWithATrainCrossingTheTownAllocatesNothing` read some 40 KB over 600 ticks, and none with the arms on a layer
-  meeting nothing; it passes because no car meets an arm since lanes stay held until the arm is all the way up. Where
+  meeting nothing; it passes because no car meets an arm since lanes stay held until the arm is all the way up — but
+  failed once by 120 bytes in a `qq tests --changed` run on 2026-10-24 and passed run alone straight after. Where
   the contact path grows is not traced. A gate that stages a car against an arm, and the growth pooled, closes it.
 - **The arms on the device are not compared with the managed world's** (2026-10-19): `TrainsRunOnTheDeviceAsInTheManagedWorld`
   lays no cars, so nothing checks an arm stops a car on the device; both take the same `Place` and `Contain` and the
@@ -657,6 +780,56 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **`qq sprites mask` cannot mend a cell drawn the wrong size** (2026-10-20): the mask is the outline's box, so paint
   past it or short of it comes back byte for byte and a redo of a size fault is a whole re-roll. A mask padded to the
   cut's drawn extent closes it.
+- **The lamp sheet is decoded twice when the town loads** (2026-10-22, `LampSprites.Glow`): once to blur the glow
+  sheet out of it and again when its page is filled, about 17 MB held for the first. Load time only — 50 ms on the
+  host for the 111-look fleet, not measured on the web head; blurring from the page's own decode closes it.
+- **`qq props seed` lays a beacon prop over a fitted roof bar** (2026-10-23, all nine ambulances): it reads the
+  car file's beacon rectangles as a `beaconRed_front` prop, which takes the count to 12 (TOO MANY LENSES) until it is
+  removed by hand; and `trace` refuses a lens past 30 texels where the cell takes 56, so a long brake housing is
+  placed by hand. Seed skipping the file's beacon lenses, and trace's reach following `INSTALL_CELL_PX`, close it.
+  The tow trucks (2026-10-23) add three: seed's prop over an amber bar is kind `beaconAmber`, which install does not
+  read; `trace`'s default tint mode fails on dark amber bar glass, which `--lens colour` or `frame` reads; and
+  `remove --prop=reverse` on a seeded reverse makes it a part of the brake again rather than taking it out, so five
+  agents deleted it from the props file by hand.
+- **No map stages a tow to be looked at** (2026-10-23): the new arms were judged on a still composed by hand from
+  `FillBeams`' placement (`.tmp/scripts/tow_still.py`), not on a frame the engine drew, since no lab map or exam card
+  stands an evacuator towing. A showroom step, or an exam card, that hitches one closes it.
+- **Three ambulances' wrecks carry a longer bar than the car** (2026-10-23): `ambulance_white`, `ambulancelight_white`
+  and `ambulancebig_white` were drawn wrecked with a `podbig` bar, then refitted `podlong` because `podbig`'s ends
+  traced past the 56-texel cell on a van that wide. The wreck's bar is about a quarter longer; seen only on a wreck.
+  Their wrecks asked again from the refitted cars closes it.
+- **`policehybrid_white`'s brake strip outruns even the 56-texel lamp cell** (2026-10-23): it runs x 17–74, 57 texels,
+  so its last 3 (x 72–74) stay dark; the car's two spare lenses are its beacons, so no second brake prop fits.
+  Trimming the art's strip, or a lens allowed past one cell, closes it.
+- **Small lamp-cut leftovers of the 2026-10-23 re-cut**: `policesaloon_white`'s and `vanbus_white`'s brake tips stand
+  about a texel past the rim; the edges once cut to the old cell are still marked held on six brakes, so `snap` passes
+  them over — placed by hand. `qq props` has no action for a prop's `hold`, `over` or own `axisY`/`mirrorDx`, so they
+  are hand-edited in the props file; an action for each closes it.
+- **`qq props audit` flags what is not a lens** (2026-10-23): SHORT takes body paint, a red lens's blend into paint,
+  or chrome beside a head for lens colour, and ON THE FRAME takes a dark streak drawn inside the glass for frame.
+  Standing false: `oka_red` (three), `budgetsuv_brown`, `citycar_lime`, `hybrid_white`, `kombiold_red`,
+  `loafvan_grey` (body shading past the brake tip), `compactsaloon_white` (a streak in the amber glass). Costs a look
+  at each on every audit; reading paint off the car's common colours (`LampAtlasBake.Common`) and a frame only at a
+  lens's rim closes it.
+- **Lamps the art draws past a car's ten lenses stay dark** (2026-10-22 review, `CarLamps.MostLenses`): a red marker
+  at `lightvan_white`'s rear corner, a second red lens in `coupe_yellow`'s rear housing, a red strip along
+  `luxsuv_black`'s upper rear, an amber spot inside `policevan_white`'s headlamp, and an amber tip on
+  `citycar_lime`'s headlamp that lights white with it. _owner_: more lenses a look, or these merged into a neighbour.
+- **A few far-side lamps are drawn unlike the near side's** (2026-10-22 review): the copy outline sits a texel or
+  more off, over paint or a divider — `longestate_green` `ind_rear` (4 texels of paint), `samara_silver` `ind_front`,
+  `crossover_pearl` `ind_rear`, `bigsaloon90s_white` `ind_front`; `hightopvan_white`'s `head` and `ind_front` copies
+  overlap by 25 texels; `minihatch_green`'s `ind_front` is cut twice. `qq props mirror` on each closes it.
+- **Some lamps burn a light their glass is not painted in** (2026-10-22 review): amber glows with no drawn edge inside
+  red clusters are cut as `ind_rear` sections (`budgethatch_orange`, `cityhatch_silver`, `compactsuv_green`,
+  `midsaloon_black`, `hybrid_white`, `evsaloon_red`, `premsaloon_white`, `bigsaloon90s_white`, `cab_white`,
+  `hatch_graphite`, `pickup_silver`, `mpv_silver`) — _owner_: indicator sections or highlights. And art that has no
+  lens for a light: `saloon70s_teal`'s rear cluster is all amber, so it brakes red over amber;
+  `bigsaloon70s_black`'s `reverse` sits on an amber section; `compactsuv_black`, `budgetsuv_brown` and `evsuv_grey`
+  blink `ind_rear` over red glass; `family90s_silver`'s pale glass at the outer tip of its headlamp housing is no
+  lamp's. Redrawn art, or the owner's word that they stand, closes it.
+- **`qq beacons fit` reads the windscreen by its bluish glass only** (2026-10-22): a windscreen's black frame is not
+  seen, so on a black roof (`policecrossover_white`) the big bar's ends sat on the frame and the car was given the long
+  bar instead. Taking the frame in where it is darker than the roof beside it closes it.
 - **`apartments_17-v2` and `apartments_deep_08-v2` are duplicates** of their `-v1` (2026-10-20): one frame's cells
   kept twice, before `keep` refused a cell kept once. Unused candidates; deleting the two records closes it.
 - **Without its glow a lit brake, indicator or reversing lens barely differs from its dull glass** (2026-10-20,
@@ -695,6 +868,12 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   (`hybrid_silver`); `trace --at=A+B` ignores the second texel (`sportscar_red`); "off its rim" is a median and hides
   a corner 2–3 texels onto the frame (`smoothsaloon_white`). Fixing each
   closes its part.
+- **What the police lamp cuts found in `qq props`** (2026-10-22, nine agents): `seed` makes a `beaconRed_front`/`_rear`
+  prop of the beacon lenses already in the car file, traces `ind_front` on the bonnet's shield badge (five of nine) and
+  `reverse` along the pale rear bumper; its lens count takes the reverse part in, so a car with beacons reads "TOO MANY
+  LENSES" though `install` skips the reverse; there is no trim action (agents `divide` into reverse then `remove` it),
+  a second `divide` drops the first's `hold`, and `hold` indices are not renumbered when a vertex is added by hand. A
+  `seed` that skips the file's beacons and the badge, a count that matches `install`'s, and a `trim` close them.
 - **What the batch 9 and 10 lamp cuts added** (2026-10-22, eighteen agents): `snap` grows a lens past the lamp cell
   without refusing (`offroader_black`, `midsaloon_black`); seed adds a `brake2` that takes the car to 12 lenses
   (`coupe_yellow`); a reverse share mostly under an `over` indicator lights a sliver (`premsuv_white`, 49 px) and
@@ -767,12 +946,11 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   the 0.1 m a side the nine civilian cars' footprints allow (`qq sprites cut`'s overlay, cyan), and the cut keeps the
   footprint; `cars_fleet_a` drew them about twice the size asked even when told "no longer than the headlamp".
   Barely visible at game zoom; footprints authored to the mirrors a body has closes it.
-- **Sixteen of the nineteen cars author lenses past their own shape** (2026-10-18): the `lamps` were measured off the
+- **The three service looks author lenses past their own shape** (2026-10-18): the `lamps` were measured off the
   old art, whose bodywork overhung `collisionM`, so rear lamps sit on the rounded corners and indicators past the nose;
-  `qq sprites template` warns of each (ambulance 4, evacuator 4, the muscles, pickups, police and sedan_rust 4, the
-  rest 2). The art drawn to the shape has no paint there, so it cannot draw them. Moving each lens inside its shape
-  as the set is generated again closes it; moved before, it misses the lamp on the sprite in the game now.
-- **The nineteen legacy looks still light their lamps by rectangle** (`LampAtlasBake.Paste`, 2026-10-18): with no zone
+  four on each. Asking the set again in words (raw_assets/index.md, rule 4) and cutting its lamps off the new drawing
+  with `qq props` closes it; a lens moved before then misses the lamp on the sprite in the game now.
+- **The three service looks still light their lamps by rectangle** (`LampAtlasBake.Paste`, 2026-10-18): with no zone
   map, a lens burns its whole `sizeM` area of sprite by luminance, so a round or strip lens lights the paint in its
   corners and a lens drawn off its rectangle lights paint only. Two ways of finding a lamp stand in the bake until
   then. Generating each set again with its zone map (CAR-14a) closes it and deletes `Paste`; a beacon needs a zone
@@ -865,6 +1043,11 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **A walker's distance walked is its velocity over the step on the device** (`world_view_walkers.comp`) and the change in its
   position on the host (`TownWorld.ReadTheWorld`); its gait is drawn off the device's, so a frame of the whole of Odesa
   draws 3 instances of 2 034 otherwise than the host's fill (`--bench deviceworld`, 2026-10-12).
+- **A crossing's barrier arm is turned by two arctangents**: `MathF.Atan2` on the host (`CrossingSprites.Fill`) and
+  GLSL's own `atan` on the device (`spritesBarrier`), a few ulps apart — 18 of the 21 instances of 1 997 the town frame
+  of Odesa drew otherwise than the host (`--bench deviceworld`, 2026-10-23). The probe now frames the town 1.1 s later,
+  having let the smoke's tracks fill first, and counts 26 of 2 028, split between this and the gait unread. `Trig.Atan2` and
+  `trigAtan2` on the two sides close it.
 - **A body put down is laid where it stood** until its own next turn, and then off covers a view reads two steps behind
   (`WorldLayer.StepsAhead`): a placement reaches a view only with the step that took its signal. The fleet keeps the
   placed pose meanwhile (`TownWorld._carSetBy`), so the body's covers and its pose disagree for that long; a staging
@@ -973,6 +1156,7 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   of bars solved whole — its matrix is tridiagonal, so one sweep each way — in each pass closes it.
 
 ## Waiting on the owner
+
 
 - **The physics step waits on the actors' planning** _owner_ (2026-10-14): the owner's model is the physics tick as the
   atom, drawn every tick, and the actors planning on their own every `AgentDecisionIntervalS` of game time in staggered

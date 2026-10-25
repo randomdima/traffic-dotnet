@@ -1,0 +1,8 @@
+{
+  "id": "maple_staked",
+  "sprite": "maple_staked.webp",
+  "kind": 1,
+  "diameterM": 2.4,
+  "colliderM": 0.5,
+  "describe": "newly planted young red maple, a small crown of dark red leaves, a ring of bark mulch"
+}

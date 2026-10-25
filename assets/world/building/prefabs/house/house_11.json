@@ -2,8 +2,8 @@
   "id": "house_11",
   "sprite": "house_11.webp",
   "footprintM": [
-    8.5,
-    2.5
+    11.9,
+    3.5
   ],
   "cornerRadiusM": 0.375,
   "partsM": [],
@@ -15,5 +15,6 @@
     "green-painted sheet metal",
     "courtyard wing"
   ],
-  "describe": "long narrow single-storey wing of a courtyard house, lean-to roof of green-painted sheet metal sloping to the yard, a chimney"
+  "describe": "long narrow single-storey wing of a courtyard house, lean-to roof of green-painted sheet metal sloping to the yard, a chimney",
+  "chimneys": [[4.67, -0.65, 5.02, -0.65]]
 }

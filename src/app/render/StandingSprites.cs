@@ -13,7 +13,7 @@ namespace TrafficSimulation.App.Render;
 /// <remarks>
 /// <para>
 /// <b>Nothing here moves</b>, so nothing here is decided per frame: a roof's picture, its size and its
-/// bearing are all fixed by the plan, and a prop's look is fixed by its kind, its size and its index.
+/// bearing are all fixed by the plan, and so is a prop's look (GEN-6e).
 /// What a frame does is a range copy per row of cells in view — a town of ninety-five thousand props at
 /// a street framing costs the dozen that are on screen, and the whole town only when the whole town is.
 /// </para>
@@ -25,12 +25,10 @@ namespace TrafficSimulation.App.Render;
 /// a frame writes where it starts and how long it is (<see cref="Range"/>).
 /// </para>
 /// <para>
-/// <b>A building is drawn at the roof's own authored footprint and a prop at the size the plan laid
-/// it.</b> The two differ on purpose: a roof is one picture of one authored building and stretching it
-/// to a plan box that is a few centimetres off would show as a bent ridge line, while a prop's whole
-/// size range <em>is</em> the jitter the plan carries, and its body is that circle. Where the roof and
-/// the box disagree, the generator sized the building off this catalogue and the disagreement is
-/// centimetres.
+/// <b>A building is drawn at the roof's own authored footprint and a prop at its look's</b> (GEN-6e):
+/// the plan sized both off this art, so a picture is never stretched to a box of the plan's. Where the roof
+/// and the box disagree, the generator sized the building off this catalogue and the disagreement is
+/// centimetres; a prop's picture stays inside the disc its look's girth spans, which is the ground the town cleared.
 /// </para>
 /// </remarks>
 internal sealed class StandingSprites
@@ -74,7 +72,7 @@ internal sealed class StandingSprites
     /// <param name="level">The level of the grid the instances are filed at — its main one.</param>
     public static StandingSprites Lay(
         CityPlan plan, BuildingCatalog buildings, BuildingUses uses, PropCatalog props, int firstBuildingSheet,
-        int firstPropSheet, ReadOnlySpan<float> aspects, GridLevel level)
+        int firstPropSheet, GridLevel level)
     {
         var window = GridWindow.Over(level, Vector2.Zero, Vector2.Max(plan.WorldSizeM, Vector2.Zero));
 
@@ -93,7 +91,7 @@ internal sealed class StandingSprites
 
         for (var prop = 0; prop < plan.Props.Count; prop++)
         {
-            instances[written] = Look(plan, props, firstPropSheet, aspects, prop);
+            instances[written] = Look(plan, props, firstPropSheet, prop);
             written = Filed(instances, cellOf, cells, window, written, ref reachM);
         }
 
@@ -143,7 +141,7 @@ internal sealed class StandingSprites
     }
 
     /// <summary>
-    /// One building's roof, drawn where <see cref="BuildingRoofs"/> says it stands. <b>The choice is not
+    /// One building's roof, drawn where <see cref="BuildingRoofs"/> says it stands, its index its ID. <b>The choice is not
     /// made here</b>: the same answer stands this building's walls, and two constructions of it would be
     /// two buildings.
     /// </summary>
@@ -153,28 +151,24 @@ internal sealed class StandingSprites
         var roof = BuildingRoofs.Of(plan, catalogue, uses, building);
         return new SpriteInstance(
             plan.Buildings.CentreM[building], roof.FootprintM * 0.5f, SpriteCell.Whole, SpriteTint.Plain,
-            (uint)(firstSheet + roof.Variant), roof.HeadingRad);
+            (uint)(firstSheet + roof.Variant), roof.HeadingRad, building);
     }
 
-    static SpriteInstance Look(
-        CityPlan plan, PropCatalog catalogue, int firstSheet, ReadOnlySpan<float> aspects, int prop)
+    /// <summary>
+    /// One prop, in the look the plan laid it in and <b>at that look's own size</b> (GEN-6e, GEN-6d), which the look's
+    /// girth holds — a crown filling its disc, a box turned any way — so what is drawn stays on the ground the town
+    /// cleared for it.
+    /// </summary>
+    static SpriteInstance Look(CityPlan plan, PropCatalog catalogue, int firstSheet, int prop)
     {
-        var diameterM = plan.Props.RadiusM[prop] * 2f;
-        var variant = catalogue.Look(plan.Props.Kind[prop], diameterM, prop);
-
-        // <b>The picture fits inside the disc the town kept for it</b> (GEN-6d): the longest side of the
-        // sheet is the prop's own diameter and the other follows its aspect, so what is drawn is what a car
-        // is held off. Drawn <em>diameterM tall</em> instead, a sheet half again as wide as it is high
-        // reaches half a metre past its own girth and stands in the next prop along.
+        var variant = plan.Props.Look[prop];
         var look = catalogue.Variants[variant];
-        var aspect = aspects[firstSheet + variant];
-        var sizeM = new Vector2(aspect, 1f) * (diameterM / MathF.Max(aspect, 1f));
 
         // <b>The bearing is the plan's and whether it is used is the look's</b> (GEN-6b). A prop laid along
         // a kerb carries the road's own bearing there, and a look with a front is turned onto it; a tree
         // seen from above has no front, so it is drawn upright and the same look does not read as several.
         return new SpriteInstance(
-            plan.Props.CentreM[prop], sizeM * 0.5f, SpriteCell.Whole, SpriteTint.Plain,
+            plan.Props.CentreM[prop], look.SizeM * 0.5f, SpriteCell.Whole, SpriteTint.Plain,
             (uint)(firstSheet + variant), look.Turns ? plan.Props.BearingRad[prop] : 0f);
     }
 }

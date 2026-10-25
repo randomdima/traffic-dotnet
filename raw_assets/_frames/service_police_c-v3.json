@@ -1,0 +1,62 @@
+{
+ "id": "service_police_c-v3",
+ "ts": "2026-10-22T20:27:50",
+ "op": "edit",
+ "name": "service_police_c",
+ "file": ".tmp/gen/frames/service_police_c-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.019698,
+ "usage": {
+  "prompt_tokens": 2070,
+  "completion_tokens": 158,
+  "total_tokens": 2228,
+  "cost": 0.019698,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.019698,
+   "upstream_inference_prompt_cost": 0.014958,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Image 1 is a finished sprite sheet of nine police cars seen from straight above, nose to the right. Only the transparent areas of the mask are redrawn: the front part of each car's roof. In each, draw that car's roof light bar, switched off, on the roof as it is — everything else stays exactly as drawn. Match image 1's art style exactly: outline weight, shading, highlights, pixel size.\n\nTHE SAME PLACE ON EVERY CAR. Each bar lies across the roof (from one side towards the other, never along the car), centred on the car's long centre line, its front edge a short gap behind the top of the windscreen — a strip of bare roof about as deep as the bar itself between them — sitting flat on the roof and wholly inside the roof's outline, with a little bare roof at each side. Each bar is in two halves of coloured glass: the half nearer the top of the picture red, the half nearer the bottom blue, each half no longer than 0.4 m. All glass unlit: plain coloured glass, no glow, no light.\n\nTHE BAR'S DESIGN DIFFERS FROM CAR TO CAR, as real police fleets differ (cars left to right, top to bottom):\n1. (old Soviet 4×4) two separate round beacon domes side by side on a short dark crossbar, red dome above, blue below.\n2. (1980s Soviet saloon) an old boxy bar on a chrome base with two large square domed lenses, red above, blue below.\n3. (hatchback) a compact mini bar, short and low, about half the roof's width.\n4. (budget SUV) a full-size low-profile bar, red and blue segments, dark end caps.\n5. (budget saloon) a full-size bar with a small clear section in the middle between the red and the blue.\n6. (panel van) the widest bar on the sheet, at the front edge of the tall roof, its red and blue lenses at the two ends with a dark middle.\n7. (hybrid liftback) a slim aerodynamic low-profile bar with smooth rounded ends.\n8. (crossover, black roof) a full-size bar with a silver frame, standing out on the black roof.\n9. (compact saloon) a low-profile bar made of small square light modules, red modules on its upper half and blue on its lower.\n\nNo text, letters or numbers. Outside the cars the picture stays fully transparent.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "8ee6e0330c0430b8",
+   "ext": "png",
+   "frame": "service_police_c-v2",
+   "was": ".tmp/gen/frames/service_police_c-v2.png"
+  },
+  {
+   "role": "mask",
+   "sha": "b8497bc57c18e40d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_police_c_roof_mask.png"
+  }
+ ],
+ "cells": [
+  "policeniva_white",
+  "policesaloon80s_white",
+  "policehatch_white",
+  "policesuv_white",
+  "police_white",
+  "policevan_white",
+  "policehybrid_white",
+  "policecrossover_white",
+  "policesaloon_white"
+ ]
+}

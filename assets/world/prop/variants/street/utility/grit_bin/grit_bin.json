@@ -1,0 +1,10 @@
+{
+  "id": "grit_bin",
+  "sprite": "grit_bin.webp",
+  "kind": 2,
+  "footprintM": [0.9, 0.814],
+  "cornerRadiusM": 0.1,
+  "share": 0.8,
+  "turns": true,
+  "describe": "yellow plastic grit bin with a sloped lid"
+}

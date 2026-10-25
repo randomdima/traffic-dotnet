@@ -1,0 +1,9 @@
+{
+  "id": "crates_milk",
+  "sprite": "crates_milk.webp",
+  "kind": 2,
+  "footprintM": [1.0, 0.93],
+  "share": 0.5,
+  "turns": true,
+  "describe": "stacked blue and red plastic bottle crates"
+}

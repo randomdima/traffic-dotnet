@@ -2,8 +2,8 @@
   "id": "tower_03",
   "sprite": "tower_03.webp",
   "footprintM": [
-    14.5,
-    11.5
+    18.9,
+    15.0
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],

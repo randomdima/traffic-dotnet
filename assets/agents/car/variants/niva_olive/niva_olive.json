@@ -4,12 +4,12 @@
   "zones": "niva_olive_zones.png",
   "wreck": { "sprite": "niva_olive_broken.webp" },
   "describe": "Soviet three-door small 4×4, average condition, olive green, boxy with flat panels, short flat bonnet, upright cab with a flat roof, squared tail, black plastic wheel-arch trims, round headlamps in a flat grille, small square tail lamps",
-  "footprintM": [3.740, 2.157],
-  "collisionM": { "sizeM": [3.740, 1.768], "cornerRadiusM": 0.476 },
+  "footprintM": [3.740, 2.051],
+  "collisionM": { "sizeM": [3.740, 1.746], "cornerRadiusM": 0.401 },
   "massKg": 1210,
   "frontAxleM": 1.17,
   "rearAxleM": -1.03,
-  "trackM": 1.906,
+  "trackM": 1.703,
   "drivetrain": 2,
   "maxSteeringDeg": 32,
   "tyreFriction": 0.8,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.55,
   "handling": { "maxSpeed": 0.72, "acceleration": 0.75, "braking": 0.85 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.714, -0.63], "sizeM": [0.188, 0.375] },
-    { "fitting": "brake", "atM": [-1.724, 0.537], "sizeM": [0.188, 0.375] },
-    { "fitting": "indicator", "atM": [-1.703, -0.766], "sizeM": [0.083, 0.073] },
-    { "fitting": "indicator", "atM": [-1.724, 0.672], "sizeM": [0.083, 0.073] },
-    { "fitting": "head", "atM": [1.662, -0.578], "sizeM": [0.125, 0.229] },
-    { "fitting": "head", "atM": [1.682, 0.485], "sizeM": [0.125, 0.229] },
-    { "fitting": "indicator", "atM": [1.589, -0.745], "sizeM": [0.125, 0.083] },
-    { "fitting": "indicator", "atM": [1.599, 0.672], "sizeM": [0.125, 0.083] },
-    { "fitting": "reverse", "atM": [-1.766, -0.505], "sizeM": [0.094, 0.125] },
-    { "fitting": "reverse", "atM": [-1.766, 0.412], "sizeM": [0.094, 0.125] }
-  ]
+    { "fitting": "brake", "atM": [-1.682, -0.692], "sizeM": [0.094, 0.062] },
+    { "fitting": "brake", "atM": [-1.682, 0.672], "sizeM": [0.094, 0.062] },
+    { "fitting": "indicator", "atM": [-1.724, -0.526], "sizeM": [0.094, 0.239] },
+    { "fitting": "indicator", "atM": [-1.745, 0.474], "sizeM": [0.094, 0.239] },
+    { "fitting": "head", "atM": [1.714, -0.547], "sizeM": [0.104, 0.239] },
+    { "fitting": "head", "atM": [1.724, 0.536], "sizeM": [0.104, 0.239] },
+    { "fitting": "indicator", "atM": [1.672, -0.713], "sizeM": [0.083, 0.073] },
+    { "fitting": "indicator", "atM": [1.693, 0.703], "sizeM": [0.073, 0.073] },
+    { "fitting": "reverse", "atM": [-1.745, -0.359], "sizeM": [0.063, 0.083] },
+    { "fitting": "reverse", "atM": [-1.745, 0.307], "sizeM": [0.063, 0.083] }
+  ],
+  "exhausts": [[-1.828, -0.615]]
 }

@@ -4,22 +4,20 @@
   "axisY": {"rear": 104.50, "front": 104.00},
   "props": [
     {"name": "brake", "kind": "brake", "mirror": true, "axisY": 104.0, "mirrorDx": 1.0, "points": [
-      [16.98, 40.25, 2.74],
+      [17.18, 39.55, 2.74],
       [8.65, 69.90, 0.47],
       [10.54, 72.64, 4.25],
       [21.38, 63.54, -1.42],
       [31.87, 38.74, 0.79],
-      [30.96, 34.66, 1.27],
-      [21.71, 35.82, 0.21]
+      [30.76, 33.79, 0.94]
     ]},
     {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
     {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
-    {"name": "head", "kind": "head", "mirror": true, "points": [
-      [426.51, 42.11, 0.10],
-      [439.49, 61.91, 0.00],
-      [441.39, 59.82, 0.00],
-      [438.29, 46.78, 0.41],
-      [434.26, 42.09, 0.29]
+    {"name": "head", "kind": "head", "mirror": true, "pull": "frame", "points": [
+      [426.86, 42.07, 0.57],
+      [440.30, 62.94, 1.29],
+      [444.43, 60.36, 0.95],
+      [435.45, 41.04, 0.29]
     ]},
     {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 104.0, "mirrorDx": -1.0, "points": [
       [432.25, 41.43, 1.96],

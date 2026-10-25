@@ -22,7 +22,10 @@ internal static class Scenarios
     public static ScenarioWatch[] For(TownWorld world, SimConfig config)
     {
         var town = new TownWatch(world, config);
-        ScenarioWatch[] every = world.Trains.Count > 0 ? [town, new RailWatch(world, config)] : [town];
+
+        // Trains that are stood have no driver to hold a pace (the showroom's), so there is nothing of theirs to claim.
+        var sent = world.Trains.Count > 0 && !world.Trains.StandsEachLookOnce;
+        ScenarioWatch[] every = sent ? [town, new RailWatch(world, config)] : [town];
         return Stages(world.Plan.Name) ? [ExamWatch.Over(config, world), .. every] : every;
     }
 

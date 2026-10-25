@@ -2,8 +2,8 @@
   "id": "house_40",
   "sprite": "house_40.webp",
   "footprintM": [
-    16.0,
-    13.0
+    22.4,
+    18.2
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -15,5 +15,7 @@
     "faded terracotta tiles",
     "villa"
   ],
-  "describe": "two-storey villa, hipped roof of faded terracotta tiles with a dormer and two chimneys, a balcony roof over the entrance"
+  "describe": "two-storey villa, hipped roof of faded terracotta tiles with a dormer and two chimneys, a balcony roof over the entrance",
+  "chimneys": [[-5.75, -3.8, -5.15, -3.8], [5.15, -3.8, 5.75, -3.8]],
+  "potWidthM": 0.6
 }

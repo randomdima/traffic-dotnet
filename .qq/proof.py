@@ -8,7 +8,7 @@ instance the town's own frame is built from. A tile whose lamp does not light, l
 step with the rest is the asset to look at.
 
     qq proof                                   every generated look (one with a `.src.json` beside its sprite)
-    qq proof --looks=hatch_coral,micro_mint    just those
+    qq proof --looks=hatch_blue,citycar_lime   just those
     qq proof --looks=all                       the whole fleet as Fleet.json lists it
     qq proof --looks=... --out=.tmp/proof/after.gif --beside=.tmp/proof/before.gif
                                                the same looks before and after a change to their art, side by side

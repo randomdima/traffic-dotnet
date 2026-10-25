@@ -1,2 +1,4 @@
 {"variant": "retro500_cream-v1", "frame": "fleet100_b01-v2", "cell": 5, "pxPerM": 87.675, "score": 3, "status": "candidate", "ts": "2026-10-21T22:05:59"}
-{"variant": "retro500_cream-v4", "frame": "fleet100_b01-v2", "cell": 5, "pxPerM": 87.675, "score": 3, "lampsMirroredFrom": "retro500_cream-v1", "props": "raw_assets/agents/car/variants/retro500_cream/retro500_cream-v1.props.json", "status": "used", "ts": "2026-10-22T04:31:44"}
+{"variant": "retro500_cream-v4", "frame": "fleet100_b01-v2", "cell": 5, "pxPerM": 87.675, "score": 3, "lampsMirroredFrom": "retro500_cream-v1", "props": "raw_assets/agents/car/variants/retro500_cream/retro500_cream-v1.props.json", "status": "candidate", "ts": "2026-10-22T04:31:44"}
+{"variant": "retro500_cream-v5", "frame": "fleet100_r01-v1", "cell": 1, "pxPerM": 108.964, "score": 4, "status": "candidate", "ts": "2026-10-22T16:32:12"}
+{"variant": "retro500_cream-v6", "frame": "fleet100_r01-v1", "cell": 1, "pxPerM": 108.964, "score": 4, "lampsMirroredFrom": "retro500_cream-v5", "props": "raw_assets/agents/car/variants/retro500_cream/retro500_cream-v5.props.json", "status": "used", "ts": "2026-10-22T16:34:46"}

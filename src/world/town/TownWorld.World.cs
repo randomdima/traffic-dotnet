@@ -194,13 +194,23 @@ internal sealed partial class TownWorld
     /// </summary>
     void SignalTheShow(int car)
     {
-        var lamps = Cars.Lamps[car] = CarLamps.Showing(Cars, car, _config, WheelIsHeldOver(car));
+        var lamps = Cars.Lamps[car] = ShowsItsLampsInTurn(car)
+            ? CarLamps.InTurn(_elapsedS, _config.Lamps.ShowroomStepS)
+            : CarLamps.Showing(Cars, car, _config, WheelIsHeldOver(car));
         var signal = ControlSignal.Show(AgentOfCar(car), lamps, Cars.Broken[car]);
         if (signal.Flags == _sentShow[car]) return;
 
         _sentShow[car] = signal.Flags;
         Signal(signal);
     }
+
+    /// <summary>
+    /// Whether this car puts its lamps through their states in turn (CAR-14.9): picked out in the showroom, intact, and
+    /// nothing driving it.
+    /// </summary>
+    bool ShowsItsLampsInTurn(int car) =>
+        _showroom && !Cars.Driven[car] && !Cars.Broken[car] && !WheelIsHeldOver(car)
+        && _selected.Holds(SelectionKind.Car, car);
 
     /// <summary>
     /// <b>A walker's aim handed to the world</b>, where it changed: walked at where it walks, faced where it stands, and its

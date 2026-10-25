@@ -2,8 +2,8 @@
   "id": "house_deep_19",
   "sprite": "house_deep_19.webp",
   "footprintM": [
-    6.0,
-    7.0
+    8.4,
+    9.8
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -16,5 +16,7 @@
     "cottage",
     "narrow front"
   ],
-  "describe": "small single-storey cottage, gabled roof of red clay tiles, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "small single-storey cottage, gabled roof of red clay tiles, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back",
+  "chimneys": [[1.65, -2.8, 2.34, -2.8]],
+  "potWidthM": 0.7
 }

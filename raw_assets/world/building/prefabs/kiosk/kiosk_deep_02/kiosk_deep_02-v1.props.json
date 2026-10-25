@@ -1,0 +1,13 @@
+{
+  "car": "kiosk_deep_02",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/kiosk/kiosk_deep_02/kiosk_deep_02-v1.png", "sizePx": [126, 142]},
+  "axisY": {"rear": 71.00, "front": 71.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [91.69, 19.07, 0.66],
+      [96.97, 22.54, 2.36],
+      [104.07, 16.35, 1.93],
+      [97.15, 10.86, 2.77]
+    ]}
+  ]
+}

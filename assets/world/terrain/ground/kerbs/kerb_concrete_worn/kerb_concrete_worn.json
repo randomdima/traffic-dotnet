@@ -1,0 +1,11 @@
+{
+  "id": "kerb_concrete_worn",
+  "sprite": "kerb_concrete_worn.webp",
+  "kind": "Kerb",
+  "describe": "an old street kerb of weathered concrete kerbstones a metre long: mid grey, each stone worn differently, rounded chipped edges, exposed small aggregate on a few, dark tyre scuffs and grime along the low face",
+  "footprintM": [
+    6.0,
+    0.2
+  ],
+  "pictureM": 3.9698
+}

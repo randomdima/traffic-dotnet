@@ -120,7 +120,7 @@ internal sealed class ExamRun : IDisposable
 {
     public ExamRun(SimConfig config)
     {
-        World = new TownWorld(Maps.Plan(ExamPlan.Name, config, BuildingCatalog.Roofs), config);
+        World = new TownWorld(Maps.Plan(ExamPlan.Name, config, ShippedArt.Sizes), config);
         Watch = ExamWatch.Over(config, World);
 
         var loop = new SimLoop<TownWorld>(World, config);

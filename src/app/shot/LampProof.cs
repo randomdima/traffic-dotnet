@@ -22,7 +22,8 @@ namespace TrafficSimulation.App.Shot;
 /// <see cref="CarSprites.Fill"/>, <see cref="CarSprites.FillFrontTyres"/> and <see cref="LampSprites.Fill"/> — over the
 /// very sheets the renderer uploads: each look's sprite and wreck with their tyres painted in
 /// (<see cref="CarSheets"/>), the lamp sheet a told fleet was cut to or the committed one, and the glow. Only laying
-/// a quad onto the picture is done here, with the sprite pipeline's blend: the sample times the tint, over.
+/// a quad onto the picture is done here, with the sprite pipeline's blend: the sample times the tint, over — or, from
+/// a sheet of light, added.
 /// </para>
 /// <para>
 /// <b>What it proves is the assets and not the driving</b>: each state is set on the car as its tick would write it
@@ -96,7 +97,6 @@ internal static class LampProof
             centresPx[look] = new Vector2(
                 ((look % Columns) + 0.5f) * tilePx.Width, bandPx + LabelPx + 4 + ((look / Columns) * tilePx.Height) + ((tileM.Y * PxPerM) * 0.5f));
             fleet.Add(centresPx[look] / PxPerM, 0f, (byte)look, backsIntoBays: false, new Rng(1, (ulong)look + 1));
-            fleet.FuseJitter[look] = 1f;
         }
 
         var sheets = Sheets(catalogue, config, out var scales, out var firstLens);
@@ -120,9 +120,10 @@ internal static class LampProof
                     fleet.Broken[car] = phase.Wrecked;
                 }
 
-                var written = CarSprites.Fill(fleet, drawn, catalogue, 0, scales, viewCentreM, viewSpanM, into);
-                written += CarSprites.FillFrontTyres(
-                    fleet, drawn, sheets.Length - 1, 0f, viewCentreM, viewSpanM, into.AsSpan(written));
+                // The steered tyres under the bodies, as the town draws them (TownSprites.FillCars).
+                var written = CarSprites.FillFrontTyres(fleet, drawn, sheets.Length - 1, 0f, viewCentreM, viewSpanM, into);
+                written += CarSprites.Fill(
+                    fleet, drawn, catalogue, 0, scales, viewCentreM, viewSpanM, into.AsSpan(written));
                 var glowSheet = firstLens + 1;
                 var lampsFrom = written;
                 written += LampSprites.Fill(
@@ -173,19 +174,20 @@ internal static class LampProof
         }
 
         firstLens = looks * 2;
-        sheets[firstLens] = Sheet.Of(SheetSource.File(FleetList.LampAtlasFile ?? ProjectPaths.LampAtlasFile()));
-        sheets[firstLens + 1] = Sheet.Of(LampSprites.Glow());
+        var lensSheet = FleetList.LampAtlasFile ?? ProjectPaths.LampAtlasFile();
+        sheets[firstLens] = Sheet.Of(SheetSource.File(lensSheet));
+        sheets[firstLens + 1] = Sheet.Of(LampSprites.Glow(lensSheet, catalogue, config));
         sheets[firstLens + 2] = Sheet.Of(CarSheets.RubberSheet());
         return sheets;
     }
 
     /// <summary>One sheet's texels, as the renderer would upload them.</summary>
-    readonly record struct Sheet(Texel[] Texels, int Width, int Height)
+    readonly record struct Sheet(Texel[] Texels, int Width, int Height, bool AddsLight)
     {
         public static Sheet Of(SheetSource source)
         {
             var (width, height) = SheetAtlas.Measure(source);
-            return new Sheet(SheetAtlas.Decode(source), width, height);
+            return new Sheet(SheetAtlas.Decode(source), width, height, source.AddsLight);
         }
 
         /// <summary>Bilinear inside one cell, never reaching into the next: the atlas pads each sheet with its own edge.</summary>
@@ -258,12 +260,14 @@ internal static class LampProof
                 var source = sheet.Sample(uv, cell) * tint;
                 if (source.W <= 0f) continue;
 
+                // Light is summed onto the picture and everything else laid over it (SheetSource.AddsLight).
                 var under = frame[x, y].ToVector4();
+                var cover = sheet.AddsLight ? 0f : source.W;
                 var over = new Vector4(
-                    (source.X * source.W) + (under.X * (1f - source.W)),
-                    (source.Y * source.W) + (under.Y * (1f - source.W)),
-                    (source.Z * source.W) + (under.Z * (1f - source.W)), 1f);
-                frame[x, y] = new Rgba32(over);
+                    (source.X * source.W) + (under.X * (1f - cover)),
+                    (source.Y * source.W) + (under.Y * (1f - cover)),
+                    (source.Z * source.W) + (under.Z * (1f - cover)), 1f);
+                frame[x, y] = new Rgba32(Vector4.Min(over, Vector4.One));
             }
         }
     }

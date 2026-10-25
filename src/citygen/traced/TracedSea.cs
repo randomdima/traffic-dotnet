@@ -5,8 +5,8 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.CityGen.Traced;
 
 /// <summary>
-/// <b>A survey's sea as the four rings a plan draws its water from</b> (GEN-2c, GEN-57): the water's own
-/// edge, and that edge moved a line, a shore less a line and a shore onto the land.
+/// <b>A survey's sea as the two rings a plan draws its water from</b> (GEN-2c, GEN-57): the water's own
+/// edge, and that edge moved a shore onto the land.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -37,14 +37,10 @@ internal static class TracedSea
         var sea = new ArcSeg[edge.Length][];
         for (var ring = 0; ring < edge.Length; ring++) sea[ring] = Straights(edge[ring]);
 
-        var shoreM = config.CityGen.ShoreWidthM;
-        var lineM = config.CityGen.ShoreEdgeWidthM;
         return new CityPlan.WaterArrays
         {
             Outline = Cut(edge, extentM),
-            WaterEdge = Moved(sea, lineM, config, extentM),
-            ShoreEdge = Moved(sea, shoreM - lineM, config, extentM),
-            Shore = Moved(sea, shoreM, config, extentM),
+            Shore = Moved(sea, config.CityGen.ShoreWidthM, config, extentM),
         };
     }
 

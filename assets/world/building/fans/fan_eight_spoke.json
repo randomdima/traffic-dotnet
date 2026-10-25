@@ -1,0 +1,7 @@
+{
+  "id": "fan_eight_spoke",
+  "sprite": "fan_eight_spoke.webp",
+  "footprintM": [3.4, 3.362],
+  "tags": ["fan", "eight blades"],
+  "describe": "a rooftop cooling fan with eight narrow light grey blades round a pale hub, a thin pale rim"
+}

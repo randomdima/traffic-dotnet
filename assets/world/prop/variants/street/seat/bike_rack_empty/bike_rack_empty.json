@@ -1,0 +1,9 @@
+{
+  "id": "bike_rack_empty",
+  "sprite": "bike_rack_empty.webp",
+  "kind": 2,
+  "footprintM": [2.0, 0.737],
+  "share": 0.8,
+  "turns": true,
+  "describe": "row of four empty galvanised steel hoop bike stands"
+}

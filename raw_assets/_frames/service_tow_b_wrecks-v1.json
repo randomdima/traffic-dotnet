@@ -1,0 +1,55 @@
+{
+ "id": "service_tow_b_wrecks-v1",
+ "ts": "2026-10-23T04:16:14",
+ "op": "edit",
+ "name": "service_tow_b_wrecks",
+ "file": ".tmp/gen/frames/service_tow_b_wrecks-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.019179,
+ "usage": {
+  "prompt_tokens": 2139,
+  "completion_tokens": 158,
+  "total_tokens": 2297,
+  "cost": 0.019179,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.019179,
+   "upstream_inference_prompt_cost": 0.014439,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from directly above the middle of each roof, orthographic, as the attached cars are: the roof centred across the body, and neither flank seen more than the other — no doors, sills or side windows showing along one side. No perspective, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Its shape mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen; wear, rust and odd panels may differ side to side.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car (paint, wear, roof, windows, trim):\n- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.\n- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke.\n- Tow truck livery and equipment kept as in the picture, battered: the yellow cab, the steel headboard behind it with its row of work lamps smashed, the framed diamond-plate deck dented and buckled, the red-and-white hazard stripes down both sides and across the tail scraped. The amber light bar on the cab roof stays where it is, dark and cracked.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.36 × 2.04 m (2.14× longer than wide), gently rounded corners — Soviet forward-control 4×4 tow truck with an open tow deck, in recovery livery\n2. 4.80 × 2.06 m (2.33× longer than wide), gently rounded corners — 2000s Japanese off-road 4×4 tow truck with an open tow deck, in recovery livery\n3. 4.79 × 1.81 m (2.65× longer than wide), nearly square corners — 1990s van-cab tow truck with an open tow deck, in recovery livery\n4. 4.83 × 2.10 m (2.30× longer than wide), nearly square corners — 1990s van-cab tow truck with an open tow deck, worn, in recovery livery\n5. 4.90 × 2.01 m (2.43× longer than wide), nearly square corners — modern van-cab tow truck with an open tow deck, in recovery livery\n6. 5.33 × 1.99 m (2.67× longer than wide), nearly square corners — modern double-cab pickup tow truck with an open tow deck, in recovery livery\n7. 5.41 × 2.11 m (2.56× longer than wide), nearly square corners — modern high-cab tow truck with an open tow deck, in recovery livery\n8. 5.50 × 2.21 m (2.49× longer than wide), nearly square corners — 2000s Russian light tow truck with an open tow deck, in recovery livery\n9. 5.91 × 2.13 m (2.77× longer than wide), nearly square corners — large tow truck with an open tow deck, in recovery livery",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "77ebb22da6952e8d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_tow_b_wrecks_style.png"
+  }
+ ],
+ "cells": [
+  "evacuatorloaf_yellow_broken",
+  "evacuatoroffroad_yellow_broken",
+  "evacuatorpassvan90s_yellow_broken",
+  "evacuatorvan90s_yellow_broken",
+  "evacuatorbus_yellow_broken",
+  "evacuatorpickup_yellow_broken",
+  "evacuatorhightop_yellow_broken",
+  "evacuator_yellow_broken",
+  "evacuatorbig_yellow_broken"
+ ]
+}

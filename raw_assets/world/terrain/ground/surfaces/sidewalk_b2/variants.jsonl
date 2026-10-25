@@ -1,0 +1,2 @@
+{"variant": "sidewalk_b2-v1", "frame": "ground_c-v1", "cell": 8, "box": [1198, 366, 293, 293], "pxPerM": 31.884, "score": 4, "status": "candidate", "ts": "2026-10-24T22:03:38"}
+{"variant": "sidewalk_b2-v3", "frame": "ground_f-v1", "cell": 8, "box": [1198, 366, 293, 293], "pxPerM": 31.884, "score": 4, "status": "candidate", "ts": "2026-10-24T22:57:40"}

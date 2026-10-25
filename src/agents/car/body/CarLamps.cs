@@ -42,21 +42,17 @@ internal enum CarLampFitting : byte
     /// <summary>A corner lamp, front or rear, which flashes on the side the car is about to turn or step across to.</summary>
     Indicator,
 
-    /// <summary>One end of a beacon bar, red at rest. Lit, the bar's two ends swap colours (AMB-4).</summary>
+    /// <summary>One end of a beacon bar, red glass, burning red in the first half of the bar's period (CAR-14.4).</summary>
     /// <remarks>
-    /// <b>Which colour an end is at rest is the whole of a second bar's phase</b> (CAR-14.4): a car
-    /// drawing two bars crosses the fittings on the second, so at every instant it carries the colours
-    /// the first one is not.
+    /// <b>Which end is red is the whole of a second bar's phase</b>: a car drawing two bars crosses the
+    /// fittings on the second, so the red that burns is at the other end of it.
     /// </remarks>
     BeaconRed,
 
-    /// <summary>A bar's other end, blue at rest.</summary>
+    /// <summary>A bar's other end, blue glass, burning blue in the second half.</summary>
     BeaconBlue,
 
-    /// <summary>
-    /// One end of a works bar, amber at rest and amber lit: it has no second colour to swap to, so what
-    /// it does instead is blink, and a pair of them blinks end for end (CAR-14.4).
-    /// </summary>
+    /// <summary>One end of a works bar, amber: a pair of them blinks end for end (CAR-14.4).</summary>
     BeaconAmber,
 
     /// <summary>A headlamp, which burns for as long as anything drives the car (CAR-14.8).</summary>
@@ -210,6 +206,20 @@ internal static class CarLamps
     }
 
     /// <summary>
+    /// <b>Each state a car's lamps can say, in turn</b> (CAR-14.9): what the showroom shows on the car picked out, so a
+    /// look's lamps are seen without driving it. Read off the town's clock, so nothing is stored.
+    /// </summary>
+    public static CarLampSet InTurn(float elapsedS, float stepS) =>
+        InTurnOrder[(int)(elapsedS / stepS) % InTurnOrder.Length];
+
+    /// <summary>Headlamps, reversing lamps, brake lamps, each indicator, then both indicators as hazard lamps.</summary>
+    static readonly CarLampSet[] InTurnOrder =
+    [
+        CarLampSet.Head, CarLampSet.Reverse, CarLampSet.Brake, CarLampSet.TurnLeft, CarLampSet.TurnRight,
+        CarLampSet.TurnLeft | CarLampSet.TurnRight,
+    ];
+
+    /// <summary>
     /// <b>What a car on a pass says</b> (CAR-14.7): the side it steps out to until that step is done, nothing
     /// alongside what it passes, and the side it steps back to from <paramref name="stepBackLeadS"/> short of the
     /// step back — never before the step out is done, so a step out running straight into the step back hands one
@@ -259,31 +269,28 @@ internal static class CarLamps
     /// glow that appears from nowhere.
     /// </summary>
     /// <remarks>
-    /// <b>Each car flashes at its own rate</b>, its fuse jitter over the nominal one, which is what a
-    /// flasher relay does and what keeps a queue of cars from blinking in unison. Nothing is stored: the
-    /// phase is the town's clock, so a frame drawn twice draws the same lamps.
+    /// <b>Every car flashes at the one rate</b>, off no jitter of its own (the owner, 2026-10-23: no jitter in an
+    /// animation), so indicators and beacons in a queue blink in step. Nothing is stored: the phase is the town's
+    /// clock, so a frame drawn twice draws the same lamps.
     /// </remarks>
     public static int Shown(
-        ReadOnlySpan<CarLens> lenses, CarLampSet showing, SimConfig config, float elapsedS, float rateJitter,
-        Span<ShownLamp> into)
+        ReadOnlySpan<CarLens> lenses, CarLampSet showing, SimConfig config, float elapsedS, Span<ShownLamp> into)
     {
         var lamps = config.Lamps;
         var braking = (showing & CarLampSet.Brake) != 0;
         var rearOn = braking || (showing & CarLampSet.Reverse) != 0;
         var indicating = showing & (CarLampSet.TurnLeft | CarLampSet.TurnRight);
-        var flashOn = indicating != CarLampSet.None
-                      && Phase(elapsedS, lamps.FlashHz * rateJitter) < lamps.FlashOnShare;
+        var flashOn = indicating != CarLampSet.None && Phase(elapsedS, lamps.FlashHz) < lamps.FlashOnShare;
 
-        // The bar never goes dark while it is on: what flashes is which end is which — the colours of a
-        // two-colour bar, and which end of a one-colour bar is burning — so the car is lit in every frame
-        // it is in.
+        // The bar never goes dark while it is on: its ends burn in turn, each its own colour, so the car is
+        // lit in every frame it is in.
         var beaconOn = (showing & CarLampSet.Beacon) != 0;
 
         // And an amber bar is up for the job rather than for the priority (CAR-14.6), so it burns on legs
         // the town owes the truck nothing for. A hand at the wheel runs whichever bar the car has.
         var amberOn = beaconOn || (showing & CarLampSet.Works) != 0;
-        var firstHalf = Phase(elapsedS, lamps.BeaconHz * rateJitter) < 0.5f;
-        var swapped = beaconOn && firstHalf;
+        var firstHalf = Phase(elapsedS, config.BeaconHz) < 0.5f;
+        var redGlass = HasRedGlass(lenses);
 
         var written = 0;
         foreach (var lens in lenses)
@@ -296,17 +303,20 @@ internal static class CarLamps
                 // standing still is not showing a reversing lamp that happens to be dark.
                 CarLampFitting.Rear => (
                     !braking && (showing & CarLampSet.Reverse) != 0 ? CarLamp.Reverse : CarLamp.Brake, rearOn),
+                // Both sides at once are hazard lamps (CAR-14.9).
                 CarLampFitting.Indicator => (
                     CarLamp.Indicator,
-                    flashOn && indicating == (onTheRight ? CarLampSet.TurnRight : CarLampSet.TurnLeft)),
-                CarLampFitting.BeaconRed => (swapped ? CarLamp.BeaconBlue : CarLamp.BeaconRed, beaconOn),
-                CarLampFitting.BeaconBlue => (swapped ? CarLamp.BeaconRed : CarLamp.BeaconBlue, beaconOn),
+                    flashOn && (indicating & (onTheRight ? CarLampSet.TurnRight : CarLampSet.TurnLeft)) != 0),
+                // A lamp keeps the colour its glass is (the owner, 2026-10-22): red burns first, blue second. A bar
+                // of blue alone takes its sides in turn, as an amber one does.
+                CarLampFitting.BeaconRed => (CarLamp.BeaconRed, beaconOn && firstHalf),
+                CarLampFitting.BeaconBlue => (CarLamp.BeaconBlue, beaconOn && (redGlass ? !firstHalf : firstHalf != onTheRight)),
                 CarLampFitting.Head => (CarLamp.Head, (showing & CarLampSet.Head) != 0),
                 CarLampFitting.Brake => (CarLamp.Brake, braking),
                 CarLampFitting.Reverse => (CarLamp.Reverse, (showing & CarLampSet.Reverse) != 0),
 
-                // An amber bar has no second colour to swap to, so its ends take the burn in turns: each
-                // one blinks between its own lit glass and its own dull glass, half a period apart.
+                // An amber bar's ends are one colour, so which goes first is which side it is on: each one
+                // blinks between its own lit glass and its own dull glass, half a period apart.
                 _ => (CarLamp.BeaconAmber, amberOn && firstHalf != onTheRight),
             };
 
@@ -314,6 +324,17 @@ internal static class CarLamps
         }
 
         return written;
+    }
+
+    /// <summary>Whether a look draws a red beacon end, which its blue ends take the burn from in turn.</summary>
+    static bool HasRedGlass(ReadOnlySpan<CarLens> lenses)
+    {
+        foreach (var lens in lenses)
+        {
+            if (lens.Fitting == CarLampFitting.BeaconRed) return true;
+        }
+
+        return false;
     }
 
     /// <summary>How far through its own period a flash of this rate is, in <c>[0, 1)</c>.</summary>

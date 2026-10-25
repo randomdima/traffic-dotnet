@@ -1,8 +1,9 @@
 {
   "id": "industrial_28",
+  "sprite": "industrial_28.webp",
   "footprintM": [
-    50.0,
-    43.0
+    75.0,
+    64.5
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],
@@ -13,5 +14,7 @@
     "sawtooth roof",
     "factory"
   ],
-  "describe": "large factory hall or depot, sawtooth roof with skylight strips, weathered and patched"
+  "describe": "large factory hall or depot, sawtooth roof with skylight strips, weathered and patched",
+  "chimneys": [[26.1, -26.5, 27.7, -26.5]],
+  "potWidthM": 1.6
 }

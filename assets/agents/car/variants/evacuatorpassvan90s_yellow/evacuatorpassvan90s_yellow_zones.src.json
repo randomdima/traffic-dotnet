@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/evacuatorpassvan90s_yellow/evacuatorpassvan90s_yellow-v8.props.json",
+ "cutOn": "raw_assets/agents/car/variants/evacuatorpassvan90s_yellow/evacuatorpassvan90s_yellow-v8.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

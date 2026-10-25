@@ -1,0 +1,8 @@
+{
+  "id": "hosta_clump",
+  "sprite": "hosta_clump.webp",
+  "kind": 1,
+  "diameterM": 0.8,
+  "share": 0.8,
+  "describe": "hosta, broad blue-green ribbed leaves in a rosette"
+}

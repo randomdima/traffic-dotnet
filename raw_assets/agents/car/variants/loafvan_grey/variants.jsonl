@@ -1,0 +1,4 @@
+{"variant": "loafvan_grey-v1", "frame": "fleet100_r02-v2", "cell": 8, "pxPerM": 97.018, "score": 3, "status": "candidate", "ts": "2026-10-22T16:49:27"}
+{"variant": "loafvan_grey-v2", "frame": "fleet100_r02-v2", "cell": 8, "pxPerM": 97.018, "score": 3, "lampsMirroredFrom": "loafvan_grey-v1", "props": "raw_assets/agents/car/variants/loafvan_grey/loafvan_grey-v1.props.json", "status": "candidate", "ts": "2026-10-22T16:52:30"}
+{"variant": "loafvan_grey-v3", "frame": "fleet100_r03-v2", "cell": 8, "pxPerM": 89.908, "score": 3, "status": "candidate", "ts": "2026-10-22T18:32:43"}
+{"variant": "loafvan_grey-v4", "frame": "fleet100_r03-v2", "cell": 8, "pxPerM": 89.908, "score": 3, "lampsMirroredFrom": "loafvan_grey-v3", "props": "raw_assets/agents/car/variants/loafvan_grey/loafvan_grey-v3.props.json", "status": "used", "ts": "2026-10-22T18:38:22"}

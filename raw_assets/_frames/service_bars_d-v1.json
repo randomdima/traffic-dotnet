@@ -1,0 +1,51 @@
+{
+ "id": "service_bars_d-v1",
+ "ts": "2026-10-22T20:54:43",
+ "op": "edit",
+ "name": "service_bars_d",
+ "file": ".tmp/gen/frames/service_bars_d-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.022308,
+ "usage": {
+  "prompt_tokens": 2397,
+  "completion_tokens": 158,
+  "total_tokens": 2555,
+  "cost": 0.022308,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.022308,
+   "upstream_inference_prompt_cost": 0.017568,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 compact vehicle roof light bars for a 2D top-down city game, seen from directly above.\n\nTHE RENDERING IS THE SECOND PICTURE'S CARS: smooth fine shading, soft gradients, crisp thin edges, small round LEDs with tiny highlights, glass with a subtle reflection — as finely as those cars' headlamps, mirrors and trim are drawn. No visible pixel blocks, no stair-stepped edges. The first picture's roof bar shows the family these belong to: a charcoal housing with LED arrays behind dark smoked glass.\n\nCOMPACT BUT BOLD. These go on small cars, where a slim low bar looked weak: here the bar is short, but its lens blocks are big and chunky — each lens block clearly larger than one of the second picture's cars' headlamps, deep and square-shouldered. A compact unit, about two and a half times as long as it is deep.\n\nEVERY BAR IS SWITCHED OFF: each LED a dull dark point only a shade lighter than its glass, the glass dark smoked with only a faint tint of its colour. Nothing bright or glowing.\n\nLayout: a 3×3 grid. Each bar lies VERTICALLY in its place — its long side running top to bottom, as a bar lying across a car's roof looks when the car points right — centred in its place, filling about two thirds of the place's height, with empty space round it.\n\nRows are three compact designs:\n- Row 1: a mini bar — one short charcoal box holding two big square lens blocks that meet in the middle, a thin housing rib between them.\n- Row 2: a mini bar with a raised centre — two big lens blocks, one at each end, and between them a short raised charcoal centre pod with a small grille.\n- Row 3: twin beacon heads — two separate big square beacon units, each a lens block in its own charcoal housing, side by side on one short charcoal mounting rail.\n\nColumns are three versions of the row's design:\n- Column 1: the upper lens block's glass a faint dark red tint, the lower's a faint dark blue tint.\n- Column 2: both neutral dark smoked glass.\n- Column 3: both a faint dark amber tint.\n\nNo car, no roof, no text, letters, logos or numbers. Background: fully transparent outside the bars — no colour, no glow or halo, no shadow. Each bar's edge ends sharply.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "b10423b3737be54a",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_police_b_ref.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "8ee6e0330c0430b8",
+   "ext": "png",
+   "frame": "service_police_c-v2",
+   "was": ".tmp/gen/frames/service_police_c-v2.png"
+  }
+ ]
+}

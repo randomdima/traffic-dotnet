@@ -2,8 +2,8 @@
   "id": "house_deep_02",
   "sprite": "house_deep_02.webp",
   "footprintM": [
-    2.0,
-    4.0
+    2.8,
+    5.6
   ],
   "cornerRadiusM": 0.3,
   "partsM": [],
@@ -16,5 +16,5 @@
     "annex",
     "narrow front"
   ],
-  "describe": "small single-storey annex or porch built onto a house, lean-to roof of grey corrugated asbestos-cement slate, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "small single-storey annex or porch built onto a house, lean-to roof of grey corrugated asbestos-cement slate, standing narrow end to the street with the entrance on that short front wall, its one slope falling to a long side"
 }

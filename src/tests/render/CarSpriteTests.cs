@@ -161,34 +161,35 @@ public class CarSpriteTests
     }
 
     /// <summary>
-    /// CAR-12: <b>every variant's tyres stand outside its own bodywork</b>, measured against the picture the
-    /// track was authored from rather than against another number in the same file. A tyre tucked under the
-    /// panels is invisible from above and is four impulses acting on a base narrower than the car looks.
+    /// CAR-12: <b>every variant's tyres show their share past its own bodywork, and no more</b>, measured
+    /// against the picture the track was authored from rather than against another number in the same file.
+    /// A tyre tucked under the panels is invisible from above and is four impulses acting on a base narrower
+    /// than the car looks; one standing well clear is a car on outriggers.
     /// </summary>
     /// <remarks>
     /// The bodywork is the <em>median</em> of the silhouette across a band at the axle and not its widest
-    /// point: a wing mirror is a spike a tenth of a metre long, and a car does not corner on its mirrors.
+    /// point: a wing mirror is a spike a tenth of a metre long, and a car does not corner on its mirrors. The
+    /// share is held at the wider of the two axles, the one track serving both, and to a texel either way.
     /// </remarks>
     [Fact]
-    public void EveryVariantsTyresShowPastItsOwnBodywork()
+    public void EveryVariantsTyresShowTheirShareOfTyrePastItsOwnBodywork()
     {
-        var mustShowM = Config.Tyre.WheelWidthM * Config.Tyre.ShowsPastTheBodyworkShare;
+        var owedM = Config.Tyre.WheelWidthM * Config.Tyre.ShowsPastTheBodyworkShare;
 
         foreach (var variant in CarCatalog.Load().Variants)
         {
             using var art = SixLabors.ImageSharp.Image.Load<Rgba32>(variant.SpritePath);
             var pixelsPerMetre = art.Width / variant.FootprintM.X;
+            var middleM = variant.FootprintM.X * 0.5f;
+            var bodyM = MathF.Max(
+                FlankAtM(art, pixelsPerMetre, middleM + variant.FrontAxleM),
+                FlankAtM(art, pixelsPerMetre, middleM + variant.RearAxleM));
+            var showsM = variant.HalfTrackM + (Config.Tyre.WheelWidthM * 0.5f) - bodyM;
 
-            foreach (var axleM in (float[])[variant.FrontAxleM, variant.RearAxleM])
-            {
-                var bodyM = FlankAtM(art, pixelsPerMetre, (variant.FootprintM.X * 0.5f) + axleM);
-                var showsM = variant.HalfTrackM + (Config.Tyre.WheelWidthM * 0.5f) - bodyM;
-
-                Assert.True(
-                    showsM >= mustShowM,
-                    $"{variant.Id} shows {showsM * 100f:F0} mm of tyre past {bodyM * 2f:F2} m of bodywork at " +
-                    $"{axleM:+0.00;-0.00} m, and owes {mustShowM * 100f:F0} mm on a {variant.HalfTrackM * 2f:F2} m track");
-            }
+            Assert.True(
+                MathF.Abs(showsM - owedM) <= 1f / pixelsPerMetre,
+                $"{variant.Id} shows {showsM * 1000f:F0} mm of tyre past {bodyM * 2f:F2} m of bodywork, and owes " +
+                $"{owedM * 1000f:F0} mm on a {variant.HalfTrackM * 2f:F2} m track");
         }
     }
 
@@ -266,30 +267,32 @@ public class CarSpriteTests
         return found;
     }
 
-    /// <summary>Half the width of the panels at one place along the car, in metres, off the art's own alpha.</summary>
+    /// <summary>
+    /// Half the width of the panels at one place along the car, in metres, off the art's own alpha: the median
+    /// span of the five columns about it, a texel half covered being inside, as <c>qq sprites</c> measures it.
+    /// </summary>
     static float FlankAtM(SixLabors.ImageSharp.Image<Rgba32> art, float pixelsPerMetre, float alongM)
     {
-        const float BandM = 0.12f;
-        var from = Math.Max(0, (int)MathF.Round((alongM - BandM) * pixelsPerMetre));
-        var to = Math.Min(art.Width - 1, (int)MathF.Round((alongM + BandM) * pixelsPerMetre));
-        var middle = (art.Height - 1) * 0.5f;
+        const int BandPx = 2;
+        var at = (int)MathF.Round(alongM * pixelsPerMetre);
 
-        var flanks = new List<float>();
-        for (var column = from; column <= to; column++)
+        var spans = new List<int>();
+        for (var column = Math.Max(0, at - BandPx); column <= Math.Min(art.Width - 1, at + BandPx); column++)
         {
-            var widest = -1f;
+            int first = -1, last = -1;
             for (var row = 0; row < art.Height; row++)
             {
-                if (art[column, row].A <= 24) continue;
+                if (art[column, row].A < 128) continue;
 
-                widest = MathF.Max(widest, MathF.Abs(row - middle) + 0.5f);
+                if (first < 0) first = row;
+                last = row;
             }
 
-            if (widest > 0f) flanks.Add(widest / pixelsPerMetre);
+            if (first >= 0) spans.Add(last + 1 - first);
         }
 
-        flanks.Sort();
-        return flanks.Count > 0 ? flanks[flanks.Count / 2] : 0f;
+        spans.Sort();
+        return spans.Count > 0 ? spans[spans.Count / 2] * 0.5f / pixelsPerMetre : 0f;
     }
 
     /// <summary>
@@ -452,7 +455,8 @@ public class CarSpriteTests
     [Fact]
     public void OnlyTheRearTyresArePaintedAndWhereTheirImpulseActs()
     {
-        const float InsideM = 0.03f;
+        // Inside the tyre, and past the art's faint rim on the few centimetres of it that show.
+        const float InsideM = 0.015f;
         var variant = CarCatalog.Shared.Variants[CarCatalog.Shared.Plain];
         var build = CarBuild.Of(Config, variant);
         var source = CarSheets.WithTyres(variant.SpritePath, variant.FootprintM, build, out var scale);
@@ -492,7 +496,9 @@ public class CarSpriteTests
     [Fact]
     public void ATyreMarginLeavesTheArtAtItsOwnBox()
     {
-        var variant = CarCatalog.Shared.Variants[CarCatalog.Shared.Plain];
+        // Tracked out to the footprint's edge, so half of each tyre stands past the art whatever the fleet draws.
+        var plain = CarCatalog.Shared.Variants[CarCatalog.Shared.Plain];
+        var variant = plain with { HalfTrackM = plain.FootprintM.Y * 0.5f };
         var build = CarBuild.Of(Config, variant);
 
         var looks = new[]

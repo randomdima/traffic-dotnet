@@ -19,10 +19,11 @@
       [243.20, 44.88, 0.79],
       [239.22, 36.11, 3.11]
     ]},
-    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 93.5, "mirrorDx": -1.0, "points": [
-      [221.57, 25.90, 3.69],
-      [229.84, 26.05, 0.74],
-      [223.55, 23.30, 0.86]
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 92.0, "mirrorDx": 2.0, "points": [
+      [224.09, 29.00, 0.42],
+      [228.53, 28.77, 0.55],
+      [229.10, 26.32, 0.58],
+      [224.54, 23.45, 2.56]
     ]},
     {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5}
   ]

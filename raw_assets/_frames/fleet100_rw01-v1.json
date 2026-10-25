@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_rw01-v1",
+ "ts": "2026-10-22T16:33:44",
+ "op": "edit",
+ "name": "fleet100_rw01",
+ "file": ".tmp/gen/frames/fleet100_rw01-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.019235,
+ "usage": {
+  "prompt_tokens": 2197,
+  "completion_tokens": 158,
+  "total_tokens": 2355,
+  "cost": 0.019235,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.019235,
+   "upstream_inference_prompt_cost": 0.014495,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from directly above, orthographic, exactly as the picture's cars are drawn — the roof centred across the body, both flanks alike. No perspective, no side of the body showing, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car (paint, wear, roof, windows, trim):\n- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.\n- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke.\n\nCars, body length × width without mirrors, and what each is:\n1. 3.57 × 1.66 m (2.15× longer than wide), rounded corners — modern retro two-door small car, good condition, cream with a white roof, domed rounded bonnet, round shoulders all round, short rounded tail, round headlamps, small round-cornered tail lamps\n2. 3.60 × 1.71 m (2.11× longer than wide), gently rounded corners — modern five-door city car, good condition, lime green, short rounded bonnet, tall roof with one long glass area, short hatchback tail, slim headlamps swept back into the front wings, tall tail lamps\n3. 3.67 × 1.61 m (2.27× longer than wide), gently rounded corners — modern five-door city hatchback, good condition, silver, short sloping bonnet, long roof, upright hatchback tail, swept-back headlamps, tall tail lamps up the rear corners\n4. 3.71 × 1.67 m (2.22× longer than wide), nearly square corners — 1990s Ukrainian small three-door hatchback, worn: yellowed white paint, rust along the sills, one front wing in a slightly different white, wedge-shaped flat bonnet, upright cabin, short hatch, plain rectangular headlamps, wide flat tail lamps\n5. 4.03 × 1.78 m (2.26× longer than wide), nearly square corners — Soviet utility 4×4 with a hard top, worn: faded khaki paint, rust at the edges, flat bonnet, upright square cab, flat roof, flat square tail with a spare wheel on the tailgate, round headlamps on the wings, small square tail lamps\n6. 4.07 × 1.69 m (2.41× longer than wide), nearly square corners — 1970s Soviet compact four-door saloon, average condition, off-white, long flat bonnet, upright three-box roof, separate flat boot, thin chrome bumpers, two round headlamps each side in a chrome grille, vertical tail lamps split into red, amber and white sections\n7. 4.24 × 1.90 m (2.24× longer than wide), gently rounded corners — 2000s budget compact four-door saloon, average condition, silver, rounded bonnet, rounded roof, short separate boot, oval headlamps, round-cornered tail lamps\n8. 4.34 × 2.01 m (2.16× longer than wide), gently rounded corners — modern budget compact SUV, average condition, metallic brown, tall squared bonnet, black plastic wheel-arch trim, roof rails, upright tailgate, square headlamps, tall tail lamps\n9. 4.48 × 1.87 m (2.39× longer than wide), gently rounded corners — 1990s German family four-door saloon, average condition, silver, smooth rounded wedge bonnet, rounded roof, short high boot, slim headlamps, wide tail lamps",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "126275ca3c2eea8f",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_rw01_style.png"
+  }
+ ],
+ "cells": [
+  "retro500_cream_broken",
+  "citycar_lime_broken",
+  "cityhatch_silver_broken",
+  "tavria_white_broken",
+  "offroad4x4_khaki_broken",
+  "classic_white_broken",
+  "saloon00s_silver_broken",
+  "budgetsuv_brown_broken",
+  "family90s_silver_broken"
+ ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "policeniva_white",
+  "sprite": "policeniva_white.webp",
+  "zones": "policeniva_white_zones.png",
+  "wreck": { "sprite": "policeniva_white_broken.webp" },
+  "describe": "Soviet three-door small 4×4 patrol car in police livery",
+  "footprintM": [3.740, 1.999],
+  "collisionM": { "sizeM": [3.740, 1.693], "cornerRadiusM": 0.421 },
+  "massKg": 1260,
+  "frontAxleM": 1.17,
+  "rearAxleM": -1.03,
+  "trackM": 1.63,
+  "drivetrain": 2,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.8,
+  "cgHeightM": 0.72,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.85, "acceleration": 0.85, "braking": 0.9 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-1.724, -0.541], "sizeM": [0.135, 0.312] },
+    { "fitting": "rear", "atM": [-1.724, 0.552], "sizeM": [0.135, 0.312] },
+    { "fitting": "indicator", "atM": [-1.745, -0.5], "sizeM": [0.073, 0.208] },
+    { "fitting": "indicator", "atM": [-1.745, 0.51], "sizeM": [0.073, 0.208] },
+    { "fitting": "head", "atM": [1.672, -0.541], "sizeM": [0.125, 0.229] },
+    { "fitting": "head", "atM": [1.693, 0.521], "sizeM": [0.125, 0.229] },
+    { "fitting": "indicator", "atM": [1.62, -0.687], "sizeM": [0.104, 0.104] },
+    { "fitting": "indicator", "atM": [1.641, 0.677], "sizeM": [0.104, 0.104] },
+    { "fitting": "beaconRed", "atM": [0.12, -0.208], "sizeM": [0.229, 0.229] },
+    { "fitting": "beaconBlue", "atM": [0.12, 0.219], "sizeM": [0.25, 0.229] }
+  ],
+  "exhausts": [[-1.828, -0.6]]
+}

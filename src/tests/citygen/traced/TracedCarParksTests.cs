@@ -67,7 +67,7 @@ public class TracedCarParksTests
     [Fact]
     public void AnAisleIsRankedDownBothKerbs()
     {
-        var plan = TownPlan.Lay(Parked(Beside(streetAtM: 100f)).Map, Config, BuildingSizes.None);
+        var plan = TownPlan.Lay(Parked(Beside(streetAtM: 100f)).Map, Config, ArtSizes.None);
         var parks = plan.CarParks;
 
         var widest = Enumerable.Range(0, parks.Street.Length).MaxBy(park => parks.BayOffsets[park + 1] - parks.BayOffsets[park]);
@@ -83,7 +83,7 @@ public class TracedCarParksTests
     [Fact]
     public void EveryBayStandsInsideItsCarPark()
     {
-        var plan = TownPlan.Lay(Parked(Beside(streetAtM: 100f)).Map, Config, BuildingSizes.None);
+        var plan = TownPlan.Lay(Parked(Beside(streetAtM: 100f)).Map, Config, ArtSizes.None);
 
         Assert.NotEmpty(plan.CarParks.Road);
         foreach (var bay in plan.CarParks.Road)

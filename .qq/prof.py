@@ -42,7 +42,9 @@ event's samples, so every other figure reads as it always did.
 `--gpu` samples the same window (or probe, launch to exit) for what the process asks of the GPU - each engine's
 busy share and its resident VRAM/GTT off the kernel's DRM fdinfo, beside the card's own busy and memory - into
 `.gpu`; it is `_gpu.py`'s. A window's town is ticked on the device, as the game's is by default; `--managed-world` steps it in managed code. `--frame`
-opens the status panel's frame read-out so the exit's budget line says where the CPU frame went.
+opens the status panel's frame read-out so the exit's budget line says where the CPU frame went. `--no-cpu` runs
+no perf at all — what is left is the read-out and `--gpu`/`--memory` — for a GPU question, or a machine whose
+`perf_event_paranoid` refuses perf ("Failure to open any events").
 
 perf walks JIT'd stacks by frame pointers, so an inlined method is missing and a frameless one hides its caller;
 the report puts both back from the source's own calls (`_nest.py`), `(Type::Method)` marking an inlined one, and
@@ -116,6 +118,13 @@ def main():
         folded = record(base, a)
     stacks, meta = load(folded)
     print(f"=== {_sim.rel(base, folded)}")
+    if not stacks:
+        # A run with no CPU samples (`--no-cpu`): the game's own read-out, its memory and the GPU's.
+        for line in meta["lines"]:
+            print(f"  {line}")
+        _heap.report(folded, a)
+        _gpu.report(folded)
+        return 0
     if not a.raw:
         stacks, filled = _nest.repair(stacks, base / "src")
         total = sum(n for _, n in stacks) or 1
@@ -159,6 +168,9 @@ def parse_args():
     parser.add_argument("--gpu", action="store_true",
                         help="also sample the GPU: this process's engine busy time and resident VRAM/GTT off DRM "
                              "fdinfo, and the card's own busy and memory, over the window or the probe")
+    parser.add_argument("--no-cpu", action="store_true",
+                        help="sample no CPU stacks (no perf): the window's own read-out, and with --gpu or --memory "
+                             "those - for a machine whose perf_event_paranoid refuses perf, or a GPU question")
     parser.add_argument("--managed-world", action="store_true",
                         help="step the window's world in managed code rather than on the device (the game's "
                              "--managed-world); not with --bench, which always steps the managed world, and whose "
@@ -315,7 +327,10 @@ def record(base: Path, a) -> Path:
         time.sleep(a.warmup)
         counters = _heap.watch_counters(pid, stem, a.seconds) if a.memory or a.counters else None
         gpu = _gpu.watch(pid, stem, a.seconds) if a.gpu else None
-        proc.run(["perf", "record", *sampling(a), "-g", "-p", pid, "-o", data, "--", "sleep", a.seconds], cwd=base)
+        if a.no_cpu:
+            time.sleep(a.seconds)
+        else:
+            proc.run(["perf", "record", *sampling(a), "-g", "-p", pid, "-o", data, "--", "sleep", a.seconds], cwd=base)
         if gpu:
             gpu.join()
         if counters:
@@ -329,7 +344,10 @@ def record(base: Path, a) -> Path:
         if a.annotate:
             keep_map(perf_map, stem.with_suffix(".map"), a.annotate)
         folded = stem.with_suffix(".folded")
-        fold(base, data, folded, a.events)
+        if a.no_cpu:
+            folded.write_text("", encoding="utf-8")
+        else:
+            fold(base, data, folded, a.events)
     finally:
         perf_map.unlink(missing_ok=True)
         data.unlink(missing_ok=True)

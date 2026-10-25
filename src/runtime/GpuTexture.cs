@@ -137,6 +137,24 @@ internal sealed unsafe class GpuTexture : IDisposable
     }
 
     /// <summary>
+    /// A ground surface's looks: its picture is square looks stacked top to bottom, and each is a layer of one array
+    /// texture, mipped and repeating as a single surface is. Viewed as an array even with one look, which is what the
+    /// ground stage samples.
+    /// </summary>
+    /// <exception cref="InvalidDataException">A picture that is not a whole number of squares tall.</exception>
+    public static GpuTexture LoadLooks(Vk vk, string path)
+    {
+        using var decoded = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(path);
+        if (decoded.Height % decoded.Width != 0)
+        {
+            throw new InvalidDataException(
+                $"{path} is {decoded.Width}x{decoded.Height}: a surface's looks are squares stacked top to bottom.");
+        }
+
+        return Upload(vk, decoded, repeats: true, mipped: true, layers: decoded.Height / decoded.Width, arrayed: true);
+    }
+
+    /// <summary>
     /// An image that ships inside the assembly rather than beside it — the glyph sheet, which has no
     /// path to find.
     /// </summary>
@@ -148,29 +166,39 @@ internal sealed unsafe class GpuTexture : IDisposable
         return Upload(vk, decoded, repeats, mipped);
     }
 
-    static GpuTexture Upload(Vk vk, Decoded decoded, bool repeats, bool mipped)
+    /// <param name="layers">How many layers the picture is, stacked top to bottom: each its own mip chain.</param>
+    /// <param name="arrayed">Viewed as an array, whatever the count of layers.</param>
+    static GpuTexture Upload(Vk vk, Decoded decoded, bool repeats, bool mipped, int layers = 1, bool arrayed = false)
     {
         var width = decoded.Width;
-        var height = decoded.Height;
+        var height = decoded.Height / layers;
 
         // The one crossing between the library's pixel and the town's. Both are four bytes in this
         // order, so it is a copy and never a conversion.
-        var top = new Texel[width * height];
-        decoded.CopyPixelDataTo(MemoryMarshal.AsBytes(top.AsSpan()));
+        var all = new Texel[width * height * layers];
+        decoded.CopyPixelDataTo(MemoryMarshal.AsBytes(all.AsSpan()));
 
-        var chain = mipped
-            ? MipChain.Build(top, width, height)
-            : [(top, width, height)];
+        // Layer by layer, every level of each: a buffer copy names one layer and one level, in that order.
+        var chains = new List<(Texel[] Pixels, int Width, int Height)>[layers];
         var totalPixels = 0;
-        foreach (var level in chain) totalPixels += level.Pixels.Length;
+        for (var layer = 0; layer < layers; layer++)
+        {
+            var top = all.AsSpan(layer * width * height, width * height).ToArray();
+            chains[layer] = mipped ? MipChain.Build(top, width, height) : [(top, width, height)];
+            foreach (var level in chains[layer]) totalPixels += level.Pixels.Length;
+        }
 
+        var chain = chains[0];
         using var staging = vk.CreateBuffer((ulong)(totalPixels * sizeof(Texel)), BufferUsageFlags.TransferSrcBit, hostVisible: true);
         var into = staging.Span<Texel>();
         var at = 0;
-        foreach (var level in chain)
+        foreach (var levels in chains)
         {
-            level.Pixels.CopyTo(into[at..]);
-            at += level.Pixels.Length;
+            foreach (var level in levels)
+            {
+                level.Pixels.CopyTo(into[at..]);
+                at += level.Pixels.Length;
+            }
         }
 
         var info = new ImageCreateInfo
@@ -181,7 +209,7 @@ internal sealed unsafe class GpuTexture : IDisposable
             Format = Format.R8G8B8A8Unorm,
             Extent = new Extent3D((uint)width, (uint)height, 1),
             MipLevels = (uint)chain.Count,
-            ArrayLayers = 1,
+            ArrayLayers = (uint)layers,
             Samples = SampleCountFlags.Count1Bit,
             Tiling = ImageTiling.Optimal,
             Usage = ImageUsageFlags.TransferDstBit | ImageUsageFlags.SampledBit,
@@ -193,39 +221,43 @@ internal sealed unsafe class GpuTexture : IDisposable
         Vk.Check(vk.Api.CreateImage(vk.Device, &info, null, out var image), "vkCreateImage");
         var memory = Bind(vk, image);
 
-        var regions = new BufferImageCopy[chain.Count];
+        var regions = new BufferImageCopy[chain.Count * layers];
         ulong offset = 0;
-        for (var level = 0; level < chain.Count; level++)
+        for (var layer = 0; layer < layers; layer++)
         {
-            regions[level] = new BufferImageCopy
+            for (var level = 0; level < chain.Count; level++)
             {
-                BufferOffset = offset,
-                ImageSubresource = new ImageSubresourceLayers(ImageAspectFlags.ColorBit, (uint)level, 0, 1),
-                ImageExtent = new Extent3D((uint)chain[level].Width, (uint)chain[level].Height, 1),
-            };
+                var (pixels, levelWidth, levelHeight) = chains[layer][level];
+                regions[(layer * chain.Count) + level] = new BufferImageCopy
+                {
+                    BufferOffset = offset,
+                    ImageSubresource = new ImageSubresourceLayers(ImageAspectFlags.ColorBit, (uint)level, (uint)layer, 1),
+                    ImageExtent = new Extent3D((uint)levelWidth, (uint)levelHeight, 1),
+                };
 
-            offset += (ulong)(chain[level].Pixels.Length * sizeof(Texel));
+                offset += (ulong)(pixels.Length * sizeof(Texel));
+            }
         }
 
         vk.OneShot(commands =>
         {
-            Transition(vk, commands, image, chain.Count, ImageLayout.Undefined, ImageLayout.TransferDstOptimal);
+            Transition(vk, commands, image, chain.Count, ImageLayout.Undefined, ImageLayout.TransferDstOptimal, 0, layers);
             fixed (BufferImageCopy* p = regions)
             {
                 Vk.Count();
                 vk.Api.CmdCopyBufferToImage(commands, staging.Handle, image, ImageLayout.TransferDstOptimal, (uint)regions.Length, p);
             }
 
-            Transition(vk, commands, image, chain.Count, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal);
+            Transition(vk, commands, image, chain.Count, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal, 0, layers);
         });
 
         var viewInfo = new ImageViewCreateInfo
         {
             SType = StructureType.ImageViewCreateInfo,
             Image = image,
-            ViewType = ImageViewType.Type2D,
+            ViewType = arrayed ? ImageViewType.Type2DArray : ImageViewType.Type2D,
             Format = Format.R8G8B8A8Unorm,
-            SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, (uint)chain.Count, 0, 1),
+            SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, (uint)chain.Count, 0, (uint)layers),
         };
 
         Vk.Count();
@@ -249,7 +281,7 @@ internal sealed unsafe class GpuTexture : IDisposable
         Vk.Count();
         Vk.Check(vk.Api.CreateSampler(vk.Device, &samplerInfo, null, out var sampler), "vkCreateSampler");
 
-        return new GpuTexture(vk, image, memory, view, sampler, width, height, chain.Count);
+        return new GpuTexture(vk, image, memory, view, sampler, width, height, chain.Count, layers);
     }
 
     public void Dispose()
@@ -303,7 +335,7 @@ internal sealed unsafe class GpuTexture : IDisposable
     }
 
     static void Transition(
-        Vk vk, CommandBuffer commands, Image image, int levels, ImageLayout from, ImageLayout to, int layer = 0)
+        Vk vk, CommandBuffer commands, Image image, int levels, ImageLayout from, ImageLayout to, int layer = 0, int layers = 1)
     {
         var barrier = new ImageMemoryBarrier2
         {
@@ -315,7 +347,7 @@ internal sealed unsafe class GpuTexture : IDisposable
             OldLayout = from,
             NewLayout = to,
             Image = image,
-            SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, (uint)levels, (uint)layer, 1),
+            SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, (uint)levels, (uint)layer, (uint)layers),
         };
 
         var dependency = new DependencyInfo

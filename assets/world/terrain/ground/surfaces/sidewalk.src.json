@@ -1,0 +1,49 @@
+{
+ "variant": "raw_assets/world/terrain/ground/surfaces/sidewalk_k1/sidewalk_k1-v1.png",
+ "variants": [
+  "raw_assets/world/terrain/ground/surfaces/sidewalk_k1/sidewalk_k1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/sidewalk_k2/sidewalk_k2-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/sidewalk_l1/sidewalk_l1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/sidewalk_l2/sidewalk_l2-v1.png"
+ ],
+ "looks": [
+  [
+   [
+    "sidewalk_k1",
+    false
+   ],
+   [
+    "sidewalk_k2",
+    false
+   ],
+   [
+    "sidewalk_k2",
+    true
+   ],
+   [
+    "sidewalk_k1",
+    true
+   ]
+  ],
+  [
+   [
+    "sidewalk_l1",
+    false
+   ],
+   [
+    "sidewalk_l2",
+    false
+   ],
+   [
+    "sidewalk_l2",
+    true
+   ],
+   [
+    "sidewalk_l1",
+    true
+   ]
+  ]
+ ],
+ "pxPerM": 31.5,
+ "encoding": "webp q90"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "alder_young",
+  "sprite": "alder_young.webp",
+  "kind": 0,
+  "diameterM": 3.0,
+  "colliderM": 0.5,
+  "describe": "young alder crown, round dark glossy green leaves, slightly ragged"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "dead_snag",
+  "sprite": "dead_snag.webp",
+  "kind": 0,
+  "diameterM": 2.6,
+  "colliderM": 0.5,
+  "share": 0.3,
+  "describe": "dead tree seen from above, bare grey branches radiating from the trunk, no leaves, a little ivy at the centre"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "wheelbarrow",
+  "sprite": "wheelbarrow.webp",
+  "kind": 2,
+  "footprintM": [0.6, 1.008],
+  "cornerRadiusM": 0.1,
+  "share": 0.5,
+  "turns": true,
+  "describe": "builder's wheelbarrow, a grey steel tray with cement crust, the wheel at the front"
+}

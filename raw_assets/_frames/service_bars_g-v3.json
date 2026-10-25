@@ -1,0 +1,44 @@
+{
+ "id": "service_bars_g-v3",
+ "ts": "2026-10-22T21:18:51",
+ "op": "edit",
+ "name": "service_bars_g",
+ "file": ".tmp/gen/frames/service_bars_g-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.011674,
+ "usage": {
+  "prompt_tokens": 926,
+  "completion_tokens": 158,
+  "total_tokens": 1084,
+  "cost": 0.011674,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.011674,
+   "upstream_inference_prompt_cost": 0.006934,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "A sprite sheet of 9 roof light bars, seen from above, in exactly the attached picture's style, switched off.\n\nEach bar is a longer version of the attached bar: same width, same centre grille, but each of its two lenses stretched to twice its length — one long unbroken lens at each end, not split into blocks.\n\nSymmetric: the grille exactly in the middle, both lenses exactly the same length and shape.\n\n3×3 grid, each bar vertical and centred in its place.\n- Column 1: upper lens red, lower lens blue.\n- Column 2: both lenses blue.\n- Column 3: both lenses amber.\n\nTransparent background, no shadow, no text.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "534b77e0bd9554bd",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_bars_pod_ref.png"
+  }
+ ]
+}

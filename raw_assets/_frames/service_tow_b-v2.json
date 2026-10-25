@@ -1,0 +1,62 @@
+{
+ "id": "service_tow_b-v2",
+ "ts": "2026-10-23T04:13:57",
+ "op": "edit",
+ "name": "service_tow_b",
+ "file": ".tmp/gen/frames/service_tow_b-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.018953,
+ "usage": {
+  "prompt_tokens": 1921,
+  "completion_tokens": 158,
+  "total_tokens": 2079,
+  "cost": 0.018953,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.018953,
+   "upstream_inference_prompt_cost": 0.014213,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Image 1 is a finished sprite sheet of nine tow trucks for a 2D top-down city game, seen straight down from above, each with its nose to the right. Only the transparent areas of the mask are redrawn: the places of truck 1 (top row, left) and truck 2 (top row, middle). Redraw each of those two trucks in its place at the same size and outline, matching the other seven trucks of image 1 exactly in art style, outline weight, shading, livery and detail — truck 3 beside them is the model.\n\n- The last drawing put the row of round work lamps ON THE CAB ROOF of trucks 1 and 2: wrong. The cab roof behind the windscreen is plain yellow painted metal with NOTHING on it, about 0.6 m long, as truck 3's is. The work lamps belong on the dark steel headboard that stands BEHIND the cab, across the front of the deck, as on trucks 3 to 9.\n- Behind the headboard: the framed dark diamond-plate deck with tie-down slots, red and white hazard stripes down both long sides and across the tail, and a red tail lamp at each rear corner — as the other trucks have.\n- Truck 1 is a Soviet forward-control 4×4: a flat bonnetless front with round headlamps, the windscreen at the very front. Truck 2 is a 2000s Japanese off-road 4×4: a flat square bonnet.\n- No crane, boom or arm. The glass dark, every lamp switched off, no text, letters, numbers or logos.\n\nBackground: fully transparent outside the trucks — no colour, no glow or halo, no shadow. Everything outside the masked areas stays as it is.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "544054a19208280f",
+   "ext": "png",
+   "frame": "service_tow_b-v1",
+   "was": ".tmp/gen/frames/service_tow_b-v1.png"
+  },
+  {
+   "role": "mask",
+   "sha": "284976e86de9a6b8",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/service_tow_b-v1/_mask_evacuatorloaf_yellow-whole_evacuatoroffroad_yellow-whole.png"
+  }
+ ],
+ "cells": [
+  "evacuatorloaf_yellow",
+  "evacuatoroffroad_yellow",
+  "evacuatorpassvan90s_yellow",
+  "evacuatorvan90s_yellow",
+  "evacuatorbus_yellow",
+  "evacuatorpickup_yellow",
+  "evacuatorhightop_yellow",
+  "evacuator_yellow",
+  "evacuatorbig_yellow"
+ ]
+}

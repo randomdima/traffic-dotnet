@@ -177,7 +177,19 @@ internal sealed class Trains
     readonly TrackRun[] _runs;
     int _runCount;
 
-    public Trains(RailGraph graph, CityPlan.RailArrays rails, Vector2 worldSizeM, TrainCatalog catalog, SimConfig config, ulong agentSeed)
+    /// <summary>The looks of the train being put down, front first: what <see cref="Compose"/> makes it of.</summary>
+    readonly int[] _composing;
+
+    /// <summary>Each train's looks, front first, where the town stands each look once (<see cref="StandEachLookOnce"/>); null where it sends them.</summary>
+    readonly int[][]? _stood;
+
+    /// <param name="standEachLookOnce">
+    /// Whether the trains are stood rather than sent: the showroom's, every look of the rolling stock once
+    /// (<see cref="StandEachLookOnce"/>).
+    /// </param>
+    public Trains(
+        RailGraph graph, CityPlan.RailArrays rails, Vector2 worldSizeM, TrainCatalog catalog, SimConfig config, ulong agentSeed,
+        bool standEachLookOnce = false)
     {
         (_graph, _config, _catalog, _worldSizeM) = (graph, config, catalog, worldSizeM);
         var lines = rails.Count == 0 ? 0 : rails.Line.Max() + 1;
@@ -240,6 +252,13 @@ internal sealed class Trains
             (_leg[train], _spareLeg[train], _legStartM[train]) = (new int[lanes], new int[lanes], new float[lanes + 1]);
             (_switchLane[train], _switchOf[train], _switchPosition[train], _switchFacing[train]) =
                 (new int[lanes], new int[lanes], new int[lanes], new bool[lanes]);
+        }
+
+        _composing = new int[longest];
+        if (standEachLookOnce)
+        {
+            _stood = StandEachLookOnce(catalog, trains);
+            Array.Clear(_waitS);
         }
 
         _runs = new TrackRun[Math.Max(1, trains * Math.Max(1, graph.LaneCount))];
@@ -348,6 +367,9 @@ internal sealed class Trains
     /// <summary>Which of the catalogue's vehicles a slot was last put down as.</summary>
     public int LookOf(int wagon) => _look[wagon];
 
+    /// <summary>Whether its trains are stood, every look once, rather than sent (<see cref="StandEachLookOnce"/>): none has a driver of its own.</summary>
+    public bool StandsEachLookOnce => _stood is not null;
+
     /// <summary>How many trains the town has, a lane onto the map each.</summary>
     public int Count => _running.Length;
 
@@ -454,18 +476,61 @@ internal sealed class Trains
         {
             if (!_running[train])
             {
-                if (held) continue;
+                // A stood train is put down however the town is held, and put back once a hand has driven it off the map.
+                if (_stood is null ? held : _stood[train].Length == 0) continue;
 
                 _waitS[train] -= dtS;
                 if (_waitS[train] > 0f) continue;
 
-                Send(train, orders);
+                if (_stood is null) Send(train, orders);
+                else Stand(train, orders);
+
                 if (!_running[train]) continue;
             }
 
             if (!held || _handed[train]) Drive(train, seen, dtS, orders);
             if (_running[train]) Run(train);
         }
+    }
+
+    /// <summary>
+    /// <b>Every look of the rolling stock once, as trains</b> (the showroom's, <c>ShowroomPlan</c>), front first, one a
+    /// locomotive look in the catalogue's order: each heads a train of one kind (TRN-4) — an electric coaches, a diesel tanks
+    /// or coal, the diesels taking the two in turn — and each wagon look stands once behind the locomotives of its kind,
+    /// dealt round them. A locomotive left with none of its kind's looks to haul takes one of them again; a train past
+    /// <paramref name="trains"/> stands nowhere, and one past the locomotives stands empty.
+    /// </summary>
+    internal static int[][] StandEachLookOnce(TrainCatalog catalog, int trains)
+    {
+        (VehicleKind Lead, VehicleKind Wagon)[] kinds =
+            [(VehicleKind.Electric, VehicleKind.Coach), (VehicleKind.Diesel, VehicleKind.Tank), (VehicleKind.Diesel, VehicleKind.Coal)];
+        var heads = new List<(int Look, VehicleKind Wagon)>();
+        foreach (var lead in (ReadOnlySpan<VehicleKind>)[VehicleKind.Electric, VehicleKind.Diesel])
+        {
+            var hauls = kinds.Where(kind => kind.Lead == lead).Select(kind => kind.Wagon).ToArray();
+            var locomotives = catalog.OfKind(lead);
+            for (var each = 0; each < locomotives.Length; each++) heads.Add((locomotives[each], hauls[each % hauls.Length]));
+        }
+
+        var stood = new int[trains][];
+        for (var train = 0; train < trains; train++)
+        {
+            if (train >= heads.Count)
+            {
+                stood[train] = [];
+                continue;
+            }
+
+            var (look, wagon) = heads[train];
+            var sameKind = heads.Where(head => head.Wagon == wagon).ToList();
+            var at = sameKind.IndexOf(heads[train]);
+            var wagons = catalog.OfKind(wagon).ToArray();
+            var dealt = Enumerable.Range(0, wagons.Length).Where(each => each % sameKind.Count == at).Select(each => wagons[each]).ToList();
+            if (dealt.Count == 0) dealt.Add(wagons[at % wagons.Length]);
+            stood[train] = [look, .. dealt];
+        }
+
+        return stood;
     }
 
     /// <summary>
@@ -492,26 +557,76 @@ internal sealed class Trains
             _ => (VehicleKind.Diesel, VehicleKind.Coal, figures.CoalWagons),
         };
 
-        var behindM = 0f;
-        var massKg = 0f;
         _vehicles[train] = 1 + wagons;
         for (var vehicle = 0; vehicle < _vehicles[train]; vehicle++)
         {
-            var vehicleKind = vehicle == 0 ? lead : wagon;
+            var looks = _catalog.OfKind(vehicle == 0 ? lead : wagon);
+            _composing[vehicle] = looks[draw.NextInt(looks.Length)];
+        }
+
+        Compose(train, kind);
+        var frontM = MathF.Max(_lengthM[train], _entersM[train] - (_speedMps[train] * _config.Rail.WarningS));
+        PutDown(train, frontM, _speedMps[train], orders);
+        Sent++;
+    }
+
+    /// <summary>
+    /// <b>A showroom's train stood</b> (<see cref="StandEachLookOnce"/>): its looks put down front first on its siding,
+    /// coupled and braked, its middle on the middle of the map's stretch of its leg, to stand until a hand drives it.
+    /// </summary>
+    void Stand(int train, TrainOrders orders)
+    {
+        ref var draw = ref _draw[train];
+        if (!DrawALeg(train, ref draw))
+        {
+            WaitedForGround++;
+            return;
+        }
+
+        var looks = _stood![train];
+        _vehicles[train] = looks.Length;
+        looks.CopyTo(_composing, 0);
+        Compose(train, _catalog.Vehicles[looks[^1]].Kind switch
+        {
+            VehicleKind.Coach or VehicleKind.Electric => TrainKind.Intercity,
+            VehicleKind.Tank => TrainKind.Oil,
+            _ => TrainKind.Coal,
+        });
+        PutDown(train, ((_entersM[train] + _leavesM[train]) * 0.5f) + (_lengthM[train] * 0.5f), 0f, orders);
+    }
+
+    /// <summary>
+    /// A train made of the looks in <see cref="_composing"/>, front first — its locomotive's and then its wagons', each
+    /// in a slot of its kind — and its length, its weight and its kind's pace.
+    /// </summary>
+    void Compose(int train, TrainKind kind)
+    {
+        var behindM = 0f;
+        var massKg = 0f;
+        for (var vehicle = 0; vehicle < _vehicles[train]; vehicle++)
+        {
+            var vehicleKind = _catalog.Vehicles[_composing[vehicle]].Kind;
             var slot = (train * _slotsPerTrain) + _firstSlotOfKind[(int)vehicleKind] + (vehicle == 0 ? 0 : vehicle - 1);
-            var looks = _catalog.OfKind(vehicleKind);
-            _look[slot] = looks[draw.NextInt(looks.Length)];
+            _look[slot] = _composing[vehicle];
             (_slotOf[train][vehicle], _behindM[train][vehicle]) = (slot, behindM);
             behindM += _catalog.ShapeOf(vehicleKind).FootprintM.X;
             massKg += _catalog.ShapeOf(vehicleKind).MassKg;
         }
 
+        var figures = _config.Train;
         _lengthM[train] = behindM;
         _massKg[train] = massKg;
         _speedMps[train] = kind == TrainKind.Intercity ? figures.IntercitySpeedMps : figures.FreightSpeedMps;
         _wantedMps[train] = _speedMps[train];
-        var frontM = MathF.Max(_lengthM[train], _entersM[train] - (_speedMps[train] * _config.Rail.WarningS));
+    }
 
+    /// <summary>
+    /// A composed train's vehicles put on its leg with its front <paramref name="frontM"/> along it, moving at
+    /// <paramref name="alongMps"/> and coupled — rolling free, or braked where it is put down standing.
+    /// </summary>
+    void PutDown(int train, float frontM, float alongMps, TrainOrders orders)
+    {
+        var braked = alongMps == 0f;
         for (var vehicle = 0; vehicle < _vehicles[train]; vehicle++)
         {
             var slot = _slotOf[train][vehicle];
@@ -521,19 +636,18 @@ internal sealed class Trains
             var rearBogieM = PlaceOnTheLeg(train, middleM + shape.BogiesM[^1]);
             var along = frontBogieM - rearBogieM;
             orders.Add(new TrainOrder(
-                TrainOrderKind.Place, slot, _look[slot], (frontBogieM + rearBogieM) * 0.5f, Trig.Atan2(along.Y, along.X), _speedMps[train]));
+                TrainOrderKind.Place, slot, _look[slot], (frontBogieM + rearBogieM) * 0.5f, Trig.Atan2(along.Y, along.X), alongMps));
             orders.Add(new TrainOrder(TrainOrderKind.Couple, slot, vehicle == 0 ? -1 : _slotOf[train][vehicle - 1]));
-            orders.Add(new TrainOrder(TrainOrderKind.Drive, slot, 0, Command: Rolling));
+            orders.Add(new TrainOrder(TrainOrderKind.Drive, slot, 0, Command: braked ? Braked : Rolling));
             _channels[slot] = CityPlan.RoadArrays.GroundChannel;
         }
 
-        ref readonly var locomotive = ref _catalog.ShapeOf(lead);
+        ref readonly var locomotive = ref _catalog.ShapeOf(_kindOf[_slotOf[train][0]]);
         var frontBogieLegM = frontM - (locomotive.FootprintM.X * 0.5f) + locomotive.BogiesM[0];
         (_atLane[train], _atSegmentM[train], _frontM[train]) = (LaneAt(train, frontBogieLegM), float.NaN, frontM);
-        (_alongMps[train], _braked[train], _branchWas[train]) = (_speedMps[train], false, 0);
+        (_alongMps[train], _braked[train], _branchWas[train]) = (alongMps, braked, 0);
         _nextSwitch[train] = 0;
         _running[train] = true;
-        Sent++;
     }
 
     /// <summary>A vehicle rolling free, neither driven nor braked: what every vehicle of a train is told as it is put down.</summary>
@@ -541,6 +655,9 @@ internal sealed class Trains
 
     /// <summary>A vehicle's wheels braked (TRN-8): a rail wheel's brake is on or off, so it is said as the lock.</summary>
     static DriveCommand Braked => new(0f, 0f, 0f, true, false);
+
+    /// <summary>A train held where it stands: no pull and the brake on every vehicle.</summary>
+    static TrainControls Standing => new(0f, Reverse: false, Brake: true);
 
     /// <summary>
     /// <b>A leg drawn for a train</b>: in by the way it last left where a lane leads in there and otherwise by any of its
@@ -647,7 +764,9 @@ internal sealed class Trains
         }
 
         _wantedMps[train] = MathF.Min(_speedMps[train], CurveLimitMps(train));
-        var controls = _handed[train] ? _hand[train] : OwnDriver(train, locomotive, alongMps, dtS);
+
+        // A stood train has no driver of its own: let go, it brakes to a stand where it was left, as the showroom's cars do.
+        var controls = _handed[train] ? _hand[train] : _stood is not null ? Standing : OwnDriver(train, locomotive, alongMps, dtS);
         Give(train, locomotive, controls, orders);
         if (controls.Branch != 0 && _branchWas[train] == 0) ThrowTheSwitchAhead(train, controls.Branch);
         _branchWas[train] = controls.Branch;

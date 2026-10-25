@@ -1,0 +1,8 @@
+{
+  "id": "raised_bed_brick",
+  "sprite": "raised_bed_brick.webp",
+  "kind": 1,
+  "footprintM": [1.8, 1.012],
+  "turns": true,
+  "describe": "raised bed in a low red brick wall, dark soil with herbs and marigolds"
+}

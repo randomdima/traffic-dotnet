@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/policehybrid_white/policehybrid_white-v7.props.json",
+ "cutOn": "raw_assets/agents/car/variants/policehybrid_white/policehybrid_white-v7.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

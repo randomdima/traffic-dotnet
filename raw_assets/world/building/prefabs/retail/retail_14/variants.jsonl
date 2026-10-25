@@ -1,0 +1,2 @@
+{"variant": "retail_14-v1", "frame": "roofs_mixed_ad-v1", "cell": 2, "box": [400, 701, 737, 134], "pxPerM": 17.185, "score": 3, "status": "candidate", "ts": "2026-10-20T14:02:38"}
+{"variant": "retail_14-v2", "frame": "roofs_mixed_ad-v2", "cell": 2, "box": [400, 701, 737, 134], "pxPerM": 17.185, "score": 4, "status": "used", "ts": "2026-10-20T14:03:12"}

@@ -1,2 +1,4 @@
 {"variant": "vanbus_white-v1", "frame": "fleet100_b10-v1", "cell": 6, "pxPerM": 95.102, "score": 3, "status": "candidate", "ts": "2026-10-22T14:02:40"}
-{"variant": "vanbus_white-v2", "frame": "fleet100_b10-v1", "cell": 6, "pxPerM": 95.102, "score": 3, "lampsMirroredFrom": "vanbus_white-v1", "props": "raw_assets/agents/car/variants/vanbus_white/vanbus_white-v1.props.json", "status": "used", "ts": "2026-10-22T14:05:13"}
+{"variant": "vanbus_white-v2", "frame": "fleet100_b10-v1", "cell": 6, "pxPerM": 95.102, "score": 3, "lampsMirroredFrom": "vanbus_white-v1", "props": "raw_assets/agents/car/variants/vanbus_white/vanbus_white-v1.props.json", "status": "candidate", "ts": "2026-10-22T14:05:13"}
+{"variant": "vanbus_white-v3", "frame": "fleet100_r02-v2", "cell": 9, "pxPerM": 95.918, "score": 3, "status": "candidate", "ts": "2026-10-22T16:49:27"}
+{"variant": "vanbus_white-v4", "frame": "fleet100_r02-v2", "cell": 9, "pxPerM": 95.918, "score": 3, "lampsMirroredFrom": "vanbus_white-v3", "props": "raw_assets/agents/car/variants/vanbus_white/vanbus_white-v3.props.json", "status": "used", "ts": "2026-10-22T16:54:32"}

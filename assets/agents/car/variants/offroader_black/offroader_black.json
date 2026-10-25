@@ -1,15 +1,15 @@
 {
   "id": "offroader_black",
   "sprite": "offroader_black.webp",
-  "wreck": { "sprite": "offroader_black_broken.webp" },
   "zones": "offroader_black_zones.png",
+  "wreck": { "sprite": "offroader_black_broken.webp" },
   "describe": "modern boxy luxury off-roader, good condition, gloss black, flat square bonnet with indicators on top of the wings, upright square cab, flat roof, square tail with a covered spare wheel, round headlamps, square tail lamps",
-  "footprintM": [4.820, 2.383],
-  "collisionM": { "sizeM": [4.820, 1.973], "cornerRadiusM": 0.625 },
+  "footprintM": [4.820, 2.504],
+  "collisionM": { "sizeM": [4.820, 2.153], "cornerRadiusM": 0.866 },
   "massKg": 2450,
   "frontAxleM": 1.59,
   "rearAxleM": -1.26,
-  "trackM": 2.076,
+  "trackM": 2.087,
   "drivetrain": 2,
   "maxSteeringDeg": 31,
   "tyreFriction": 0.84,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.52,
   "handling": { "maxSpeed": 0.95, "acceleration": 1.05, "braking": 0.92 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.973, -0.671], "sizeM": [0.125, 0.406] },
-    { "fitting": "brake", "atM": [-1.973, 0.64], "sizeM": [0.125, 0.406] },
-    { "fitting": "indicator", "atM": [-1.973, -0.765], "sizeM": [0.052, 0.062] },
-    { "fitting": "indicator", "atM": [-1.994, 0.65], "sizeM": [0.052, 0.062] },
-    { "fitting": "head", "atM": [2.212, -0.65], "sizeM": [0.073, 0.156] },
-    { "fitting": "head", "atM": [2.233, 0.64], "sizeM": [0.073, 0.156] },
-    { "fitting": "indicator", "atM": [2.129, -0.754], "sizeM": [0.094, 0.135] },
-    { "fitting": "indicator", "atM": [2.129, 0.723], "sizeM": [0.094, 0.135] },
-    { "fitting": "reverse", "atM": [-1.983, -0.546], "sizeM": [0.042, 0.052] },
-    { "fitting": "reverse", "atM": [-1.994, 0.557], "sizeM": [0.042, 0.052] }
-  ]
+    { "fitting": "brake", "atM": [-1.806, -0.751], "sizeM": [0.198, 0.407] },
+    { "fitting": "brake", "atM": [-1.806, 0.751], "sizeM": [0.198, 0.407] },
+    { "fitting": "indicator", "atM": [-1.806, -0.845], "sizeM": [0.187, 0.209] },
+    { "fitting": "indicator", "atM": [-1.806, 0.856], "sizeM": [0.187, 0.209] },
+    { "fitting": "head", "atM": [2.171, -0.689], "sizeM": [0.198, 0.313] },
+    { "fitting": "head", "atM": [2.171, 0.699], "sizeM": [0.198, 0.313] },
+    { "fitting": "indicator", "atM": [2.087, -0.897], "sizeM": [0.187, 0.115] },
+    { "fitting": "indicator", "atM": [2.087, 0.897], "sizeM": [0.187, 0.115] },
+    { "fitting": "reverse", "atM": [-1.848, -0.605], "sizeM": [0.125, 0.136] },
+    { "fitting": "reverse", "atM": [-1.848, 0.626], "sizeM": [0.125, 0.136] }
+  ],
+  "exhausts": [[-2.025, -0.751]]
 }

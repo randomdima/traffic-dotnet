@@ -1,0 +1,8 @@
+{
+  "id": "plane_pollard",
+  "sprite": "plane_pollard.webp",
+  "kind": 1,
+  "diameterM": 3.6,
+  "colliderM": 0.5,
+  "describe": "pollarded street plane, a compact crown of fresh light green maple-like leaves growing from knuckled branch ends"
+}

@@ -1,0 +1,14 @@
+{
+  "car": "retail_07",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/retail/retail_07/retail_07-v1.png", "sizePx": [313, 257]},
+  "axisY": {"rear": 127.00, "front": 127.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [91.53, 50.15, 2.30],
+      [92.53, 62.48, 3.57],
+      [112.33, 63.82, 2.64],
+      [115.00, 50.99, 1.64],
+      [103.57, 44.93, 1.58]
+    ]}
+  ]
+}

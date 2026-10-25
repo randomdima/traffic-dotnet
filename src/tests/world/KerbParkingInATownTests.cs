@@ -29,7 +29,7 @@ public class KerbParkingInATownTests
     [Fact]
     public void EveryCarTheMapStandsIsAtAKerb()
     {
-        using var world = new TownWorld(TownPlan.Lay(Block(), Config, BuildingSizes.None), Config);
+        using var world = new TownWorld(TownPlan.Lay(Block(), Config, ArtSizes.None), Config);
 
         Assert.True(world.Cars.Count > 0);
         for (var car = 0; car < world.Cars.Count; car++)
@@ -46,7 +46,7 @@ public class KerbParkingInATownTests
     [Fact]
     public void ACarAtTheKerbHoldsTheRoadsideByItsBody()
     {
-        using var world = new TownWorld(TownPlan.Lay(Block(), Config, BuildingSizes.None), Config);
+        using var world = new TownWorld(TownPlan.Lay(Block(), Config, ArtSizes.None), Config);
         new SimLoop<TownWorld>(world, Config).Advance(1);
 
         for (var car = 0; car < world.Cars.Count; car++)
@@ -63,7 +63,7 @@ public class KerbParkingInATownTests
     [Fact]
     public void ACarAtTheKerbStandsWithinItsRoadside()
     {
-        using var world = new TownWorld(TownPlan.Lay(Block(), Config, BuildingSizes.None), Config);
+        using var world = new TownWorld(TownPlan.Lay(Block(), Config, ArtSizes.None), Config);
 
         for (var car = 0; car < world.Cars.Count; car++)
         {
@@ -82,7 +82,7 @@ public class KerbParkingInATownTests
     [Fact]
     public void TwoCarsAtOneKerbStandAGapApart()
     {
-        using var world = new TownWorld(TownPlan.Lay(Block(), Config, BuildingSizes.None), Config);
+        using var world = new TownWorld(TownPlan.Lay(Block(), Config, ArtSizes.None), Config);
 
         for (var one = 0; one < world.Cars.Count; one++)
         {
@@ -105,7 +105,7 @@ public class KerbParkingInATownTests
     [Fact]
     public void ACarParallelParksBetweenTwoCarsAtAKerb()
     {
-        using var world = new TownWorld(TownPlan.Lay(Block(), Config, BuildingSizes.None), Config);
+        using var world = new TownWorld(TownPlan.Lay(Block(), Config, ArtSizes.None), Config);
         var parked = ParkInAGap(world);
 
         Assert.True(parked.Parked, $"car {Sent} stands {Vector2.Distance(world.Cars.PositionM[Sent], parked.GapM):F2} m off the gap's middle, doing {world.Cars.Action[Sent]}");
@@ -121,7 +121,7 @@ public class KerbParkingInATownTests
     [Fact]
     public void ACarParallelParkedStandsSquareInTheMiddleOfItsPlace()
     {
-        using var world = new TownWorld(TownPlan.Lay(Block(), Config, BuildingSizes.None), Config);
+        using var world = new TownWorld(TownPlan.Lay(Block(), Config, ArtSizes.None), Config);
         Assert.True(ParkInAGap(world).Parked, $"car {Sent} did not park in the gap");
 
         var place = world.Parking.BayOf(Sent);

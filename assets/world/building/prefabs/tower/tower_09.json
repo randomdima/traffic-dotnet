@@ -2,8 +2,8 @@
   "id": "tower_09",
   "sprite": "tower_09.webp",
   "footprintM": [
-    32.0,
-    14.5
+    41.6,
+    18.9
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],
@@ -16,5 +16,7 @@
     "soviet",
     "panel block"
   ],
-  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge"
+  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge",
+  "chimneys": [[-16.3, -5.84], [-11.16, 3.86], [16.48, 2.62], [3.61, -4.32]],
+  "potWidthM": 0.8
 }

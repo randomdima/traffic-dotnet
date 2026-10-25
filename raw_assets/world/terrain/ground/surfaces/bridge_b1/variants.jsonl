@@ -1,0 +1,2 @@
+{"variant": "bridge_b1-v1", "frame": "ground_c-v2", "cell": 11, "box": [814, 707, 293, 293], "pxPerM": 31.884, "score": 4, "status": "candidate", "ts": "2026-10-24T22:03:38"}
+{"variant": "bridge_b1-v3", "frame": "ground_f-v1", "cell": 11, "box": [814, 707, 293, 293], "pxPerM": 31.884, "score": 4, "status": "used", "ts": "2026-10-24T22:57:40"}

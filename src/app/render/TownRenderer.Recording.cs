@@ -23,6 +23,7 @@ internal sealed unsafe partial class TownRenderer
         CreateOverlayPipeline();
         CreateMarkPipeline();
         CreateSceneryPipeline();
+        CreateCloudPipeline();
 
         var sizes = stackalloc DescriptorPoolSize[3];
         for (var type = 0; type < 3; type++)
@@ -87,7 +88,8 @@ internal sealed unsafe partial class TownRenderer
         _acquireSpare = images;
         _image = 0;
 
-        // The pictures, in binding order: the atlas, the glyphs, the five surfaces and the track's strip after them.
+        // The pictures, in binding order: the atlas, the glyphs, the five surfaces, the track's strip, the shore and the kerbs
+        // after them.
         const int firstPicture = SheetPagesBinding;
         var pictures = stackalloc DescriptorImageInfo[Bindings - firstPicture];
         pictures[SheetPagesBinding - firstPicture] = Picture(_sheetPages);
@@ -98,7 +100,10 @@ internal sealed unsafe partial class TownRenderer
                 Picture(_textures[Math.Min(surface, _textures.Length - 1)]);
         }
 
-        pictures[TrackBinding - firstPicture] = Picture(_textures[Math.Min(Surfaces, _textures.Length - 1)]);
+        pictures[TrackBinding - firstPicture] = Picture(_textures[Math.Min((int)Surface.Track, _textures.Length - 1)]);
+        pictures[ShoreBinding - firstPicture] = Picture(_textures[Math.Min((int)Surface.Shore, _textures.Length - 1)]);
+        pictures[KerbBinding - firstPicture] = Picture(_textures[Math.Min((int)Surface.Kerb, _textures.Length - 1)]);
+        pictures[EdgingBinding - firstPicture] = Picture(_textures[Math.Min((int)Surface.Edging, _textures.Length - 1)]);
 
         var buffers = stackalloc DescriptorBufferInfo[Bindings];
         var writes = stackalloc WriteDescriptorSet[Bindings];
@@ -113,6 +118,7 @@ internal sealed unsafe partial class TownRenderer
             buffers[SceneryPiecesBinding] = Whole(_sceneryPieces);
             buffers[SceneryLooksBinding] = Whole(_sceneryLooks);
             buffers[ScenerySpansBinding] = Whole(_scenerySpans[image]);
+            buffers[FanTableBinding] = Whole(_fanTable);
             // The two the marks are drawn from are written apart (WriteTheMarkSet), being the device's own once it keeps the ring.
             var written = 0;
             for (var binding = 0; binding < Bindings; binding++)
@@ -204,11 +210,11 @@ internal sealed unsafe partial class TownRenderer
         }
     }
 
-    /// <summary>Which kind of descriptor a binding of the frame's one set is: the three uniform blocks, the pictures, and the storage the marks and the scenery are read out of.</summary>
+    /// <summary>Which kind of descriptor a binding of the frame's one set is: the four uniform blocks, the pictures, and the storage the marks and the scenery are read out of.</summary>
     static DescriptorType TypeOf(int binding) => binding switch
     {
-        CameraBinding or SheetTableBinding or MarkLookBinding => DescriptorType.UniformBuffer,
-        < MarkLookBinding or TrackBinding => DescriptorType.CombinedImageSampler,
+        CameraBinding or SheetTableBinding or MarkLookBinding or FanTableBinding => DescriptorType.UniformBuffer,
+        < MarkLookBinding or TrackBinding or ShoreBinding or KerbBinding or EdgingBinding => DescriptorType.CombinedImageSampler,
         _ => DescriptorType.StorageBuffer,
     };
 
@@ -385,6 +391,13 @@ internal sealed unsafe partial class TownRenderer
         api.CmdBindVertexBuffers(commands, 0, 1, &moving.Instances, &moving.AboveAt);
         Vk.Count();
         api.CmdDrawIndirect(commands, moving.Draws, moving.AboveDrawAt, 1, (uint)sizeof(DrawIndirectCommand));
+
+        // The clouds' shadows (OBJ-8), over everything the town stands and under everything that reads it: one triangle,
+        // which a clear sky's frame puts out of the picture (cloud.vert).
+        Vk.Count();
+        api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _cloudPipeline);
+        Vk.Count();
+        api.CmdDraw(commands, 3, 1, 0, 0);
 
         // The interface and everything that annotates a body, over all of it: the same pipeline the
         // ground marks used, a buffer of its own, and one more indirect draw already written down here.
@@ -584,6 +597,13 @@ internal sealed unsafe partial class TownRenderer
             Vk.Count();
             api.DestroyPipeline(_vk.Device, _sceneryPipeline, null);
             _sceneryPipeline = default;
+        }
+
+        if (_cloudPipeline.Handle != 0)
+        {
+            Vk.Count();
+            api.DestroyPipeline(_vk.Device, _cloudPipeline, null);
+            _cloudPipeline = default;
         }
 
         _drawn = [];

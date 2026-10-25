@@ -5,22 +5,24 @@ with what else was made for the same asset.** Nothing here is read by the build:
 is converted from a variant here, never this file itself.
 
 Art is generated with the [remotegen](../.claude/skills/remotegen/SKILL.md) skill, nine or more assets
-to a frame, and cut, kept and installed with `qq sprites`.
+to a frame, and cut, kept and installed with `qq sprites`. **A frame is asked in words, with a style picture as its
+only image, and comes back on a transparent background** (the owner, 2026-10-25): no layout of outlines is sent, since
+the model does not keep to one and every picture sent is paid for.
 
 ## What lives where
 
 ```
 .tmp/gen/                          scratch, never committed
-  templates/<sheet>.png            the layout a frame is asked from: outlines and their parts' marks on
-                                   #FF00FF, cells in the PNG; <sheet>_style.png, the style picture (a car's
-                                   sheet sends only that: its ids are briefs/<sheet>.cells.json)
-  briefs/<sheet>[-vN].txt          the prompt a frame was asked with (its record holds the copy sent)
+  templates/<sheet>_style.png      the style picture a frame is asked with: finished art from the game, none of
+                                   it an asset the frame draws
+  briefs/<sheet>[-vN].txt          the prompt a frame was asked with (its record holds the copy sent), and
+                                   <sheet>.cells.json, the ids it draws in the brief's order
   frames/<name>-vN.png             every frame (a whole sheet), and its record in index.jsonl
   inputs/<sha>.<ext>               every picture a frame was sent, by content
-  cuts/<frame>/<id>.png            each cell fitted onto its shape, keyed and clipped to its outline (a car's
-                                   to its footprint); _overlay.png marks holes and spill, _parts.png
-                                   magnifies every part area, _mask_<ids>.png
-                                   the alpha-only mask a redo of those cells is asked with
+  cuts/<frame>/<id>.png            each drawing taken whole off the transparent frame (a car's cut to the
+                                   footprint it measures); _overlay.png boxes each, _cuts.png lays them for
+                                   the eye, _mask_<ids>.png the alpha-only mask a redo of those drawings is
+                                   asked with
 
 raw_assets/                        committed
   <path under assets/>/<id>/       one folder per asset, at the path its sprite has under assets/
@@ -43,7 +45,7 @@ A sprite traces through its `.src.json` to its variant, through `variants.jsonl`
 
 1. **Every image under `assets/` has a `.src.json` beside it or is on `legacy.txt`.** `qq sprites check`
    (inside `qq checks`) fails otherwise. An entry leaves the legacy list when `qq sprites use` replaces its
-   image, and nothing is ever added to it.
+   image or the image is deleted, and nothing is ever added to it.
 2. **A sheet is never committed; its cells are.** A frame stays in `.tmp/gen/`. A cell with a major defect
    stays there too. A cell worth keeping — the one put in the game and the real alternatives to it — is
    kept with `qq sprites keep`, which brings the frame's record and its inputs along; a parent frame (a
@@ -51,11 +53,14 @@ A sprite traces through its `.src.json` to its variant, through `variants.jsonl`
 3. **What is kept is never edited or renamed.** A new attempt is a new version; a variant named by a
    `.src.json` is never deleted. A candidate no sprite uses — a trial given up — is unkept with `qq sprites drop`,
    which takes its record, its lamp cut and any lineage no other variant traces to.
-4. **Every frame says which asset each drawing is.** A building's or a train's is asked from a `qq sprites
-   template` layout, so a cut is a crop and a key. A car's is asked from words alone (the owner, 2026-10-20): its
-   record lists the ids in the brief's order (remotegen `--cells`), `cut` finds the drawings in that order on the
-   transparent frame, and what it measures of each is the car's geometry (CAR-12b). A frame with neither cannot be
-   cut.
+4. **Every frame says which asset each drawing is**: its record lists the ids in the brief's order (remotegen
+   `--cells`), and `cut` finds the drawings in that order on the transparent frame, a grid's rows top to bottom and
+   each row left to right. **What is drawn is the asset**: a car's drawing is its geometry (CAR-12b), measured; any
+   other is taken whole and sized by the one figure its file authors — a footprint's width, a round asset's diameter,
+   a strip's depth — the rest read off the drawing, a building's rectangles included. **The generator is never limited,
+   the result may be corrected** (the owner, 2026-10-25): a drawing is cropped, sized and given a minor correction
+   where it still looks right, and taken as drawn where a correction would show — most would. A frame without its ids
+   cannot be cut. Frames asked from a layout before 2026-10-25 are still cut by it, so a kept variant can be cut again.
 5. **Each kept variant gets its score when it is judged**, and the lesson of a set goes into its family's
    `prompting.md` in the same change, citing the variants it is drawn from. That file is read before the
    family's next brief is written.
@@ -66,11 +71,9 @@ A sprite traces through its `.src.json` to its variant, through `variants.jsonl`
    a car described in words where that kind of car has it, its file's lens then read off the zone map;
    and which of its texels each part is, is the generator's too: the same frame repainted as a zone map, every part
    one flat colour (kept as `<id>_zones`), and the active state is those texels lit, never painted over by hand
-   (CAR-14a). The template frames the
-   area each part is drawn in, in its colour, and never its shape — a lamp may be round, a strip, wrapped
-   round a corner, whatever the asset wants — and `cut` flags an area the frame drew only bodywork in; a cell missing a part, or
-   drawing one lit, is a failed cell. A part added to or moved in a file is had by asking for the asset
-   again, never by painting it in.
+   (CAR-14a). The brief names each part and where on the asset it is, never its shape — a lamp may be round,
+   a strip, wrapped round a corner, whatever the asset wants; a drawing missing a part, or drawing one lit, is a
+   failed cell. A part added to or moved in a file is had by asking for the asset again, never by painting it in.
 
 ## Before these rules
 

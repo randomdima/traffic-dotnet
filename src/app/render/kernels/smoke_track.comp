@@ -1,0 +1,111 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The smoke's tracks laid behind every step (CAR-54, TRN-15, app/devicetick/DeviceSmoke), one thread a car and then one a
+// rail vehicle: the body as the step left it is its track's live end, and a point of its way is laid into its ring each
+// time the step's clock passes a mark of the track's grid — the last second at eight a second (SmokeFigures.TrackPoints,
+// TrackEveryS). A body that moved faster than anything is driven since the last step was put there, and its track is
+// begun again where it stands.
+//
+// What a car shows (world_rows.glsl's CarShows bits) says whether it runs: whole, with its headlamps lit (CAR-14.8); a
+// rail vehicle runs while it is in the world (TRN-7). What its smoke is like is the throttle its driver asks for
+// (SmokeSprites); whether it has a pipe at all is its look's, which the emit asks. A rail vehicle's ring is longer and
+// laid more seldom than a car's, for a stack's longer-lived smoke, and all of them lie past every car's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform SmokePush
+{
+    uint cars;
+    uint wagons;
+    uint firstWagonBody;
+    uint enabledBit;
+    uint points;
+    uint stackPoints;
+    float timeS;
+    float perEveryS;
+    float stackPerEveryS;
+    float resetMps;
+    float perFullThrottle;
+    float perFullRailThrottle;
+} smoke;
+
+#include "world/town/kernels/world_rows.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "app/render/kernels/smoke.glsl"
+
+// DeviceRail.RailCommandRow, as world_rail.comp reads it.
+struct SmokeRailCommand
+{
+    float throttleMps2;
+    float brakeMps2;
+    uint flags;
+    uint unused;
+};
+
+layout(std430, binding = 0) readonly buffer Cars { WorldCar cars[]; };
+layout(std430, binding = 1) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 2) readonly buffer Motion { vec4 motion[]; };
+layout(std430, binding = 3) readonly buffer Commands { TyreCommand commands[]; };
+layout(std430, binding = 4) buffer Heads { SmokeHead heads[]; };
+layout(std430, binding = 5) buffer Points { SmokePoint points[]; };
+layout(std430, binding = 6) readonly buffer Filter { uint filter_[]; };
+layout(std430, binding = 7) readonly buffer RailCommands { SmokeRailCommand railCommands[]; };
+
+// CarLampSet.Head: a car runs while its headlamps burn.
+const uint SmokeRunning = 64u;
+
+void main()
+{
+    uint track = gl_GlobalInvocationID.x;
+    if (track >= smoke.cars + smoke.wagons) return;
+
+    uint body;
+    bool running;
+    float throttle;
+    uint ring;
+    uint size;
+    float perEveryS;
+    if (track < smoke.cars)
+    {
+        WorldCar row = cars[track];
+        body = row.body;
+        running = (row.flags & CarShowsBroken) == 0u && (((row.flags >> CarShowsShift) & 0xffu) & SmokeRunning) != 0u;
+        throttle = commands[track].throttleMps2 * smoke.perFullThrottle;
+        ring = track * smoke.points;
+        size = smoke.points;
+        perEveryS = smoke.perEveryS;
+    }
+    else
+    {
+        uint wagon = track - smoke.cars;
+        body = smoke.firstWagonBody + wagon;
+        running = (filter_[body] & smoke.enabledBit) != 0u;
+        throttle = railCommands[wagon].throttleMps2 * smoke.perFullRailThrottle;
+        ring = smoke.cars * smoke.points + wagon * smoke.stackPoints;
+        size = smoke.stackPoints;
+        perEveryS = smoke.stackPerEveryS;
+    }
+
+    vec4 placed = pose[body];
+    SmokePoint now = SmokePoint(
+        placed.xy, placed.zw, motion[body].xy, running ? 1.0 : 0.0, clamp(throttle, 0.0, 1.0), smoke.timeS, 0.0);
+
+    SmokeHead head = heads[track];
+    vec2 moved = now.positionM - head.live.positionM;
+    float reachM = (smoke.timeS - head.live.timeS) * smoke.resetMps;
+    if (head.count != 0u && dot(moved, moved) > reachM * reachM) head.count = 0u;
+    head.shownS = head.count == 0u ? smoke.timeS : head.live.timeS;
+
+    bool due = head.count == 0u || floor(smoke.timeS * perEveryS) > floor(points[ring + head.newest].timeS * perEveryS);
+    if (due)
+    {
+        head.newest = head.count == 0u ? 0u : (head.newest + 1u) % size;
+        points[ring + head.newest] = now;
+        head.count = min(head.count + 1u, size);
+    }
+
+    head.live = now;
+    if (running) head.ranS = smoke.timeS;
+    heads[track] = head;
+}

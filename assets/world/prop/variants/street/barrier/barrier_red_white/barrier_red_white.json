@@ -1,0 +1,9 @@
+{
+  "id": "barrier_red_white",
+  "sprite": "barrier_red_white.webp",
+  "kind": 2,
+  "footprintM": [2.0, 0.534],
+  "share": 0.4,
+  "turns": true,
+  "describe": "plastic road barrier, a long board striped red and white on two feet"
+}

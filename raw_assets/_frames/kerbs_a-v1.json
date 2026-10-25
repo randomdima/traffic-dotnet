@@ -1,0 +1,51 @@
+{
+ "id": "kerbs_a-v1",
+ "ts": "2026-10-25T01:25:36",
+ "op": "edit",
+ "name": "kerbs_a",
+ "file": ".tmp/gen/frames/kerbs_a-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.027487,
+ "usage": {
+  "prompt_tokens": 3167,
+  "completion_tokens": 158,
+  "total_tokens": 3325,
+  "cost": 0.027487,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.027487,
+   "upstream_inference_prompt_cost": 0.022747,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Two images are attached. The first is a layout: 9 long thin outlines on a flat magenta background, in a 3 by 3 grid, all at one shared scale. Each is a strip of kerb stones 3 metres long and 20 centimetres wide, seen from straight above. The second image shows finished ground art from the same game — a railway track and two paved surfaces — in the art style to match. Copy its style only, not its contents.\n\nMake one image with exactly the same layout as the first image: the same 9 outlines in the same places at the same sizes. Inside each outline, draw the kerb described for that cell below, as strictly top-down art for a 2D city game.\n\nShape comes first:\n- Fill each outline edge to edge, horizontal, exactly its height. Draw nothing outside the outlines. Inside an outline there is no magenta at all.\n- Each strip is a piece of an endless straight kerb, cut square at its left and right ends so it continues seamlessly into a copy of itself placed beside it: the stone runs right up to the left and right ends, with no border, frame, rounded end or gap there.\n- The stones lie end to end along the strip. Each joint is a thin dark straight line straight across the strip, square to its length, evenly spaced: cells 1 to 5 have exactly 3 stones (joints at one third and two thirds of the length), cells 6, 8 and 9 exactly 6 stones, cell 7 a row of 15 small square setts.\n- The thick dark bottom edge of each outline is the kerb's low side. Along the bottom of the strip, about a quarter of its height, draw the stone's front face dropping away, in shadow: a darker band of the same stone. The rest, above it, is the flat top of the stone, lit evenly. Between top and face, one thin light line where the top edge catches the light.\n\nRules for everything:\n- Strictly top-down: the camera looks straight down from high above (orthographic plan view, like a map). No perspective, no tilt, no cast shadow beyond the strip.\n- Style: match the style image. Painted, crisp, no blur; a calm stone surface with a very fine grain and gentle variation, each stone a slightly different shade from its neighbours. No outline round the strip.\n- No text, logos, numbers, people or watermark anywhere.\n- Outside the outlines, keep the background flat pure magenta #FF00FF. No grid lines or frames.\n\nCells, row by row, left to right:\n1. a street kerb of grey granite kerbstones a metre long: fine speckled grey stone with a flat sawn top\n2. a street kerb of light grey precast concrete kerbstones a metre long: smooth pale concrete, a flat top\n3. an older street kerb of precast concrete kerbstones a metre long: mid grey concrete a little weathered, a few small chips and soft dark tyre scuffs along the low face\n4. a street kerb of warm pinkish-grey granite kerbstones a metre long: coarse speckled stone with a flat top\n5. a street kerb of light grey concrete kerbstones a metre long with a bevelled edge: a flat pale top and, along the low side, a sloping face a shade darker\n6. a footway edging of light grey precast concrete edging stones half a metre long: smooth concrete with softly rounded top edges\n7. a footway edging of small square grey granite setts about 20 cm a side, in one row: rough split stone tops, dark joints between them\n8. a footway edging of mid grey precast concrete edging stones half a metre long: weathered, a little green moss in the joints and along the low face\n9. a footway edging of dark charcoal-grey concrete edging stones half a metre long: smooth dark concrete, a slightly lighter top, thin black joints",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "43bbce2ee803c36f",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/kerbs_a.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "0e4496b6214dcac6",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/kerbs_a_style.png"
+  }
+ ]
+}

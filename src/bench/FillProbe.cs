@@ -67,7 +67,7 @@ internal static class FillProbe
 
     public static void Run(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var shell = plan.Paving(config).Perimeter(config);
 
         var boundaryM = 0f;

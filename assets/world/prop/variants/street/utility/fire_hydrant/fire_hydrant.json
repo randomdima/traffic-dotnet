@@ -1,0 +1,8 @@
+{
+  "id": "fire_hydrant",
+  "sprite": "fire_hydrant.webp",
+  "kind": 2,
+  "diameterM": 0.4,
+  "share": 0.8,
+  "describe": "red pillar fire hydrant seen from above, a round domed cap and two outlet caps on the sides"
+}

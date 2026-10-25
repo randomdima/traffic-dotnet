@@ -3,8 +3,8 @@
 What the train briefs taught, set by set. Read before writing the next one; the brief itself is in each frame's record
 (`qq sprites trace <id> --full`).
 
-**A train's sheet is laid in rows at the ground's grid** (`qq sprites`' `rows` layout, 31.5 px/m): twelve vehicles fill a
-3:2 frame two or three to a row. A 3×3 grid draws a 25.5 m coach at 19 px/m.
+**A train's sheet is asked in rows, two or three vehicles to a row**, so twelve fill a 3:2 frame near the ground's grid
+(31.5 px/m): a 3×3 grid draws a 25.5 m coach at 19 px/m.
 
 ## trains_a (2026-10-18) — twelve vehicles, three attempts, four kept, $0.10
 

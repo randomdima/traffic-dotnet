@@ -1,0 +1,7 @@
+{
+  "id": "tyre_planter",
+  "sprite": "tyre_planter.webp",
+  "kind": 1,
+  "diameterM": 0.9,
+  "describe": "old tyre painted white and sky blue, cut in a zigzag crown, filled with orange marigolds"
+}

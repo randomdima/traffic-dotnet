@@ -308,11 +308,21 @@ internal sealed partial class Game : IDisposable
         // else is a reader taking it over, and the follow reads that off the camera itself rather than off a
         // flag — so a span set here would otherwise stand the camera down and leave the car driving out of
         // the picture.
+        var moved = false;
         if (wanted.ViewM > 0f && MathF.Abs(_camera.ViewSpanM(_uiPx).Y - wanted.ViewM) > 0.01f)
         {
             _camera.SetSpan(wanted.ViewM, _uiPx);
-            AskToFollow();
+            moved = true;
         }
+
+        // Centred where the script pinned it, or on the unit under the hand, as a frame drawn off the glass is.
+        if (wanted.AtM is { } atM && Vector2.DistanceSquared(_camera.CentreM, atM) > 0.0001f)
+        {
+            _camera.LookAt(atM);
+            moved = true;
+        }
+
+        if (moved) AskToFollow();
 
         _pendingShot = wanted.Path;
         return $"{wanted.Path} — the frame the window drew";
@@ -1005,7 +1015,12 @@ internal sealed partial class Game : IDisposable
 
         var (centreM, clipPerM, facing) = _camera.ForShader(_uiPx);
         var before = Crossings();
-        _renderer.Frame(new CameraView(centreM, clipPerM, _uiPx, facing));
+        var tick = _loop?.Tick ?? 0;
+        var turned = CameraView.Turned(FanTable.TurnsAt(tick, _config), _config.View.FanLeastPx / _camera.PixelsPerMetre);
+        _renderer.Frame(new CameraView(
+            centreM, clipPerM, _uiPx, facing, Turning: turned,
+            Clouds: _world is null ? default : CloudShadows.At(_world.Clouds, _config, tick),
+            WaterDriftM: _world is null ? default : GroundPatches.DriftAt(_world.Wind, _config, tick)));
         parts.Mark(ref parts.SubmitMs);
 
         // The renderer's own account of what it waited for, taken off the frame just drawn and taken

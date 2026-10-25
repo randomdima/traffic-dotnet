@@ -1,0 +1,7 @@
+{
+  "id": "fan_five_curved",
+  "sprite": "fan_five_curved.webp",
+  "footprintM": [3.4, 3.392],
+  "tags": ["fan", "five blades"],
+  "describe": "a rooftop cooling fan with five curved dark grey blades round a pale hub, a thin white rim"
+}

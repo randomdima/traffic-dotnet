@@ -1,0 +1,38 @@
+{
+  "car": "policecrossover_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/policecrossover_white/policecrossover_white-v8.png", "sizePx": [442, 217]},
+  "axisY": {"rear": 108.50, "front": 109.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "hold": [4], "axisY": 108.5, "mirrorDx": -1.0, "points": [
+      [32.36, 28.15, 1.17],
+      [23.57, 32.96, -1.40],
+      [19.47, 40.10, 1.29],
+      [13.18, 45.78, 0.10],
+      [10.40, 64.50, 0.80],
+      [21.30, 67.00, -0.18],
+      [35.43, 36.36, -0.15],
+      [40.61, 32.46, 2.20]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 108.5, "mirrorDx": -1.0, "points": [
+      [14.40, 41.75, 0.14],
+      [22.31, 41.74, 3.44],
+      [22.70, 53.21, 2.78],
+      [13.44, 53.59, 0.00]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [405.40, 41.60, 0.00],
+      [415.70, 39.40, 1.30],
+      [422.20, 64.30, 1.00],
+      [418.80, 65.30, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 109.0, "mirrorDx": 1.0, "points": [
+      [391.16, 30.66, -0.05],
+      [398.45, 37.47, 0.96],
+      [405.97, 40.73, 0.37],
+      [413.71, 38.58, 1.24],
+      [412.85, 32.92, 2.24],
+      [391.95, 27.42, 0.92]
+    ]}
+  ]
+}

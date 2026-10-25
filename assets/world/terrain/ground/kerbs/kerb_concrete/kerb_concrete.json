@@ -1,0 +1,11 @@
+{
+  "id": "kerb_concrete",
+  "sprite": "kerb_concrete.webp",
+  "kind": "Kerb",
+  "describe": "a street kerb of pale grey precast concrete kerbstones a metre long, laid end to end: smooth concrete, each stone a slightly different shade, soft grime and a few small stains, a little road dust along the low face",
+  "footprintM": [
+    6.0,
+    0.2
+  ],
+  "pictureM": 3.944
+}

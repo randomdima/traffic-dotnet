@@ -1,0 +1,10 @@
+{
+  "id": "dumpster_green",
+  "sprite": "dumpster_green.webp",
+  "kind": 2,
+  "footprintM": [1.4, 1.053],
+  "cornerRadiusM": 0.05,
+  "share": 1.2,
+  "turns": true,
+  "describe": "green 1100 litre steel waste container, two closed plastic lids"
+}

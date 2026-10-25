@@ -1,0 +1,11 @@
+{
+  "id": "edging_charcoal",
+  "sprite": "edging_charcoal.webp",
+  "kind": "Edging",
+  "describe": "a footway edging of mixed grey and charcoal granite setts about 20 cm a side in one row: rough tops, the setts in several shades from light to dark grey laid at random, sandy grit in the joints",
+  "footprintM": [
+    6.0,
+    0.2
+  ],
+  "pictureM": 4.0991
+}

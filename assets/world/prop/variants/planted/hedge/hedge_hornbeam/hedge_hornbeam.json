@@ -1,0 +1,9 @@
+{
+  "id": "hedge_hornbeam",
+  "sprite": "hedge_hornbeam.webp",
+  "kind": 1,
+  "footprintM": [3.6, 1.186],
+  "cornerRadiusM": 0.15,
+  "turns": true,
+  "describe": "clipped hornbeam hedge, a flat-topped block of small pleated green leaves, square ends"
+}

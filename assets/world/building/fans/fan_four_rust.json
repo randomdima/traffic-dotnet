@@ -1,0 +1,7 @@
+{
+  "id": "fan_four_rust",
+  "sprite": "fan_four_rust.webp",
+  "footprintM": [3.4, 3.38],
+  "tags": ["fan", "four blades", "rust"],
+  "describe": "an old rooftop cooling fan with four worn rusty brown blades round a dull grey hub, a thin rust-streaked steel rim"
+}

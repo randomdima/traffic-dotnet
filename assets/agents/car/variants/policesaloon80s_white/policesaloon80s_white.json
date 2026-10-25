@@ -1,0 +1,32 @@
+{
+  "id": "policesaloon80s_white",
+  "sprite": "policesaloon80s_white.webp",
+  "zones": "policesaloon80s_white_zones.png",
+  "wreck": { "sprite": "policesaloon80s_white_broken.webp" },
+  "describe": "1980s Soviet four-door saloon patrol car in police livery",
+  "footprintM": [4.130, 1.963],
+  "collisionM": { "sizeM": [4.130, 1.633], "cornerRadiusM": 0.428 },
+  "massKg": 1110,
+  "frontAxleM": 1.285,
+  "rearAxleM": -1.135,
+  "trackM": 1.517,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.78,
+  "cgHeightM": 0.6,
+  "frontWeightShare": 0.53,
+  "handling": { "maxSpeed": 0.9, "acceleration": 0.85, "braking": 0.88 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-1.919, -0.522], "sizeM": [0.136, 0.345] },
+    { "fitting": "rear", "atM": [-1.919, 0.48], "sizeM": [0.136, 0.345] },
+    { "fitting": "indicator", "atM": [-1.909, -0.606], "sizeM": [0.125, 0.178] },
+    { "fitting": "indicator", "atM": [-1.909, 0.564], "sizeM": [0.125, 0.178] },
+    { "fitting": "head", "atM": [1.856, -0.533], "sizeM": [0.136, 0.209] },
+    { "fitting": "head", "atM": [1.877, 0.512], "sizeM": [0.136, 0.209] },
+    { "fitting": "indicator", "atM": [1.815, -0.679], "sizeM": [0.115, 0.104] },
+    { "fitting": "indicator", "atM": [1.815, 0.658], "sizeM": [0.115, 0.104] },
+    { "fitting": "beaconRed", "atM": [0.104, -0.251], "sizeM": [0.229, 0.324] },
+    { "fitting": "beaconBlue", "atM": [0.104, 0.271], "sizeM": [0.219, 0.303] }
+  ],
+  "exhausts": [[-2.023, -0.589]]
+}

@@ -1,0 +1,47 @@
+{
+ "id": "fan_six_grey-v1",
+ "ts": "2026-10-24T03:38:50",
+ "op": "edit",
+ "name": "fan_six_grey",
+ "file": ".tmp/gen/frames/fan_six_grey-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1024x1024",
+ "settings": {
+  "aspect_ratio": "1:1",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.013625,
+ "usage": {
+  "prompt_tokens": 1039,
+  "completion_tokens": 196,
+  "total_tokens": 1235,
+  "cost": 0.013625,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.013625,
+   "upstream_inference_prompt_cost": 0.007745,
+   "upstream_inference_completions_cost": 0.00588
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 196
+  }
+ },
+ "prompt": "Image 1 shows round rooftop fans exactly as this game's roof pictures draw them, seen from straight above. Draw ONE new fan in exactly that painted style and lighting, seen from straight above: a rooftop cooling fan with six straight mid-grey blades round a pale round hub, a thin steel rim.\n\n- One perfect circle, centred in the picture, about 70% of the picture across, well clear of every edge: nothing cut off.\n- The circle filled edge to edge: the thin rim at its edge, then the dark opening with the blades, the round hub at the very centre.\n- The blades evenly spaced round the hub, all alike.\n- Only the round fan: no square housing, no box, no bolts, no corners, no roof under it.\n- Everything outside the circle fully transparent. No cast shadow, no text, no border.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "0ed6548e0a4e2e90",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fans_style.png"
+  }
+ ],
+ "cells": [
+  "fan_six_grey"
+ ]
+}

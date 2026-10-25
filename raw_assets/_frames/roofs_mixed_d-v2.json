@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_d-v2",
+ "ts": "2026-10-20T13:52:55",
+ "op": "edit",
+ "name": "roofs_mixed_d",
+ "file": ".tmp/gen/frames/roofs_mixed_d-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031536,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 8 building outlines seen from above on flat magenta, in a 3×3 grid. Redraw only cells 2, 3 and 4 (the transparent areas). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe fault in those three cells: each showed a wall seen from the side along its bottom edge — cell 2 a row of roller garage doors about 1.6 m deep, cells 3 and 4 a strip of shop windows under the sign. From straight above no wall, door or window can be seen. The roof fills the whole outline edge to edge; along the thick bottom edge there is only the roof's own parapet (cell 2) or a flat sign strip about 0.6 m deep lying on the roof (cells 3 and 4), and nothing below it. Air conditioner units at their true size, about 1 m, smaller than those drawn in cell 1.\n\nFor each redrawn cell, trace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. No text.\n\n2. 15 × 11.1 m (1.4× wider than deep) — row of 4 lock-up garages of a garage cooperative, flat roof of rusty corrugated metal parted by low brick parapets between the units, patched in places\n3. 7.8 × 11.1 m (1.4× deeper than wide) — single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge, standing narrow end to the street with the entrance on that short front wall\n4. 15.6 × 11.1 m (1.4× wider than deep) — single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "95a010754bf7e340",
+   "ext": "png",
+   "frame": "roofs_mixed_d-v1",
+   "was": ".tmp/gen/frames/roofs_mixed_d-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "7d3c79fb86f54fe7",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_d.png"
+  },
+  {
+   "role": "mask",
+   "sha": "24aad79a868cede8",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_d-v1/_mask_garages_08_retail_deep_03_retail_10.png"
+  }
+ ]
+}

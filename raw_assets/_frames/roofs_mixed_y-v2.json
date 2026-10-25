@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_y-v2",
+ "ts": "2026-10-20T14:01:42",
+ "op": "edit",
+ "name": "roofs_mixed_y",
+ "file": ".tmp/gen/frames/roofs_mixed_y-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031056,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 2×1 grid. Redraw only cell 1 (the transparent area). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe fault in cell 1: it was drawn as a cross-shaped building, leaving the outline's four corners empty magenta — about 42% of the outline. The outline is a full rectangle and the roof fills all of it, edge to edge, with no magenta inside. The cross is only the pattern of the main green ridges: a long nave from left to right and a transept from front to back, crossing under the big central dome. The four corners between the arms are lower green sheet-metal roofs, each one slope falling toward the outline's corner, also filled to the outline's edges. The central dome is about 8 m across and the small gilded domes about 3 m, each seen straight down as a circle shaded as a sphere with a small cross on top; no drum, wall or window visible.\n\nTrace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. No text.\n\n1. 36.3 × 24.8 m (1.5× wider than deep) — Orthodox church, cross-shaped roof of green-painted sheet metal with a large central dome and smaller gilded domes",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "14e559691f6c4dc0",
+   "ext": "png",
+   "frame": "roofs_mixed_y-v1",
+   "was": ".tmp/gen/frames/roofs_mixed_y-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "1f8b2c261a330ef4",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_y.png"
+  },
+  {
+   "role": "mask",
+   "sha": "7afb7e525b28cbc7",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_y-v1/_mask_religious_08.png"
+  }
+ ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "ambulancelight_white",
+  "sprite": "ambulancelight_white.webp",
+  "zones": "ambulancelight_white_zones.png",
+  "wreck": { "sprite": "ambulancelight_white_broken.webp" },
+  "describe": "2000s Russian light van ambulance in ambulance livery",
+  "footprintM": [5.500, 2.744],
+  "collisionM": { "sizeM": [5.500, 2.345], "cornerRadiusM": 0.711 },
+  "massKg": 2400,
+  "frontAxleM": 1.7,
+  "rearAxleM": -1.55,
+  "trackM": 2.234,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.76,
+  "cgHeightM": 0.88,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.7, "acceleration": 0.59, "braking": 0.75 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.49, -0.767], "sizeM": [0.25, 0.501] },
+    { "fitting": "rear", "atM": [-2.49, 0.777], "sizeM": [0.25, 0.501] },
+    { "fitting": "indicator", "atM": [-2.521, -0.829], "sizeM": [0.177, 0.198] },
+    { "fitting": "indicator", "atM": [-2.521, 0.819], "sizeM": [0.177, 0.198] },
+    { "fitting": "head", "atM": [2.448, -0.746], "sizeM": [0.25, 0.344] },
+    { "fitting": "head", "atM": [2.448, 0.777], "sizeM": [0.25, 0.344] },
+    { "fitting": "indicator", "atM": [2.312, -0.986], "sizeM": [0.26, 0.125] },
+    { "fitting": "indicator", "atM": [2.312, 0.996], "sizeM": [0.26, 0.125] },
+    { "fitting": "beaconBlue", "atM": [0.646, -0.36], "sizeM": [0.323, 0.48] },
+    { "fitting": "beaconBlue", "atM": [0.656, 0.381], "sizeM": [0.333, 0.47] }
+  ],
+  "exhausts": [[-2.677, -0.823]]
+}

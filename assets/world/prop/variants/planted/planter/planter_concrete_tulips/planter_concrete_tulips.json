@@ -1,0 +1,9 @@
+{
+  "id": "planter_concrete_tulips",
+  "sprite": "planter_concrete_tulips.webp",
+  "kind": 1,
+  "footprintM": [2.0, 0.776],
+  "cornerRadiusM": 0.05,
+  "turns": true,
+  "describe": "long grey precast concrete trough of tulips and white alyssum"
+}

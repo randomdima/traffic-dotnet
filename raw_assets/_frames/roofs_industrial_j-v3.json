@@ -1,0 +1,38 @@
+{
+ "id": "roofs_industrial_j-v3",
+ "ts": "2026-10-20T13:53:11",
+ "op": "edit",
+ "name": "roofs_industrial_j",
+ "file": ".tmp/gen/frames/roofs_industrial_j-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031116,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 1×2 grid. Redraw cells 1 and 2 (the transparent areas) as the same roofs, keeping each one's outline, ridge line and corrugated sheet exactly where image 1 has them, and fixing only these faults:\n\n- The loading-door canopy on the street edge was drawn about 240 px wide in cell 1 and 200 px in cell 2, about 13 m: three times its true size. A loading door is about 4 m wide, about 67 px here — the width of one car's length. Draw it that small, or leave it out.\n- Cell 1's metal read as fresh orange paint; it is rusty corrugated metal: weathered dull brown-orange with darker rust streaks and a few grey patched sheets.\n\nFor each redrawn cell, trace the outline in image 2 exactly, from its top edge to its thick bottom edge, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. No text.\n\n1. 45.8 × 27.8 m (1.6× wider than deep) — warehouse or workshop hall, shallow pitched roof of rusty corrugated metal with a ridge vent along its length\n2. 45.8 × 13.5 m (3.4× wider than deep, a thin strip) — warehouse or workshop hall, shallow pitched roof of grey corrugated metal with a ridge vent along its length",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "53a92702349ff88d",
+   "ext": "png",
+   "frame": "roofs_industrial_j-v2",
+   "was": ".tmp/gen/frames/roofs_industrial_j-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "aefe2e2b92bcab6a",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_industrial_j.png"
+  },
+  {
+   "role": "mask",
+   "sha": "2722bdd681d57209",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_industrial_j-v2/_mask_industrial_23_industrial_19.png"
+  }
+ ]
+}

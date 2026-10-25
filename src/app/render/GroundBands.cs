@@ -26,7 +26,7 @@ namespace TrafficSimulation.App.Render;
 /// <para>
 /// <b>Filing reorders a part, so a part that is a stack of layers is not filed</b> (<see cref="GroundParts.Stacked"/>):
 /// the level above is a deck, a carriageway, a kerb and paint laid in that order in one part, and filed by band its
-/// decks are drawn over its own tarmac and lines; the water is its shore, two edges and the water, each ring a fan of
+/// decks are drawn over its own tarmac and lines; the water is its shore, two fades and the water, each ring a fan of
 /// slivers off the same map corner, and filed by class the shore's slivers are drawn over the sea. Such a part goes
 /// whole into the widest class at the lowest band, which every view's run reaches, in the mesh's own order — each is
 /// a few thousand triangles, which culling would save nothing worth that.

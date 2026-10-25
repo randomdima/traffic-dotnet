@@ -1,0 +1,8 @@
+{
+  "id": "litter_bin_black",
+  "sprite": "litter_bin_black.webp",
+  "kind": 2,
+  "diameterM": 0.5,
+  "share": 2.0,
+  "describe": "round black cast litter bin with a domed lid and a side opening, gold band"
+}

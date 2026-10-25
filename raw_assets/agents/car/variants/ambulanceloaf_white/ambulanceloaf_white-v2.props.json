@@ -1,0 +1,33 @@
+{
+  "car": "ambulanceloaf_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/ambulanceloaf_white/ambulanceloaf_white-v2.png", "sizePx": [419, 246]},
+  "axisY": {"rear": 123.00, "front": 122.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 123.5, "mirrorDx": 1.0, "points": [
+      [17.68, 38.30, 0.84],
+      [14.17, 48.08, -0.88],
+      [12.09, 58.82, 1.14],
+      [12.32, 68.65, 1.10],
+      [15.96, 69.11, 0.88],
+      [19.76, 59.21, -1.48],
+      [22.29, 46.07, 0.00],
+      [23.13, 38.72, 1.59]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 122.0, "mirrorDx": 1.0, "points": [
+      [394.93, 42.67, 4.30],
+      [394.75, 58.93, 0.09],
+      [398.15, 64.83, 0.03],
+      [402.22, 65.92, 2.23],
+      [406.28, 59.70, 0.88],
+      [400.16, 41.73, 1.59]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 123.0, "mirrorDx": 0.0, "points": [
+      [385.34, 33.55, 1.51],
+      [387.24, 42.24, 0.37],
+      [390.20, 43.10, 2.64],
+      [394.13, 35.35, 2.25]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

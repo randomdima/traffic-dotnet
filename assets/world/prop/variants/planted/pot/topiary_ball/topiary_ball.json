@@ -1,0 +1,8 @@
+{
+  "id": "topiary_ball",
+  "sprite": "topiary_ball.webp",
+  "kind": 1,
+  "diameterM": 0.9,
+  "share": 0.8,
+  "describe": "clipped box ball in a square grey pot"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "planter_corten_grass",
+  "sprite": "planter_corten_grass.webp",
+  "kind": 1,
+  "footprintM": [2.2, 0.855],
+  "turns": true,
+  "describe": "long rusty corten steel trough with tall ornamental grasses"
+}

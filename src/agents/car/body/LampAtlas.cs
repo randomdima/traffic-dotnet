@@ -10,11 +10,12 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A block of cells a variant, two columns a lens, a few blocks a row</b>, and the grid is fixed rather than
-/// packed: a lens's cell is <see cref="CellOf"/>, which both the renderer and the bake work out from numbers they
-/// already hold. Nothing is written down beside the picture, so nothing beside the
-/// picture can disagree with it. The cost is the columns an indicator does not use, which is transparent
-/// texels in a sheet a few hundred pixels square.
+/// <b>A block of cells a variant, a column a lens and one more for each lens that burns a second light, a few blocks
+/// a row</b>, and the grid is fixed rather than packed: a lens's cell is <see cref="CellOf"/>, which both the renderer
+/// and the bake work out from what they already hold. Nothing is written down beside the picture, so nothing beside
+/// the picture can disagree with it. Only a one-lens rear cluster burns two lights, and a look has at most
+/// <see cref="SecondLights"/> of them: a second column for every lens left two thirds of every sheet clear, which is
+/// the room the cell grew into.
 /// </para>
 /// <para>
 /// <b>Only the lit states are here.</b> An unlit lens is the section of bodywork the artist drew, already
@@ -33,22 +34,26 @@ internal static class LampAtlas
     public const float ArtPxPerM = 96f;
 
     /// <summary>
-    /// The side of one cell, in texels of that art. Wide enough for the largest lens the fleet draws —
-    /// the ambulance's beacon, 27 × 37 — since a cell is square and every lamp quad is one cell.
+    /// The side of one cell, in texels of that art. Wide enough for the longest lens the fleet draws — the police
+    /// van's big bar's ends, 54 texels, and rear clusters of 41 to 44 that a 40-texel cell cut short — since a cell
+    /// is square and every lamp quad is one cell.
     /// </summary>
-    public const int CellPx = 40;
+    public const int CellPx = 56;
 
-    /// <summary>The most lit states one lens can have: a rear cluster's red and white, a beacon end's two colours.</summary>
+    /// <summary>The most lit states one lens can have: a rear cluster's red and white.</summary>
     public const int StatesPerLens = 2;
 
-    /// <summary>Every lens a variant may draw, at two states each: the cells one look owns, whatever the fleet holds.</summary>
-    public const int Columns = CarLamps.MostLenses * StatesPerLens;
+    /// <summary>The most lenses of one look that burn a second light: a rear cluster a side.</summary>
+    public const int SecondLights = 2;
+
+    /// <summary>Every lens a variant may draw, and a second cell for each that burns two lights: the cells one look owns.</summary>
+    public const int Columns = CarLamps.MostLenses + SecondLights;
 
     /// <summary>
-    /// How many looks stand side by side in one row of the sheet. A row a look made the sheet one cell a look tall,
-    /// which passed an atlas page's 4096 texels at 103 looks (the hundred-car fleet's batch 10).
+    /// How many looks stand side by side in one row of the sheet: as many as stay under an atlas page's 4096 texels,
+    /// so the sheet is as square as the page it is packed on.
     /// </summary>
-    public const int LooksARow = 4;
+    public const int LooksARow = 6;
 
     /// <summary>The sheet's width in cells.</summary>
     public const int SheetColumns = Columns * LooksARow;
@@ -58,10 +63,40 @@ internal static class LampAtlas
 
     /// <summary>
     /// The cell a look's lens burns <paramref name="state"/> in: its look's block of <see cref="Columns"/> cells,
-    /// <see cref="LooksARow"/> blocks a row, and within it a column a lens's state.
+    /// <see cref="LooksARow"/> blocks a row, and within it the lens's own column, or for its second light the column
+    /// past the lenses kept for the <paramref name="lenses"/> of the look that burn one, in their order.
     /// </summary>
-    public static (int Column, int Row) CellOf(int variant, int lens, int state) =>
-        ((variant % LooksARow * Columns) + (lens * StatesPerLens) + state, variant / LooksARow);
+    public static (int Column, int Row) CellOf(int variant, int lens, int state, ReadOnlySpan<CarLens> lenses)
+    {
+        var within = lens;
+        if (state > 0)
+        {
+            within = CarLamps.MostLenses;
+            for (var before = 0; before < lens; before++)
+            {
+                if (StatesOf(lenses[before].Fitting) > 1) within++;
+            }
+        }
+
+        return ((variant % LooksARow * Columns) + within, variant / LooksARow);
+    }
+
+    /// <summary>
+    /// Which lens and state of a look a column within its block is: the inverse of <see cref="CellOf"/>, for whoever
+    /// reads a drawn cell back.
+    /// </summary>
+    public static (int Lens, int State) LensAt(int within, ReadOnlySpan<CarLens> lenses)
+    {
+        if (within < CarLamps.MostLenses) return (within, 0);
+
+        var second = within - CarLamps.MostLenses;
+        for (var lens = 0; lens < lenses.Length; lens++)
+        {
+            if (StatesOf(lenses[lens].Fitting) > 1 && second-- == 0) return (lens, 1);
+        }
+
+        throw new ArgumentOutOfRangeException(nameof(within), within, "no lens of the look burns a second light there");
+    }
 
     /// <summary>One cell, as the body it is cut from measures it. The quad every lamp is drawn as.</summary>
     public static float CellM => CellPx / ArtPxPerM;
@@ -94,20 +129,23 @@ internal static class LampAtlas
     {
         CarLampFitting.Rear => state == 0 ? CarLamp.Brake : CarLamp.Reverse,
         CarLampFitting.Indicator => CarLamp.Indicator,
-        CarLampFitting.BeaconRed => state == 0 ? CarLamp.BeaconRed : CarLamp.BeaconBlue,
+        CarLampFitting.BeaconRed => CarLamp.BeaconRed,
         CarLampFitting.BeaconAmber => CarLamp.BeaconAmber,
         CarLampFitting.Head => CarLamp.Head,
         CarLampFitting.Brake => CarLamp.Brake,
         CarLampFitting.Reverse => CarLamp.Reverse,
-        _ => state == 0 ? CarLamp.BeaconBlue : CarLamp.BeaconRed,
+        _ => CarLamp.BeaconBlue,
     };
 
     /// <summary>
-    /// How many cells a fitting owns. Only a one-lens rear cluster and a beacon end burn two colours; the rest
-    /// leave their second column empty.
+    /// How many cells a fitting owns. Only a one-lens rear cluster burns two lights, red braking and pale reversing;
+    /// every other lamp burns the colour its glass is, and leaves its second column empty.
     /// </summary>
-    public static int StatesOf(CarLampFitting fitting) =>
-        fitting is CarLampFitting.Rear or CarLampFitting.BeaconRed or CarLampFitting.BeaconBlue ? StatesPerLens : 1;
+    public static int StatesOf(CarLampFitting fitting) => fitting is CarLampFitting.Rear ? StatesPerLens : 1;
+
+    /// <summary>Whether a fitting is one end of a beacon bar, which burns and spills harder than a road lamp.</summary>
+    public static bool IsBeacon(CarLampFitting fitting) =>
+        fitting is CarLampFitting.BeaconRed or CarLampFitting.BeaconBlue or CarLampFitting.BeaconAmber;
 
     /// <summary>Which of a lens's cells is the one showing this colour, read off <see cref="ColourAt"/> so the two cannot drift.</summary>
     public static int StateOf(CarLampFitting fitting, CarLamp colour) => ColourAt(fitting, 0) == colour ? 0 : 1;

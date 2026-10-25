@@ -1,0 +1,10 @@
+{
+  "id": "water_vending",
+  "sprite": "water_vending.webp",
+  "kind": 2,
+  "footprintM": [1.0, 1.383],
+  "cornerRadiusM": 0.05,
+  "share": 0.3,
+  "turns": true,
+  "describe": "drinking water vending kiosk, a white and blue box with a flat roof"
+}

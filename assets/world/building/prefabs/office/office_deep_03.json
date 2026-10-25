@@ -2,8 +2,8 @@
   "id": "office_deep_03",
   "sprite": "office_deep_03.webp",
   "footprintM": [
-    10.0,
-    27.5
+    11.5,
+    31.6
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,9 @@
     "office block",
     "narrow front"
   ],
-  "describe": "mid-rise office or public building, flat roof of dark bitumen with rooftop plant, a lift room and a parapet, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "mid-rise office or public building, flat roof of dark bitumen with rooftop plant, a lift room and a parapet, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [-1.5067, -7.6233], "rimAtM": [-1.4757, -7.5615], "rimM": [1.0033, 0.9293] },
+    { "atM": [-1.5067, -5.5638], "rimAtM": [-1.4911, -5.5193], "rimM": [1.015, 0.9701] }
+  ]
 }

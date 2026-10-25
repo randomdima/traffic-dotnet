@@ -1,8 +1,9 @@
 {
   "id": "hospital_09",
+  "sprite": "hospital_09.webp",
   "footprintM": [
-    30.0,
-    22.5
+    42.0,
+    31.5
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -14,5 +15,14 @@
     "grey membrane",
     "hospital wing"
   ],
-  "describe": "hospital or clinic wing, flat grey roof with rooftop plant, ducts and a lift room"
+  "describe": "hospital or clinic wing, flat grey roof with rooftop plant, ducts and a lift room",
+  "fans": [
+    { "atM": [-1.1195, -3.1568], "rimAtM": [-1.1137, -3.1833], "rimM": [0.8947, 0.8922] },
+    { "atM": [1.2553, -3.1907], "rimAtM": [1.2697, -3.1084], "rimM": [0.8922, 0.9622] },
+    { "atM": [3.664, -3.1568], "rimAtM": [3.68, -3.0969], "rimM": [0.9234, 0.9947] },
+    { "atM": [-5.2585, 8.0447], "rimAtM": [-5.2538, 8.1102], "rimM": [0.8642, 0.8549] },
+    { "atM": [-3.0533, 8.0447], "rimAtM": [-3.0415, 8.1264], "rimM": [0.8629, 0.8499] }
+  ],
+  "chimneys": [[4.15, 8.8]],
+  "potWidthM": 0.7
 }

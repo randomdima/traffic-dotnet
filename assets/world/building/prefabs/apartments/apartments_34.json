@@ -2,8 +2,8 @@
   "id": "apartments_34",
   "sprite": "apartments_34.webp",
   "footprintM": [
-    34.0,
-    24.5
+    44.2,
+    31.9
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,7 @@
     "courtyard block",
     "old town"
   ],
-  "describe": "deep old-town apartment block, hipped roof of grey sheet metal round a light well, dormers and chimney stacks"
+  "describe": "deep old-town apartment block, hipped roof of grey sheet metal round a light well, dormers and chimney stacks",
+  "chimneys": [[-11.36, -12.1, -10.86, -12.1], [11.04, -12.1, 11.54, -12.1], [-17.45, -1.8, -16.95, -1.8], [17.11, -1.8, 17.61, -1.8], [-11.36, 8.6, -10.86, 8.6], [11.04, 8.6, 11.54, 8.6]],
+  "potWidthM": 0.5
 }

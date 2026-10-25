@@ -3,13 +3,12 @@
   "sprite": {"variant": "raw_assets/agents/car/variants/compactsuv_green/compactsuv_green-v2.png", "sizePx": [442, 207]},
   "axisY": {"rear": 104.00, "front": 104.50},
   "props": [
-    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 105.0, "mirrorDx": 0.0, "points": [
-      [17.45, 35.06, 2.46],
-      [8.74, 63.08, 0.63],
-      [9.89, 65.44, 3.43],
-      [21.34, 61.49, -0.93],
-      [29.52, 36.80, -0.83],
-      [36.59, 29.65, 4.06]
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 105.0, "mirrorDx": 0.0, "hold": [4], "points": [
+      [20.66, 66.37, -0.31],
+      [28.72, 37.61, -0.83],
+      [39.59, 26.65, 4.06],
+      [17.73, 34.95, 2.97],
+      [9.21, 67.20, 0.00]
     ]},
     {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 105.5, "mirrorDx": 0.0, "points": [
       [14.05, 46.04, -0.45],

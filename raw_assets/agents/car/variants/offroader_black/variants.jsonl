@@ -1,2 +1,4 @@
 {"variant": "offroader_black-v1", "frame": "fleet100_b09-v2", "cell": 8, "pxPerM": 92.739, "score": 4, "status": "candidate", "ts": "2026-10-22T14:01:32"}
-{"variant": "offroader_black-v2", "frame": "fleet100_b09-v2", "cell": 8, "pxPerM": 92.739, "score": 4, "lampsMirroredFrom": "offroader_black-v1", "props": "raw_assets/agents/car/variants/offroader_black/offroader_black-v1.props.json", "status": "used", "ts": "2026-10-22T14:04:24"}
+{"variant": "offroader_black-v2", "frame": "fleet100_b09-v2", "cell": 8, "pxPerM": 92.739, "score": 4, "lampsMirroredFrom": "offroader_black-v1", "props": "raw_assets/agents/car/variants/offroader_black/offroader_black-v1.props.json", "status": "candidate", "ts": "2026-10-22T14:04:24"}
+{"variant": "offroader_black-v3", "frame": "fleet100_r04-v1", "cell": 7, "pxPerM": 85.477, "score": 3, "status": "candidate", "ts": "2026-10-22T19:17:37"}
+{"variant": "offroader_black-v4", "frame": "fleet100_r04-v1", "cell": 7, "pxPerM": 85.477, "score": 3, "lampsMirroredFrom": "offroader_black-v3", "props": "raw_assets/agents/car/variants/offroader_black/offroader_black-v3.props.json", "status": "used", "ts": "2026-10-22T19:19:02"}

@@ -1,0 +1,11 @@
+{
+ "id": "pavement",
+ "kind": "Surface",
+ "sprite": "pavement.webp",
+ "describe": "a road's asphalt seen straight down, no paint, line or marking of any kind",
+ "mosaic": 2,
+ "looks": [
+  {"describe": "fresh asphalt, dark charcoal grey binder with a fine even speckle of small grey and pale stones", "tiles": 2},
+  {"describe": "worn asphalt, a shade lighter and greyer, stones more exposed, a few tiny dark oil spots and hairline cracks no longer than a hand", "tiles": 2}
+ ]
+}

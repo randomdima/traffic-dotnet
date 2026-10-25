@@ -1,1 +1,2 @@
-{"variant": "coupe_yellow_broken-v1", "frame": "fleet100_w09-v1", "cell": 3, "pxPerM": 96.444, "score": 4, "status": "used", "ts": "2026-10-22T14:10:29"}
+{"variant": "coupe_yellow_broken-v1", "frame": "fleet100_w09-v1", "cell": 3, "pxPerM": 96.444, "score": 4, "status": "candidate", "ts": "2026-10-22T14:10:29"}
+{"variant": "coupe_yellow_broken-v2", "frame": "fleet100_rw04-v1", "cell": 6, "pxPerM": 89.121, "score": 4, "status": "used", "ts": "2026-10-22T19:18:53"}

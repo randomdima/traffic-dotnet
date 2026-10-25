@@ -1,0 +1,8 @@
+{
+  "id": "boulder_granite",
+  "sprite": "boulder_granite.webp",
+  "kind": 0,
+  "diameterM": 1.4,
+  "share": 0.6,
+  "describe": "grey granite boulder, rounded with flat facets, speckled, a little lichen"
+}

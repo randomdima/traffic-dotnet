@@ -1,0 +1,32 @@
+{
+  "id": "policehybrid_white",
+  "sprite": "policehybrid_white.webp",
+  "zones": "policehybrid_white_zones.png",
+  "wreck": { "sprite": "policehybrid_white_broken.webp" },
+  "describe": "modern hybrid five-door liftback patrol car in police livery",
+  "footprintM": [4.540, 2.215],
+  "collisionM": { "sizeM": [4.540, 1.858], "cornerRadiusM": 0.715 },
+  "massKg": 1430,
+  "frontAxleM": 1.39,
+  "rearAxleM": -1.3,
+  "trackM": 1.754,
+  "drivetrain": 1,
+  "maxSteeringDeg": 33,
+  "tyreFriction": 0.86,
+  "cgHeightM": 0.55,
+  "frontWeightShare": 0.61,
+  "handling": { "maxSpeed": 1.1, "acceleration": 1.1, "braking": 1.05 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-1.812, -0.567], "sizeM": [0.573, 0.447] },
+    { "fitting": "rear", "atM": [-1.812, 0.515], "sizeM": [0.573, 0.447] },
+    { "fitting": "indicator", "atM": [-1.947, -0.577], "sizeM": [0.187, 0.229] },
+    { "fitting": "indicator", "atM": [-1.958, 0.536], "sizeM": [0.187, 0.229] },
+    { "fitting": "head", "atM": [1.937, -0.598], "sizeM": [0.219, 0.25] },
+    { "fitting": "head", "atM": [1.958, 0.598], "sizeM": [0.219, 0.25] },
+    { "fitting": "indicator", "atM": [1.833, -0.775], "sizeM": [0.177, 0.094] },
+    { "fitting": "indicator", "atM": [1.853, 0.764], "sizeM": [0.177, 0.094] },
+    { "fitting": "beaconRed", "atM": [0.083, -0.286], "sizeM": [0.26, 0.374] },
+    { "fitting": "beaconBlue", "atM": [0.073, 0.296], "sizeM": [0.271, 0.354] }
+  ],
+  "exhausts": [[-2.145, -0.664]]
+}

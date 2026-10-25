@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/vanbus_white/vanbus_white-v2.props.json",
- "cutOn": "raw_assets/agents/car/variants/vanbus_white/vanbus_white-v2.png",
+ "variant": "raw_assets/agents/car/variants/vanbus_white/vanbus_white-v4.props.json",
+ "cutOn": "raw_assets/agents/car/variants/vanbus_white/vanbus_white-v4.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

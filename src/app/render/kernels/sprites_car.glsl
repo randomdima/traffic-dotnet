@@ -12,12 +12,12 @@ struct CarRow
     vec2 forward;
     float headingRad;
     float steerRad;
-    float fuseJitter;
     uint lamps;
     uint variant;
     uint flags;
     int towing;
     float forkAlongM;
+    uint pad;
 };
 
 const uint CarBroken = 1u;

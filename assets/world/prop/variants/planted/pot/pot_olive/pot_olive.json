@@ -1,0 +1,8 @@
+{
+  "id": "pot_olive",
+  "sprite": "pot_olive.webp",
+  "kind": 1,
+  "diameterM": 0.8,
+  "share": 0.8,
+  "describe": "large terracotta pot with a small olive tree, silvery leaves"
+}

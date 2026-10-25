@@ -4,10 +4,10 @@
   "axisY": {"rear": 90.50, "front": 91.50},
   "props": [
     {"name": "brake", "kind": "brake", "mirror": true, "axisY": 90.0, "mirrorDx": 0.0, "points": [
-      [23.46, 22.36, 0.00],
-      [17.80, 52.68, 1.41],
-      [8.95, 53.02, 1.03],
-      [11.83, 30.32, 3.36]
+      [23.03, 23.40, 0.00],
+      [17.47, 52.44, 0.68],
+      [9.25, 53.05, 0.40],
+      [11.46, 31.38, 3.50]
     ]},
     {"name": "head", "kind": "head", "mirror": true, "axisY": 89.0, "mirrorDx": 1.0, "points": [
       [377.82, 31.60, 0.30],
@@ -27,11 +27,6 @@
       [19.50, 41.50, 0.00],
       [9.50, 41.50, 0.25]
     ]},
-    {"name": "reverse", "kind": "reverse", "mirror": true, "over": ["brake"], "axisY": 95.0, "mirrorDx": 1.0, "points": [
-      [9.30, 41.50, 0.00],
-      [19.40, 41.50, 0.00],
-      [17.87, 52.68, 1.30],
-      [8.90, 52.90, 0.00]
-    ]}
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
   ]
 }

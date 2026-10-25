@@ -62,11 +62,9 @@ public class ServiceVehicleTests(ServiceVehicleTests.AtRest atRest) : IClassFixt
             stood++;
             var variant = world.Cars.Variant[car];
             var police = world.Beat.Station[car] != PatrolDuty.NoBuilding;
-            Assert.Equal(
-                police ? CarCatalog.Shared.Police
-                : world.Cars.Ambulance[car] ? CarCatalog.Shared.Ambulance
-                : CarCatalog.Shared.Evacuator,
-                variant);
+            if (police) Assert.True(CarCatalog.Shared.IsPolice(variant), $"police car {car} wears look {variant}");
+            else if (world.Cars.Ambulance[car]) Assert.True(CarCatalog.Shared.IsAmbulance(variant), $"ambulance {car} wears look {variant}");
+            else Assert.True(CarCatalog.Shared.IsEvacuator(variant), $"evacuator {car} wears look {variant}");
 
             // SRV-3: its crew in its crew seats and nobody at the wheel — what drives a service vehicle is its
             // errand — and a police car's officer the first of them (SRV-11).
@@ -86,6 +84,36 @@ public class ServiceVehicleTests(ServiceVehicleTests.AtRest atRest) : IClassFixt
 
         Assert.True(world.PoliceCars > 0, "the built city stood no police car, which SRV-7 is about");
         Assert.Equal(world.Ambulances + world.PoliceCars + world.Evacuators, stood);
+    }
+
+    /// <summary>SRV-3b: <b>the police cars wear the police looks in turn</b>, in the order they were stood.</summary>
+    [Fact]
+    public void ThePoliceCarsWearThePoliceLooksInTurn()
+    {
+        var world = atRest.World;
+
+        var nth = 0;
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (world.Beat.Station[car] == PatrolDuty.NoBuilding) continue;
+
+            Assert.Equal(CarCatalog.Shared.PoliceLook(nth++), world.Cars.Variant[car]);
+        }
+    }
+
+    /// <summary>SRV-3b: <b>the ambulances wear the ambulance looks in turn</b>, in the order they were stood.</summary>
+    [Fact]
+    public void TheAmbulancesWearTheAmbulanceLooksInTurn()
+    {
+        var world = atRest.World;
+
+        var nth = 0;
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (!world.Cars.Ambulance[car]) continue;
+
+            Assert.Equal(CarCatalog.Shared.AmbulanceLook(nth++), world.Cars.Variant[car]);
+        }
     }
 
     /// <summary>
@@ -171,9 +199,9 @@ public class ServiceVehicleTests(ServiceVehicleTests.AtRest atRest) : IClassFixt
         {
             var uniform = world.Cars.Variant[car] switch
             {
-                var variant when variant == CarCatalog.Shared.Ambulance => looks.Paramedic,
-                var variant when variant == CarCatalog.Shared.Police => looks.Police,
-                var variant when variant == CarCatalog.Shared.Evacuator => looks.Recovery,
+                var variant when CarCatalog.Shared.IsAmbulance(variant) => looks.Paramedic,
+                var variant when CarCatalog.Shared.IsPolice(variant) => looks.Police,
+                var variant when CarCatalog.Shared.IsEvacuator(variant) => looks.Recovery,
                 _ => NoUniform,
             };
 

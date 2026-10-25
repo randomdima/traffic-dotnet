@@ -89,6 +89,9 @@ internal sealed class DeviceRail
         ]);
     }
 
+    /// <summary>Every rail vehicle's pedals as the pass reads them, a <see cref="RailCommandRow"/> a vehicle.</summary>
+    public GpuBuffer Commands => _commands;
+
     /// <summary>A rail vehicle's pedals as the signal leaves them (<see cref="ManagedWorld"/>'s own), a put-down kept.</summary>
     public void Drive(int wagon, in DriveCommand command)
     {

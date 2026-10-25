@@ -1,0 +1,10 @@
+{
+  "id": "bank_paper",
+  "sprite": "bank_paper.webp",
+  "kind": 2,
+  "footprintM": [1.6, 1.52],
+  "cornerRadiusM": 0.1,
+  "share": 1.2,
+  "turns": true,
+  "describe": "blue paper recycling bank, a flat sloped top with a posting slot at the front"
+}

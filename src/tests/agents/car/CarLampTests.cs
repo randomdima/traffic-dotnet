@@ -57,7 +57,7 @@ public class CarLampTests
     static int Lit(CarFleet fleet, float elapsedS, Span<ShownLamp> into)
     {
         var count = CarLamps.Shown(
-            Catalogue.LensesOf(fleet.Variant[0]), Showing(fleet), Config, elapsedS, fleet.FuseJitter[0], into);
+            Catalogue.LensesOf(fleet.Variant[0]), Showing(fleet), Config, elapsedS, into);
 
         return Lit(into[..count]);
     }
@@ -132,7 +132,7 @@ public class CarLampTests
         ReadOnlySpan<CarLens> lenses = [new CarLens(CarLampFitting.Head, new Vector2(1.8f, 0.4f), new Vector2(0.12f, 0.26f))];
         Span<ShownLamp> into = stackalloc ShownLamp[1];
 
-        CarLamps.Shown(lenses, driven ? CarLampSet.Head : CarLampSet.None, Config, 0f, 1f, into);
+        CarLamps.Shown(lenses, driven ? CarLampSet.Head : CarLampSet.None, Config, 0f, into);
 
         Assert.Equal(new ShownLamp(lenses[0], CarLamp.Head, driven), into[0]);
     }
@@ -156,7 +156,7 @@ public class CarLampTests
         Span<ShownLamp> into = stackalloc ShownLamp[2];
         var showing = (braking ? CarLampSet.Brake : CarLampSet.None) | (reversing ? CarLampSet.Reverse : CarLampSet.None);
 
-        CarLamps.Shown(lenses, showing, Config, 0f, 1f, into);
+        CarLamps.Shown(lenses, showing, Config, 0f, into);
 
         Assert.Equal(new ShownLamp(lenses[0], CarLamp.Brake, braking), into[0]);
         Assert.Equal(new ShownLamp(lenses[1], CarLamp.Reverse, reversing), into[1]);
@@ -411,26 +411,35 @@ public class CarLampTests
 
         Span<ShownLamp> lamps = stackalloc ShownLamp[CarLamps.MostLenses];
         var lit = CarLamps.Shown(
-            Catalogue.LensesOf(police.Variant[0]), Showing(police, handAtTheWheel: true), Config, elapsedS: 0f,
-            police.FuseJitter[0], lamps);
+            Catalogue.LensesOf(police.Variant[0]), Showing(police, handAtTheWheel: true), Config, elapsedS: 0f, lamps);
 
-        Assert.Equal(2, Lit(lamps[..lit]));
+        // One end of the bar at a time (CAR-14.4).
+        Assert.Equal(1, Lit(lamps[..lit]));
 
         var hatchback = Rolling();
         var showing = Showing(hatchback, handAtTheWheel: true);
         lit = CarLamps.Shown(
-            Catalogue.LensesOf(hatchback.Variant[0]), showing, Config, elapsedS: 0f, hatchback.FuseJitter[0], lamps);
+            Catalogue.LensesOf(hatchback.Variant[0]), showing, Config, elapsedS: 0f, lamps);
 
         Assert.Equal(0, Lit(lamps[..lit]));
     }
 
-    /// <summary>The indicator is dark for part of every period and the beacon is dark in none of them: what a beacon does is swap its two ends.</summary>
+    /// <summary>
+    /// CAR-14.4: the indicator is dark for part of every period and the beacon is dark in none of them — its ends burn in
+    /// turn, <b>each the colour its glass is</b>: a red end only ever burns red and a blue one blue.
+    /// </summary>
     [Fact]
-    public void TheIndicatorFlashesAndTheBeaconSwapsInstead()
+    public void TheIndicatorFlashesAndTheBeaconBurnsItsEndsInTurn()
     {
         var indicating = Rolling(curvature: 0.05f);
-        var beaconed = Rolling(variant: Catalogue.Ambulance);
+        var beaconed = Rolling(variant: Catalogue.Police);
         beaconed.BlueLight[0] = true;
+
+        var ends = 0;
+        foreach (var lens in Catalogue.LensesOf(Catalogue.Police))
+        {
+            if (lens.Fitting is CarLampFitting.BeaconRed or CarLampFitting.BeaconBlue) ends++;
+        }
 
         Span<ShownLamp> lamps = stackalloc ShownLamp[CarLamps.MostLenses];
         var dark = 0;
@@ -442,61 +451,98 @@ public class CarLampTests
             var elapsedS = sample / (float)Samples / Config.Lamps.FlashHz;
             if (Lit(indicating, elapsedS, lamps) == 0) dark++;
 
-            // Both of the ambulance's bars, and every lens of both of them, in every frame.
-            Assert.Equal(6, Lit(beaconed, elapsedS, lamps));
+            // Half of the police car's beacon lenses, whichever colour is burning, in every frame.
+            Assert.Equal(ends / 2, Lit(beaconed, elapsedS, lamps));
             foreach (var lamp in lamps)
             {
                 if (!lamp.Lit) continue;
+                if (lamp.Lens.Fitting == CarLampFitting.BeaconRed) Assert.Equal(CarLamp.BeaconRed, lamp.Colour);
+                if (lamp.Lens.Fitting == CarLampFitting.BeaconBlue) Assert.Equal(CarLamp.BeaconBlue, lamp.Colour);
                 if (lamp.Colour == CarLamp.BeaconRed) reds++;
                 else if (lamp.Colour == CarLamp.BeaconBlue) blues++;
             }
         }
 
         Assert.InRange(dark, 1, Samples - 1);
-        Assert.Equal(3 * Samples, reds);
-        Assert.Equal(3 * Samples, blues);
+        Assert.InRange(reds, 1, (ends / 2 * Samples) - 1);
+        Assert.Equal(ends / 2 * Samples, reds + blues);
     }
 
     /// <summary>
-    /// CAR-14.4: <b>a second bar runs against the first</b>. The ambulance draws one across its roof and
-    /// one across its back doors, and at every instant the end of one is the colour the end beside it on
-    /// the other is not — so a driver behind reads a bar that is changing whichever one they can see.
+    /// CAR-14.9: the showroom's picked-out car shows headlamps, reversing, brake, left, right and hazard lamps, each for
+    /// one step, and starts over.
+    /// </summary>
+    [Theory]
+    [InlineData(0, (int)CarLampSet.Head)]
+    [InlineData(1, (int)CarLampSet.Reverse)]
+    [InlineData(2, (int)CarLampSet.Brake)]
+    [InlineData(3, (int)CarLampSet.TurnLeft)]
+    [InlineData(4, (int)CarLampSet.TurnRight)]
+    [InlineData(5, (int)(CarLampSet.TurnLeft | CarLampSet.TurnRight))]
+    [InlineData(6, (int)CarLampSet.Head)]
+    public void TheShowroomShowsEachLampStateInTurn(int step, int expected)
+    {
+        var stepS = Config.Lamps.ShowroomStepS;
+        Assert.Equal((CarLampSet)expected, CarLamps.InTurn((step + 0.5f) * stepS, stepS));
+    }
+
+    /// <summary>CAR-14.9: hazard lamps are both sides' indicators flashing together.</summary>
+    [Fact]
+    public void HazardLampsFlashBothSidesTogether()
+    {
+        ReadOnlySpan<CarLens> lenses =
+        [
+            new CarLens(CarLampFitting.Indicator, new Vector2(2f, -0.7f), new Vector2(0.1f, 0.1f)),
+            new CarLens(CarLampFitting.Indicator, new Vector2(2f, 0.7f), new Vector2(0.1f, 0.1f)),
+        ];
+        Span<ShownLamp> into = stackalloc ShownLamp[2];
+
+        CarLamps.Shown(lenses, CarLampSet.TurnLeft | CarLampSet.TurnRight, Config, 0f, into);
+
+        Assert.True(into[0].Lit && into[1].Lit);
+    }
+
+    /// <summary>
+    /// CAR-14.4: <b>a second bar runs against the first</b>. A body with one across its roof and one across its back
+    /// doors, entered crossed, burns at every instant the end of one where the end beside it on the other is dark — so
+    /// a driver behind reads a bar that is changing whichever one they can see.
     /// </summary>
     [Fact]
-    public void TheSecondBarCarriesWhatTheFirstOneIsNot()
+    public void TheSecondBarBurnsAtTheOtherEndOfTheFirst()
     {
-        var ambulance = Rolling(variant: Catalogue.Ambulance);
-        ambulance.BlueLight[0] = true;
+        ReadOnlySpan<CarLens> lenses =
+        [
+            new CarLens(CarLampFitting.BeaconRed, new Vector2(0.8f, -0.4f), new Vector2(0.3f, 0.4f)),
+            new CarLens(CarLampFitting.BeaconBlue, new Vector2(0.8f, 0.4f), new Vector2(0.3f, 0.4f)),
+            new CarLens(CarLampFitting.BeaconBlue, new Vector2(-2f, -0.4f), new Vector2(0.1f, 0.2f)),
+            new CarLens(CarLampFitting.BeaconRed, new Vector2(-2f, 0.4f), new Vector2(0.1f, 0.2f)),
+        ];
 
         Span<ShownLamp> lamps = stackalloc ShownLamp[CarLamps.MostLenses];
         const int Samples = 16;
         for (var sample = 0; sample < Samples; sample++)
         {
-            var elapsedS = sample / (float)Samples / Config.Lamps.BeaconHz;
-            var count = CarLamps.Shown(
-                Catalogue.LensesOf(ambulance.Variant[0]), Showing(ambulance), Config, elapsedS,
-                ambulance.FuseJitter[0], lamps);
+            var elapsedS = sample / (float)Samples * Config.Lamps.BeaconPeriodS;
+            var count = CarLamps.Shown(lenses, CarLampSet.Beacon, Config, elapsedS, lamps);
 
             // The bars are told apart by where they are on the body, which is all the art says about
             // them: one is forward of the middle and the other behind it.
             foreach (var side in (float[])[-1f, 1f])
             {
-                var roof = CarLamp.Indicator;
-                var back = CarLamp.Indicator;
+                bool? roofLit = null, backLit = null;
                 for (var lamp = 0; lamp < count; lamp++)
                 {
                     var lens = lamps[lamp].Lens;
                     if (lens.Fitting is not (CarLampFitting.BeaconRed or CarLampFitting.BeaconBlue)) continue;
                     if (MathF.Sign(lens.AtBodyM.Y) != side) continue;
 
-                    Assert.True(lamps[lamp].Lit, "a beacon end went dark while the priority was carried");
-                    if (lens.AtBodyM.X > 0f) roof = lamps[lamp].Colour;
-                    else back = lamps[lamp].Colour;
+                    if (lens.AtBodyM.X > 0f) roofLit = lamps[lamp].Lit;
+                    else backLit = lamps[lamp].Lit;
                 }
 
-                Assert.NotEqual(CarLamp.Indicator, roof);
-                Assert.NotEqual(CarLamp.Indicator, back);
-                Assert.NotEqual(roof, back);
+                Assert.NotNull(roofLit);
+                Assert.NotNull(backLit);
+                Assert.NotEqual(roofLit, backLit);
             }
         }
     }
@@ -508,10 +554,18 @@ public class CarLampTests
     /// ends and not four.
     /// </summary>
     [Fact]
-    public void TheAmberBeaconTakesItsTwoEndsInTurns()
+    public void TheAmberBeaconTakesItsTwoEndsInTurns() =>
+        AssertTheEndsTakeTurns(Catalogue.Evacuator, CarLampFitting.BeaconAmber, CarLamp.BeaconAmber);
+
+    /// <summary>CAR-14.4: an ambulance's bar is blue at both ends, and takes them in turns as an amber one does.</summary>
+    [Fact]
+    public void TheAmbulancesBlueBeaconTakesItsTwoEndsInTurns() =>
+        AssertTheEndsTakeTurns(Catalogue.Ambulance, CarLampFitting.BeaconBlue, CarLamp.BeaconBlue);
+
+    static void AssertTheEndsTakeTurns(int variant, CarLampFitting fitting, CarLamp colour)
     {
-        var evacuator = Rolling(variant: Catalogue.Evacuator);
-        evacuator.BlueLight[0] = true;
+        var car = Rolling(variant: variant);
+        car.BlueLight[0] = true;
 
         Span<ShownLamp> lamps = stackalloc ShownLamp[CarLamps.MostLenses];
         var left = 0;
@@ -519,12 +573,9 @@ public class CarLampTests
         const int Samples = 64;
         for (var sample = 0; sample < Samples; sample++)
         {
-            // Four periods of it, since each car flashes at its own rate and one nominal period of a
-            // jittered one is not a whole one.
-            var elapsedS = sample / (float)Samples * 4f / Config.Lamps.BeaconHz;
+            var elapsedS = sample / (float)Samples * 4f * Config.Lamps.BeaconPeriodS;
             var count = CarLamps.Shown(
-                Catalogue.LensesOf(evacuator.Variant[0]), Showing(evacuator), Config, elapsedS,
-                evacuator.FuseJitter[0], lamps);
+                Catalogue.LensesOf(car.Variant[0]), Showing(car), Config, elapsedS, lamps);
 
             var leftLenses = 0;
             var leftLit = 0;
@@ -532,9 +583,9 @@ public class CarLampTests
             var rightLit = 0;
             foreach (var lamp in lamps[..count])
             {
-                if (lamp.Lens.Fitting != CarLampFitting.BeaconAmber) continue;
+                if (lamp.Lens.Fitting != fitting) continue;
 
-                Assert.Equal(CarLamp.BeaconAmber, lamp.Colour);
+                Assert.Equal(colour, lamp.Colour);
                 if (lamp.Lens.AtBodyM.Y < 0f)
                 {
                     leftLenses++;
@@ -547,7 +598,7 @@ public class CarLampTests
                 }
             }
 
-            Assert.True(leftLenses > 0 && rightLenses > 0, "the evacuator's art draws no amber bar.");
+            Assert.True(leftLenses > 0 && rightLenses > 0, $"the art draws no {fitting} bar.");
             Assert.True(
                 (leftLit == leftLenses && rightLit == 0) || (rightLit == rightLenses && leftLit == 0),
                 $"{leftLit}/{leftLenses} lenses lit at one end and {rightLit}/{rightLenses} at the other.");
@@ -592,13 +643,13 @@ public class CarLampTests
     [Fact]
     public void ABeaconAtRestKeepsTheColourItsArtDraws()
     {
-        var fleet = Rolling(variant: Catalogue.Ambulance);
+        var fleet = Rolling(variant: Catalogue.Police);
 
         Span<ShownLamp> lamps = stackalloc ShownLamp[CarLamps.MostLenses];
         for (var sample = 0; sample < 16; sample++)
         {
             var count = CarLamps.Shown(
-                Catalogue.LensesOf(fleet.Variant[0]), Showing(fleet), Config, sample / 8f, rateJitter: 1f, lamps);
+                Catalogue.LensesOf(fleet.Variant[0]), Showing(fleet), Config, sample / 8f, lamps);
 
             foreach (var lamp in lamps[..count])
             {
@@ -607,28 +658,6 @@ public class CarLampTests
                 if (lamp.Lens.Fitting == CarLampFitting.BeaconBlue) Assert.Equal(CarLamp.BeaconBlue, lamp.Colour);
             }
         }
-    }
-
-    /// <summary>
-    /// Two cars indicating do not blink together, whatever they are doing: each flashes at its own rate,
-    /// so a queue of them drifts apart instead of locking into one signal.
-    /// </summary>
-    [Fact]
-    public void TwoCarsIndicatingDoNotFlashInStep()
-    {
-        var one = Rolling(curvature: 0.05f);
-        var other = Rolling(curvature: 0.05f);
-        other.FuseJitter[0] = one.FuseJitter[0] * 1.1f;
-
-        Span<ShownLamp> lamps = stackalloc ShownLamp[CarLamps.MostLenses];
-        var apart = false;
-        for (var sample = 0; sample < 64; sample++)
-        {
-            var elapsedS = sample / 8f;
-            apart |= (Lit(one, elapsedS, lamps) == 0) != (Lit(other, elapsedS, lamps) == 0);
-        }
-
-        Assert.True(apart, "two cars indicating were lit and dark together for eight seconds");
     }
 
     /// <summary>

@@ -1,1 +1,2 @@
-{"variant": "boxsaloon_beige_broken-v1", "frame": "fleet100_w03-v1", "cell": 3, "pxPerM": 108.717, "score": 4, "status": "used", "ts": "2026-10-22T01:19:39"}
+{"variant": "boxsaloon_beige_broken-v1", "frame": "fleet100_w03-v1", "cell": 3, "pxPerM": 108.717, "score": 4, "status": "candidate", "ts": "2026-10-22T01:19:39"}
+{"variant": "boxsaloon_beige_broken-v2", "frame": "fleet100_rw03-v1", "cell": 4, "pxPerM": 106.538, "score": 4, "status": "used", "ts": "2026-10-22T18:34:01"}

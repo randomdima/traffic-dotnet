@@ -1,0 +1,11 @@
+{
+ "id": "shore",
+ "kind": "Surface",
+ "sprite": "shore.webp",
+ "describe": "a river or sea bank seen straight down, small irregular rounded stones about 10 cm across laid at random, no rows, arcs or fans",
+ "mosaic": 2,
+ "looks": [
+  {"describe": "the stones in mixed warm greys and browns, dark gaps between", "tiles": 2},
+  {"describe": "the same stones nearer the water: a little moss and dirt between them, their tops slightly polished", "tiles": 2}
+ ]
+}

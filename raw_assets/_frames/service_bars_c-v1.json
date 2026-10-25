@@ -1,0 +1,51 @@
+{
+ "id": "service_bars_c-v1",
+ "ts": "2026-10-22T20:52:57",
+ "op": "edit",
+ "name": "service_bars_c",
+ "file": ".tmp/gen/frames/service_bars_c-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.022403,
+ "usage": {
+  "prompt_tokens": 2416,
+  "completion_tokens": 158,
+  "total_tokens": 2574,
+  "cost": 0.022403,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.022403,
+   "upstream_inference_prompt_cost": 0.017663,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 vehicle roof light bars for a 2D top-down city game, seen from directly above.\n\nTHE DESIGN IS THE LIGHT BAR ON THE ROOF OF THE FIRST PICTURE'S POLICE CAR: a slim charcoal housing with square corners; an LED panel at each end — dark smoked glass over a neat grid of small LEDs — and a pale clear module in the middle.\n\nTHE RENDERING IS THE SECOND PICTURE'S CARS, NOT THE FIRST PICTURE'S. The first picture is old chunky pixel art; the last sheet copied that and came out blocky and pixelated next to the cars. Draw the bars at the cars' high resolution and finish: smooth fine shading, soft gradients on the housing, crisp thin edges, small round LEDs with tiny highlights, glass with a subtle reflection — exactly as finely as the second picture's headlamps, mirrors and trim are drawn. No visible pixel blocks, no stair-stepped edges, no dithering.\n\nEVERY BAR IS SWITCHED OFF: each LED a dull dark point only a shade lighter than its glass, the glass dark smoked with only a faint tint of its colour. Nothing bright or glowing. The middle module a matt pale grey.\n\nLayout: a 3×3 grid. Each bar lies VERTICALLY in its place — its long side running top to bottom, as a bar lying across a car's roof looks when the car points right — centred in its place, large, filling about three quarters of the place's height, with empty space round it. Each bar is SLIM: its depth (left to right) a sixth of its length.\n\nRows are three designs:\n- Row 1: the first picture's bar — an LED panel at each end and the clear module in the middle.\n- Row 2: a longer bar — two LED panels at each end, side by side along it, and the clear module in the middle.\n- Row 3: a low-profile version of row 1 — the same three sections, its housing thinner and flatter, the glass flush with it.\n\nColumns are three versions of the row's design:\n- Column 1: the upper end's glass a faint dark red tint, the lower end's a faint dark blue tint.\n- Column 2: both ends neutral dark smoked glass.\n- Column 3: both ends a faint dark amber tint.\n\nNo car, no roof, no text, letters, logos or numbers. Background: fully transparent outside the bars — no colour, no glow or halo, no shadow. Each bar's edge ends sharply.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "b10423b3737be54a",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_police_b_ref.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "8ee6e0330c0430b8",
+   "ext": "png",
+   "frame": "service_police_c-v2",
+   "was": ".tmp/gen/frames/service_police_c-v2.png"
+  }
+ ]
+}

@@ -1,0 +1,31 @@
+{
+  "car": "office_atrium",
+  "sprite": {"variant": "raw_assets/world/building/variants/office_atrium/office_atrium-v1.png", "sizePx": [438, 466]},
+  "axisY": {"rear": 211.00, "front": 211.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [376.06, 37.88, 5.44],
+      [386.47, 53.09, 1.36],
+      [395.51, 48.82, 4.25],
+      [389.49, 32.58, 2.55]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [303.83, 44.40, 4.93],
+      [320.82, 52.11, 3.39],
+      [324.70, 37.00, 2.60],
+      [310.45, 32.73, 2.35]
+    ]},
+    {"name": "fan3", "kind": "fan", "mirror": false, "points": [
+      [340.16, 40.18, 2.29],
+      [345.21, 52.12, 2.86],
+      [360.48, 48.85, 3.31],
+      [356.82, 33.58, 4.40]
+    ]},
+    {"name": "fan4", "kind": "fan", "mirror": false, "points": [
+      [374.64, 84.72, 5.02],
+      [385.41, 99.08, 2.03],
+      [395.79, 91.87, 4.51],
+      [385.00, 78.90, 1.86]
+    ]}
+  ]
+}

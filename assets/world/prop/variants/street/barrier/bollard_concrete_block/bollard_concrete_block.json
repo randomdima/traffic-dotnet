@@ -1,0 +1,8 @@
+{
+  "id": "bollard_concrete_block",
+  "sprite": "bollard_concrete_block.webp",
+  "kind": 2,
+  "footprintM": [0.6, 0.629],
+  "cornerRadiusM": 0.05,
+  "describe": "square precast concrete bollard block, chamfered top edges"
+}

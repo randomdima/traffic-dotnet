@@ -1,10 +1,12 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.TrafficLight.Body;
 using TrafficSimulation.Agents.TrafficLight.Control;
+using TrafficSimulation.Agents.Train.Body;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
@@ -59,7 +61,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct FrameWords(FrameRow Frame, DispatchIndirectCommand LayCars, DispatchIndirectCommand LayPeople);
 
-    static readonly ulong LayCarsAt = (ulong)Marshal.SizeOf<FrameRow>();
+    static readonly ulong LayCarsAt = Bytes<FrameRow>(1);
     static readonly ulong LayPeopleAt = LayCarsAt + (ulong)Marshal.SizeOf<DispatchIndirectCommand>();
 
     /// <summary>One walker as the emit reads it (<c>PersonRow</c>).</summary>
@@ -67,14 +69,11 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     internal readonly record struct PersonRow(Vector2 PositionM, float HeadingRad, float DistanceWalkedM, uint Variant, uint Flags);
 
     /// <summary>One car as the emit reads it (<c>CarRow</c>, <c>sprites_car.glsl</c>).</summary>
+    /// <remarks><c>Pad</c> rounds it to its vectors' eight bytes, which is std430's stride of the row.</remarks>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CarRow(
-        Vector2 PositionM, Vector2 Forward, float HeadingRad, float SteerRad, float FuseJitter, uint Lamps, uint Variant, uint Flags,
-        int Towing, float ForkAlongM);
-
-    /// <summary>What a car looks like that is fixed when the town is laid (<c>CarLookRow</c>).</summary>
-    [StructLayout(LayoutKind.Sequential)]
-    readonly record struct CarLookRow(uint Variant, float FuseJitter);
+        Vector2 PositionM, Vector2 Forward, float HeadingRad, float SteerRad, uint Lamps, uint Variant, uint Flags,
+        int Towing, float ForkAlongM, uint Pad);
 
     /// <summary>The push <c>sprites_world.comp</c> is run with.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -88,7 +87,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CarLook(
         Vector2 BodyHalfM, Vector2 WreckHalfM, float BodyReachM, float WreckReachM, Vector2 TyreHalfM, Vector2 FirstSteeredM,
-        Vector2 SecondSteeredM, float TyreReachM, float WheelWidthM, float LampReachM, uint LensCount, float Unused,
+        Vector2 SecondSteeredM, float TyreReachM, float WheelWidthM, float LampReachM, uint LensCount, uint ExhaustCount,
         uint HasBeam, Vector2 PivotM, Vector2 CollapsedHalfM, Vector2 ExtendedHalfM, float CollapsedHingeAtM,
         float ExtendedHingeAtM, float CollapsedReachM, float ExtendedReachM, uint CollapsedSheet, uint ExtendedSheet);
 
@@ -103,11 +102,27 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct HeadRow(Vector2 CentreM, float HeadingRad, int Subject, uint ForCars, uint Pad = 0);
 
-    /// <summary>The frame's own words (<c>Frame</c>): the view, the narrowest part, the clock, the rosters and the world's view the host is showing.</summary>
+    /// <summary>
+    /// The frame's own words (<c>Frame</c>): the view, the narrowest part, the clock, the rosters, the world's view the host
+    /// is showing, and the air of the moments back from the town's (<see cref="Wind.Back"/>), which carries the smoke
+    /// (CAR-54, OBJ-7).
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct FrameRow(
         Vector2 ViewCentreM, Vector2 ViewSpanM, float LeastPartM, float ElapsedS, uint PersonCount, uint CarCount, uint ViewSlot,
-        uint Pad = 0);
+        uint Pad, AirMoments Air);
+
+    /// <summary>
+    /// How many moments back the frame hands the air at (<c>AirMoments</c>), from now to the oldest any puff is drawn at
+    /// (<see cref="AirStepS"/>).
+    /// </summary>
+    public const int AirMomentCount = 32;
+
+    [InlineArray(AirMomentCount)]
+    internal struct AirMoments
+    {
+        AirBack _first;
+    }
 
     /// <summary>What is fixed when the town is laid (<c>Figures</c>), field for field.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -172,6 +187,49 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         public float LightHalfWidthM;
         public uint Bridged;
         public uint BridgeChannel;
+        public uint SmokeSheet;
+        public uint MostExhausts;
+        public float PuffEveryS;
+        public float PuffPerEveryS;
+        public uint PuffSplits;
+        public float PuffGapM;
+        public float ScatterMps;
+        public float DragS;
+        public ExhaustLook Tailpipe;
+        public ExhaustLook Stack;
+        public uint ChimneyCount;
+        public uint ChimneyPuffsEach;
+        public float ChimneyEveryS;
+        public float ChimneyPerEveryS;
+        public float ChimneyLifeS;
+        public float ChimneyRiseS;
+        public float ChimneyPerPotWidthM;
+        public float ChimneySpreadMps;
+        public float ChimneyScatterMps;
+        public float ChimneyDragS;
+        public float ChimneyOpacity;
+        public float ChimneyShade;
+        public float ChimneyBreathShare;
+        public float ChimneyPerBreathS;
+        public float ChimneySmokingShare;
+        public float ChimneyPerFireS;
+        public float WidestChimneyPuffM;
+        public float ChimneyReachM;
+        public uint FirstWagonTrack;
+        public float PerAirStepS;
+    }
+
+    /// <summary>One vehicle of the rolling stock as drawn (<c>TrainLook</c>): its half-size and its exhaust stacks (TRN-15).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct TrainLookRow(Vector2 HalfM, uint ExhaustCount, uint Pad, Vector2 FirstExhaustM, Vector2 SecondExhaustM)
+    {
+        public static TrainLookRow Of(in TrainVehicle vehicle)
+        {
+            var exhausts = vehicle.ExhaustsM;
+            return new TrainLookRow(
+                vehicle.FootprintM * 0.5f, (uint)exhausts.Length, 0u, exhausts.Length > 0 ? exhausts[0] : default,
+                exhausts.Length > 1 ? exhausts[1] : default);
+        }
     }
 
     /// <summary>One approach's crossing gear (<c>GearRow</c>, <see cref="CrossingGear"/>), laid once.</summary>
@@ -206,6 +264,11 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     /// <summary>The world whose view the host is showing, which the rows are laid off (<see cref="WorldLayer.View"/>).</summary>
     readonly DeviceWorld _world;
 
+    /// <summary>The air over the town, which each frame's words carry the moments back from its own of.</summary>
+    readonly Wind _wind;
+
+    readonly float _airStepS;
+
     /// <summary>Each swapchain image's frame words (<see cref="FrameWords"/>), laid as its frame is first recorded.</summary>
     readonly List<GpuBuffer> _frames = [];
 
@@ -233,20 +296,38 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     /// <param name="bridged">Whether any of its railway stands on a bridge, so a wagon may be drawn in the run above (RAIL-8).</param>
     public DeviceSprites(
         Vk vk, SimConfig config, TownSprites looks, SpriteRoom room, CarFleet cars, PersonFleet people, SignalHeads heads,
-        SignalTable signals, bool levelled, bool bridged, CrossingGear gear, DeviceWorld world)
+        SignalTable signals, bool levelled, bool bridged, CrossingGear gear, DeviceWorld world, Wind wind)
     {
         _vk = vk;
+        _wind = wind;
+        _airStepS = AirStepS(looks);
         _held = new DeviceHoldings(vk);
         _config = config;
-        _room = room;
+
+        // The smoke's tracks (CAR-54, TRN-15) as the world's step lays them.
+        var smoke = world.Smoke ?? throw new InvalidOperationException("The emit draws the smoke off tracks the world lays from DrawWith on.");
+
+        // The puffs of smoke a car may have out (CAR-54), which no fill draws and so no fill's room holds: the over run's
+        // for every car, and the run above's where it holds any car; a rail vehicle's (TRN-15) in whichever run it is
+        // drawn in. And the chimneys' (OBJ-7), last of the over run, so a frame that would draw more than the room holds
+        // cuts its furthest chimneys' and nothing else.
+        var wagons = world.View.Wagons.Length;
+        var puffs = cars.Capacity * looks.PuffsEach;
+        var wagonPuffs = wagons * TrainVehicle.MostExhausts * looks.Smoke.Stack.PuffsEach;
+        var chimneys = looks.Chimneys;
+        var chimneyPuffs = (int)Math.Min((long)chimneys.Length * looks.Chimney.PuffsEach, looks.Chimney.MostPuffsDrawn);
+        _room = room = room with
+        {
+            Over = room.Over + puffs + wagonPuffs + chimneyPuffs,
+            Above = room.Above > 0 ? room.Above + puffs + (bridged ? wagonPuffs : 0) : 0,
+        };
         _cars = cars.Count;
         _people = people.Count;
         _gear = gear;
-        var wagons = world.View.Wagons.Length;
         var lights = gear.Lights;
-        _units = people.Capacity + cars.Capacity + wagons + heads.Count + gear.Count + lights.Length;
-        _slots = people.Capacity + (CarParts(levelled) * cars.Capacity) + (bridged ? 2 * wagons : wagons) + heads.Count
-                 + (CrossingSprites.EachGear * gear.Count) + lights.Length;
+        _units = people.Capacity + cars.Capacity + wagons + heads.Count + gear.Count + lights.Length + chimneys.Length;
+        _slots = people.Capacity + (CarParts(levelled) * cars.Capacity) + (bridged ? 2 * 2 * wagons : 2 * wagons) + heads.Count
+                 + (CrossingSprites.EachGear * gear.Count) + lights.Length + chimneys.Length;
         if (_slots > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(cars), _slots, "more sprite slots than one scan covers");
 
         var (driveHalfM, lightHalfM) = (RailLooks.Shared.Drive.FootprintM * 0.5f, RailLooks.Shared.Light.FootprintM * 0.5f);
@@ -258,6 +339,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             BarrierWidthM = config.Rail.BarrierWidthM, DriveHalfLengthM = driveHalfM.X, DriveHalfWidthM = driveHalfM.Y,
             LightHalfLengthM = lightHalfM.X, LightHalfWidthM = lightHalfM.Y,
             Bridged = bridged ? 1u : 0u, BridgeChannel = CityPlan.RailArrays.BridgeChannel,
+            FirstWagonTrack = (uint)smoke.FirstWagon,
         };
         var gearRows = new GearRow[Math.Max(1, gear.Count)];
         for (var each = 0; each < gear.Count; each++)
@@ -270,10 +352,12 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
         _gearShown = _held.Device<GearShownRow>(gearRows.Length);
         _gearShownIn = _held.Own(_vk.CreateBuffer(Bytes<GearShownRow>(gearRows.Length), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
-        var trainLooks = new Vector2[Math.Max(1, looks.Rolling.Vehicles.Length)];
-        for (var vehicle = 0; vehicle < looks.Rolling.Vehicles.Length; vehicle++) trainLooks[vehicle] = looks.Rolling.Vehicles[vehicle].FootprintM * 0.5f;
+        var trainLooks = new TrainLookRow[Math.Max(1, looks.Rolling.Vehicles.Length)];
+        for (var vehicle = 0; vehicle < looks.Rolling.Vehicles.Length; vehicle++) trainLooks[vehicle] = TrainLookRow.Of(looks.Rolling.Vehicles[vehicle]);
+
         var personRows = _held.Device<PersonRow>(Math.Max(1, people.Capacity));
         var carRows = _held.Device<CarRow>(Math.Max(1, cars.Capacity));
+
         GpuBuffer[] set =
         [
             _frame = _held.Device<FrameRow>(1),
@@ -281,7 +365,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             Laid<PersonLook>(PersonLooks(looks)),
             Laid<CarLook>(CarLooks(looks, cars)),
             Laid<LensRow>(Lenses(looks, config)),
-            Laid<uint>(Tints(config)),
+            Laid<uint>(Tints()),
             personRows,
             carRows,
             Laid<HeadRow>(Heads(heads)),
@@ -296,12 +380,16 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             // A slot above at the least: a frame binds the run above at its own offset, which may not be the buffer's end.
             _instances = _held.Device<SpriteInstance>(room.Over + Math.Max(1, room.Above), BufferUse.Vertex),
             _draws = _held.Device<DrawIndirectCommand>(2, BufferUse.Indirect),
-            Laid<Vector2>(trainLooks),
+            Laid<TrainLookRow>(trainLooks),
             world.Drawn.WagonViews[0],
             world.Drawn.WagonViews[1],
             Laid<GearRow>(gearRows),
             _gearShown,
             Laid<LightRow>(lightRows),
+            Laid<Vector2>(Exhausts(looks)),
+            smoke.Heads,
+            smoke.Points,
+            Laid<ChimneyRow>(chimneys.Length > 0 ? chimneys : new ChimneyRow[1]),
         ];
 
         _frameIn = _held.Own(_vk.CreateBuffer(
@@ -315,8 +403,8 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _countSet = _count.Bind(set);
         _writeSet = _write.Bind(set);
 
-        var carLooks = new CarLookRow[Math.Max(1, cars.Count)];
-        for (var car = 0; car < cars.Count; car++) carLooks[car] = new CarLookRow(cars.Variant[car], cars.FuseJitter[car]);
+        var carVariants = new uint[Math.Max(1, cars.Count)];
+        for (var car = 0; car < cars.Count; car++) carVariants[car] = cars.Variant[car];
         var personVariants = new uint[Math.Max(1, people.Count)];
         for (var person = 0; person < people.Count; person++) personVariants[person] = people.Variant[person];
 
@@ -325,7 +413,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _lay = new ComputeKernel(vk, "sprites_world.comp", 12, (uint)Marshal.SizeOf<LayPush>());
         _laySet = _lay.Bind(
         [
-            carRows, personRows, drawn.Cars, drawn.Walkers, drawn.Commands, Laid<CarLookRow>(carLooks), Laid<uint>(personVariants),
+            carRows, personRows, drawn.Cars, drawn.Walkers, drawn.Commands, Laid<uint>(carVariants), Laid<uint>(personVariants),
             _frame, drawn.CarViews[0], drawn.CarViews[1], drawn.WalkerViews[0], drawn.WalkerViews[1],
         ]);
         _batch = new ComputeBatch(vk);
@@ -334,7 +422,8 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     /// <summary>The emit for a running town whose world is on the device.</summary>
     public static DeviceSprites For(Vk vk, SimConfig config, TownWorld town, TownSprites looks, SpriteRoom room, DeviceWorld world) =>
         new(vk, config, looks, room, town.Cars, town.People, town.Heads, town.Signals.Table, town.Levelled,
-            Array.Exists(town.Plan.Rails.Level, static level => level != CityGen.Map.TownMap.RailArrays.AtGrade), town.CrossingGear, world);
+            Array.Exists(town.Plan.Rails.Level, static level => level != CityGen.Map.TownMap.RailArrays.AtGrade), town.CrossingGear, world,
+            town.Wind);
 
     /// <summary>
     /// The two runs as the last emit wrote them, on the device — the over run from the first instance and the run above
@@ -435,11 +524,26 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         }
     }
 
-    FrameWords WordsFor(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, float elapsedS, bool lay) => new(
-        new FrameRow(
-            viewCentreM, viewSpanM, _config.View.CarPartLeastPx / pixelsPerMetre, elapsedS, (uint)_people, (uint)_cars,
-            (uint)_world.View.Slot),
-        new DispatchIndirectCommand(lay ? Groups(_cars) : 0u, 1, 1), new DispatchIndirectCommand(lay ? Groups(_people) : 0u, 1, 1));
+    FrameWords WordsFor(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, float elapsedS, bool lay)
+    {
+        var air = default(AirMoments);
+        _wind.Back(elapsedS, _airStepS, air);
+        return new FrameWords(
+            new FrameRow(
+                viewCentreM, viewSpanM, _config.View.CarPartLeastPx / pixelsPerMetre, elapsedS, (uint)_people, (uint)_cars,
+                (uint)_world.View.Slot, 0u, air),
+            new DispatchIndirectCommand(lay ? Groups(_cars) : 0u, 1, 1), new DispatchIndirectCommand(lay ? Groups(_people) : 0u, 1, 1));
+    }
+
+    /// <summary>
+    /// How far apart the frame's moments of the air are (<see cref="AirMomentCount"/>): the oldest is as old as any puff is
+    /// drawn — a chimney's, a tailpipe's or a stack's.
+    /// </summary>
+    static float AirStepS(TownSprites looks)
+    {
+        var oldestS = MathF.Max(looks.Chimney.PuffsEach * looks.Chimney.EveryS, MathF.Max(looks.Smoke.Tailpipe.LongestS, looks.Smoke.Stack.LongestS));
+        return oldestS / (AirMomentCount - 1);
+    }
 
     /// <summary>
     /// The emit recorded off frame words <paramref name="words"/>: the frame's row sent, every row laid off the world as
@@ -464,8 +568,8 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _write.Dispatch(commands, _writeSet, groups, default(NoPush));
     }
 
-    /// <summary>A car's four parts, and four again where there is a level above to draw them in.</summary>
-    static int CarParts(bool levelled) => levelled ? 8 : 4;
+    /// <summary>A car's five parts, and five again where there is a level above to draw them in.</summary>
+    static int CarParts(bool levelled) => levelled ? 10 : 5;
 
     static Figures FiguresOf(
         SimConfig config, TownSprites looks, SpriteRoom room, int carCapacity, int personCapacity, int headCount,
@@ -503,7 +607,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             PersonRows = PersonCatalog.FacingRows,
             FlashHz = lamps.FlashHz,
             FlashOnShare = lamps.FlashOnShare,
-            BeaconHz = lamps.BeaconHz,
+            BeaconHz = config.BeaconHz,
             HalfLensCellM = LampAtlas.CellM * 0.5f,
             CarHeadHalfX = carHeadHalfM.X,
             CarHeadHalfY = carHeadHalfM.Y,
@@ -520,7 +624,49 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             WalkHeadFrames = SignalSprites.WalkFrames,
             CycleS = config.Signals.CycleS,
             AmberTailS = config.Signals.AmberTailS,
+            SmokeSheet = (uint)looks.SmokeSheet,
+            MostExhausts = CarCatalog.MostExhausts,
+            PuffEveryS = looks.Smoke.EveryS,
+            PuffPerEveryS = looks.Smoke.PerEveryS,
+            PuffSplits = (uint)looks.Smoke.Splits,
+            PuffGapM = looks.Smoke.GapM,
+            ScatterMps = looks.Smoke.ScatterMps,
+            DragS = looks.Smoke.DragS,
+            Tailpipe = looks.Smoke.Tailpipe,
+            Stack = looks.Smoke.Stack,
+            ChimneyCount = (uint)looks.Chimneys.Length,
+            ChimneyPuffsEach = (uint)looks.Chimney.PuffsEach,
+            ChimneyEveryS = looks.Chimney.EveryS,
+            ChimneyPerEveryS = looks.Chimney.PerEveryS,
+            ChimneyLifeS = looks.Chimney.LifeS,
+            ChimneyRiseS = looks.Chimney.RiseS,
+            ChimneyPerPotWidthM = looks.Chimney.PerPotWidthM,
+            ChimneySpreadMps = looks.Chimney.SpreadMps,
+            ChimneyScatterMps = looks.Chimney.ScatterMps,
+            ChimneyDragS = looks.Chimney.DragS,
+            ChimneyOpacity = looks.Chimney.Opacity,
+            ChimneyShade = looks.Chimney.Shade,
+            ChimneyBreathShare = looks.Chimney.BreathShare,
+            ChimneyPerBreathS = looks.Chimney.PerBreathS,
+            ChimneySmokingShare = looks.Chimney.SmokingShare,
+            ChimneyPerFireS = looks.Chimney.PerFireS,
+            WidestChimneyPuffM = looks.Chimney.WidestM,
+            ChimneyReachM = looks.Chimney.ReachM,
+            PerAirStepS = 1f / AirStepS(looks),
         };
+    }
+
+    /// <summary>Where every look's tailpipes end (CAR-54), <see cref="CarCatalog.MostExhausts"/> rows a look.</summary>
+    static Vector2[] Exhausts(TownSprites looks)
+    {
+        var catalogue = looks.Cars;
+        var rows = new Vector2[catalogue.SheetCount * CarCatalog.MostExhausts];
+        for (var variant = 0; variant < catalogue.SheetCount; variant++)
+        {
+            catalogue.ExhaustsOf(variant).CopyTo(rows.AsSpan(variant * CarCatalog.MostExhausts));
+        }
+
+        return rows;
     }
 
     /// <summary>Each walker's look as <see cref="PersonSprites.Fill"/> sizes it, standing and down.</summary>
@@ -558,7 +704,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
                 bodyHalfM, wreckHalfM, bodyHalfM.Length(), wreckHalfM.Length(),
                 new Vector2(build.WheelLengthM, build.WheelWidthM) * 0.5f, TyreModel.WheelAtM(build, 0), TyreModel.WheelAtM(build, 1),
                 halfDiagonalM + build.WheelLengthM, build.WheelWidthM, halfDiagonalM, (uint)catalogue.LensesOf(variant).Length,
-                0f, beam is null ? 0u : 1u, beam?.PivotM ?? Vector2.Zero, collapsed.SizeM * 0.5f,
+                (uint)catalogue.ExhaustsOf(variant).Length, beam is null ? 0u : 1u, beam?.PivotM ?? Vector2.Zero, collapsed.SizeM * 0.5f,
                 extended.SizeM * 0.5f, collapsed.HingeAtM, extended.HingeAtM, ArmReachM(collapsed), ArmReachM(extended),
                 BeamSheet(looks, variant, towing: false), BeamSheet(looks, variant, towing: true));
         }
@@ -586,8 +732,9 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             {
                 var fitting = lenses[lens].Fitting;
                 rows[(variant * CarLamps.MostLenses) + lens] = new LensRow(
-                    lenses[lens].AtBodyM, LampSprites.LensCell(variant, lens, 0, catalogue.SheetCount).Packed,
-                    LampSprites.LensCell(variant, lens, 1, catalogue.SheetCount).Packed, LampSprites.GlowM(lenses[lens], config),
+                    lenses[lens].AtBodyM, LampSprites.LensCell(variant, lens, 0, catalogue.SheetCount, lenses).Packed,
+                    LampSprites.LensCell(variant, lens, LampAtlas.StatesOf(fitting) - 1, catalogue.SheetCount, lenses).Packed,
+                    LampSprites.GlowM(lenses[lens], config),
                     (uint)fitting | ((uint)LampAtlas.ColourAt(fitting, 0) << 8));
             }
         }
@@ -596,11 +743,11 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     }
 
     /// <summary>What each lamp's glow is tinted, by <see cref="CarLamp"/>, packed as an instance carries it.</summary>
-    static uint[] Tints(SimConfig config)
+    static uint[] Tints()
     {
         var lamps = Enum.GetValues<CarLamp>();
         var tints = new uint[lamps.Length];
-        foreach (var lamp in lamps) tints[(int)lamp] = LampSprites.GlowTint(lamp, config);
+        foreach (var lamp in lamps) tints[(int)lamp] = LampSprites.GlowTint(lamp);
         return tints;
     }
 

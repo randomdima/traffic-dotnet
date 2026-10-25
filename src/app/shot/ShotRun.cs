@@ -61,7 +61,7 @@ internal static class ShotRun
 
         // GEN-1b in a picture: the start menu stands over the idle ring, so a picture of it is a picture of
         // the map that was asked for with the panel on top. Which map that is, is the request's.
-        var plan = Maps.Plan(ask.Map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(ask.Map, config, ShippedArt.Sizes);
         using var stage = ShotStage.For(plan, config, ask.WidthPx, ask.HeightPx, ask.Validate);
 
         standing = TownStanding.For(ask, config, plan, standing);

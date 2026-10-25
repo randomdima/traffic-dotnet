@@ -1,1 +1,2 @@
-{"variant": "family90s_silver_broken-v1", "frame": "fleet100_w05-v1", "cell": 7, "pxPerM": 102.679, "score": 4, "status": "used", "ts": "2026-10-22T04:55:25"}
+{"variant": "family90s_silver_broken-v1", "frame": "fleet100_w05-v1", "cell": 7, "pxPerM": 102.679, "score": 4, "status": "candidate", "ts": "2026-10-22T04:55:25"}
+{"variant": "family90s_silver_broken-v2", "frame": "fleet100_rw01-v1", "cell": 9, "pxPerM": 103.571, "score": 4, "status": "used", "ts": "2026-10-22T16:39:01"}

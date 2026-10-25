@@ -130,15 +130,16 @@ public class SheetAtlasTests
 
     /// <summary>
     /// What the shipped art costs on the GPU. A page is 64 MB and the pages are the whole of the
-    /// sprite memory, so this count <em>is</em> the atlas's price: the shipped art takes three, at
-    /// around three quarters full, and a fourth is worth being told about before it is paid for.
+    /// sprite memory, so this count <em>is</em> the atlas's price: the shipped art takes five, the
+    /// building roofs three and a third of them at their art grid (the owner, 2026-10-20), and a sixth
+    /// is worth being told about before it is paid for.
     /// </summary>
     [Fact]
     public void TheShippedArtPacksIntoAHandfulOfPages()
     {
         var atlas = SheetAtlas.Pack(TownSprites.Load(SimConfig.Shipped()).Sheets);
 
-        Assert.InRange(atlas.Pages, 1, 4);
+        Assert.InRange(atlas.Pages, 1, 5);
     }
 
     static bool Overlaps(SheetPlace left, SheetPlace right) =>

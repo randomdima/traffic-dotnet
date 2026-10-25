@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_aw-v2",
+ "ts": "2026-10-20T14:06:59",
+ "op": "edit",
+ "name": "roofs_mixed_aw",
+ "file": ".tmp/gen/frames/roofs_mixed_aw-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031366,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 2×1 grid. Redraw cells 1 and 2 (the transparent areas). Keep everything else exactly as it is, and keep image 1's colours and style.\n\nThe fault in both cells: the details were drawn about four times their true size — air conditioner units about 4 m long, as big as a car; vent boxes about 3 m; a skylight about 10 m — so each large roof had a few huge details. These are big roofs, 31 × 47 m and 62 × 48 m, seen from high above: draw many small details at true size instead. An air conditioner unit is about 1 m (12 px here), a ventilation stack about 0.6 m (7 px), a roof exit box about 2.5 × 3 m (30 × 35 px), a skylight about 1.5 m (17 px). Scatter 10–20 of them over each roof, with bitumen seams and patches between.\n\nKeep each roof filling its outline exactly as before, a parapet about 0.4 m along all four edges, straight square edges, top-down with no perspective, the magenta background flat pure #FF00FF outside. No text.\n\n1. 31.2 × 47.2 m (1.5× deeper than wide) — Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks, standing narrow end to the street with the entrance on that short front wall\n2. 62.4 × 48 m (1.3× wider than deep) — Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "ee22eed700e50e40",
+   "ext": "png",
+   "frame": "roofs_mixed_aw-v1",
+   "was": ".tmp/gen/frames/roofs_mixed_aw-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "729dc60b21928ad2",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_aw.png"
+  },
+  {
+   "role": "mask",
+   "sha": "a16954d95fd0ffa5",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_aw-v1/_mask_school_deep_06_school_14.png"
+  }
+ ]
+}

@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/golf3_red/golf3_red-v8.props.json",
- "cutOn": "raw_assets/agents/car/variants/golf3_red/golf3_red-v8.png",
+ "variant": "raw_assets/agents/car/variants/golf3_red/golf3_red-v10.props.json",
+ "cutOn": "raw_assets/agents/car/variants/golf3_red/golf3_red-v10.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

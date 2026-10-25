@@ -1,1 +1,2 @@
-{"variant": "budgethatch_orange_broken-v1", "frame": "fleet100_w02-v1", "cell": 8, "pxPerM": 113.268, "score": 4, "status": "used", "ts": "2026-10-22T00:05:31"}
+{"variant": "budgethatch_orange_broken-v1", "frame": "fleet100_w02-v1", "cell": 8, "pxPerM": 113.268, "score": 4, "status": "candidate", "ts": "2026-10-22T00:05:31"}
+{"variant": "budgethatch_orange_broken-v2", "frame": "fleet100_rw03-v1", "cell": 3, "pxPerM": 107.125, "score": 4, "status": "used", "ts": "2026-10-22T18:34:01"}

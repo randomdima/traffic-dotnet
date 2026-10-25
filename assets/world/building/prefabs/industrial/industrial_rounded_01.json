@@ -1,10 +1,11 @@
 {
   "id": "industrial_rounded_01",
+  "sprite": "industrial_rounded_01.webp",
   "footprintM": [
-    24.0,
-    13.5
+    36.0,
+    20.2
   ],
-  "cornerRadiusM": 3.38,
+  "cornerRadiusM": 5.07,
   "partsM": [],
   "look": "industrial",
   "tags": [

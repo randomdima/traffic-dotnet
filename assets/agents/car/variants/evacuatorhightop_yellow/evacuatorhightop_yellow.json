@@ -1,0 +1,38 @@
+{
+  "id": "evacuatorhightop_yellow",
+  "sprite": "evacuatorhightop_yellow.webp",
+  "zones": "evacuatorhightop_yellow_zones.png",
+  "wreck": { "sprite": "evacuatorhightop_yellow_broken.webp" },
+  "beam": {
+    "extended": { "sprite": "evacuatorhightop_yellow_beam_extended.webp", "sizeM": [2.691, 1.876], "hingeAtM": -1.076 },
+    "collapsed": { "sprite": "evacuatorhightop_yellow_beam_collapsed.webp", "sizeM": [1.222, 1.087], "hingeAtM": -0.489 },
+    "reachM": 2.2,
+    "pivotM": [-1.655, 0.0]
+  },
+  "describe": "modern high-cab tow truck with an open tow deck, in recovery livery",
+  "footprintM": [5.410, 2.752],
+  "collisionM": { "sizeM": [5.410, 2.114], "cornerRadiusM": 0.756 },
+  "massKg": 3000,
+  "frontAxleM": 1.905,
+  "rearAxleM": -1.655,
+  "trackM": 2.037,
+  "drivetrain": 1,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.8,
+  "cgHeightM": 0.95,
+  "frontWeightShare": 0.6,
+  "handling": { "maxSpeed": 0.68, "acceleration": 0.56, "braking": 0.77 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.371, -0.813], "sizeM": [0.208, 0.271] },
+    { "fitting": "rear", "atM": [-2.371, 0.803], "sizeM": [0.208, 0.271] },
+    { "fitting": "indicator", "atM": [-2.226, -0.803], "sizeM": [0.063, 0.229] },
+    { "fitting": "indicator", "atM": [-2.226, 0.792], "sizeM": [0.063, 0.229] },
+    { "fitting": "head", "atM": [2.33, -0.751], "sizeM": [0.271, 0.334] },
+    { "fitting": "head", "atM": [2.309, 0.792], "sizeM": [0.271, 0.334] },
+    { "fitting": "indicator", "atM": [2.309, -0.834], "sizeM": [0.229, 0.177] },
+    { "fitting": "indicator", "atM": [2.288, 0.876], "sizeM": [0.229, 0.177] },
+    { "fitting": "beaconAmber", "atM": [0.745, -0.334], "sizeM": [0.25, 0.386] },
+    { "fitting": "beaconAmber", "atM": [0.756, 0.334], "sizeM": [0.24, 0.354] }
+  ],
+  "exhausts": [[-2.611, -0.826]]
+}

@@ -2,8 +2,8 @@
   "id": "retail_deep_05",
   "sprite": "retail_deep_05.webp",
   "footprintM": [
-    6.0,
-    26.0
+    7.8,
+    33.8
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,13 @@
     "shops",
     "narrow front"
   ],
-  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [-1.1787, -14.248], "rimAtM": [-1.13, -14.193], "rimM": [0.7406, 0.7307] },
+    { "atM": [-0.884, -0.3467], "rimAtM": [-0.8596, -0.3002], "rimM": [0.7237, 0.7263] },
+    { "atM": [-0.9013, 1.3], "rimAtM": [-0.854, 1.37], "rimM": [0.7244, 0.7299] },
+    { "atM": [0.4507, 10.7293], "rimAtM": [0.4827, 10.75], "rimM": [0.7382, 0.7514] }
+  ],
+  "chimneys": [[1.24, -10.92], [1.24, 5.13]],
+  "potWidthM": 0.5
 }

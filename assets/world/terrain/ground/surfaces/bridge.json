@@ -1,0 +1,11 @@
+{
+ "id": "bridge",
+ "kind": "Surface",
+ "sprite": "bridge.webp",
+ "describe": "a bridge deck's cast concrete seen straight down, mid grey, no joint, slab line, paint or marking",
+ "mosaic": 2,
+ "looks": [
+  {"describe": "smooth cast concrete, an even fine grain and soft pale water stains", "tiles": 2},
+  {"describe": "older cast concrete, slightly darker, small pits, rust-brown drip stains and tiny hairline cracks", "tiles": 2}
+ ]
+}

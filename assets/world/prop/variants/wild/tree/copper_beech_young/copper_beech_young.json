@@ -1,0 +1,8 @@
+{
+  "id": "copper_beech_young",
+  "sprite": "copper_beech_young.webp",
+  "kind": 0,
+  "diameterM": 3.8,
+  "colliderM": 0.5,
+  "describe": "young copper beech crown, dense deep purple-red leaves with darker shadowed clumps"
+}

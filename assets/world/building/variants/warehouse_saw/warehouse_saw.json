@@ -1,6 +1,7 @@
 {
   "id": "warehouse_saw",
   "sprite": "warehouse_saw.webp",
+  "describe": "warehouse, sawtooth north-light roof in parallel ridges of grey metal with glazed strips, a flat office block along one side",
   "footprintM": [19.00, 18.96],
   "partsM": [
     { "atM": [0.0, -0.67], "sizeM": [19.0, 17.37] },

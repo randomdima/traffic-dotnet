@@ -1,0 +1,8 @@
+{
+  "id": "elm_young",
+  "sprite": "elm_young.webp",
+  "kind": 0,
+  "diameterM": 3.6,
+  "colliderM": 0.5,
+  "describe": "young field elm crown, small rough dark green leaves, irregular lumpy outline"
+}

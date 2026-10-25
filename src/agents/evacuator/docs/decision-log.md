@@ -1,5 +1,17 @@
 # The evacuator — decision log
 
+## 2026-10-23 — nine evacuator looks, worn in turn
+
+**The owner asked for the tow truck after the ambulances, made the same way.** No fleet body is a tow truck, so
+each of nine — the Soviet 4×4, an off-road 4×4, a pickup and six vans — kept its cab and had an open steel tow deck
+drawn behind it, yellow with a striped tail bar, an amber bar fitted on the cab roof. `evacuator_yellow` is now the
+light van and stays the first look; the depots' evacuators wear all nine in turn (SRV-3b). **Each look draws its
+own arm**, extended and folded, in the trucks' style (`service_arms`); looks that name one arm's pictures share its
+sheet slots, which the catalogue keys by picture rather than by look. An arm's quad and hinge are read off its
+drawing, scaled by its crossbar, which spans the fork's authored width — the box it was asked in was the old picture's,
+and the new drawings are stubbier. Each hinge stands as far inside its own tail as the old one did, and the coupling's
+reach is unchanged: the drawn fork lands within about 0.1 m of it.
+
 ## 2026-10-19 — an arm tows anything with a body, one fork to an end
 
 **The owner asked for no limits on what an arm can take**, trains included, with one: an end another arm holds is not

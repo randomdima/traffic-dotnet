@@ -15,7 +15,11 @@ internal readonly record struct RouteEntry(int Link, float AlongM, float Remaini
 /// <summary>
 /// A destination: <b>a place on a link</b>, which is what a destination always is. Never a junction.
 /// </summary>
-internal readonly record struct RouteGoal(int Link, float AlongM);
+/// <param name="NotEnteredFrom">
+/// A link the goal is <b>not reached by turning in from</b>, or <see cref="TravelGraph.NoLink"/>: the far side of a
+/// stretch a leg comes back down by turning in a bay (GEN-4l), where that turn lands the body past the place.
+/// </param>
+internal readonly record struct RouteGoal(int Link, float AlongM, int NotEnteredFrom = TravelGraph.NoLink);
 
 /// <summary>
 /// One Dijkstra over an abstract weighted graph, used by both agent kinds. <b>The search state is a
@@ -180,7 +184,7 @@ internal sealed class RoutePlanner
 
                 for (var slot = 0; slot < goals.Length; slot++)
                 {
-                    if (goals[slot].Link != onto) continue;
+                    if (goals[slot].Link != onto || goals[slot].NotEnteredFrom == link) continue;
 
                     // What a link costs as the *last* one is not its weight: the route stops part-way
                     // along it and pays for the run into the destination and no more. Charging the whole

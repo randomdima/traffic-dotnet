@@ -71,7 +71,7 @@ internal sealed class LaidTown
     static IEnumerable<string> Laying(
         string map, SimConfig config, IWorldMaker? worldMaker, Action<TownWorld>? handTheWorldOver, Action<LaidTown> laid)
     {
-        var planning = Maps.Planning(map, config, BuildingCatalog.Roofs);
+        var planning = Maps.Planning(map, config, ShippedArt.Sizes);
         foreach (var stage in planning.Stages) yield return stage;
 
         var plan = planning.Made;

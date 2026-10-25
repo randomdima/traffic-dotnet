@@ -181,7 +181,10 @@ internal sealed class ShotStage : IDisposable
         // at, and a picture of it has to be askable for without a window.
         var pointerPx = ask.PointerM is { } pointerM ? camera.ScreenAt(pointerM, uiPx) : -Vector2.One;
         var (centreM, clipPerM, facing) = camera.ForShader(uiPx);
-        var cameraView = new CameraView(centreM, clipPerM, uiPx, facing);
+        var cameraView = new CameraView(
+            centreM, clipPerM, uiPx, facing, Turning: CameraView.Turned(
+                FanTable.TurnsAt(tick, _config), _config.View.FanLeastPx / camera.PixelsPerMetre),
+            Clouds: CloudShadows.At(world.Clouds, _config, tick), WaterDriftM: GroundPatches.DriftAt(world.Wind, _config, tick));
         var picked = WriteTheEngine(ui.Switches, world, camera, uiPx, ask.PointerM ?? ask.PickedM, cameraView, ui.Pick.Pinned);
         var under = 0;
         var underAbove = 0;

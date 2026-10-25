@@ -1,0 +1,7 @@
+{
+  "id": "fan_six_grey",
+  "sprite": "fan_six_grey.webp",
+  "footprintM": [3.4, 3.384],
+  "tags": ["fan", "six blades"],
+  "describe": "a rooftop cooling fan with six straight mid-grey blades round a pale round hub, a thin steel rim"
+}

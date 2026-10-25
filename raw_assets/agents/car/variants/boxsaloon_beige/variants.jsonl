@@ -1,2 +1,4 @@
 {"variant": "boxsaloon_beige-v1", "frame": "fleet100_b03-v1", "cell": 3, "pxPerM": 105.327, "score": 4, "status": "candidate", "ts": "2026-10-22T01:18:01"}
-{"variant": "boxsaloon_beige-v5", "frame": "fleet100_b03-v1", "cell": 3, "pxPerM": 105.327, "score": 4, "lampsMirroredFrom": "boxsaloon_beige-v1", "props": "raw_assets/agents/car/variants/boxsaloon_beige/boxsaloon_beige-v1.props.json", "status": "used", "ts": "2026-10-22T04:32:19"}
+{"variant": "boxsaloon_beige-v5", "frame": "fleet100_b03-v1", "cell": 3, "pxPerM": 105.327, "score": 4, "lampsMirroredFrom": "boxsaloon_beige-v1", "props": "raw_assets/agents/car/variants/boxsaloon_beige/boxsaloon_beige-v1.props.json", "status": "candidate", "ts": "2026-10-22T04:32:19"}
+{"variant": "boxsaloon_beige-v6", "frame": "fleet100_r03-v1", "cell": 4, "pxPerM": 112.349, "score": 4, "status": "candidate", "ts": "2026-10-22T18:32:43"}
+{"variant": "boxsaloon_beige-v7", "frame": "fleet100_r03-v1", "cell": 4, "pxPerM": 112.349, "score": 4, "lampsMirroredFrom": "boxsaloon_beige-v6", "props": "raw_assets/agents/car/variants/boxsaloon_beige/boxsaloon_beige-v6.props.json", "status": "used", "ts": "2026-10-22T18:36:45"}

@@ -37,11 +37,11 @@ public class AssetJsonTests
     [Fact]
     public void APathIsResolvedAgainstTheFileThatNamedIt()
     {
-        var variant = Path.Combine(ProjectPaths.Assets, "agents", "car", "variants", "hatch_teal", "hatch_teal.json");
+        var variant = Path.Combine(ProjectPaths.Assets, "agents", "car", "variants", "hatch_blue", "hatch_blue.json");
 
         Assert.Equal(
-            Path.Combine(ProjectPaths.Assets, "agents", "car", "variants", "hatch_teal", "hatch_teal.png"),
-            AssetJson.Beside(variant, "hatch_teal.png"));
+            Path.Combine(ProjectPaths.Assets, "agents", "car", "variants", "hatch_blue", "hatch_blue.webp"),
+            AssetJson.Beside(variant, "hatch_blue.webp"));
 
         Assert.Equal(
             Path.Combine(ProjectPaths.Assets, "agents", "car", "variants", "common", "Fleet.json"),

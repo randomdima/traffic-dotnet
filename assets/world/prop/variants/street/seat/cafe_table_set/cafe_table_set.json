@@ -1,0 +1,8 @@
+{
+  "id": "cafe_table_set",
+  "sprite": "cafe_table_set.webp",
+  "kind": 2,
+  "diameterM": 1.4,
+  "share": 0.4,
+  "describe": "small round café table with two folding chairs"
+}

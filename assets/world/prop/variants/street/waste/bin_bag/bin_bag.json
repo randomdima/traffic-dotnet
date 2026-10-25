@@ -1,0 +1,8 @@
+{
+  "id": "bin_bag",
+  "sprite": "bin_bag.webp",
+  "kind": 2,
+  "diameterM": 0.6,
+  "share": 0.8,
+  "describe": "one tied black rubbish bag, shiny creases"
+}

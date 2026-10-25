@@ -1,0 +1,14 @@
+{
+  "variants": [
+    "fan_six_grey.json",
+    "fan_four_black.json",
+    "fan_three_swept.json",
+    "fan_five_curved.json",
+    "fan_eight_spoke.json",
+    "fan_seven_sickle.json",
+    "fan_three_paddle.json",
+    "fan_ring_guard.json",
+    "fan_four_rust.json",
+    "fan_twelve_vane.json"
+  ]
+}

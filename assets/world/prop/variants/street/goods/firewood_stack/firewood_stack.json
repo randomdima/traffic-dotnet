@@ -1,0 +1,9 @@
+{
+  "id": "firewood_stack",
+  "sprite": "firewood_stack.webp",
+  "kind": 2,
+  "footprintM": [1.6, 0.682],
+  "share": 0.5,
+  "turns": true,
+  "describe": "stacked split firewood, log ends in a row"
+}

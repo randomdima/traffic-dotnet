@@ -2,8 +2,8 @@
   "id": "tower_deep_01",
   "sprite": "tower_deep_01.webp",
   "footprintM": [
-    6.5,
-    8.5
+    8.5,
+    11.1
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],
@@ -16,5 +16,11 @@
     "stair and lift core",
     "narrow front"
   ],
-  "describe": "stair and lift core of a tall block, flat grey roof filled by the lift machine room and a roof exit, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "stair and lift core of a tall block, flat grey roof filled by the lift machine room and a roof exit, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [2.2327, -3.4908], "rimAtM": [2.242, -3.4089], "rimM": [0.5261, 0.5218] },
+    { "atM": [2.2327, -2.2553], "rimAtM": [2.2707, -2.1911], "rimM": [0.5603, 0.5339] }
+  ],
+  "chimneys": [[-2.2, 3.58]],
+  "potWidthM": 0.4
 }

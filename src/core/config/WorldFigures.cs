@@ -607,6 +607,124 @@ internal sealed class TerrainFigures
     public float GroundStepM { get; init; } = 1f;
 }
 
+/// <summary>
+/// The air over the town (<c>Wind</c>): a light breeze that carries what is light enough to be carried — a car's smoke
+/// (CAR-54) — and nothing that stands on the ground. It blows from a way the town's seed picks and swings slowly either
+/// side of it, and gusts — which way and how hard each a term of its own, neither moved by the other's figures.
+/// </summary>
+internal sealed class WindFigures
+{
+    /// <summary>How fast the air moves between gusts.</summary>
+    public float SpeedMps { get; init; } = 1.5f;
+
+    /// <summary>How much harder a gust blows, and softer the lull after it, as a share of <see cref="SpeedMps"/>; and how long one gust is from the next.</summary>
+    public float GustShare { get; init; } = 0.4f;
+
+    public float GustPeriodS { get; init; } = 9f;
+
+    /// <summary>How far the wind swings either side of the way the town's seed has it blow, and how long one swing there and back takes.</summary>
+    public float TurnDeg { get; init; } = 60f;
+
+    public float TurnPeriodS { get; init; } = 300f;
+}
+
+/// <summary>
+/// <b>The clouds over the town</b> (OBJ-8, <c>Clouds</c>): never drawn themselves, only the shadows they cast, carried
+/// across the town by the air at their height and changing shape as they go.
+/// </summary>
+internal sealed class CloudFigures
+{
+    /// <summary>How much of the sky is cloud, as a share: the share of the ground in shade at any one moment. Nought is a clear sky, and draws nothing.</summary>
+    public float CoverShare { get; init; } = 0.25f;
+
+    /// <summary>How far across a cloud is, about: the widest lumps of its shadow, its finest a thirty-second of it.</summary>
+    public float AcrossM { get; init; } = 500f;
+
+    /// <summary>
+    /// How fast the air at the clouds' height carries them, the way the town's wind blows about (<c>Wind.PrevailingRad</c>):
+    /// steadier and faster than the air at the ground, so they follow none of its swings and gusts.
+    /// </summary>
+    public float SpeedMps { get; init; } = 6f;
+
+    /// <summary>How long a cloud keeps its shape before it has become another.</summary>
+    public float LifeS { get; init; } = 900f;
+
+    /// <summary>How high the clouds' base is, and how wide the sun is across the sky: what blurs a shadow's edge.</summary>
+    public float HeightM { get; init; } = 1200f;
+
+    public float SunAcrossDeg { get; init; } = 0.53f;
+
+    /// <summary>How much of the light on the ground a cloud's shadow takes away where the cloud is thickest, as a share.</summary>
+    public float ShadeShare { get; init; } = 0.17f;
+
+    /// <summary>How far in from its edge a cloud thickens to its thickest: its shadow deepens over as far, so a thin fringe barely shades.</summary>
+    public float ThickensOverM { get; init; } = 30f;
+}
+
+/// <summary>
+/// <b>A roof's chimneys' smoke</b> (OBJ-7): a slow plume off the pots of whichever of the town's chimneys are burning,
+/// which the wind (<see cref="WindFigures"/>) lays out downwind.
+/// </summary>
+internal sealed class ChimneyFigures
+{
+    /// <summary>
+    /// How many of the town's chimneys are burning at any one time, as a share, and how long a fire holds before it is lit
+    /// or let out afresh: every stack takes its turns from its own start, so the town's fires change a few at a time.
+    /// </summary>
+    public float SmokingShare { get; init; } = 0.4f;
+
+    public float FirePeriodS { get; init; } = 120f;
+
+    /// <summary>How long after one puff leaves a pot the next does, and how long a house's is drawn for.</summary>
+    public float PuffEveryS { get; init; } = 0.2f;
+
+    public float PuffLifeS { get; init; } = 6f;
+
+    /// <summary>
+    /// <b>How wide a house's pot is</b>, as its picture draws it — one pot, of the two most of the art's stacks carry: the
+    /// width a roof's file that says none of its own (<c>potWidthM</c>) is taken to have. A puff leaves a pot as wide as
+    /// it, and a wider pot's plume is thicker and lives longer than a house's (<c>ChimneySprites</c>).
+    /// </summary>
+    public float PotWidthM { get; init; } = 0.35f;
+
+    /// <summary>How fast a puff grows across as it mixes into the air.</summary>
+    public float SpreadMps { get; init; } = 0.6f;
+
+    /// <summary>
+    /// How fast the eddies over the roof blow a puff off the wind's line at the most, any way, and the time it gives that
+    /// up to the wind over: what makes the plume billow and not a string of beads.
+    /// </summary>
+    public float ScatterMps { get; init; } = 0.5f;
+
+    public float DragS { get; init; } = 1.5f;
+
+    /// <summary>
+    /// How opaque a puff is as it leaves a house's pot, thinning to nothing over its life; and the time it rises out of the
+    /// pot before the wind takes it — straight up, which from above is standing on the pot — thickening to that as it
+    /// rises, so the plume's root is the pot whatever the wind and not a disc stood on it.
+    /// </summary>
+    public float Opacity { get; init; } = 0.45f;
+
+    public float RiseS { get; init; } = 0.4f;
+
+    /// <summary>The grey the smoke is drawn, as a share of white.</summary>
+    public float Shade { get; init; } = 0.85f;
+
+    /// <summary>
+    /// How far a chimney's smoke thins between its thickest and its thinnest, as a share, and how long one swing there
+    /// and back takes: a fire is stoked and burns down, each chimney from its own start.
+    /// </summary>
+    public float BreathShare { get; init; } = 0.5f;
+
+    public float BreathPeriodS { get; init; } = 40f;
+
+    /// <summary>
+    /// The most puffs a frame draws off the chimneys: what the emit's room holds for them past every car's, and what a
+    /// frame's further chimneys are cut at. A street's framing draws a few hundred.
+    /// </summary>
+    public int MostPuffsDrawn { get; init; } = 16384;
+}
+
 /// <summary>What a tyre has to be doing before it writes on the ground, and how much of that the town keeps.</summary>
 internal sealed class MarkFigures
 {
@@ -1088,7 +1206,8 @@ internal sealed class CityGenFigures
     /// <summary>
     /// How many bays one car park holds, drawn between the two — which is how much frontage a lot takes
     /// (GEN-4b). <b>A car park is a handful of spaces beside a street and never an apron</b>: the widest
-    /// one here is six bays, 24 m of kerb, which is about the frontage of one building.
+    /// one here is six bays, 24 m of kerb, which is about the frontage of one building. A service's yard is the one
+    /// exception, as wide as its building's frontage when that is wider (GEN-55, <c>CarParks.YardBays</c>).
     /// </summary>
     public int BaysPerLotFewest { get; init; } = 3;
 
@@ -1201,14 +1320,6 @@ internal sealed class CityGenFigures
     public float ShoreWidthM { get; init; } = 8f;
 
     /// <summary>
-    /// How wide the line along each of the shore's own edges is drawn — the one where it meets the grass and
-    /// the one where it meets the water. <b>The width this town draws an edge at</b>
-    /// (<see cref="RoadFigures.EdgeLineWidthM"/>) is a road's figure and this is the shore's, because the two
-    /// are read at different distances.
-    /// </summary>
-    public float ShoreEdgeWidthM { get; init; } = 1f;
-
-    /// <summary>
     /// How finely a shoreline is sampled: the most a chord may stand off the curve it is drawn through.
     /// The rings are the bank the ground is answered off as well as the one drawn (TER-7), so this is how
     /// far both stand off the wave the water is laid from.
@@ -1220,7 +1331,7 @@ internal sealed class CityGenFigures
     /// town's prop density, and density goes as its square</b>: the scatter thins by a fifth for every
     /// twelve centimetres in a metre this grows by.
     /// </summary>
-    public float PropSpacingM { get; init; } = 7.4f;
+    public float PropSpacingM { get; init; } = 6.5f;
 
     /// <summary>
     /// The band of grass a prop laid along a kerb stands in, measured out from the pavement's own outer
@@ -1273,20 +1384,52 @@ internal sealed class CityGenFigures
     public float PropWildOnAVergeShare { get; init; } = 0.5f;
 
     /// <summary>
-    /// The sizes a prop is drawn at. <b>The catalogue matches a prop by its kind and then by its size</b>,
-    /// so a kind nothing was drawn for, or a size no variant is near, is a prop the town has no picture of.
+    /// How far apart along the walk's face the trees of a tree-lined street stand, centre to centre (GEN-6f). <b>A row is
+    /// a pitch and not a scatter</b>, so it is not jittered: the eye reads the regularity before it reads the trees.
     /// </summary>
-    public float PropDiameterMinM { get; init; } = 0.6f;
+    public float PropStreetTreePitchM { get; init; } = 9f;
 
-    public float PropDiameterMaxM { get; init; } = 2.2f;
+    /// <summary>How many of the walk's rings are lined with street trees, as a share (GEN-6f); the rest carry only the verge's scatter.</summary>
+    public float PropTreeLinedShare { get; init; } = 0.6f;
 
     /// <summary>
-    /// The widest a <em>wild</em> prop is drawn, wherever it stands — the great trees are the only art
-    /// authored past the band above, and a wild look on a verge is a street tree. <b>A band is the set's
-    /// own</b>: asking for a size nothing in a set was drawn near gets the nearest look at the size that
-    /// was asked for, which is a planter stretched to the size of an oak.
+    /// How many more of the wild set may grow round a clump's heart (GEN-6g), the count drawn evenly from none to this. A
+    /// patch of weeds, a thicket round a tree, a grove's understorey.
     /// </summary>
-    public float PropWildDiameterMaxM { get; init; } = 3f;
+    public int PropClumpMost { get; init; } = 9;
+
+    /// <summary>
+    /// How far past the clearance from its heart's rim a clump's member may stand, rim to rim (GEN-6g). <b>Short against
+    /// the lattice</b> (<see cref="PropSpacingM"/>), so the ground between two clumps stays open and the clumps read as clumps.
+    /// </summary>
+    public float PropClumpReachM { get; init; } = 2f;
+
+    /// <summary>
+    /// How wide the open ground's thickets and clearings are, the width of the coarser of their field's two lattices
+    /// (GEN-6g, <c>CityGen.Gen.Thickets</c>). <b>Several lattice cells across</b> (<see cref="PropSpacingM"/>), so a
+    /// thicket is many clumps and a clearing is ground the eye sees as bare.
+    /// </summary>
+    public float PropThicketM { get; init; } = 40f;
+
+    /// <summary>
+    /// How hard the thickets' field is stretched about its middle before it is clamped (GEN-6g): one leaves the ground
+    /// thinning and thickening by a quarter either way, which reads as even; more bares the clearings and fills the
+    /// thickets.
+    /// </summary>
+    public float PropThicketContrast { get; init; } = 3f;
+
+    /// <summary>How many of a verge's planted and furnished stations lay a run of one look rather than one prop, as a share (GEN-6h).</summary>
+    public float PropRunShare { get; init; } = 0.3f;
+
+    /// <summary>The most props a run lays, the first included, the count drawn evenly from two to this (GEN-6h).</summary>
+    public int PropRunMost { get; init; } = 4;
+
+    /// <summary>
+    /// The grass between two props of a run, rim to rim along the face (GEN-6h). <b>Wider than <see cref="PropApartM"/></b>,
+    /// the least two props may leave (GEN-6c): a run laid at exactly that is refused member by member wherever the face
+    /// bends inward or the arithmetic rounds down.
+    /// </summary>
+    public float PropRunGapM { get; init; } = 0.7f;
 }
 
 /// <summary>Tolerances the walkable and drivable graphs are built to.</summary>

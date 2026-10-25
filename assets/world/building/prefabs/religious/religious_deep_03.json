@@ -1,8 +1,9 @@
 {
   "id": "religious_deep_03",
+  "sprite": "religious_deep_03.webp",
   "footprintM": [
-    17.5,
-    24.5
+    19.2,
+    27.0
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -10,10 +11,10 @@
   "tags": [
     "religious",
     "church",
-    "cross-shaped roof",
+    "cross-ridged roof",
     "green sheet metal",
     "domes",
     "narrow front"
   ],
-  "describe": "Orthodox church, cross-shaped roof of green-painted sheet metal with a large central dome and smaller gilded domes, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "Orthodox church, a roof filling its whole rectangle, of green-painted sheet metal with two ridges crossing at the middle, with a large central dome and smaller gilded domes, standing narrow end to the street with the entrance on that short front wall"
 }

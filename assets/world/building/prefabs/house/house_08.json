@@ -2,8 +2,8 @@
   "id": "house_08",
   "sprite": "house_08.webp",
   "footprintM": [
-    6.5,
-    3.0
+    9.1,
+    4.2
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -15,5 +15,6 @@
     "grey corrugated asbestos-cement slate",
     "cottage"
   ],
-  "describe": "small single-storey cottage, gabled roof of grey corrugated asbestos-cement slate, one brick chimney, a lean-to porch on the street side"
+  "describe": "small single-storey cottage, gabled roof of grey corrugated asbestos-cement slate, one brick chimney, a lean-to porch on the street side",
+  "chimneys": [[3.03, -1.45, 3.38, -1.45]]
 }

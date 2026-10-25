@@ -2,8 +2,8 @@
   "id": "house_36",
   "sprite": "house_36.webp",
   "footprintM": [
-    12.5,
-    8.5
+    17.5,
+    11.9
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -15,5 +15,7 @@
     "dark grey bitumen shingles",
     "detached"
   ],
-  "describe": "detached family house, hipped roof of dark grey bitumen shingles, a chimney and a skylight, small porch roof over the door"
+  "describe": "detached family house, hipped roof of dark grey bitumen shingles, a chimney and a skylight, small porch roof over the door",
+  "chimneys": [[4.18, -2.75, 4.63, -2.75]],
+  "potWidthM": 0.45
 }

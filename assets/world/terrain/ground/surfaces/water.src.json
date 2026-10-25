@@ -1,0 +1,49 @@
+{
+ "variant": "raw_assets/world/terrain/ground/surfaces/water_a1/water_a1-v1.png",
+ "variants": [
+  "raw_assets/world/terrain/ground/surfaces/water_a1/water_a1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/water_a2/water_a2-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/water_b1/water_b1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/water_b2/water_b2-v1.png"
+ ],
+ "looks": [
+  [
+   [
+    "water_a1",
+    false
+   ],
+   [
+    "water_a2",
+    false
+   ],
+   [
+    "water_a2",
+    true
+   ],
+   [
+    "water_a1",
+    true
+   ]
+  ],
+  [
+   [
+    "water_b1",
+    false
+   ],
+   [
+    "water_b2",
+    false
+   ],
+   [
+    "water_b2",
+    true
+   ],
+   [
+    "water_b1",
+    true
+   ]
+  ]
+ ],
+ "pxPerM": 31.5,
+ "encoding": "webp q90"
+}

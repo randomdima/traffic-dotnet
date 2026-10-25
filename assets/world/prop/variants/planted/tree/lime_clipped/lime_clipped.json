@@ -1,0 +1,8 @@
+{
+  "id": "lime_clipped",
+  "sprite": "lime_clipped.webp",
+  "kind": 1,
+  "diameterM": 3.4,
+  "colliderM": 0.5,
+  "describe": "clipped street linden, a neat even dome of heart-shaped green leaves"
+}

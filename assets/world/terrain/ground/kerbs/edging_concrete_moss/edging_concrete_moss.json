@@ -1,0 +1,11 @@
+{
+  "id": "edging_concrete_moss",
+  "sprite": "edging_concrete_moss.webp",
+  "kind": "Edging",
+  "describe": "a footway edging of weathered grey concrete edging stones half a metre long: each stone worn differently, a little green moss in some joints and along the low side, faint dirt",
+  "footprintM": [
+    6.0,
+    0.2
+  ],
+  "pictureM": 3.931
+}

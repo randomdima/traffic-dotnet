@@ -1,0 +1,30 @@
+{
+  "car": "wedgesaloon_cherry",
+  "sprite": {"variant": "raw_assets/agents/car/variants/wedgesaloon_cherry/wedgesaloon_cherry-v7.png", "sizePx": [404, 193]},
+  "axisY": {"rear": 96.00, "front": 96.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 96.5, "mirrorDx": 0.0, "points": [
+      [24.54, 26.62, 0.70],
+      [16.33, 34.88, 0.00],
+      [14.86, 56.81, 0.30],
+      [19.60, 57.24, 0.30],
+      [20.31, 40.86, 1.30]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 97.5, "mirrorDx": 0.0, "points": [
+      [380.22, 34.70, 0.45],
+      [379.35, 35.92, 0.00],
+      [383.94, 52.07, 0.28],
+      [388.23, 58.19, 1.33],
+      [392.13, 56.08, 1.14],
+      [387.19, 38.04, 0.26]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 97.75, "mirrorDx": 0.0, "points": [
+      [380.00, 34.20, 0.04],
+      [383.41, 35.19, 1.66],
+      [385.19, 31.25, 1.02],
+      [377.76, 26.44, 2.42]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

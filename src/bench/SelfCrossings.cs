@@ -20,7 +20,7 @@ internal static class SelfCrossings
 
     public static void Run(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var lanes = plan.Paving(config).Lanes;
         var points = new List<Vector2>();
 

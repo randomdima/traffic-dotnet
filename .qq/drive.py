@@ -10,14 +10,15 @@ read a line).
 Write the script with the file tools and run it with this. **There is no process left standing between
 runs**: the town is seeded, so the whole script is played again from the first tick each time and
 appending a step is the whole of steering (DRV-6). Every step prints what the unit is doing — the unit
-panel's own rows — and a `shot` step leaves a captioned frame under `--frames`.
+panel's own rows — and a `shot` step leaves a captioned frame under `--frames`. Those frames are filled on the host,
+which draws no smoke; `--live SECONDS` drives in a window instead, its frames the device's own, and closes it after.
 """
 
 import argparse
 import re
 
 import _sim
-from common import cli, paths
+from common import cli, paths, proc
 
 NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 
@@ -28,6 +29,9 @@ ENGINE = "traffic-dotnet.csproj"
 
 #: How tall a frame is against its width. The town is looked at on a widescreen window.
 FRAME_ASPECT = 9 / 16
+
+#: What `timeout` exits with once it has closed a live drive: the end of it, not a failure.
+CLOSED = 124
 
 
 def main():
@@ -57,17 +61,20 @@ def main():
         "--drive", _sim.rel(base, script),
         "--frames", _sim.rel(base, frames),
         "--out", _sim.rel(base, out),
-        "--size", str(a.width), str(height),
     ]
+    argv += ["--live", "--frame-width", str(a.width)] if a.live else ["--size", str(a.width), str(height)]
     if a.view > 0:
         argv += ["--view", str(a.view)]
     if a.ui:
         argv += ["--ui", a.ui]
 
-    driven = _sim.dotnet(base, *argv)
+    if a.live:
+        driven = proc.run(["timeout", str(a.live), *_sim.memory_cap(), "dotnet", *argv], cwd=base, check=False)
+    else:
+        driven = _sim.dotnet(base, *argv)
     text = (driven.stdout + driven.stderr).strip()
     print(text)
-    if driven.code != 0:
+    if driven.code not in (0, CLOSED if a.live else 0):
         return cli.fail(text.splitlines()[-1] if text else "the drive failed with no output")
 
     return 0
@@ -94,6 +101,11 @@ def parse_args():
                         help="how wide a frame is in pixels; the height is 16:9 of it")
     parser.add_argument("--ui", default="", type=ui_words,
                         help="the --ui words every frame is drawn with, comma-separated")
+    parser.add_argument("--live", default=0, type=cli.counting, metavar="SECONDS",
+                        help="drive in a window for this long, its frames drawn on the device: the only frames that "
+                             "show what the device alone draws, the smoke (CAR-54, TRN-15, OBJ-7). A live drive follows "
+                             "its script for more (DRV-7) and never ends of itself, so it is closed after this; long "
+                             "enough for the town to stand up and the script to play")
     parser.add_argument("--no-build", action="store_true",
                         help="drive with the engine already built")
     return parser.parse_args()

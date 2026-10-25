@@ -1,0 +1,13 @@
+{
+  "car": "kiosk_02",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/kiosk/kiosk_02/kiosk_02-v1.png", "sizePx": [94, 79]},
+  "axisY": {"rear": 39.50, "front": 39.50},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [67.06, 10.09, 1.09],
+      [64.12, 15.91, 0.61],
+      [67.23, 20.21, 2.72],
+      [75.39, 15.30, 2.69]
+    ]}
+  ]
+}

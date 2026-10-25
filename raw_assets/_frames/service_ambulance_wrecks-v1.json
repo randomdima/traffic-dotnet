@@ -1,0 +1,55 @@
+{
+ "id": "service_ambulance_wrecks-v1",
+ "ts": "2026-10-23T02:59:41",
+ "op": "edit",
+ "name": "service_ambulance_wrecks",
+ "file": ".tmp/gen/frames/service_ambulance_wrecks-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.01834,
+ "usage": {
+  "prompt_tokens": 2000,
+  "completion_tokens": 158,
+  "total_tokens": 2158,
+  "cost": 0.01834,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.01834,
+   "upstream_inference_prompt_cost": 0.0136,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from directly above the middle of each roof, orthographic, as the attached cars are: the roof centred across the body, and neither flank seen more than the other — no doors, sills or side windows showing along one side. No perspective, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Its shape mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen; wear, rust and odd panels may differ side to side.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car (paint, wear, roof, windows, trim):\n- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.\n- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke.\n- Ambulance livery kept as in the picture: the thin red stripes along the flanks, the red cross on the roof and the blue star on the bonnet, scraped. The roof light bar stays where it is, dark and cracked.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.36 × 2.16 m (2.02× longer than wide), gently rounded corners — Soviet forward-control 4×4 minibus ambulance in ambulance livery\n2. 4.41 × 1.97 m (2.24× longer than wide), nearly square corners — modern small panel van ambulance in ambulance livery\n3. 4.77 × 1.80 m (2.64× longer than wide), nearly square corners — 1990s boxy estate car ambulance in ambulance livery\n4. 4.79 × 1.92 m (2.49× longer than wide), nearly square corners — 1990s passenger van ambulance in ambulance livery\n5. 4.83 × 1.99 m (2.42× longer than wide), nearly square corners — 1990s panel van ambulance in ambulance livery\n6. 4.90 × 2.01 m (2.44× longer than wide), nearly square corners — modern mid-size van ambulance in ambulance livery\n7. 5.41 × 2.23 m (2.42× longer than wide), nearly square corners — modern high-roof van ambulance in ambulance livery\n8. 5.50 × 2.35 m (2.35× longer than wide), nearly square corners — 2000s Russian light van ambulance in ambulance livery\n9. 5.91 × 2.09 m (2.83× longer than wide), nearly square corners — large high-roof van ambulance in ambulance livery",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "942873266cfd700b",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_ambulance_wrecks_style.png"
+  }
+ ],
+ "cells": [
+  "ambulanceloaf_white_broken",
+  "ambulancevan_white_broken",
+  "ambulanceestate90s_white_broken",
+  "ambulancepassvan90s_white_broken",
+  "ambulancevan90s_white_broken",
+  "ambulancebus_white_broken",
+  "ambulance_white_broken",
+  "ambulancelight_white_broken",
+  "ambulancebig_white_broken"
+ ]
+}

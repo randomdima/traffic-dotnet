@@ -4,6 +4,16 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-20 — a goal may refuse the link it would be turned into from
+
+**A goal can name one link it is not reached from** (`RouteGoal.NotEnteredFrom`), and a place on one named lane
+within `TurnAtALotWithinM` of its start names the lane running back (GEN-4l). The search lands a turn at a lot on
+a lane's first metre; the car lands abeam of the bay, at least a locality in (GEN-16). A police car whose station
+stood on the scene's own street was sent to its stand 7.6 m into the entrance by turning in a lot near the far end
+of the lane running back, landed 47 m in, was routed round the block to the same lot, and stood behind the wreck
+it was closing until its clock ran out. A per-goal link rather than a per-search closed set because the turn is
+made off the body's own link, which a closed set never refuses.
+
 ## 2026-10-04 — a route may move across onto the lane beside
 
 **A car now moves across onto the lane beside** (CAR-53, the car slice's log), and since a turn is made only from the

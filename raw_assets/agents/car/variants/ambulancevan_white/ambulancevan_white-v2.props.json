@@ -1,0 +1,37 @@
+{
+  "car": "ambulancevan_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/ambulancevan_white/ambulancevan_white-v2.png", "sizePx": [423, 221]},
+  "axisY": {"rear": 111.50, "front": 111.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [17.29, 34.83, 1.11],
+      [13.67, 65.38, 1.23],
+      [17.70, 69.36, 0.03],
+      [24.68, 68.96, 1.12],
+      [29.13, 64.28, -2.24],
+      [40.47, 31.15, 0.80],
+      [38.59, 28.26, 3.18]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 111.0, "mirrorDx": 0.0, "points": [
+      [24.20, 43.36, 0.39],
+      [21.71, 50.15, 1.53],
+      [26.00, 52.90, 0.80],
+      [26.66, 43.72, 0.75]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 111.5, "mirrorDx": -1.0, "points": [
+      [387.90, 36.08, 0.96],
+      [386.61, 39.39, -0.09],
+      [393.86, 51.94, 0.87],
+      [404.43, 65.02, 2.04],
+      [408.96, 59.93, 2.23],
+      [397.22, 36.06, 0.48]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 111.0, "mirrorDx": 0.0, "points": [
+      [385.23, 29.44, 1.80],
+      [388.62, 35.58, 0.16],
+      [394.09, 35.07, 0.46],
+      [395.48, 33.06, 1.07]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

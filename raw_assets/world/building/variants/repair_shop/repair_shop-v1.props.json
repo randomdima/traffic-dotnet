@@ -1,0 +1,13 @@
+{
+  "car": "repair_shop",
+  "sprite": {"variant": "raw_assets/world/building/variants/repair_shop/repair_shop-v1.png", "sizePx": [720, 665]},
+  "axisY": {"rear": 332.50, "front": 332.50},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [619.13, 528.19, 8.10],
+      [637.65, 550.86, 7.60],
+      [649.46, 523.84, 1.87],
+      [636.17, 515.07, 3.90]
+    ]}
+  ]
+}

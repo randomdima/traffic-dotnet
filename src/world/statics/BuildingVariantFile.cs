@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Text.Json.Serialization;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Statics;
 
@@ -48,6 +49,19 @@ internal sealed class BuildingVariantFile
     /// whole of its footprint, which is what every building was before the parts existed.
     /// </summary>
     public BuildingPartFile[] PartsM { get; init; } = [];
+
+    /// <summary>The fans its picture draws, cut off it (<c>qq props</c>) and drawn turning over it (OBJ-6); none on most.</summary>
+    public DrawnFan[] Fans { get; init; } = [];
+
+    /// <summary>
+    /// Its picture's chimneys, which may smoke (OBJ-7), each where its stack's pots are — <c>X, Y</c> a pot, so a twin
+    /// stack is four numbers — read off it by eye (<c>qq chimneys</c>), from the picture's middle with <c>+y</c> down it;
+    /// none on most.
+    /// </summary>
+    public float[][] Chimneys { get; init; } = [];
+
+    /// <summary>How wide its chimneys' pots are drawn on its picture, each, read off it with them; none for a house's (<c>ChimneyFigures.PotWidthM</c>).</summary>
+    public float? PotWidthM { get; init; }
 }
 
 [JsonSourceGenerationOptions(

@@ -1,0 +1,13 @@
+{
+  "car": "hospital_01",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/hospital/hospital_01/hospital_01-v1.png", "sizePx": [265, 176]},
+  "axisY": {"rear": 88.00, "front": 88.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [196.19, 38.11, 3.97],
+      [209.11, 51.05, 2.49],
+      [220.01, 41.72, 4.99],
+      [206.73, 27.95, 2.58]
+    ]}
+  ]
+}

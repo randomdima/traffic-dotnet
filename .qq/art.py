@@ -57,14 +57,15 @@ FIGURES = "src/core/config/EngineFigures.cs"
 #: What overrides them at run time, if anything does.
 OVERRIDES = "assets/shared/config/SimConfig.json"
 
-#: The ground surfaces, in the order `ProjectPaths.GroundSurfaceFiles` returns them, against the
-#: `ViewFigures` period each one repeats over.
+#: The ground surfaces, in the order `ProjectPaths.GroundSurfaceFiles` returns them and the shore
+#: (`ShoreSurfaceFile`), against the `ViewFigures` period each one repeats over.
 SURFACES = {
     "grass": "GroundPeriodGrassM",
     "pavement": "GroundPeriodTarmacM",
     "sidewalk": "GroundPeriodPavementM",
     "bridge": "GroundPeriodDeckM",
     "water": "GroundPeriodWaterM",
+    "shore": "GroundPeriodShoreM",
 }
 
 #: How many facing rows a walker's sheet is cut into. `PersonCatalog.FacingRows`.
@@ -238,7 +239,8 @@ def survey(base: Path, figures: dict[str, float]) -> list[Sheet]:
         if not isinstance(described, dict):
             continue
 
-        grid = car if "/agents/car/" in variant.as_posix() else art
+        # The cars and the kerbs are laid at the cars' grid (`sprites.FAMILIES`).
+        grid = car if "/agents/car/" in variant.as_posix() or "/ground/kerbs/" in variant.as_posix() else art
         if "sprite" in described and "footprintM" in described:
             sized[variant.parent / described["sprite"]] = (Body, float(described["footprintM"][0]), grid)
         wreck = described.get("wreck")

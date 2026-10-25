@@ -1,0 +1,49 @@
+{
+  "car": "policesaloon80s_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/policesaloon80s_white/policesaloon80s_white-v8.png", "sizePx": [396, 188]},
+  "axisY": {"rear": 92.50, "front": 92.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [11.40, 28.20, 0.30],
+      [9.20, 32.50, 0.00],
+      [8.60, 61.00, 0.00],
+      [18.60, 61.00, 0.00],
+      [20.93, 28.40, 0.00]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 93.0, "mirrorDx": 1.0, "points": [
+      [370.38, 35.08, 0.47],
+      [374.09, 49.52, 0.37],
+      [376.25, 52.13, 0.85],
+      [380.66, 50.94, 3.77],
+      [377.65, 33.34, 1.03]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 93.0, "mirrorDx": 1.0, "points": [
+      [366.02, 26.35, 2.24],
+      [372.29, 33.25, 1.99],
+      [377.06, 28.61, 1.38],
+      [368.64, 24.23, 0.59]
+    ]},
+    {"name": "beacon_red", "kind": "beacon_red", "mirror": false, "points": [
+      [197.47, 59.25, 0.17],
+      [197.48, 81.09, 1.28],
+      [202.15, 86.02, 0.19],
+      [215.64, 85.94, 0.88],
+      [218.93, 82.11, 0.14],
+      [219.00, 59.62, 1.04],
+      [215.14, 55.09, 0.23],
+      [201.64, 54.99, 1.17]
+    ]},
+    {"name": "beacon_blue", "kind": "beacon_blue", "mirror": false, "points": [
+      [197.91, 109.53, 0.00],
+      [197.81, 129.53, 1.33],
+      [201.93, 133.95, 0.00],
+      [214.43, 134.07, 2.47],
+      [218.11, 126.71, 0.37],
+      [217.69, 115.23, 3.02],
+      [214.15, 105.03, 0.00],
+      [202.22, 105.17, 1.84]
+    ]}
+  ]
+}

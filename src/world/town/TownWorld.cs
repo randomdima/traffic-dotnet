@@ -233,6 +233,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _config = config;
         _plan = plan;
         _agentSeed = agentSeed ?? plan.Seed;
+        Wind = new Wind(config.Wind, plan.Seed);
+        Clouds = new Clouds(config.Clouds, Wind, plan.Seed);
         WheelGrounds = WheelGrounds.Of(config);
         _statics = new StaticBodies(config.Grid.Main);
 
@@ -356,6 +358,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _rejoining = new Rejoining(_ground, _carActions, _following);
         _round = new ParkedRound(drivers);
         LayTheKerbs();
+        _showroom = ShowroomPlan.ShowsEachLookOnce(plan.Name);
         _townParks = _kerbs.Count > 0;
         for (var bay = 0; bay < _parking.PaintedCount && !_townParks; bay++) _townParks = _parking.CanBeReached(bay);
 
@@ -734,6 +737,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public CityPlan Plan => _plan;
 
+    /// <summary>The air over the town, off its plan's seed (<see cref="Town.Wind"/>).</summary>
+    public Wind Wind { get; }
+
+    /// <summary>The clouds over it, carried the way that air blows (<see cref="Town.Clouds"/>).</summary>
+    public Clouds Clouds { get; }
+
     /// <summary>
     /// The pavement's own fine graph, and the two contracted networks over it and the roads.
     /// </summary>
@@ -970,7 +979,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         var ahead = car + PrefetchAhead;
         if (ahead < Cars.Count && !_standsParked[ahead]) Cars.PrefetchTheLine(ahead);
 
-        if (StandsParked(car)) return;
+        if (StandsParked(car))
+        {
+            // Parked is the showroom's whole state, so its lamps are signalled here: in turn while picked out (CAR-14.9),
+            // and dark again the tick after.
+            if (_showroom && (ShowsItsLampsInTurn(car) || Cars.Lamps[car] != CarLampSet.None)) SignalTheShow(car);
+            return;
+        }
 
         _standsParked[car] = false;
         if (TicksAsBefore(car)) return;
@@ -1021,7 +1036,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             else if (IsAnEvacuator(car)) RunTheRecovery(car, sinceLastDecisionS);
             else if (IsAPatrolCar(car)) RunThePatrol(car, sinceLastDecisionS);
             else if (Cars.Owner[car] != CarFleet.NoOwner) RunTheOwnersCar(car, sinceLastDecisionS);
-            else if (_townParks && !_tours[car] && !IsAServiceVehicle(car)) RunTheRound(car, sinceLastDecisionS);
+            else if (_townParks && !_showroom && !_tours[car] && !IsAServiceVehicle(car)) RunTheRound(car, sinceLastDecisionS);
 
             DecideDriver(car, sinceLastDecisionS);
             SignalTheFollow(car);

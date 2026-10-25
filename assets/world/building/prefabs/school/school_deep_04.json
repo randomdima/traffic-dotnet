@@ -1,8 +1,9 @@
 {
   "id": "school_deep_04",
+  "sprite": "school_deep_04.webp",
   "footprintM": [
-    9.0,
-    28.0
+    14.4,
+    44.8
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +17,10 @@
     "school wing",
     "narrow front"
   ],
-  "describe": "Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [-2.4774, -6.6839], "rimAtM": [-2.4584, -6.6598], "rimM": [0.9989, 0.9974] }
+  ],
+  "chimneys": [[2.44, -13.67], [-2.95, 8.64]],
+  "potWidthM": 0.6
 }

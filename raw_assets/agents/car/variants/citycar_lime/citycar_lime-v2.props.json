@@ -1,0 +1,28 @@
+{
+  "car": "citycar_lime",
+  "sprite": {"variant": "raw_assets/agents/car/variants/citycar_lime/citycar_lime-v2.png", "sizePx": [346, 189]},
+  "axisY": {"rear": 95.00, "front": 95.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [18.92, 31.89, 0.15],
+      [13.69, 50.27, 3.72],
+      [18.20, 62.03, -0.74],
+      [32.35, 34.31, 1.36],
+      [37.03, 26.69, 3.01]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "head", "kind": "head", "mirror": true, "pull": "frame", "axisY": 95.0, "mirrorDx": 0.0, "points": [
+      [298.15, 24.20, -0.80],
+      [325.25, 54.22, 0.00],
+      [333.26, 59.56, 5.99],
+      [308.40, 25.64, 0.64]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "over": ["head"], "axisY": 95.0, "mirrorDx": 1.0, "points": [
+      [311.60, 29.36, 3.17],
+      [319.40, 32.28, 0.32],
+      [318.58, 30.06, 0.48],
+      [313.76, 27.59, 0.59]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

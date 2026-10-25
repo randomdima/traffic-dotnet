@@ -1,0 +1,10 @@
+{
+  "id": "postbox_pillar",
+  "sprite": "postbox_pillar.webp",
+  "kind": 2,
+  "footprintM": [0.5, 0.308],
+  "cornerRadiusM": 0.1,
+  "share": 0.8,
+  "turns": true,
+  "describe": "blue steel post box, its rounded lid seen from above, a letter slot at the front"
+}

@@ -60,7 +60,7 @@ internal static class GroundParts
 
     /// <summary>
     /// <b>The parts laid as a stack of layers, each over the one before</b> (TER-7b), which only the mesh's own order
-    /// draws right (<see cref="GroundBands"/>): the water's shore, its two edges and the water itself; every deck's rim
+    /// draws right (<see cref="GroundBands"/>): the water's shore, the grass faded over it, the water and its own fade; every deck's rim
     /// before any deck; the track on a bridge before its rails; and the level above.
     /// </summary>
     public const uint Stacked =

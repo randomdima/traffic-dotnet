@@ -1,0 +1,38 @@
+{
+  "id": "evacuatorvan90s_yellow",
+  "sprite": "evacuatorvan90s_yellow.webp",
+  "zones": "evacuatorvan90s_yellow_zones.png",
+  "wreck": { "sprite": "evacuatorvan90s_yellow_broken.webp" },
+  "beam": {
+    "extended": { "sprite": "evacuatorvan90s_yellow_beam_extended.webp", "sizeM": [2.725, 1.876], "hingeAtM": -1.09 },
+    "collapsed": { "sprite": "evacuatorvan90s_yellow_beam_collapsed.webp", "sizeM": [1.205, 1.070], "hingeAtM": -0.482 },
+    "reachM": 2.2,
+    "pivotM": [-1.365, 0.0]
+  },
+  "describe": "1990s van-cab tow truck with an open tow deck, worn, in recovery livery",
+  "footprintM": [4.830, 2.763],
+  "collisionM": { "sizeM": [4.830, 2.102], "cornerRadiusM": 0.768 },
+  "massKg": 2700,
+  "frontAxleM": 1.615,
+  "rearAxleM": -1.215,
+  "trackM": 2.014,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.76,
+  "cgHeightM": 0.92,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.61, "acceleration": 0.52, "braking": 0.7 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.082, -0.808], "sizeM": [0.219, 0.25] },
+    { "fitting": "rear", "atM": [-2.082, 0.798], "sizeM": [0.219, 0.25] },
+    { "fitting": "indicator", "atM": [-1.915, -0.777], "sizeM": [0.073, 0.177] },
+    { "fitting": "indicator", "atM": [-1.957, 0.766], "sizeM": [0.073, 0.177] },
+    { "fitting": "head", "atM": [2.019, -0.735], "sizeM": [0.375, 0.427] },
+    { "fitting": "head", "atM": [2.009, 0.745], "sizeM": [0.375, 0.427] },
+    { "fitting": "indicator", "atM": [1.999, -0.839], "sizeM": [0.323, 0.219] },
+    { "fitting": "indicator", "atM": [1.978, 0.85], "sizeM": [0.323, 0.219] },
+    { "fitting": "beaconAmber", "atM": [0.645, -0.328], "sizeM": [0.239, 0.375] },
+    { "fitting": "beaconAmber", "atM": [0.645, 0.328], "sizeM": [0.239, 0.365] }
+  ],
+  "exhausts": [[-2.311, -0.829]]
+}

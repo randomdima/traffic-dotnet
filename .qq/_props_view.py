@@ -11,7 +11,8 @@ import types
 
 import _props_fit as fit
 
-OUTLINE = {"head": (70, 150, 255), "ind": (255, 170, 0), "brake": (255, 50, 110), "reverse": (0, 240, 240)}
+OUTLINE = {"head": (70, 150, 255), "ind": (255, 170, 0), "brake": (255, 50, 110), "reverse": (0, 240, 240),
+           "fan": (255, 0, 255)}
 #: How opaque a prop's paint is with `--marks=fill`: enough to see what it covers, little enough to see the art.
 FILL_ALPHA = 0.47
 #: The part a view is about, under its outline: a colour no kind's outline and no lamp's lens has.

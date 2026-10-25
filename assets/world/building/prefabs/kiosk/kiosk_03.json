@@ -15,5 +15,8 @@
     "white sheet metal",
     "street kiosk"
   ],
-  "describe": "street kiosk, flat white sheet-metal roof with a signboard along the front edge and a small air conditioner"
+  "describe": "street kiosk, flat white sheet-metal roof with a signboard along the front edge and a small air conditioner",
+  "fans": [
+    { "atM": [1.6456, -0.9415], "rimAtM": [1.6466, -0.9354], "rimM": [0.21, 0.1942] }
+  ]
 }

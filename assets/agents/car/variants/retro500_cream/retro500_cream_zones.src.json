@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/retro500_cream/retro500_cream-v4.props.json",
- "cutOn": "raw_assets/agents/car/variants/retro500_cream/retro500_cream-v4.png",
+ "variant": "raw_assets/agents/car/variants/retro500_cream/retro500_cream-v6.props.json",
+ "cutOn": "raw_assets/agents/car/variants/retro500_cream/retro500_cream-v6.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

@@ -73,12 +73,13 @@ internal readonly record struct CarTowBeam(CarTowArm Extended, CarTowArm Collaps
 /// Its zone map (CAR-14a), which only the lamp sheet's bake reads, or nothing for a look whose lamps are lit over their
 /// rectangles.
 /// </param>
+/// <param name="ExhaustsM">Where its tailpipes end (CAR-54), in its own frame; none for an electric car.</param>
 internal readonly record struct CarVariant(
     string Id, string SpritePath, string WreckSpritePath, Vector2 WreckScale, CarTowBeam? Beam, Vector2 FootprintM,
     Vector2 CollisionSizeM, float CornerRadiusM, float MassKg, float FrontAxleM, float RearAxleM, float HalfTrackM,
     int Drivetrain, float? MaxSteeringDeg, float? TyreFriction, float? CgHeightM, float? FrontWeightShare,
     Vector2? WheelM, float? WheelRotatingMassKg,
-    bool Unbreakable, CarHandling Handling, CarLens[] Lenses, string? ZonesPath)
+    bool Unbreakable, CarHandling Handling, CarLens[] Lenses, string? ZonesPath, Vector2[] ExhaustsM)
 {
     public float WheelbaseM => FrontAxleM - RearAxleM;
 
@@ -127,12 +128,16 @@ internal sealed class CarCatalog
         Ambulance = IndexOf("ambulance_white");
         Police = IndexOf("police_white");
         Evacuator = IndexOf("evacuator_yellow");
-        Plain = InTheFleet("sedan_silver");
-        Armoured = InTheFleet("apc_olive");
-        Sports = InTheFleet("sports_red");
+        _policeLooks = ServiceLooksNamed(PoliceIdPrefix);
+        _ambulanceLooks = ServiceLooksNamed(AmbulanceIdPrefix);
+        _evacuatorLooks = ServiceLooksNamed(EvacuatorIdPrefix);
+        Plain = InTheFleet("fleetsaloon_silver");
+        Armoured = InTheFleet("largesuv_black");
+        Sports = InTheFleet("sportscar_red");
 
         // The beams get a run of sheet slots of their own, because they are a picture only a look or two in
-        // the catalogue has: a slot per look would lay an empty sheet for every car in the town.
+        // the catalogue has: a slot per look would lay an empty sheet for every car in the town. Looks that share
+        // one arm's pictures share its slots.
         _beamSlot = new int[variants.Length];
         var beams = new List<string>();
         for (var entry = 0; entry < variants.Length; entry++)
@@ -140,6 +145,13 @@ internal sealed class CarCatalog
             if (variants[entry].Beam is not { } beam)
             {
                 _beamSlot[entry] = NoBeam;
+                continue;
+            }
+
+            var shared = beams.IndexOf(beam.Collapsed.SpritePath);
+            if (shared >= 0 && beams[shared + 1] == beam.Extended.SpritePath)
+            {
+                _beamSlot[entry] = shared;
                 continue;
             }
 
@@ -158,6 +170,17 @@ internal sealed class CarCatalog
             }
 
             throw new InvalidDataException($"Service.json names no variant with the id '{id}'.");
+        }
+
+        int[] ServiceLooksNamed(string prefix)
+        {
+            var looks = new List<int>();
+            for (var entry = fleet; entry < variants.Length; entry++)
+            {
+                if (variants[entry].Id.StartsWith(prefix, StringComparison.Ordinal)) looks.Add(entry);
+            }
+
+            return [.. looks];
         }
 
         // A told fleet is a few looks to be looked at (FleetList), so one it does not carry is stood in its first.
@@ -215,13 +238,65 @@ internal sealed class CarCatalog
     /// </summary>
     public bool IsService(int variant) => variant >= Count;
 
-    /// <summary>Which variant an ambulance wears (AMB-3).</summary>
+    /// <summary>
+    /// The first ambulance look, which a map wanting one ambulance plainly in view stands; the town's own ambulances
+    /// wear <see cref="AmbulanceLook"/> (AMB-3, SRV-3b).
+    /// </summary>
     public int Ambulance { get; }
 
-    /// <summary>Which one a police car wears, and which one the evacuator does (SRV-2).</summary>
+    /// <summary>
+    /// <b>The ambulance look the <paramref name="nth"/> ambulance stood wears</b> (SRV-3b): every service-list look
+    /// whose id starts <see cref="AmbulanceIdPrefix"/>, in the list's order, in turn.
+    /// </summary>
+    public int AmbulanceLook(int nth) => _ambulanceLooks[nth % _ambulanceLooks.Length];
+
+    /// <summary>Whether this variant is one of the ambulance looks.</summary>
+    public bool IsAmbulance(int variant) => Array.IndexOf(_ambulanceLooks, variant) >= 0;
+
+    readonly int[] _ambulanceLooks;
+
+    /// <summary>What an ambulance look's id starts with, as <see cref="PoliceIdPrefix"/> is a police look's.</summary>
+    const string AmbulanceIdPrefix = "ambulance";
+
+    /// <summary>
+    /// The first police look, which a map wanting one police car plainly in view stands; the town's own police cars
+    /// wear <see cref="PoliceLook"/> (SRV-3b).
+    /// </summary>
     public int Police { get; }
 
+    /// <summary>
+    /// <b>The police look the <paramref name="nth"/> police car stood wears</b> (SRV-3b): every service-list look
+    /// whose id starts <see cref="PoliceIdPrefix"/>, in the list's order, in turn.
+    /// </summary>
+    public int PoliceLook(int nth) => _policeLooks[nth % _policeLooks.Length];
+
+    /// <summary>Whether this variant is one of the police looks.</summary>
+    public bool IsPolice(int variant) => Array.IndexOf(_policeLooks, variant) >= 0;
+
+    readonly int[] _policeLooks;
+
+    /// <summary>What a police look's id starts with: the service list says which makes there are, by naming them.</summary>
+    const string PoliceIdPrefix = "police";
+
+    /// <summary>
+    /// The first evacuator look, which a map wanting one evacuator plainly in view stands; the town's own evacuators
+    /// wear <see cref="EvacuatorLook"/> (SRV-2, SRV-3b).
+    /// </summary>
     public int Evacuator { get; }
+
+    /// <summary>
+    /// <b>The evacuator look the <paramref name="nth"/> evacuator stood wears</b> (SRV-3b): every service-list look
+    /// whose id starts <see cref="EvacuatorIdPrefix"/>, in the list's order, in turn.
+    /// </summary>
+    public int EvacuatorLook(int nth) => _evacuatorLooks[nth % _evacuatorLooks.Length];
+
+    /// <summary>Whether this variant is one of the evacuator looks.</summary>
+    public bool IsEvacuator(int variant) => Array.IndexOf(_evacuatorLooks, variant) >= 0;
+
+    readonly int[] _evacuatorLooks;
+
+    /// <summary>What an evacuator look's id starts with, as <see cref="PoliceIdPrefix"/> is a police look's.</summary>
+    const string EvacuatorIdPrefix = "evacuator";
 
     /// <summary>
     /// <b>The one look a map that stands a single make of car dresses its whole fleet in</b>, where what
@@ -253,6 +328,15 @@ internal sealed class CarCatalog
 
     /// <summary>The lenses the variant at this index draws (CAR-14a), on the same wrap.</summary>
     public ReadOnlySpan<CarLens> LensesOf(int variant) => At(variant).Lenses;
+
+    /// <summary>Where the variant at this index's tailpipes end (CAR-54), on the same wrap.</summary>
+    public ReadOnlySpan<Vector2> ExhaustsOf(int variant) => At(variant).ExhaustsM;
+
+    /// <summary>
+    /// The most tailpipes a look may end in (CAR-54): a pipe a side. It is the stride of the device's table of them, so
+    /// a look naming more is refused rather than drawn short.
+    /// </summary>
+    public const int MostExhausts = 2;
 
     ref readonly CarVariant At(int variant) => ref Variants[Wrapped(variant)];
 
@@ -291,7 +375,10 @@ internal sealed class CarCatalog
             variant.TyreFriction, variant.CgHeightM, variant.FrontWeightShare,
             variant.WheelM, variant.WheelRotatingMassKg, variant.Unbreakable,
             CarHandling.Of(variant.Handling), Lenses(variant, path, sprite),
-            variant.Zones is { } zones ? AssetJson.Beside(path, zones) : null);
+            variant.Zones is { } zones ? AssetJson.Beside(path, zones) : null,
+            variant.Exhausts.Length <= MostExhausts
+                ? variant.Exhausts
+                : throw new InvalidDataException($"{path}: ends in {variant.Exhausts.Length} tailpipes, and a car may end in {MostExhausts}."));
     }
 
     static CarTowArm Arm(TowArmFile arm, string path) =>

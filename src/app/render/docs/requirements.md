@@ -30,6 +30,8 @@ them is on its types. The one thing stated here is how a sheet is stored.
   `ViewFigures.SceneryMostDrawn` of it a frame — a view holding more draws an even share, the same share as it pans
   (`ScenerySprites`). A prop, standing or scenery, smaller across than `ViewFigures.PropLeastPx` is not drawn
   (`CameraView.PropCull`).
+- **The clouds are their shadows alone** (`OBJ-8`): one triangle over the target, drawn after the bodies on the level
+  above and before the interface and the engine's annotations (`CloudShadows`).
 - **What reads the picture back** is [app/debug](../../debug/docs/requirements.md)'s wireframe and ground
   page (`OBS-2o`, `OBS-2v`); a picture with no window under it is [app/shot](../../shot/docs/requirements.md)'s
   (`SHT-1`).

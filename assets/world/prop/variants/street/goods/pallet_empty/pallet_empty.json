@@ -1,0 +1,9 @@
+{
+  "id": "pallet_empty",
+  "sprite": "pallet_empty.webp",
+  "kind": 2,
+  "footprintM": [1.2, 0.903],
+  "share": 0.5,
+  "turns": true,
+  "describe": "single weathered wooden pallet, grey boards with gaps"
+}

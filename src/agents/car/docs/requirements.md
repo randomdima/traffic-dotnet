@@ -155,7 +155,8 @@ drives to a free bay near a place drawn within reach of it and parks there. **On
 reach** there is no round to run, and every such car takes the lane it stands on and tours the lanes with no
 destination at all (`TownWorld.DriveTheEmptyMap`, `LaneTour`); **so does a car nobody owns that the town stood on a
 lane and not in a bay** — a traced map's own on a map with no roadside to park along (GEN-7) — which has no stand to run
-a round from. **A bay here is a painted one or a gap at a kerb** (GEN-4n), whichever stands nearer the place drawn. Never onto a lane every way off which ends at a dead
+a round from. **The showroom's cars run none** (`ShowroomPlan`): it is where the art is looked at, so each stands where
+it was parked until a hand or an order drives it. **A bay here is a painted one or a gap at a kerb** (GEN-4n), whichever stands nearer the place drawn. Never onto a lane every way off which ends at a dead
 end, the map's edge or a turn no car makes (`RoadGraph.DrivesOn`), so a tour is never absorbed into one. Three things
 follow of the round:
 
@@ -260,9 +261,11 @@ up. **No town stands that car**: the one fleet laid on its figures is the crash 
 than that is one parked across the aisle behind it. **Whether a body fits is answerable and nothing asks
 it** (`ParkingRegistry.Takes`): no bay is refused a car for its size.
 
-**CAR-12** `P4` A car's **tyres stand outside its bodywork**. Its track is the width of the panels over its
-axles — measured off its own picture, mirrors ignored — so each wheel centre stands on a flank and at least
-`Tyre.ShowsPastTheBodyworkShare` of every tyre's width is outside the body drawn over it. This is geometry
+**CAR-12** `P4` A car's **tyres show past its bodywork, and only by a sliver**. Its track is read off the width
+of the panels over its axles — measured off its own picture, mirrors ignored, at the wider axle — with each wheel
+centre stood just inside a flank, so that `Tyre.ShowsPastTheBodyworkShare` of every tyre's width is outside the
+body drawn over it and the rest is under it. Its axles stand under the tyre shadow the art draws at the sill
+where it draws one. This is geometry
 and not decoration: those same offsets are where the four patches take the ground and where the impulses
 are spent, so a track authored to hide the wheels is a car cornering on a narrower base than it looks like
 it has. **What a car collides with is still its bodywork**: the rubber standing proud of the box is drawn
@@ -474,11 +477,13 @@ the driver behind has to read first is that it is stopping.
 ambulance not on a call and a police car on its beat (SRV-5) show nothing, and a car that is granted the
 road shows it for as long as it holds it. **A hand at the wheel runs it too** (CTL-5c), and that one is
 the picture alone. **The bar is never dark while it is on**, so a car everybody owes the road to is lit in
-every frame it is in: a bar of two colours swaps them end for end rather than blinking, and a bar of one —
-the amber a works vehicle carries (CAR-14.6) — burns its two ends in turn, each blinking against its own
-dull glass. **A vehicle whose art draws a second bar runs it against the first**: the two carry opposite
-colours at every instant, so the end a driver behind is looking at is changing whichever bar is in front
-of them.
+every frame it is in: its two ends burn in turn, each blinking against its own dull glass, and **each burns
+the colour its glass is** — a red end red and a blue end blue, never the other's (the owner, 2026-10-22). A
+bar of two colours burns red then blue — a police car's; a bar of one — an ambulance's blue, the amber a works
+vehicle carries (CAR-14.6) — burns one side then the other. **Every bar runs the one loop**, in step with every
+other (`LampFigures`). **A vehicle whose art draws a second bar enters it crossed**, so the colour burning
+is at opposite ends of the two, and the end a driver behind is looking at is changing whichever bar is in
+front of them.
 
 **CAR-14.5** `P6` A car **nothing is driving shows nothing lit**, on CAR-1: a lamp is something a car is doing,
 and what a parked one shows is its own dull glass. **A hand at the wheel is one of the things that drives
@@ -508,8 +513,14 @@ and nothing once it is on it.
 **CAR-14.8** `P6` The **headlamps are the car being driven**: they burn for as long as anything drives it (CAR-1,
 CTL-5c) — under way, held at a light, waiting at a bay — and are dark on a car parked or wrecked (CAR-14.5). **They
 are how a car that is going somewhere is told from one that is not** at a glance, so they say nothing else: not the
-hour, not the speed, and no main beam apart from the dipped one. **A lit headlamp is its lens burning and nothing
-round it**: no glow on the body or the road (the owner, 2026-10-18), which on every moving nose washes a town in bloom.
+hour, not the speed, and no main beam apart from the dipped one. **A lit headlamp glows as every lit lamp does** (the
+owner, 2026-10-22): the soft spill of its own lens's shape onto the body, and no beam on the road.
+
+**CAR-14.9** `P6` **The car picked out in the showroom puts its lamps through their states in turn** while nothing
+drives it (the owner, 2026-10-22): headlamps, reversing lamps, brake lamps, the left indicator, the right, then both
+together as hazard lamps, each held `SimConfig.Lamps.ShowroomStepS`, and round again. It is where a look's lamps are
+reviewed without driving it, so it is the one exception to CAR-14.5, and the states are read off the town's clock —
+still nothing to set or clear. Driven by hand or by an order, it says what CAR-14.1–14.8 say.
 
 Where the numbers are: `SimConfig.Lamps` — how much of the line is read for a turn and how far that
 stretch must bend, how long before the step back a pass says it, the rates the flashing ones flash at, and
@@ -517,6 +528,21 @@ how far the light around a lit one spills.
 **Neither where a lamp is nor what it looks like is a number here**: where is the variant's own file,
 beside the picture it was measured off, and what is the town's one lamp sheet, cut from those same
 pictures (CAR-14a).
+
+**CAR-54** `P8` A car **smokes while it runs**: for as long as its headlamps burn (CAR-14.8), puffs leave each of its
+tailpipes, and the harder its driver asks of the throttle the thicker, wider, harder blown out and longer-lived each is —
+the least smoke of anything off a car idling; a wreck, a car nothing drives and an electric car put
+out none. **A puff leaves the pipe where the car was at that moment and keeps the velocity it left with**, closing on
+the air's — the town's wind (`Wind`), which swings slowly and gusts — so a car under way leaves a trail along the way it
+drove, round a corner and all, one held at a light a plume that drifts downwind, and one that stops leaves what it put
+out hanging until it is gone. **A trail is as unbroken as the car is fast**: a faster car's puffs are drawn closer in
+time, so they lie no further apart along its way than a gap, each as thick as its share of the time — drawn between the
+points the track keeps, and none of them kept. **Like a lamp, the smoke stands nothing**: every puff is a fact of the
+car's way, its throttle, the wind and the clock. **It is drawn where the world is stepped on the device and nowhere
+else** (the owner, 2026-10-23), at the moment of the view the host shows, so its newest puff leaves the pipe where the
+car is drawn: the way it is laid along is the device's step's. Where a pipe is is the variant's file (`exhausts`, placed
+on the rear bumper by `qq exhausts`, since the art draws none from above); what it looks like is `SimConfig.Smoke`,
+the air `SimConfig.Wind`.
 
 ## Marks
 

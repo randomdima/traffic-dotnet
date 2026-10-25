@@ -164,7 +164,9 @@ internal sealed class CityPlan
         Fold(ref hash, Buildings.CentreM);
         Fold(ref hash, Buildings.HeadingRad);
         Fold(ref hash, Props.CentreM);
+        Fold(ref hash, Props.Look);
         Fold(ref hash, Scenery.CentreM);
+        Fold(ref hash, Scenery.Look);
         Fold(ref hash, Spawns.PositionM);
         return hash;
 
@@ -609,7 +611,18 @@ internal sealed class CityPlan
     internal sealed class PropArrays
     {
         public required Vector2[] CentreM { get; init; }
+
+        /// <summary>
+        /// Half the girth of the look each wears (GEN-6e): the ground it was cleared to and is spaced by, and what is
+        /// kept off driven ground (TER-4c.4).
+        /// </summary>
         public required float[] RadiusM { get; init; }
+
+        /// <summary>
+        /// <b>Half the disc each stands as a body</b> (GEN-6e): its look's collider, within <see cref="RadiusM"/> — a
+        /// street tree's trunk under its crown. Read by what stands bodies and by nothing else.
+        /// </summary>
+        public required float[] BodyRadiusM { get; init; }
 
         /// <summary>
         /// The road's own bearing where a prop was laid along a kerb (GEN-6b), and zero for one the wild
@@ -620,21 +633,36 @@ internal sealed class CityPlan
         public required float[] BearingRad { get; init; }
 
         public required byte[] Kind { get; init; }
+
+        /// <summary>
+        /// <b>The look each wears, chosen as it was laid</b> (GEN-6e): its place among the looks the plan was handed
+        /// (<see cref="PropSizes"/>), which is its place in the catalogue that draws it.
+        /// </summary>
+        public required ushort[] Look { get; init; }
+
         public int Count => CentreM.Length;
+
+        public static PropArrays None { get; } = new() { CentreM = [], RadiusM = [], BodyRadiusM = [], BearingRad = [], Kind = [], Look = [] };
     }
 
     /// <summary>
     /// <b>Props that are drawn and nothing else</b> (GEN-6b): what grows on the open ground beyond the verges, with no
     /// body, no collider and no claim on any way. Each is of the open country's kind (<see cref="PropKind.WildNature"/>)
-    /// and stands upright, so its place and its girth are the whole of it.
+    /// and stands upright, so its place and its look are the whole of it.
     /// </summary>
     internal sealed class SceneryArrays
     {
         public required Vector2[] CentreM { get; init; }
+
+        /// <summary>Half the girth of the look each wears (GEN-6e), which the ground was cleared to.</summary>
         public required float[] RadiusM { get; init; }
+
+        /// <summary>The look each wears, as <see cref="PropArrays.Look"/> names one.</summary>
+        public required ushort[] Look { get; init; }
+
         public int Count => CentreM.Length;
 
-        public static SceneryArrays None { get; } = new() { CentreM = [], RadiusM = [] };
+        public static SceneryArrays None { get; } = new() { CentreM = [], RadiusM = [], Look = [] };
     }
 
     /// <summary>Where the roster stands at the first tick.</summary>
@@ -712,9 +740,8 @@ internal sealed class CityPlan
     }
 
     /// <summary>
-    /// A town's water, as the four rings each piece of it is drawn from (GEN-2c). <b>They are the same wave
-    /// at four offsets</b>, drawn largest first so that each fill leaves a line of the one under it: the
-    /// shore, the shore less a line, the water plus a line, the water.
+    /// A town's water, as the two rings each piece of it is drawn from (GEN-2c). <b>They are the same wave
+    /// at two offsets</b>, the shore drawn first and the water over it.
     /// </summary>
     internal sealed class WaterArrays
     {
@@ -722,7 +749,6 @@ internal sealed class CityPlan
         public static WaterArrays None => new()
         {
             Outline = RingArrays.None, Shore = RingArrays.None,
-            ShoreEdge = RingArrays.None, WaterEdge = RingArrays.None,
         };
 
         /// <summary>The water's own edge, which is what is drawn as water and what was classified as it.</summary>
@@ -734,11 +760,5 @@ internal sealed class CityPlan
         /// under it was classified.
         /// </summary>
         public required RingArrays Shore { get; init; }
-
-        /// <summary>That edge less a line's width, so what is left between the two is the line along the grass.</summary>
-        public required RingArrays ShoreEdge { get; init; }
-
-        /// <summary>And the water's edge plus one, so what is left between the two is the line along the water.</summary>
-        public required RingArrays WaterEdge { get; init; }
     }
 }

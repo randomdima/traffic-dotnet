@@ -143,7 +143,7 @@ internal static class SoakProbe
     public static TownWatch Sample(
         string map, SimConfig config, ulong? agentSeed = null, Func<WorldLaying, WorldLayer>? layTheWorld = null)
     {
-        using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Roofs), config, agentSeed: agentSeed);
+        using var world = new TownWorld(Maps.Plan(map, config, ShippedArt.Sizes), config, agentSeed: agentSeed);
         if (layTheWorld is not null) world.HandTheWorldTo(layTheWorld);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);

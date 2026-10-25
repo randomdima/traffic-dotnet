@@ -18,12 +18,11 @@
       [357.99, 33.56, 0.00],
       [348.43, 28.11, 0.44]
     ]},
-    {"name": "ind_front", "kind": "ind", "mirror": true, "over": ["head"], "axisY": 99.5, "mirrorDx": 7.0, "points": [
-      [338.84, 30.47, 0.12],
-      [340.16, 27.86, 0.81],
-      [343.72, 28.13, 0.00],
-      [344.30, 30.34, 1.36],
-      [340.19, 32.91, 0.00]
+    {"name": "ind_front", "kind": "ind", "mirror": true, "over": ["head"], "axisY": 102.15, "mirrorDx": 2.0, "points": [
+      [339.21, 33.00, 0.60],
+      [343.80, 33.40, 0.60],
+      [344.30, 28.40, 0.60],
+      [339.60, 28.20, 0.60]
     ]},
     {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
     {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}

@@ -1,0 +1,8 @@
+{
+  "id": "topiary_cone",
+  "sprite": "topiary_cone.webp",
+  "kind": 1,
+  "diameterM": 0.8,
+  "share": 0.8,
+  "describe": "clipped cone of yew seen from above, a round dark green point at the middle, in a black pot"
+}

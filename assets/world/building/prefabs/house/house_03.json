@@ -2,8 +2,8 @@
   "id": "house_03",
   "sprite": "house_03.webp",
   "footprintM": [
-    3.5,
-    3.0
+    4.9,
+    4.2
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],

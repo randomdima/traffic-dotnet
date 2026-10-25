@@ -51,6 +51,12 @@ one running out of it takes the one way back, however it is set. The driver sets
 before its front reaches it, by a set-ahead distance (`SimConfig.Rail`) — one it trails through as well as one
 it faces, so a train backing runs back the way it came — and never moves one its own train is on.
 
+**TRN-14** `P9` **On the showroom every rolling-stock look stands once, and no train is sent** (`ShowroomPlan`):
+it is where the art is looked at, as its cars are parked there. Each locomotive look heads a train of one kind
+(`TRN-4`), each wagon look stands once behind a locomotive of its kind, and each train stands coupled and braked on a
+siding of its own until a hand drives it (`CTL-5`); let go, it has no driver of its own (`TRN-12`) and brakes to a
+stand where it was left. Driven off the map, it is stood again after a line's gap (`TRN-7`).
+
 ## How it is driven
 
 **TRN-10** `P5` **A train is driven by one set of controls, whoever drives it**: a share of its locomotive's
@@ -74,3 +80,20 @@ matter, and its wagons close up and stretch out on their couplings as it pulls a
 are laid ahead of it at its pace, which a curve only makes it later to; under a hand, at how fast it
 moves and as far as the whole of its traction could pull it either way in the time, since a hand may ask that at
 any moment (`RAIL-1`).
+
+## How it is drawn
+
+**TRN-13** `P9` **A vehicle's fans turn, and turn round.** Each fan its picture draws is kept as its geometry alone
+and drawn over as the vehicle is drawn in one of the fans' looks (OBJ-6), turned about the hub its blades are drawn
+round, however the art squashed it or set it off its hub — the look's edge laid on the rim, so it covers all of the
+opening. Every fan turns at the view's one rate (`ViewFigures`), slow enough that a frame never turns it near a blade,
+each vehicle's from its own start and in its own look, read off its ID and the tick.
+
+**TRN-15** `P9` **A diesel's stack smokes while it is in the world**, sooty, and the harder its driver asks of the
+throttle the thicker, wider and longer-lived each puff is, as a car's exhaust is (CAR-54) — the most smoke of anything off
+a diesel pulling hard, which lays a trail tens of metres long behind it at speed. It is laid along the vehicle's way
+further back than a car's, as long as its puffs live, but blown straight up, so it leaves the stack with the vehicle's
+own velocity alone and is taken by the wind (`Wind`). An electric has no
+stack and puts out none. Where a stack opens is the vehicle's file (`exhausts`, read off its picture with
+`qq chimneys`); what it looks like is `SimConfig.Smoke`. Like the rest of the smoke, it is drawn where the world is
+stepped on the device and nowhere else.

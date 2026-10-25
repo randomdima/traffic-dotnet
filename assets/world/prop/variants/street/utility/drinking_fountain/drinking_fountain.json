@@ -1,0 +1,8 @@
+{
+  "id": "drinking_fountain",
+  "sprite": "drinking_fountain.webp",
+  "kind": 2,
+  "diameterM": 0.6,
+  "share": 0.8,
+  "describe": "small cast iron drinking fountain, round grey basin with a small spout"
+}

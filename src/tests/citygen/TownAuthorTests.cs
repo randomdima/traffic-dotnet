@@ -61,7 +61,7 @@ public class TownAuthorTests
         map.Write(bytes);
         var read = TownMap.Read(bytes.ToArray(), "test");
 
-        var (inMemory, offTheFile) = (TownPlan.Lay(map, Config, BuildingCatalog.Roofs), TownPlan.Lay(read, Config, BuildingCatalog.Roofs));
+        var (inMemory, offTheFile) = (TownPlan.Lay(map, Config, ShippedArt.Sizes), TownPlan.Lay(read, Config, ShippedArt.Sizes));
 
         Assert.Equal(inMemory.Junctions.CentreM, offTheFile.Junctions.CentreM);
         Assert.Equal(inMemory.Roads.Segments.Select(segment => segment.StartM), offTheFile.Roads.Segments.Select(segment => segment.StartM));

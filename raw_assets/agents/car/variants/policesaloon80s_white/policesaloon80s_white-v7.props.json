@@ -1,0 +1,29 @@
+{
+  "car": "policesaloon80s_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/policesaloon80s_white/policesaloon80s_white-v7.png", "sizePx": [396, 188]},
+  "axisY": {"rear": 92.50, "front": 92.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [11.40, 28.20, 0.30],
+      [9.20, 32.50, 0.00],
+      [8.60, 61.00, 0.00],
+      [18.60, 61.00, 0.00],
+      [20.93, 28.40, 0.00]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 93.0, "mirrorDx": 1.0, "points": [
+      [370.38, 35.08, 0.47],
+      [374.09, 49.52, 0.37],
+      [376.25, 52.13, 0.85],
+      [380.66, 50.94, 3.77],
+      [377.65, 33.34, 1.03]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 93.0, "mirrorDx": 1.0, "points": [
+      [366.02, 26.35, 2.24],
+      [372.29, 33.25, 1.99],
+      [377.06, 28.61, 1.38],
+      [368.64, 24.23, 0.59]
+    ]}
+  ]
+}

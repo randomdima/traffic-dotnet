@@ -19,7 +19,7 @@ internal static class TracedFit
 {
     public static void Run(string map, SimConfig config, string? outPath)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var survey = Survey.Of(Maps.Read(map), config);
         var paving = plan.Paving(config);
         var zones = new ZoneTree(survey.Zones, config.Zones);

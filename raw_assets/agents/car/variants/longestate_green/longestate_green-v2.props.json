@@ -3,21 +3,21 @@
   "sprite": {"variant": "raw_assets/agents/car/variants/longestate_green/longestate_green-v2.png", "sizePx": [449, 215]},
   "axisY": {"rear": 106.50, "front": 107.00},
   "props": [
-    {"name": "brake", "kind": "brake", "mirror": true, "hold": [5], "points": [
-      [22.29, 34.40, 2.74],
-      [10.10, 65.86, 1.70],
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [25.44, 30.57, 3.75],
+      [10.03, 65.73, 1.70],
       [12.70, 70.88, 1.40],
       [21.64, 70.12, -1.28],
-      [29.50, 39.10, -0.55],
-      [33.00, 34.40, 0.00]
+      [29.62, 38.61, -0.71],
+      [38.47, 28.83, 0.00]
     ]},
-    {"name": "ind_rear", "kind": "ind", "mirror": true, "axisY": 109.0, "mirrorDx": 0.0, "points": [
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "points": [
       [9.41, 80.97, 1.22],
       [9.09, 93.47, 0.50],
       [18.69, 94.56, 1.07],
       [19.05, 81.21, 0.20]
     ]},
-    {"name": "head", "kind": "head", "mirror": true, "axisY": 107.0, "mirrorDx": 1.0, "points": [
+    {"name": "head", "kind": "head", "mirror": true, "mirrorDx": 1.0, "axisY": 106.75, "points": [
       [416.05, 38.46, 0.51],
       [428.72, 60.60, 1.27],
       [431.99, 58.16, 0.25],
@@ -25,18 +25,18 @@
       [425.64, 38.35, 0.87],
       [417.06, 35.81, 0.86]
     ]},
-    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 107.0, "mirrorDx": 2.0, "points": [
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 107.25, "mirrorDx": 0.5, "points": [
       [407.36, 29.36, 0.00],
       [409.37, 31.90, 1.59],
       [420.64, 36.34, 1.09],
       [420.50, 32.48, 0.85],
       [409.10, 27.25, 0.82]
     ]},
-    {"name": "reverse", "kind": "reverse", "mirror": true, "axisY": 110.5, "mirrorDx": 4.0, "points": [
-      [11.52, 73.69, 0.00],
-      [10.63, 80.40, 0.00],
-      [19.66, 80.40, 0.91],
-      [20.35, 73.63, 0.72]
+    {"name": "reverse", "kind": "reverse", "mirror": true, "points": [
+      [13.03, 73.68, 0.00],
+      [12.14, 80.40, 0.00],
+      [18.15, 80.40, 0.91],
+      [18.84, 73.64, 0.72]
     ]}
   ]
 }

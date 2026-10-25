@@ -1,0 +1,21 @@
+{
+  "car": "condo_pool",
+  "sprite": {"variant": "raw_assets/world/building/variants/condo_pool/condo_pool-v1.png", "sizePx": [598, 596]},
+  "axisY": {"rear": 265.00, "front": 273.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [460.59, 157.85, 0.74],
+      [460.80, 165.65, 4.00],
+      [480.83, 176.18, 3.54],
+      [495.98, 162.54, 5.13],
+      [478.27, 146.94, 3.54]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [460.21, 192.03, 3.31],
+      [476.42, 204.66, 1.09],
+      [490.14, 200.91, 3.35],
+      [494.66, 184.20, 3.24],
+      [477.21, 176.58, 5.89]
+    ]}
+  ]
+}

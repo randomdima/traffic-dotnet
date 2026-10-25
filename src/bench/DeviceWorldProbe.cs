@@ -50,7 +50,7 @@ internal static class DeviceWorldProbe
     /// </summary>
     static void Laid(string map, SimConfig config, Vk vk)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         using var device = new TownWorld(plan, config);
         var (deviceBefore, mappedBefore) = vk.BufferBytes;
         device.HandTheWorldTo(laying => new DeviceWorld(vk, laying));
@@ -70,7 +70,7 @@ internal static class DeviceWorldProbe
     /// </summary>
     static void Apart(string map, SimConfig config, Vk vk)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         using var managed = new TownWorld(plan, config);
         using var device = new TownWorld(plan, config);
         device.HandTheWorldTo(laying => new DeviceWorld(vk, laying));
@@ -103,9 +103,14 @@ internal static class DeviceWorldProbe
         Console.WriteLine();
 
         // The step ahead shown, so the fleets the host fills from stand where the device draws (WorldLayer.StepsAhead).
-        device.LayTheClaims();
-        Drawn(device, config, plan);
+        var looks = TownSprites.Load(config);
+        looks.ReadAspects(SheetAtlas.Pack(looks.Sheets));
+        Drawn(device, deviceLoop, config, plan, looks);
+        DrawnTurning(device, deviceLoop, config, plan, looks);
     }
+
+    /// <summary>How long <see cref="DrawnTurning"/> runs the town on for a locomotive with fans to come: a few trains' gaps.</summary>
+    const int TurningWaitTicks = 60 * 60 * 10;
 
     /// <summary>
     /// What a device tick records, on average over a stretch of ticks: dispatches, barriers and submits — the figure the
@@ -129,34 +134,97 @@ internal static class DeviceWorldProbe
     /// fill of the same town and view, which reads the fleets the view was read into: how many instances each drew and how
     /// many differ, at a street and at the whole town.
     /// </summary>
-    static void Drawn(TownWorld town, SimConfig config, CityPlan plan)
+    static void Drawn(TownWorld town, SimLoop<TownWorld> loop, SimConfig config, CityPlan plan, TownSprites looks)
     {
-        var looks = TownSprites.Load(config);
-        looks.ReadAspects(SheetAtlas.Pack(looks.Sheets));
-        var room = looks.RoomFor(plan, config);
-        var over = new SpriteInstance[room.Over];
-        var above = new SpriteInstance[Math.Max(1, room.Above)];
-        var sprites = ((DeviceWorld)town.World).DrawWith(town, looks, room);
         var uiPx = new Vector2(1600f, 900f);
         var townPxPerM = MathF.Min(uiPx.X / plan.WorldSizeM.X, uiPx.Y / plan.WorldSizeM.Y);
+
+        Console.Write("drawn, instances host / device / differing:");
+        Compare(town, loop, config, plan, looks, "street", Busiest, 1600f / 45f);
+        Compare(town, loop, config, plan, looks, "town", _ => plan.WorldSizeM * 0.5f, townPxPerM);
+        Console.WriteLine();
+    }
+
+    /// <summary>Where the fastest car is, which the street is framed on.</summary>
+    static Vector2 Busiest(TownWorld town)
+    {
         var busiest = 0;
         for (var car = 1; car < town.Cars.Count; car++)
         {
             if (town.Cars.VelocityMps[car].LengthSquared() > town.Cars.VelocityMps[busiest].LengthSquared()) busiest = car;
         }
 
-        Console.Write("drawn, instances host / device / differing:");
-        foreach (var (where, centreM, pxPerM) in (ReadOnlySpan<(string, Vector2, float)>)
-                 [("street", town.Cars.PositionM[busiest], 1600f / 45f), ("town", plan.WorldSizeM * 0.5f, townPxPerM)])
+        return town.Cars.PositionM[busiest];
+    }
+
+    /// <summary>
+    /// And a locomotive whose fans turn (TRN-13), framed as the street is, once the town has run on until one is out
+    /// (<see cref="TurningWaitTicks"/> at the most): the first trains come long after the moment <see cref="Drawn"/> is
+    /// taken at, so neither of its framings draws a wagon.
+    /// </summary>
+    static void DrawnTurning(TownWorld town, SimLoop<TownWorld> loop, SimConfig config, CityPlan plan, TownSprites looks)
+    {
+        var wagons = town.World.View.Wagons;
+        var turning = -1;
+        for (var tick = 0; turning < 0 && tick < TurningWaitTicks; tick++)
         {
-            var spanM = uiPx / pxPerM;
-            var (overCount, aboveCount) = looks.FillMoving(town, config, centreM, spanM, pxPerM, over, above);
-            sprites.Emit(centreM, spanM, pxPerM, town.ElapsedS);
-            var differ = Differing(over.AsSpan(0, overCount), sprites.Over) + Differing(above.AsSpan(0, aboveCount), sprites.Above);
-            Console.Write($"  {where} {overCount + aboveCount} / {sprites.OverCount + sprites.AboveCount} / {differ}");
+            loop.Advance();
+            for (var wagon = 0; wagon < wagons.Length && turning < 0; wagon++)
+            {
+                if (wagons[wagon].IsInWorld && looks.Rolling.Vehicles[wagons[wagon].Look].Fans.Length > 0) turning = wagon;
+            }
         }
 
+        Console.Write("drawn, a locomotive's fans turning:");
+        if (turning < 0)
+        {
+            Console.WriteLine($" none out in {TurningWaitTicks / config.Sim.TickRateHz:F0} s");
+            return;
+        }
+
+        Compare(town, loop, config, plan, looks, $"at {town.ElapsedS:F0} s", framed => framed.World.View.Wagons[turning].PositionM, 1600f / 45f);
         Console.WriteLine();
+    }
+
+    /// <summary>
+    /// One framing's instances, host / device / differing, and the puffs of smoke the device drew besides (CAR-54): the
+    /// device's alone, so they are counted apart and the rest held to the host's. Taken a puff's life and two track points
+    /// on from when the emit is laid, since the cars' tracks are laid from then (<see cref="DeviceWorld.DrawWith"/>).
+    /// </summary>
+    static void Compare(
+        TownWorld town, SimLoop<TownWorld> loop, SimConfig config, CityPlan plan, TownSprites looks, string where,
+        Func<TownWorld, Vector2> framedOn, float pxPerM)
+    {
+        var room = looks.RoomFor(plan, config);
+        var over = new SpriteInstance[room.Over];
+        var above = new SpriteInstance[Math.Max(1, room.Above)];
+        var sprites = ((DeviceWorld)town.World).DrawWith(town, looks, room);
+        var spanM = new Vector2(1600f, 900f) / pxPerM;
+        var warmTicks = (int)MathF.Ceiling((config.Smoke.FullLifeS + (2f * config.Smoke.TrackEveryS)) * config.Sim.TickRateHz);
+        for (var tick = 0; tick < warmTicks; tick++) loop.Advance();
+
+        // The step ahead shown, so the fleets the host fills from stand where the device draws (WorldLayer.StepsAhead).
+        town.LayTheClaims();
+        var centreM = framedOn(town);
+        var (overCount, aboveCount) = looks.FillMoving(town, config, centreM, spanM, pxPerM, over, above);
+        sprites.Emit(centreM, spanM, pxPerM, town.ElapsedS);
+        var (deviceOver, overPuffs) = Unsmoked(sprites.Over, looks.SmokeSheet);
+        var (deviceAbove, abovePuffs) = Unsmoked(sprites.Above, looks.SmokeSheet);
+        var differ = Differing(over.AsSpan(0, overCount), deviceOver) + Differing(above.AsSpan(0, aboveCount), deviceAbove);
+        Console.Write(
+            $"  {where} {overCount + aboveCount} / {deviceOver.Length + deviceAbove.Length} / {differ} (+{overPuffs + abovePuffs} puffs)");
+    }
+
+    /// <summary>A run of the device's without its puffs of smoke, which no host fill draws, and how many there were.</summary>
+    static (SpriteInstance[] Others, int Puffs) Unsmoked(ReadOnlySpan<SpriteInstance> onDevice, int smokeSheet)
+    {
+        var rest = new List<SpriteInstance>(onDevice.Length);
+        foreach (var instance in onDevice)
+        {
+            if (instance.Sheet != smokeSheet) rest.Add(instance);
+        }
+
+        return ([.. rest], onDevice.Length - rest.Count);
     }
 
     static int Differing(ReadOnlySpan<SpriteInstance> host, ReadOnlySpan<SpriteInstance> onDevice)

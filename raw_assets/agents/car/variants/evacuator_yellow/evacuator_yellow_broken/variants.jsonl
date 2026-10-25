@@ -1,0 +1,2 @@
+{"variant": "evacuator_yellow_broken-v1", "frame": "service_tow_wrecks-v1", "cell": 8, "pxPerM": 84.545, "score": 4, "status": "candidate", "ts": "2026-10-23T03:22:11"}
+{"variant": "evacuator_yellow_broken-v2", "frame": "service_tow_b_wrecks-v1", "cell": 8, "pxPerM": 82.0, "score": 4, "status": "used", "ts": "2026-10-23T04:16:21"}

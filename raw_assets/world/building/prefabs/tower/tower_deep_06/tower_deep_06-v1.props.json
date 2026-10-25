@@ -1,0 +1,19 @@
+{
+  "car": "tower_deep_06",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/tower/tower_deep_06/tower_deep_06-v1.png", "sizePx": [440, 963]},
+  "axisY": {"rear": 481.50, "front": 481.50},
+  "props": [
+    {"name": "fan3", "kind": "fan", "mirror": false, "points": [
+      [160.35, 741.36, 5.53],
+      [176.54, 760.99, 4.54],
+      [193.51, 745.14, 5.59],
+      [176.85, 726.00, 4.05]
+    ]},
+    {"name": "fan4", "kind": "fan", "mirror": false, "points": [
+      [203.95, 741.79, 3.23],
+      [213.17, 759.64, 6.89],
+      [236.54, 746.03, 5.41],
+      [220.59, 726.17, 4.53]
+    ]}
+  ]
+}

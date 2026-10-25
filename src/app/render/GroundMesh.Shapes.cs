@@ -1,6 +1,8 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
 
@@ -34,8 +36,7 @@ internal sealed partial class GroundMesh
 
     /// <summary>
     /// <b>A line of the town's own, laid as the ground half a width either side of it</b>: a kerb along the
-    /// driven ground's boundary or along the walk's outer face (TER-3d), and a bridge's deck along the road
-    /// it carries. <b>The line it is struck from runs down the middle of it</b>, so no part of a stroke ever
+    /// driven ground's boundary (TER-3d), and a bridge's deck along the road it carries. <b>The line it is struck from runs down the middle of it</b>, so no part of a stroke ever
     /// stands further from that line than half its own width — at a bend, at a corner and at the tightest
     /// hook the boundary has alike.
     /// </summary>
@@ -75,26 +76,67 @@ internal sealed partial class GroundMesh
     /// </para>
     /// </remarks>
     void Stroke(
-        ReadOnlySpan<Vector2> line, float widthM, bool closed, Surface surface, Vector3 tint)
-    {
-        if (line.Length < 2 || widthM <= 0f) return;
+        ReadOnlySpan<Vector2> line, float widthM, bool closed, Surface surface, Vector3 tint) =>
+        Stroke(line, closed, Sides.Even(widthM, surface, tint));
 
-        var halfM = widthM * 0.5f;
+    /// <summary>
+    /// <b>What a stroke lays either side of its line</b>: how far it reaches to the left and to the right, and the
+    /// shade of its corners on each — one shade both sides for a deck, for a fade (<see cref="Fade"/>) nothing on one
+    /// side and the surface going from whole to none across the other, and for a kerb (<see cref="Kerbstones"/>) a
+    /// strip, its corners filing how many of its pictures along the line they stand in place of a shade.
+    /// </summary>
+    readonly record struct Sides(Vector2 HalfM, uint LeftShade, uint RightShade, Surface? Strip = null, float PicturesPerM = 0f)
+    {
+        public static Sides Even(float widthM, Surface surface, Vector3 tint)
+        {
+            var shade = GroundVertex.Pack(tint, surface);
+            return new Sides(new Vector2(widthM * 0.5f), shade, shade);
+        }
+
+        public static Sides Stones(float widthM, Surface strip, float pictureM) =>
+            new(new Vector2(widthM * 0.5f), 0, 0, strip, 1f / pictureM);
+    }
+
+    /// <summary>
+    /// How many of a strip's pictures a stroke lays before it starts counting again: whole pictures, so the picture
+    /// runs on unbroken across the restart, and half what a corner can file, so the chord after it still fits.
+    /// </summary>
+    const float StripRestartPictures = 512f;
+
+    void Stroke(ReadOnlySpan<Vector2> line, bool closed, in Sides sides)
+    {
+        if (line.Length < 2 || sides.HalfM.X + sides.HalfM.Y <= 0f) return;
+
+        var halfM = sides.HalfM;
+        var strip = sides.Strip;
+        var picturesPerM = sides.PicturesPerM;
+        var leftShade = sides.LeftShade;
+        var rightShade = sides.RightShade;
         var last = line.Length - 1;
         var firstLeft = -1;
         var firstRight = -1;
         var previousLeft = -1;
         var previousRight = -1;
+        var pictures = 0f;
 
-        void Station(Vector2 pointM, Vector2 across, Vector2 reach)
+        // A strip's corners file where along it they stand, so each station is shaded where it is laid.
+        void ShadeAt(float along)
         {
-            var left = Vertex(pointM - (across * reach.X), surface, tint);
-            var right = Vertex(pointM + (across * reach.Y), surface, tint);
-            if (previousLeft >= 0)
+            if (strip is not { } surface) return;
+
+            leftShade = GroundVertex.OnTheStrip(surface, along, 0f);
+            rightShade = GroundVertex.OnTheStrip(surface, along, 1f);
+        }
+
+        void Station(Vector2 pointM, Vector2 across, Vector2 reach, bool joined = true)
+        {
+            var left = Vertex(pointM - (across * reach.X), leftShade);
+            var right = Vertex(pointM + (across * reach.Y), rightShade);
+            if (previousLeft >= 0 && joined)
             {
                 Quad(previousLeft, previousRight, right, left);
             }
-            else
+            else if (previousLeft < 0)
             {
                 firstLeft = left;
                 firstRight = right;
@@ -107,6 +149,8 @@ internal sealed partial class GroundMesh
         for (var at = 0; at <= last; at++)
         {
             var pointM = line[at];
+            if (at > 0) pictures += Vector2.Distance(line[at - 1], pointM) * picturesPerM;
+            ShadeAt(pictures);
             var arriving = closed || at > 0 ? Along(line[at > 0 ? at - 1 : last], pointM) : Vector2.Zero;
             var leaving = closed || at < last ? Along(pointM, line[at < last ? at + 1 : 0]) : Vector2.Zero;
             if (arriving == Vector2.Zero) arriving = leaving;
@@ -118,73 +162,164 @@ internal sealed partial class GroundMesh
             var fromAcross = Heading.RightOf(arriving);
             var ontoAcross = Heading.RightOf(leaving);
             var bisector = fromAcross + ontoAcross;
+            var laidAcross = ontoAcross;
             if (Steps(MathF.Max(reach.X, reach.Y), turnRad) <= 1 && bisector.LengthSquared() > Cusp)
             {
-                Station(pointM, Vector2.Normalize(bisector), reach);
-                continue;
+                laidAcross = Vector2.Normalize(bisector);
+                Station(pointM, laidAcross, reach);
+            }
+            else
+            {
+                Station(pointM, fromAcross, reach);
+                Turned(pointM, fromAcross, reach, ontoAcross, reach, leftShade, rightShade, ref previousLeft, ref previousRight);
+                Station(pointM, ontoAcross, reach);
             }
 
-            Station(pointM, fromAcross, reach);
-            Turned(pointM, fromAcross, reach, ontoAcross, reach, surface, tint,
-                ref previousLeft, ref previousRight);
-            Station(pointM, ontoAcross, reach);
+            // The count started again at the same place and on the same picture, the next quad laid from there.
+            if (strip is not null && pictures >= StripRestartPictures)
+            {
+                pictures -= StripRestartPictures;
+                ShadeAt(pictures);
+                Station(pointM, laidAcross, reach, joined: false);
+            }
         }
 
         // The seam of a ring is no corner at all: its first point was laid knowing what arrives at it, so
-        // what is left is the quad back to it.
+        // what is left is the quad back to it — on a strip, back to that point counted on to where the ring closes.
         if (closed && previousLeft >= 0 && firstLeft >= 0)
         {
+            if (strip is not null)
+            {
+                ShadeAt(pictures + (Vector2.Distance(line[last], line[0]) * picturesPerM));
+                firstLeft = Vertex(_vertices[firstLeft].PositionM, leftShade);
+                firstRight = Vertex(_vertices[firstRight].PositionM, rightShade);
+            }
+
             Quad(previousLeft, previousRight, firstRight, firstLeft);
         }
     }
 
     /// <summary>
-    /// <b>Every ring of a line struck but the pieces asked to be left</b> — a bridge's end where it lands, the map's
+    /// <b>One ring of a line struck but the pieces asked to be left</b> — a bridge's end where it lands, the map's
     /// edge where the ground runs on past it — each run between two of those struck open, and a ring with none of them
-    /// struck closed.
+    /// struck closed; with a list to gather its runs in.
     /// </summary>
-    void Stroke(
-        ReadOnlySpan<Vector2[]> line, Func<Vector2, Vector2, bool> unstruck, float widthM, Surface surface, Vector3 tint)
+    void StrokeRing(ReadOnlySpan<Vector2> ring, Func<Vector2, Vector2, bool> unstruck, in Sides sides, List<Vector2> run)
     {
-        var run = new List<Vector2>();
-        foreach (var ring in line)
+        var count = ring.Length;
+        var first = -1;
+        for (var piece = 0; piece < count && first < 0; piece++)
         {
-            var count = ring.Length;
-            var first = -1;
-            for (var piece = 0; piece < count && first < 0; piece++)
-            {
-                if (unstruck(ring[piece], ring[(piece + 1) % count])) first = piece;
-            }
+            if (unstruck(ring[piece], ring[(piece + 1) % count])) first = piece;
+        }
 
-            if (first < 0)
+        if (first < 0)
+        {
+            Stroke(ring, closed: true, sides);
+            return;
+        }
+
+        run.Clear();
+        for (var step = 1; step <= count; step++)
+        {
+            var piece = (first + step) % count;
+            var from = ring[piece];
+            var to = ring[(piece + 1) % count];
+            if (unstruck(from, to))
             {
-                Stroke(ring, widthM, closed: true, surface, tint);
+                Struck(sides);
                 continue;
             }
 
-            for (var step = 1; step <= count; step++)
-            {
-                var piece = (first + step) % count;
-                var from = ring[piece];
-                var to = ring[(piece + 1) % count];
-                if (unstruck(from, to))
-                {
-                    Struck();
-                    continue;
-                }
-
-                if (run.Count == 0) run.Add(from);
-                run.Add(to);
-            }
-
-            Struck();
+            if (run.Count == 0) run.Add(from);
+            run.Add(to);
         }
 
-        void Struck()
+        Struck(sides);
+
+        void Struck(in Sides sides)
         {
-            if (run.Count >= 2) Stroke(CollectionsMarshal.AsSpan(run), widthM, closed: false, surface, tint);
+            if (run.Count >= 2) Stroke(CollectionsMarshal.AsSpan(run), closed: false, sides);
             run.Clear();
         }
+    }
+
+    /// <summary>
+    /// <b>A surface faded out across a band along one side of every ring of a set</b> (GEN-2c): whole on the ring and
+    /// gone <paramref name="widthM"/> off it, inside the ring or outside it, over whatever was laid there before — so
+    /// what the ring parts reads as one ground running into the other, not a line between them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Which side is inside is the ring's own winding</b>, read off its signed area: a ring is a shape filled as it
+    /// stands (<see cref="Polygon"/>), whichever way it was walked. Nothing is laid along the map's edge, where the
+    /// ground runs on past it.
+    /// </remarks>
+    void Fade(CityPlan.RingArrays rings, Func<Vector2, Vector2, bool> unstruck, float widthM, bool inside, Surface surface)
+    {
+        var run = new List<Vector2>();
+        for (var ring = 0; ring < rings.Count; ring++)
+        {
+            var points = rings.RingOf(ring);
+            var insideOnTheRight = TwiceTheAreaM2(points) > 0f;
+            StrokeRing(points, unstruck, Faded(surface, widthM, ontoTheRight: inside == insideOnTheRight), run);
+        }
+    }
+
+    /// <summary>A fade's two sides: whole on the line, gone <paramref name="widthM"/> off it on the one side.</summary>
+    static Sides Faded(Surface surface, float widthM, bool ontoTheRight)
+    {
+        var whole = GroundVertex.Fading(surface, 1f);
+        var gone = GroundVertex.Fading(surface, 0f);
+        return ontoTheRight
+            ? new Sides(new Vector2(0f, widthM), whole, gone)
+            : new Sides(new Vector2(widthM, 0f), gone, whole);
+    }
+
+    /// <summary>
+    /// <b>A kerb laid as its stones</b> (TER-3d): every ring of a shell's line struck at a kerb's width but the pieces
+    /// asked to be left, as a strip of <paramref name="strip"/>'s picture, one every <paramref name="pictureM"/> along it
+    /// (<see cref="KerbLooks"/>).
+    /// </summary>
+    void Kerbstones(
+        ReadOnlySpan<Vector2[]> line, Func<Vector2, Vector2, bool> unstruck, float widthM, Surface strip, float pictureM)
+    {
+        var run = new List<Vector2>();
+        var sides = Sides.Stones(widthM, strip, pictureM);
+        foreach (var ring in line) StrokeRing(ring, unstruck, sides, run);
+    }
+
+    /// <summary>
+    /// <b>The shadow a kerb of <paramref name="widthM"/> casts</b> (<see cref="Surface.Shadow"/>): a band from the
+    /// kerb's low face, on the right of the line or the left, out by <paramref name="shadowM"/>, darkest at the face.
+    /// </summary>
+    /// <remarks>
+    /// <b>From the face and not from the line</b>, so it never lies under the stones: the kerb's part is filed by band
+    /// (<see cref="GroundBands"/>), which may draw the shadow after them, and a band that reached under them would
+    /// darken their low half.
+    /// </remarks>
+    void KerbShadow(
+        ReadOnlySpan<Vector2[]> line, Func<Vector2, Vector2, bool> unstruck, float widthM, float shadowM, float share,
+        bool onTheRight)
+    {
+        var faceM = widthM * 0.5f;
+        var dark = GroundVertex.Fading(Surface.Shadow, share);
+        var gone = GroundVertex.Fading(Surface.Shadow, 0f);
+        var sides = onTheRight
+            ? new Sides(new Vector2(-faceM, faceM + shadowM), dark, gone)
+            : new Sides(new Vector2(faceM + shadowM, -faceM), gone, dark);
+        var run = new List<Vector2>();
+        foreach (var ring in line) StrokeRing(ring, unstruck, sides, run);
+    }
+
+    /// <summary>
+    /// A ring's area twice over, by the shoelace: positive where its inside lies to the right of the way it runs in the
+    /// sense <see cref="Heading.RightOf"/> means it, which is the side a stroke's <see cref="Sides.RightShade"/> is laid.
+    /// </summary>
+    static float TwiceTheAreaM2(ReadOnlySpan<Vector2> ring)
+    {
+        var sum = 0f;
+        for (var at = 0; at < ring.Length; at++) sum += Spline.Cross(ring[at], ring[(at + 1) % ring.Length]);
+        return sum;
     }
 
     /// <summary>
@@ -270,12 +405,8 @@ internal sealed partial class GroundMesh
     /// A turn to the right is positive, which is the side the centre of it is on, so it is the right edge
     /// that a right-hander closes in on.
     /// </remarks>
-    static Vector2 Reach(float radiusM, float turnRad, float halfM)
-    {
-        if (radiusM >= halfM) return new Vector2(halfM, halfM);
-
-        return turnRad > 0f ? new Vector2(halfM, radiusM) : new Vector2(radiusM, halfM);
-    }
+    static Vector2 Reach(float radiusM, float turnRad, Vector2 halfM) =>
+        turnRad > 0f ? new Vector2(halfM.X, MathF.Min(halfM.Y, radiusM)) : new Vector2(MathF.Min(halfM.X, radiusM), halfM.Y);
 
     /// <summary>
     /// How short the sum of two cross-sections is before the corner between them is a cusp with no bisector
@@ -312,7 +443,7 @@ internal sealed partial class GroundMesh
     /// </remarks>
     void Turned(
         Vector2 cornerM, Vector2 fromAcross, Vector2 fromReach, Vector2 ontoAcross, Vector2 ontoReach,
-        Surface surface, Vector3 tint, ref int previousLeft, ref int previousRight)
+        uint leftShade, uint rightShade, ref int previousLeft, ref int previousRight)
     {
         var turnRad = MathF.Atan2(Spline.Cross(fromAcross, ontoAcross), Vector2.Dot(fromAcross, ontoAcross));
         var fans = Steps(MathF.Max(MathF.Max(fromReach.X, fromReach.Y), MathF.Max(ontoReach.X, ontoReach.Y)),
@@ -323,8 +454,8 @@ internal sealed partial class GroundMesh
             var through = (float)fan / fans;
             var across = Heading.Unit(fromRad + (turnRad * through));
             var reach = Vector2.Lerp(fromReach, ontoReach, through);
-            var left = Vertex(cornerM - (across * reach.X), surface, tint);
-            var right = Vertex(cornerM + (across * reach.Y), surface, tint);
+            var left = Vertex(cornerM - (across * reach.X), leftShade);
+            var right = Vertex(cornerM + (across * reach.Y), rightShade);
             Quad(previousLeft, previousRight, right, left);
             previousLeft = left;
             previousRight = right;
@@ -580,9 +711,10 @@ internal sealed partial class GroundMesh
     /// shared a corner with the one beside it would not be four corners any more.
     /// </para>
     /// </remarks>
-    int Vertex(Vector2 positionM, Surface surface, Vector3 tint)
+    int Vertex(Vector2 positionM, Surface surface, Vector3 tint) => Vertex(positionM, GroundVertex.Pack(tint, surface));
+
+    int Vertex(Vector2 positionM, uint shade)
     {
-        var shade = GroundVertex.Pack(tint, surface);
         if (!_welding)
         {
             _vertices.Add(new GroundVertex(positionM, shade));

@@ -1,0 +1,9 @@
+{
+  "id": "pallets_stacked",
+  "sprite": "pallets_stacked.webp",
+  "kind": 2,
+  "footprintM": [1.2, 0.978],
+  "share": 0.5,
+  "turns": true,
+  "describe": "stack of wooden pallets, the top deck boards seen from above"
+}

@@ -1,0 +1,51 @@
+{
+ "id": "walk_trial-v1",
+ "ts": "2026-10-24T23:28:05",
+ "op": "edit",
+ "name": "walk_trial",
+ "file": ".tmp/gen/frames/walk_trial-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "high",
+  "background": "transparent"
+ },
+ "costUsd": 0.067119,
+ "usage": {
+  "prompt_tokens": 3537,
+  "completion_tokens": 1372,
+  "total_tokens": 4909,
+  "cost": 0.067119,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.067119,
+   "upstream_inference_prompt_cost": 0.025959,
+   "upstream_inference_completions_cost": 0.04116
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 1372
+  }
+ },
+ "prompt": "Two images are attached. The first is a layout: 12 equal squares in a 4×3 grid on a flat magenta background. The second shows finished art from the same top-down 2D city game: roofs and cars, and on the right a square of the game's grass. Match that art's look: crisp, clean hand-painted game art, natural warm colours, tidy and well kept. It must NOT look like a photograph: no blur, no photographic noise.\n\nMake one image with exactly the same 4×3 layout as the first image. Fill each square with the patch of town pavement — the ground people walk on beside a road — described for that cell below. It is a ground texture the game repeats over large areas, and it must look good turned at any angle under a street running any way.\n\nShape comes first:\n- Each square is filled edge to edge, right into all four corners, and stops exactly at its outline. Paint over the outline itself: the finished square has no border, frame, rim, bevel, outline, shadow or vignette, and its edges look the same as its middle.\n- Draw nothing outside the squares. Outside them, keep the background fully transparent. No text, numbers, labels or grid lines anywhere.\n\nRules for every cell:\n- Look straight down (orthographic). No perspective, no light falling off towards any edge.\n- Each square is 9.2 × 9.2 m of ground. Keep everything true to size.\n- No direction and no regular pattern: never a grid, rows, courses, stripes, arcs, fans or straight lines running across the square; whatever shapes there are lie at random, so the square looks the same turned any way.\n- Even texture: the same tone and density all over the square, nothing that catches the eye, so it repeats without a visible pattern.\n- Tidy and in good repair: no cracks, holes, rubble, litter, puddles or big stains.\n- Squares that share a description are the same pavement: exactly the same colours, sizes and style, so they can be joined without a visible seam.\n- Nothing stands on the ground and nothing is painted on it: no markings, kerbs, drains, manholes or objects.\n\nCells, left to right, top to bottom:\n\n1, 2. Irregular natural stone flags (crazy paving): random polygon shapes and sizes, 30 to 80 cm across, in warm greys, beiges and soft ochres, each flag slightly different in tone, thin dark joints running every way.\n3. The same irregular stone flags, more worn: a little moss and dark dirt in the joints, a few flags slightly darker.\n4, 5. Small irregular rounded cobblestones about 10 cm across, laid at random with no rows, arcs or fans, in mixed warm greys and browns, dark gaps between.\n6. The same random cobbles, more worn: a little moss and dirt between the stones, the tops slightly polished.\n7, 8. Smooth exposed-aggregate concrete: a light warm base set with small rounded pebbles 1 to 2 cm across of mixed cream, ochre, rust and grey, densely and evenly scattered, the surface flat and smooth.\n9. The same exposed-aggregate concrete a little more used: soft faint grime and a few small faint dark spots.\n10, 11. Warm sandy-beige poured concrete in one continuous surface: a fine grain, soft broad patches of lighter and darker tone and faint warm stains. No joints.\n12. The same warm concrete a little more used: soft grime patches and a few faint dark spots, still in good repair.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "80df25160efd3e69",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/walk_trial.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "c753fd607933bc53",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_style.png"
+  }
+ ]
+}

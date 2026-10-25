@@ -9,7 +9,7 @@
   "massKg": 2200,
   "frontAxleM": 1.51,
   "rearAxleM": -1.41,
-  "trackM": 2.199,
+  "trackM": 2.037,
   "drivetrain": 2,
   "maxSteeringDeg": 31,
   "tyreFriction": 0.88,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.52,
   "handling": { "maxSpeed": 1.05, "acceleration": 1.2, "braking": 1 },
   "lamps": [
-    { "fitting": "brake", "atM": [-2.147, -0.771], "sizeM": [0.313, 0.323] },
-    { "fitting": "brake", "atM": [-2.158, 0.73], "sizeM": [0.313, 0.323] },
+    { "fitting": "brake", "atM": [-2.168, -0.709], "sizeM": [0.344, 0.459] },
+    { "fitting": "brake", "atM": [-2.168, 0.657], "sizeM": [0.344, 0.459] },
     { "fitting": "indicator", "atM": [-2.252, -0.709], "sizeM": [0.094, 0.094] },
     { "fitting": "indicator", "atM": [-2.252, 0.667], "sizeM": [0.094, 0.094] },
     { "fitting": "head", "atM": [2.199, -0.667], "sizeM": [0.229, 0.271] },
     { "fitting": "head", "atM": [2.21, 0.657], "sizeM": [0.229, 0.271] },
     { "fitting": "indicator", "atM": [2.053, -0.855], "sizeM": [0.208, 0.136] },
     { "fitting": "indicator", "atM": [2.064, 0.834], "sizeM": [0.208, 0.136] },
-    { "fitting": "reverse", "atM": [-2.272, -0.563], "sizeM": [0.136, 0.177] },
-    { "fitting": "reverse", "atM": [-2.272, 0.5], "sizeM": [0.136, 0.177] }
-  ]
+    { "fitting": "reverse", "atM": [-2.272, -0.552], "sizeM": [0.136, 0.146] },
+    { "fitting": "reverse", "atM": [-2.272, 0.5], "sizeM": [0.136, 0.146] }
+  ],
+  "exhausts": [[-2.356, -0.738], [-2.345, 0.738]]
 }

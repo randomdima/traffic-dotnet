@@ -2,10 +2,10 @@
   "id": "apartments_rounded_01",
   "sprite": "apartments_rounded_01.webp",
   "footprintM": [
-    10.5,
-    5.5
+    13.7,
+    7.2
   ],
-  "cornerRadiusM": 1.38,
+  "cornerRadiusM": 1.79,
   "partsM": [],
   "look": "apartments",
   "tags": [
@@ -17,5 +17,6 @@
     "19th century",
     "rounded corners"
   ],
-  "describe": "19th-century Odesa tenement house, pitched roof of green-painted sheet metal with brick chimney stacks and roof hatches, a parapet along the street front, its corners rounded in wide curves"
+  "describe": "19th-century Odesa tenement house, pitched roof of green-painted sheet metal with brick chimney stacks and roof hatches, a parapet along the street front, its corners rounded in wide curves",
+  "chimneys": [[-3.38, -2.25, -3.02, -2.25]]
 }

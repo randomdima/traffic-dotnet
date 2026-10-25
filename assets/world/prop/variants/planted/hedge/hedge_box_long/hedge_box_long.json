@@ -1,0 +1,9 @@
+{
+  "id": "hedge_box_long",
+  "sprite": "hedge_box_long.webp",
+  "kind": 1,
+  "footprintM": [3.0, 1.009],
+  "cornerRadiusM": 0.15,
+  "turns": true,
+  "describe": "clipped box hedge, a dense flat block of tiny dark green leaves"
+}

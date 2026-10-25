@@ -1,0 +1,8 @@
+{
+  "id": "apple_tree",
+  "sprite": "apple_tree.webp",
+  "kind": 0,
+  "diameterM": 3.0,
+  "colliderM": 0.5,
+  "describe": "old apple tree crown, mid green leaves, scattered small red-green apples"
+}

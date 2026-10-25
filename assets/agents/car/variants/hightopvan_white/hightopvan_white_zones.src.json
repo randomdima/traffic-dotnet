@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/hightopvan_white/hightopvan_white-v2.props.json",
- "cutOn": "raw_assets/agents/car/variants/hightopvan_white/hightopvan_white-v2.png",
+ "variant": "raw_assets/agents/car/variants/hightopvan_white/hightopvan_white-v3.props.json",
+ "cutOn": "raw_assets/agents/car/variants/hightopvan_white/hightopvan_white-v3.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

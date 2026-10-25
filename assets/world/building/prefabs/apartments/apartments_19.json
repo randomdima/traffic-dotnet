@@ -2,8 +2,8 @@
   "id": "apartments_19",
   "sprite": "apartments_19.webp",
   "footprintM": [
-    24.5,
-    8.5
+    31.9,
+    11.1
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,7 @@
     "old town",
     "19th century"
   ],
-  "describe": "19th-century Odesa tenement house, pitched roof of green-painted sheet metal with brick chimney stacks and roof hatches, a parapet along the street front"
+  "describe": "19th-century Odesa tenement house, pitched roof of green-painted sheet metal with brick chimney stacks and roof hatches, a parapet along the street front",
+  "chimneys": [[-10.85, -3.95, -10.05, -3.95], [11.29, -4.05, 12.1, -4.05]],
+  "potWidthM": 0.8
 }

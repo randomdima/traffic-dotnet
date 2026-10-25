@@ -1,0 +1,51 @@
+{
+ "id": "ground_b-v1",
+ "ts": "2026-10-24T22:00:54",
+ "op": "edit",
+ "name": "ground_b",
+ "file": ".tmp/gen/frames/ground_b-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.030419,
+ "usage": {
+  "prompt_tokens": 3481,
+  "completion_tokens": 158,
+  "total_tokens": 3639,
+  "cost": 0.030419,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.030419,
+   "upstream_inference_prompt_cost": 0.025679,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Two images are attached. The first is a layout: 12 equal squares in a 4×3 grid on a flat magenta background. The second shows finished art from the same top-down 2D city game: roofs and cars, and on the right a square of the game's old grass. Match that art's look: crisp hand-painted game art, clean confident brushwork, every small shape sharp and readable, saturated but natural colours. It must NOT look like a photograph: no blur, no photographic noise, no soft mush.\n\nMake one image with exactly the same 4×3 layout as the first image. Fill each square with the patch of ground described for that cell below: a ground texture the game repeats over large areas under the roofs and cars.\n\nShape comes first:\n- Each square is filled edge to edge, right into all four corners, and stops exactly at its outline. Paint over the outline itself: the finished square has no border, frame, rim, bevel, outline, shadow or vignette, and its edges are as bright and as busy as its middle.\n- Draw nothing outside the squares. Outside them, keep the background fully transparent. No text, numbers, labels or grid lines anywhere.\n\nRules for every cell:\n- Look straight down (orthographic). No perspective, no horizon, no light falling off towards any edge.\n- Each square is 9.2 × 9.2 m of ground. Keep everything true to size: a grass blade a few centimetres, a daisy or clover leaf the size of a coin, a ripple a few tens of centimetres.\n- No direction and no pattern: blades, flowers and ripples point every way at once, scattered at random, never in rows, stripes, lines or a grid, so the texture looks the same turned any way.\n- Even texture: the same tone and the same density of small detail all over the square, with no single large feature, blotch, path, puddle, shadow or object.\n- Squares that share a description are the same ground: draw them in exactly the same colours, density and style, as different patches of one lawn or one river, so they can be joined without a visible seam.\n- Nothing stands on the ground: no trees, bushes, rocks, litter, cars, people, kerbs, markings or lines.\n\nCells, left to right, top to bottom:\n\nRow 1 — cells 1, 2, 3, 4: a kept town lawn: fresh mid green, dense short painted blades in a few greens with lighter tips, a little scattered clover and a very few tiny white daisies.\n\nRow 2 — cells 5, 6, 7, 8: a worn, drier town lawn: yellow-green and olive painted blades, thinner, with tiny scattered spots of bare brown earth and a few tiny yellow flowers. The same style as row 1, clearly the same grass, only drier and more worn.\n\nRow 3 — cells 9 and 10: still river water: deep blue-green, small soft painted ripples a few tens of centimetres across, curving every way, a very few small pale glints.\nRow 3 — cells 11 and 12: livelier river water: the same deep blue-green a touch lighter and greener, more broken small ripples curving every way, more small pale glints.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "d01d25883c7416dc",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_b.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "c753fd607933bc53",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_style.png"
+  }
+ ]
+}

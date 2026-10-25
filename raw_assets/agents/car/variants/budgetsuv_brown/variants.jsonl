@@ -1,2 +1,4 @@
 {"variant": "budgetsuv_brown-v3", "frame": "fleet100_b04-v1", "cell": 9, "pxPerM": 102.995, "score": 3, "status": "candidate", "ts": "2026-10-22T03:11:17"}
-{"variant": "budgetsuv_brown-v6", "frame": "fleet100_b04-v1", "cell": 9, "pxPerM": 102.995, "score": 3, "lampsMirroredFrom": "budgetsuv_brown-v3", "props": "raw_assets/agents/car/variants/budgetsuv_brown/budgetsuv_brown-v3.props.json", "status": "used", "ts": "2026-10-22T04:32:56"}
+{"variant": "budgetsuv_brown-v6", "frame": "fleet100_b04-v1", "cell": 9, "pxPerM": 102.995, "score": 3, "lampsMirroredFrom": "budgetsuv_brown-v3", "props": "raw_assets/agents/car/variants/budgetsuv_brown/budgetsuv_brown-v3.props.json", "status": "candidate", "ts": "2026-10-22T04:32:56"}
+{"variant": "budgetsuv_brown-v7", "frame": "fleet100_r01-v1", "cell": 8, "pxPerM": 104.378, "score": 3, "status": "candidate", "ts": "2026-10-22T16:32:12"}
+{"variant": "budgetsuv_brown-v8", "frame": "fleet100_r01-v1", "cell": 8, "pxPerM": 104.378, "score": 3, "lampsMirroredFrom": "budgetsuv_brown-v7", "props": "raw_assets/agents/car/variants/budgetsuv_brown/budgetsuv_brown-v7.props.json", "status": "used", "ts": "2026-10-22T16:36:39"}

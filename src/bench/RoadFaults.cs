@@ -27,7 +27,7 @@ internal static class RoadFaults
 
     public static void Run(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var roads = plan.Roads;
         var junctions = plan.Junctions;
 

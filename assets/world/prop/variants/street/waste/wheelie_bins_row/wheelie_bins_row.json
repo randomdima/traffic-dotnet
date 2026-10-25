@@ -1,0 +1,10 @@
+{
+  "id": "wheelie_bins_row",
+  "sprite": "wheelie_bins_row.webp",
+  "kind": 2,
+  "footprintM": [1.9, 0.915],
+  "cornerRadiusM": 0.05,
+  "share": 1.2,
+  "turns": true,
+  "describe": "three wheelie bins side by side, green, blue and grey lids"
+}

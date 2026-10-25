@@ -1,0 +1,38 @@
+{
+ "id": "roofs_house_f-v2",
+ "ts": "2026-10-20T13:45:46",
+ "op": "edit",
+ "name": "roofs_house_f",
+ "file": ".tmp/gen/frames/roofs_house_f-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.030941,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 4 building outlines seen from above on flat magenta, in a 2×2 grid. Redraw only cell 1 (the transparent area). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe fault in cell 1: the roof stopped about 10 px short of the outline's thick bottom edge, leaving a magenta strip inside the outline along the whole bottom, and its porch roof stuck out past that edge. The roof now fills its outline exactly, edge to edge, its bottom eave on the thick bottom edge; the small porch roof is drawn INSIDE the outline along the middle of the bottom edge, about 1.5 m deep, its bottom edge on the outline's bottom edge.\n\nTrace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: a brick chimney is a small square about 0.6 m across, a skylight about 1 × 1.2 m, against cars 4 m long. No text.\n\n1. 17.5 × 11.9 m (1.5× wider than deep) — detached family house, hipped roof of dark grey bitumen shingles, a chimney and a skylight, small porch roof over the door",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "745cc8ba5af2f128",
+   "ext": "png",
+   "frame": "roofs_house_f-v1",
+   "was": ".tmp/gen/frames/roofs_house_f-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "b1c46d1284b0f838",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_house_f.png"
+  },
+  {
+   "role": "mask",
+   "sha": "47f196539ce2035e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_house_f-v1/_mask_house_36.png"
+  }
+ ]
+}

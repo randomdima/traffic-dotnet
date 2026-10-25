@@ -1,9 +1,12 @@
 {
   "id": "firehouse",
   "sprite": "firehouse.webp",
+  "describe": "two-storey fire station, hipped roof of red clay tiles over the engine hall, a square hose-drying tower at one back corner",
   "footprintM": [17.00, 17.07],
   "partsM": [
     { "atM": [-0.12, -0.55], "sizeM": [16.22, 15.15] },
     { "atM": [-1.55, 0.21], "sizeM": [12.03, 16.64] }
-  ]
+  ],
+  "chimneys": [[4.6, -5.94]],
+  "potWidthM": 0.4
 }

@@ -1,0 +1,8 @@
+{
+  "id": "plane_young",
+  "sprite": "plane_young.webp",
+  "kind": 0,
+  "diameterM": 4.5,
+  "colliderM": 0.5,
+  "describe": "young plane tree crown, broad maple-like light green leaves, loose layered clumps"
+}

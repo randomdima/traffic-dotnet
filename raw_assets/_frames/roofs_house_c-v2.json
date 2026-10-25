@@ -1,0 +1,31 @@
+{
+ "id": "roofs_house_c-v2",
+ "ts": "2026-10-20T13:45:45",
+ "op": "edit",
+ "name": "roofs_house_c",
+ "file": ".tmp/gen/frames/roofs_house_c-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.036991,
+ "prompt": "Faults of the previous attempt, to fix in this one:\n- Cell 1 was drawn about 15% too narrow and cell 3 about 9% too narrow, both stopping short of the outline's right edge; cells 2, 6 and 9 were shifted about 15 px off their outlines, leaving a strip of magenta inside one edge. Colour each outline in exactly as it is given, without moving or resizing it. In this 1536×1024 picture the outlines are (left–right x, top–bottom y):\n  1: x 160–352, y 37–303;  2: x 587–949, y 37–303;  3: x 1172–1389, y 37–303;\n  4: x 99–413, y 379–646;  5: x 550–986, y 367–658;  6: x 1233–1328, y 367–658;\n  7: x 160–352, y 708–999;  8: x 683–851, y 708–999;  9: x 1049–1510, y 769–938.\n- Chimneys were drawn about 1.2 m across, twice their true size: a chimney is 0.6 m, about 21 px here.\n\nTwo images are attached. The first is a layout: 9 building outlines seen from above, in a 3×3 grid on a flat magenta background. The second is finished art from the same game, to match in style only — not its layout, shapes, colours or the size of its details.\n\nMake one image with exactly the same 3×3 layout as the first image. Inside each outline, draw the roof of the building described for that cell below, as a top-down sprite for a 2D city game.\n\nShape comes first. Before painting a cell, trace its outline exactly, then paint only inside the traced border:\n- Keep every outline's proportions: match each one's width and height. Each cell's proportion is given below; check it. Never make an outline squarer, shorter or fatter.\n- Every edge is straight and square to the others. Never slant, skew or taper an edge to show perspective. An outline built of several rectangles (an L, a T, a stepped block) is followed corner by corner.\n- Draw nothing outside the outline: no eaves, steps, porches, canopies, ramps or shadows past it. A porch or an entrance canopy is drawn inside the outline at its bottom edge. Inside a roof there is no magenta at all.\n\nScale is the second rule, and it is strict. Every size below is true metres, width × depth, and every detail is drawn at its true size against them. These buildings stand beside cars 4 m long and 1.8 m wide; keep that in mind for every detail. True sizes:\n- house: a brick chimney about 0.6 × 0.6 m; roof tile courses or corrugations about 0.25 m apart, fine and close; a skylight about 0.8 × 1 m; a dormer about 1.5–2 m wide; a porch roof about 1.5–2 m deep.\n- No detail is bigger than its true size. When in doubt, draw it smaller and keep fewer of them. A large roof has many small details, never a few huge ones.\n\nRules for every cell:\n- Look straight down (orthographic). No perspective, no walls seen from the side, no tilt, no ground, no plants, no cars, no people.\n- The thick bottom edge of each outline is the street front, where the entrance is. The top edge is the back.\n- A gabled roof shows its ridge as one line with the two slopes shaded differently; a lean-to roof is one slope with no ridge; a flat roof has a parapet round its edge.\n- Style: match the style image. Clean, flat-shaded cartoon game art, bold dark outlines, muted natural colours, simple readable details, soft light from the top-left.\n- Outside the roofs, keep the background flat pure magenta #FF00FF. No text, letters, numbers, labels, logos, grid lines or frames anywhere.\n\nCells, left to right, top to bottom:\n\nRow 1\n1. 5.6 × 7.7 m (1.4× deeper than wide) — small single-storey cottage, gabled roof of brown metal tiles, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back\n2. 10.5 × 7.7 m (1.4× wider than deep) — small single-storey cottage, gabled roof of green-painted sheet metal, one brick chimney, a lean-to porch on the street side\n3. 6.3 × 7.7 m (1.2× deeper than wide) — small single-storey cottage, gabled roof of red clay tiles, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back\n\nRow 2\n4. 9.1 × 7.7 m (1.2× wider than deep) — small single-storey cottage, gabled roof of brown metal tiles, one brick chimney, a lean-to porch on the street side\n5. 12.6 × 8.4 m (1.5× wider than deep) — detached family house, hipped roof of brown metal tiles, a chimney and a skylight, small porch roof over the door\n6. 2.8 × 8.4 m (3.0× deeper than wide, a thin strip) — small single-storey annex or porch built onto a house, lean-to roof of brown metal tiles, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back\n\nRow 3\n7. 5.6 × 8.4 m (1.5× deeper than wide) — small single-storey cottage, gabled roof of green-painted sheet metal, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back\n8. 4.9 × 8.4 m (1.7× deeper than wide) — small single-storey cottage, gabled roof of grey corrugated asbestos-cement slate, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back\n9. 13.3 × 4.9 m (2.7× wider than deep, a thin strip) — small single-storey cottage, gabled roof of grey corrugated asbestos-cement slate, one brick chimney, a lean-to porch on the street side",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "32bf348793d2cf8e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_house_c.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "5e265601fd062b8e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_house_c_style.png"
+  }
+ ]
+}

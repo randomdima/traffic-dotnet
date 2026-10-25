@@ -1,1 +1,2 @@
-{"variant": "vanbus_white_broken-v1", "frame": "fleet100_w10-v1", "cell": 6, "pxPerM": 97.143, "score": 4, "status": "used", "ts": "2026-10-22T14:10:37"}
+{"variant": "vanbus_white_broken-v1", "frame": "fleet100_w10-v1", "cell": 6, "pxPerM": 97.143, "score": 4, "status": "candidate", "ts": "2026-10-22T14:10:37"}
+{"variant": "vanbus_white_broken-v2", "frame": "fleet100_rw02-v1", "cell": 9, "pxPerM": 103.673, "score": 4, "status": "used", "ts": "2026-10-22T16:50:47"}

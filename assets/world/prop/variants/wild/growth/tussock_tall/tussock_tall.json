@@ -1,0 +1,8 @@
+{
+  "id": "tussock_tall",
+  "sprite": "tussock_tall.webp",
+  "kind": 0,
+  "diameterM": 0.8,
+  "share": 2.0,
+  "describe": "tall grass tussock, long arching green blades with seed heads"
+}

@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/citymini_green/citymini_green-v4.props.json",
- "cutOn": "raw_assets/agents/car/variants/citymini_green/citymini_green-v4.png",
+ "variant": "raw_assets/agents/car/variants/citymini_green/citymini_green-v6.props.json",
+ "cutOn": "raw_assets/agents/car/variants/citymini_green/citymini_green-v6.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

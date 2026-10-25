@@ -2,8 +2,8 @@
   "id": "retail_deep_07",
   "sprite": "retail_deep_07.webp",
   "footprintM": [
-    20.0,
-    27.0
+    26.0,
+    35.1
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,17 @@
     "shops",
     "narrow front"
   ],
-  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [8.3958, -10.0931], "rimAtM": [8.4409, -10.0421], "rimM": [0.615, 0.5527] },
+    { "atM": [-8.3236, -10.0208], "rimAtM": [-8.2649, -9.9664], "rimM": [0.6872, 0.685] },
+    { "atM": [0.0181, -10.0208], "rimAtM": [0.0771, -9.9653], "rimM": [0.6845, 0.6848] },
+    { "atM": [0.0361, -8.8472], "rimAtM": [0.0437, -8.8062], "rimM": [0.3779, 0.3736] },
+    { "atM": [-8.1069, -1.3], "rimAtM": [-8.0751, -1.2755], "rimM": [0.3491, 0.3533] },
+    { "atM": [6.7167, -1.3], "rimAtM": [6.7228, -1.2708], "rimM": [0.373, 0.3566] },
+    { "atM": [7.9806, -1.1736], "rimAtM": [8.0006, -1.1093], "rimM": [0.7069, 0.6715] },
+    { "atM": [-6.825, -1.1736], "rimAtM": [-6.8015, -1.1067], "rimM": [0.7111, 0.6776] },
+    { "atM": [-4.9472, 7.5833], "rimAtM": [-4.894, 7.6308], "rimM": [0.6888, 0.6688] },
+    { "atM": [4.9653, 7.5472], "rimAtM": [5.0186, 7.5933], "rimM": [0.6905, 0.6674] }
+  ]
 }

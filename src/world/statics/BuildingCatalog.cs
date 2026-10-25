@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Statics;
 
@@ -20,8 +21,12 @@ internal readonly record struct BuildingPart(Vector2 AtM, Vector2 SizeM);
 /// </param>
 /// <param name="CornerRadiusM">The radius the footprint's corners are rounded at, which it is drawn and collided with (OBJ-2).</param>
 /// <param name="Look">What a prefab is drawn as (GEN-57); null for a roof that is not a prefab.</param>
+/// <param name="Fans">The fans its picture draws, drawn turning over it (OBJ-6); none on most.</param>
+/// <param name="ChimneysM">Its picture's chimneys, which may smoke (OBJ-7), each where its stack's pots are in its axes from its middle; none on most.</param>
+/// <param name="PotWidthM">How wide each of those pots is on its picture; null for a house's.</param>
 internal readonly record struct BuildingVariant(
-    string Id, string? SpritePath, Vector2 FootprintM, BuildingPart[] PartsM, float CornerRadiusM, BuildingLook? Look);
+    string Id, string? SpritePath, Vector2 FootprintM, BuildingPart[] PartsM, float CornerRadiusM, BuildingLook? Look,
+    DrawnFan[] Fans, Vector2[][] ChimneysM, float? PotWidthM);
 
 /// <summary>
 /// The roofs a building can wear, read from <c>assets/…/Catalog.json</c>, the civic ones beside them
@@ -46,9 +51,10 @@ internal readonly record struct BuildingVariant(
 /// </remarks>
 internal sealed class BuildingCatalog
 {
-    BuildingCatalog(BuildingVariant[] variants, int ordinary, int civic)
+    BuildingCatalog(BuildingVariant[] variants, int ordinary, int civic, string[] fanLooks)
     {
         Variants = variants;
+        FanLooks = fanLooks;
         Ordinary = ordinary;
         FirstPrefab = ordinary + civic;
         Hospital = IndexOf("hospital");
@@ -68,6 +74,12 @@ internal sealed class BuildingCatalog
 
     /// <summary>The ordinary roofs first, then the civic ones, then the prefabs — one array, because a sheet slot is a sheet slot.</summary>
     public BuildingVariant[] Variants { get; }
+
+    /// <summary>
+    /// <b>The pictures every fan is drawn in</b> (OBJ-6, TRN-13), from <c>assets/world/building/fans/Fans.json</c>: each one
+    /// fan, round and whole, seen from above, laid over a fan a roof's or a vehicle's picture draws and turned there.
+    /// </summary>
+    public string[] FanLooks { get; }
 
     /// <summary>How many of them <see cref="Match"/> draws from, which is the ordinary roofs and not everything here.</summary>
     public int Ordinary { get; }
@@ -93,9 +105,8 @@ internal sealed class BuildingCatalog
     public static BuildingCatalog Shared { get; } = Load();
 
     /// <summary>
-    /// <see cref="Shared"/>'s footprints, measured once: the seam a town is laid across (GEN-54). Every
-    /// caller that opens a map hands the generator this same reading, so what a town is built of is the art
-    /// this build ships and the plan below never learns that a catalogue exists.
+    /// <see cref="Shared"/>'s footprints, measured once: the buildings' half of the seam a town is laid across
+    /// (GEN-54, <see cref="ShippedArt"/>).
     /// </summary>
     public static BuildingSizes Roofs { get; } = Shared.Footprints();
 
@@ -111,7 +122,10 @@ internal sealed class BuildingCatalog
             if (variants[prefab].Look is null) throw new InvalidDataException($"Prefabs.json names {variants[prefab].Id}, which says no look.");
         }
 
-        return new BuildingCatalog(variants, ordinary.Length, civic.Length);
+        var fanLooks = AssetJson.Catalog(Path.Combine(ProjectPaths.Assets, "world", "building", "fans", "Fans.json"))
+            .Select(path => ReadVariant(path).SpritePath ?? throw new InvalidDataException($"{path} draws no fan."))
+            .ToArray();
+        return new BuildingCatalog(variants, ordinary.Length, civic.Length, fanLooks);
     }
 
     /// <summary>
@@ -202,9 +216,46 @@ internal sealed class BuildingCatalog
             parts[part] = new BuildingPart(variant.PartsM[part].AtM, variant.PartsM[part].SizeM);
         }
 
+        foreach (var fan in variant.Fans)
+        {
+            if (variant.Sprite is null || !fan.FitsOn(variant.FootprintM))
+            {
+                throw new InvalidDataException(
+                    $"{variant.Id}'s fan at {fan.AtM} m, its rim {fan.RimM} m about {fan.RimAtM} m, is not round its hub on its picture.");
+            }
+        }
+
+        var chimneys = new Vector2[variant.Chimneys.Length][];
+        for (var chimney = 0; chimney < chimneys.Length; chimney++)
+        {
+            var said = variant.Chimneys[chimney];
+            if (said.Length == 0 || said.Length % 2 != 0)
+            {
+                throw new InvalidDataException($"{variant.Id}'s chimney {chimney} says {said.Length} numbers: a stack is X, Y a pot.");
+            }
+
+            chimneys[chimney] = new Vector2[said.Length / 2];
+            for (var pot = 0; pot < chimneys[chimney].Length; pot++)
+            {
+                var atM = new Vector2(said[2 * pot], said[(2 * pot) + 1]);
+                if (MathF.Abs(atM.X) > variant.FootprintM.X * 0.5f || MathF.Abs(atM.Y) > variant.FootprintM.Y * 0.5f)
+                {
+                    throw new InvalidDataException($"{variant.Id}'s chimney pot at {atM} m is off its {variant.FootprintM} m footprint.");
+                }
+
+                chimneys[chimney][pot] = atM;
+            }
+        }
+
+        if (variant.PotWidthM is { } potM && (potM <= 0f || variant.Chimneys.Length == 0))
+        {
+            throw new InvalidDataException($"{variant.Id}'s pots are {potM} m wide: a width is a chimney's, and more than nothing.");
+        }
+
         return new BuildingVariant(
             variant.Id, variant.Sprite is { } sprite ? AssetJson.Beside(path, sprite) : null, variant.FootprintM, parts,
             Math.Clamp(variant.CornerRadiusM, 0f, MathF.Min(variant.FootprintM.X, variant.FootprintM.Y) * 0.5f),
-            variant.Look is { } look ? Enum.Parse<BuildingLook>(look, ignoreCase: true) : null);
+            variant.Look is { } look ? Enum.Parse<BuildingLook>(look, ignoreCase: true) : null, variant.Fans, chimneys,
+            variant.PotWidthM);
     }
 }

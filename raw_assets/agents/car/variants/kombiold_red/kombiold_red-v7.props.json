@@ -1,0 +1,29 @@
+{
+  "car": "kombiold_red",
+  "sprite": {"variant": "raw_assets/agents/car/variants/kombiold_red/kombiold_red-v7.png", "sizePx": [397, 216]},
+  "axisY": {"rear": 108.00, "front": 108.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [15.55, 40.37, 1.99],
+      [12.49, 67.73, 0.00],
+      [18.98, 68.23, -0.94],
+      [23.46, 36.99, 2.11]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "head", "kind": "head", "mirror": true, "hold": [5], "axisY": 108.0, "mirrorDx": 0.0, "points": [
+      [353.50, 39.49, 0.70],
+      [371.71, 63.87, 1.87],
+      [378.22, 62.44, 0.58],
+      [374.74, 46.74, 0.69],
+      [363.38, 35.02, 1.18],
+      [355.72, 32.85, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "hold": [3], "axisY": 108.0, "mirrorDx": 0.0, "points": [
+      [355.49, 33.54, 0.45],
+      [349.69, 31.71, 0.76],
+      [350.57, 35.56, 0.02],
+      [353.50, 39.49, 0.00]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

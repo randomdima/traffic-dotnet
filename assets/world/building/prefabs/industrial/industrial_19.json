@@ -1,8 +1,9 @@
 {
   "id": "industrial_19",
+  "sprite": "industrial_19.webp",
   "footprintM": [
-    30.5,
-    9.0
+    45.8,
+    13.5
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],

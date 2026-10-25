@@ -1,0 +1,8 @@
+{
+  "id": "hornbeam_young",
+  "sprite": "hornbeam_young.webp",
+  "kind": 0,
+  "diameterM": 3.4,
+  "colliderM": 0.5,
+  "describe": "young hornbeam crown, pleated oval mid green leaves, dense even dome"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "brushwood_pile",
+  "sprite": "brushwood_pile.webp",
+  "kind": 0,
+  "diameterM": 1.6,
+  "share": 0.5,
+  "describe": "heap of cut brushwood and dry branches, grey-brown twigs, a few dead leaves"
+}

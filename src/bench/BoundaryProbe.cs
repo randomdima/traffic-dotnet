@@ -67,7 +67,7 @@ internal static class BoundaryProbe
 
     public static bool Outset(string map, SimConfig config, Vector2? askedM = null)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var shell = plan.Paving(config).Perimeter(config);
         var (rings, loose) = shell.Outset(MovedM, RoundedM);
 

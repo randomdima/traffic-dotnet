@@ -103,8 +103,10 @@ Named here so they are not mistaken for breaks:
 
 Each exists because a lower slice needed something a higher one has, and **handing over the data rather than
 the type is what keeps the arrow pointing down**. One is the world's arrays handed to the device (above); the
-other is the roofs:
+other is the art:
 
-- **`BuildingCatalog.Roofs`** — a building is sized by the roof it will wear (`GEN-54`), and the roofs are
-  read off the sheets by a slice above the plan. What crosses is the measurements (`CityGen.BuildingSizes`),
-  handed to `Maps.Plan` by whoever opens a map, so the generator never learns that a catalogue exists.
+- **`World.Statics.ShippedArt.Sizes`** — a building is sized by the roof it will wear (`GEN-54`) and a prop by
+  the look it will wear (`GEN-6e`), and both are read off the art by a slice above the plan. What crosses is the
+  measurements (`CityGen.ArtSizes`: the roofs' `BuildingSizes` and the looks' `PropSizes`), handed to
+  `Maps.Plan` by whoever opens a map, so the generator never learns that a catalogue exists. A building's
+  stages are handed only the roofs' half.

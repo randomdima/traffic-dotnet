@@ -1,2 +1,4 @@
 {"variant": "classic_white-v1", "frame": "fleet100_b02-v1", "cell": 9, "pxPerM": 112.039, "score": 4, "status": "candidate", "ts": "2026-10-22T00:04:45"}
-{"variant": "classic_white-v5", "frame": "fleet100_b02-v1", "cell": 9, "pxPerM": 112.039, "score": 4, "lampsMirroredFrom": "classic_white-v1", "props": "raw_assets/agents/car/variants/classic_white/classic_white-v1.props.json", "status": "used", "ts": "2026-10-22T04:32:13"}
+{"variant": "classic_white-v5", "frame": "fleet100_b02-v1", "cell": 9, "pxPerM": 112.039, "score": 4, "lampsMirroredFrom": "classic_white-v1", "props": "raw_assets/agents/car/variants/classic_white/classic_white-v1.props.json", "status": "candidate", "ts": "2026-10-22T04:32:13"}
+{"variant": "classic_white-v6", "frame": "fleet100_r01-v1", "cell": 6, "pxPerM": 115.479, "score": 3, "status": "candidate", "ts": "2026-10-22T16:32:12"}
+{"variant": "classic_white-v7", "frame": "fleet100_r01-v1", "cell": 6, "pxPerM": 115.479, "score": 3, "lampsMirroredFrom": "classic_white-v6", "props": "raw_assets/agents/car/variants/classic_white/classic_white-v6.props.json", "status": "used", "ts": "2026-10-22T16:36:04"}

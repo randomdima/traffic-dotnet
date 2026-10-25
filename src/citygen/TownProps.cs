@@ -37,9 +37,10 @@ internal static class TownProps
     /// <summary>How many roads one prop is weighed against at most: more than ever pass within a crown of one place.</summary>
     const int Nearby = 64;
 
+    /// <param name="looks">The looks a prop may wear, each laid at its own girth (GEN-6e): a town handed none lays no prop.</param>
     public static (CityPlan.PropArrays Props, CityPlan.SceneryArrays Scenery) Lay(
         Survey survey, ZoneTree zones, CityPlan.RoadArrays roads, CityPlan.JunctionArrays junctions, Paving paving, GroundShapes ground,
-        CityPlan.BuildingArrays buildings, SimConfig config)
+        CityPlan.BuildingArrays buildings, PropSizes looks, SimConfig config)
     {
         var acrossM = new Vector2(survey.WidthM, survey.HeightM);
         var claims = GenClaims.Over(config.Grid, acrossM, config.CityGen.ClaimCellM);
@@ -49,7 +50,7 @@ internal static class TownProps
         }
 
         var draw = new Rng(survey.Seed, Streams.Prop);
-        var (props, scenery) = PropStage.LayApart(acrossM, paving, ground, claims, survey.Props, atM => zones.SettingsAt(atM).Growth, config, ref draw);
+        var (props, scenery) = PropStage.LayApart(acrossM, paving, ground, claims, survey.Props, atM => zones.SettingsAt(atM).Growth, looks, config, ref draw);
         return (OffTheDrivenGround(props, roads, junctions, config), scenery);
     }
 
@@ -84,8 +85,9 @@ internal static class TownProps
 
         return new CityPlan.PropArrays
         {
-            CentreM = Kept(props.CentreM, kept), RadiusM = Kept(props.RadiusM, kept), BearingRad = Kept(props.BearingRad, kept),
-            Kind = Kept(props.Kind, kept),
+            CentreM = Kept(props.CentreM, kept), RadiusM = Kept(props.RadiusM, kept), BodyRadiusM = Kept(props.BodyRadiusM, kept),
+            BearingRad = Kept(props.BearingRad, kept),
+            Kind = Kept(props.Kind, kept), Look = Kept(props.Look, kept),
         };
 
         bool OnARoad(Vector2 atM, float crownM)

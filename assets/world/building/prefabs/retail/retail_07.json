@@ -2,8 +2,8 @@
   "id": "retail_07",
   "sprite": "retail_07.webp",
   "footprintM": [
-    8.5,
-    7.0
+    11.1,
+    9.1
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +15,8 @@
     "grey membrane",
     "shop pavilion"
   ],
-  "describe": "single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge"
+  "describe": "single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge",
+  "fans": [
+    { "atM": [-1.915, -2.5848], "rimAtM": [-1.8939, -2.5736], "rimM": [0.4743, 0.3865] }
+  ]
 }

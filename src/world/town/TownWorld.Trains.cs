@@ -256,6 +256,7 @@ internal sealed partial class TownWorld
         }
     }
 
+    /// <summary>The town's trains: sent, or on the showroom stood, every look once (<see cref="ShowroomPlan.ShowsEachLookOnce"/>).</summary>
     static Trains TrainsOf(CityPlan plan, RailGraph rails, SimConfig config, ulong agentSeed) =>
-        new(rails, plan.Rails, plan.WorldSizeM, TrainCatalog.Shared, config, agentSeed);
+        new(rails, plan.Rails, plan.WorldSizeM, TrainCatalog.Shared, config, agentSeed, ShowroomPlan.ShowsEachLookOnce(plan.Name));
 }

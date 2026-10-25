@@ -1,0 +1,32 @@
+{
+  "id": "policecrossover_white",
+  "sprite": "policecrossover_white.webp",
+  "zones": "policecrossover_white_zones.png",
+  "wreck": { "sprite": "policecrossover_white_broken.webp" },
+  "describe": "modern compact SUV crossover patrol car in police livery",
+  "footprintM": [4.600, 2.265],
+  "collisionM": { "sizeM": [4.600, 1.947], "cornerRadiusM": 0.656 },
+  "massKg": 1650,
+  "frontAxleM": 1.35,
+  "rearAxleM": -1.34,
+  "trackM": 1.847,
+  "drivetrain": 2,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.88,
+  "cgHeightM": 0.68,
+  "frontWeightShare": 0.58,
+  "handling": { "maxSpeed": 1.1, "acceleration": 1.3, "braking": 1.05 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.029, -0.611], "sizeM": [0.333, 0.459] },
+    { "fitting": "rear", "atM": [-2.04, 0.611], "sizeM": [0.333, 0.459] },
+    { "fitting": "indicator", "atM": [-2.092, -0.631], "sizeM": [0.135, 0.157] },
+    { "fitting": "indicator", "atM": [-2.113, 0.621], "sizeM": [0.135, 0.157] },
+    { "fitting": "head", "atM": [2.009, -0.579], "sizeM": [0.167, 0.271] },
+    { "fitting": "head", "atM": [2.009, 0.6], "sizeM": [0.167, 0.271] },
+    { "fitting": "indicator", "atM": [1.894, -0.778], "sizeM": [0.25, 0.146] },
+    { "fitting": "indicator", "atM": [1.905, 0.788], "sizeM": [0.25, 0.146] },
+    { "fitting": "beaconRed", "atM": [0.198, -0.297], "sizeM": [0.271, 0.386] },
+    { "fitting": "beaconBlue", "atM": [0.198, 0.308], "sizeM": [0.271, 0.376] }
+  ],
+  "exhausts": [[-2.206, -0.679]]
+}

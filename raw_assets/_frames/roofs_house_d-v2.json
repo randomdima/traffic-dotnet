@@ -1,0 +1,38 @@
+{
+ "id": "roofs_house_d-v2",
+ "ts": "2026-10-20T13:42:52",
+ "op": "edit",
+ "name": "roofs_house_d",
+ "file": ".tmp/gen/frames/roofs_house_d-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031936,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 9 building outlines seen from above on flat magenta, in a 3×3 grid. Redraw only cells 4, 7 and 8 (the transparent areas). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe faults in those three cells:\n- Cell 4 was drawn as a gabled roof with a ridge line along its middle. It is a lean-to: one single slope from the top edge down to the thick bottom edge, with no ridge and no centre line, the tile courses running the whole depth.\n- Cell 7 was drawn about 10% too wide, spilling past both side edges of its outline. Its roof must be exactly as narrow as the outline, 2.3× deeper than wide.\n- Cell 8 was drawn about 15% too narrow, leaving the right part of its outline empty. Its roof must fill the outline from its left edge to its right edge.\n\nFor each redrawn cell, trace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: these are small houses next to cars 4 m long; a brick chimney is a small square about 0.6 m across, roof courses fine and closely spaced. No text.\n\n4. 14.7 × 4.2 m (3.5× wider than deep, a thin strip) — long narrow single-storey wing of a courtyard house, lean-to roof of red clay tiles sloping to the yard, a chimney\n7. 4.2 × 9.8 m (2.3× deeper than wide) — small single-storey cottage, gabled roof of red clay tiles, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back\n8. 8.4 × 9.8 m (1.2× deeper than wide) — small single-storey cottage, gabled roof of red clay tiles, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "81d632cdd7d7c4f9",
+   "ext": "png",
+   "frame": "roofs_house_d-v1",
+   "was": ".tmp/gen/frames/roofs_house_d-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "5cd024abbd39826a",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_house_d.png"
+  },
+  {
+   "role": "mask",
+   "sha": "87b6ef8dd31b812d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_house_d-v1/_mask_house_19_house_deep_07_house_deep_19.png"
+  }
+ ]
+}

@@ -385,6 +385,9 @@ internal static class Program
             case "parks":
                 TownShape.Parks(map ?? Options.FixtureMap, config);
                 return 0;
+            case "roofs":
+                TownShape.Roofs(map ?? Options.FixtureMap, config);
+                return 0;
             case "census":
                 TownCensus.Run(map ?? Options.FixtureMap, config);
                 return 0;
@@ -556,7 +559,7 @@ internal static class Program
     static void ReportTown(string map, SimConfig config)
     {
         var started = Stopwatch.GetTimestamp();
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var read = Stopwatch.GetElapsedTime(started);
 
         var mesh = GroundMesh.Build(plan, config);

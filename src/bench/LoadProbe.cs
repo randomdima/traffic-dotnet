@@ -46,7 +46,7 @@ internal static class LoadProbe
         OpenWatch.Watcher = stage => Console.WriteLine(
             $"  {"",-12}{Stopwatch.GetElapsedTime(planAt).TotalSeconds,6:F1} s  {Environment.WorkingSet / (1024 * 1024),5} MiB resident, " +
             $"{GC.GetTotalMemory(forceFullCollection: false) / (1024 * 1024),5} MiB in use — {stage}");
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var planMs = Stopwatch.GetElapsedTime(planAt).TotalMilliseconds;
         var planAllocated = Allocated(ref allocatedAt);
 

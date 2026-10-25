@@ -2,8 +2,8 @@
   "id": "house_39",
   "sprite": "house_39.webp",
   "footprintM": [
-    16.0,
-    9.5
+    22.4,
+    13.3
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -15,5 +15,7 @@
     "brown metal tiles",
     "villa"
   ],
-  "describe": "two-storey villa, hipped roof of brown metal tiles with a dormer and two chimneys, a balcony roof over the entrance"
+  "describe": "two-storey villa, hipped roof of brown metal tiles with a dormer and two chimneys, a balcony roof over the entrance",
+  "chimneys": [[-6.18, -4.4, -5.63, -4.4], [5.77, -4.4, 6.32, -4.4]],
+  "potWidthM": 0.55
 }

@@ -1,1 +1,2 @@
-{"variant": "offroad4x4_khaki_broken-v1", "frame": "fleet100_w02-v1", "cell": 5, "pxPerM": 114.392, "score": 4, "status": "used", "ts": "2026-10-22T00:05:31"}
+{"variant": "offroad4x4_khaki_broken-v1", "frame": "fleet100_w02-v1", "cell": 5, "pxPerM": 114.392, "score": 4, "status": "candidate", "ts": "2026-10-22T00:05:31"}
+{"variant": "offroad4x4_khaki_broken-v2", "frame": "fleet100_rw01-v1", "cell": 5, "pxPerM": 107.692, "score": 4, "status": "used", "ts": "2026-10-22T16:39:01"}

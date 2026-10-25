@@ -4,11 +4,23 @@
 
 #include "app/render/kernels/sprites_car.glsl"
 #include "app/render/kernels/sprites_person.glsl"
+#include "app/render/kernels/smoke.glsl"
 #include "world/town/kernels/world_rows.glsl"
 
+// The air at a moment back from the frame's (AirBack, Wind.Back): how far it has carried since what it held then, and its
+// velocity then; DeviceSprites.AirMomentCount of them, figures.perAirStepS apart.
+struct AirBack
+{
+    vec2 sinceM;
+    vec2 mps;
+};
+
+const uint AirMoments = 32u;
+
 // The frame's own words, written by the host each frame into a buffer rather than pushed, because a frame is recorded
-// once (CameraView): the view as the fill takes it, the narrowest part drawn, the town's clock, its live rosters, and
-// which of the world's two views the host is showing (sprites_world.comp).
+// once (CameraView): the view as the fill takes it, the narrowest part drawn, the town's clock, its live rosters, which
+// of the world's two views the host is showing (sprites_world.comp), and the air of the moments back from the town's,
+// which carries the smoke.
 layout(std430, binding = 0) readonly buffer Frame
 {
     vec2 viewCentreM;
@@ -19,7 +31,32 @@ layout(std430, binding = 0) readonly buffer Frame
     uint carCount;
     uint viewSlot;
     uint pad;
+    AirBack air[AirMoments];
 } frame;
+
+// One kind of pipe's smoke (ExhaustLook): each pair idling and at full throttle, how its body's track is laid, and what
+// those come to at their most.
+struct SmokeKind
+{
+    float idleOpacity;
+    float fullOpacity;
+    float idleBirthWidthM;
+    float fullBirthWidthM;
+    float idleLifeS;
+    float fullLifeS;
+    float idleOutflowMps;
+    float fullOutflowMps;
+    float spreadMps;
+    float thickestAt;
+    float shade;
+    float reachM;
+    float widestM;
+    float longestS;
+    uint puffsEach;
+    uint trackPoints;
+    float perTrackEveryS;
+    float perFullThrottle;
+};
 
 // What is fixed when the town is laid: the rosters' room, the runs' room, the sheet slots and the figures.
 layout(std430, binding = 1) readonly buffer Figures
@@ -83,7 +120,52 @@ layout(std430, binding = 1) readonly buffer Figures
     float lightHalfWidthM;
     uint bridged;
     uint bridgeChannel;
+    // The smoke (CAR-54, TRN-15, SmokeLook): its sheet and the tailpipes' stride, what every pipe shares, the rates divided
+    // out, and each kind's own.
+    uint smokeSheet;
+    uint mostExhausts;
+    float puffEveryS;
+    float puffPerEveryS;
+    uint puffSplits;
+    float puffGapM;
+    float scatterMps;
+    float dragS;
+    SmokeKind tailpipe;
+    SmokeKind stack;
+    // The chimneys' smoke (OBJ-7, ChimneyLook): how many pots, then its figures, the rates divided out, a house's pot's.
+    uint chimneyCount;
+    uint chimneyPuffsEach;
+    float chimneyEveryS;
+    float chimneyPerEveryS;
+    float chimneyLifeS;
+    float chimneyRiseS;
+    float chimneyPerPotWidthM;
+    float chimneySpreadMps;
+    float chimneyScatterMps;
+    float chimneyDragS;
+    float chimneyOpacity;
+    float chimneyShade;
+    float chimneyBreathShare;
+    float chimneyPerBreathS;
+    float chimneySmokingShare;
+    float chimneyPerFireS;
+    float widestChimneyPuffM;
+    float chimneyReachM;
+    // The rail vehicles' smoke (TRN-15): where their tracks start among the smoke's (DeviceSmoke.FirstWagon).
+    uint firstWagonTrack;
+    // One over how far apart the frame's moments of the air are (DeviceSprites.AirStepS).
+    float perAirStepS;
 } figures;
+
+// One vehicle of the rolling stock as drawn (DeviceSprites.TrainLookRow): its half-size and its exhaust stacks (TRN-15),
+// from its middle with +x its front.
+struct TrainLook
+{
+    vec2 halfM;
+    uint exhaustCount;
+    uint pad;
+    vec2 exhaustsM[2];
+};
 
 // One approach's crossing gear (DeviceSprites.GearRow, CrossingGear): where its arm pivots, the way it lies lowered and on
 // what heading, and how far any of it reaches past its pivot.
@@ -122,7 +204,8 @@ struct PersonLook
     float heightM;
 };
 
-// One car's look (DeviceSprites.CarLook): every part's quad and reach, its lenses' count and its arm's two pictures.
+// One car's look (DeviceSprites.CarLook): every part's quad and reach, its lenses' and its tailpipes' counts and its arm's
+// two pictures.
 struct CarLook
 {
     vec2 bodyHalfM;
@@ -136,7 +219,7 @@ struct CarLook
     float wheelWidthM;
     float lampReachM;
     uint lensCount;
-    float unused;
+    uint exhaustCount;
     uint hasBeam;
     vec2 pivotM;
     vec2 collapsedHalfM;
@@ -212,9 +295,9 @@ layout(std430, binding = 16) buffer LampsShown { uvec2 lampsShown[]; };
 layout(std430, binding = 17) writeonly buffer Instances { SpriteOut instances[]; };
 layout(std430, binding = 18) writeonly buffer Draws { SpriteDraw draws[]; };
 
-// The rolling stock's half-sizes by vehicle (DeviceSprites.TrainLooks), and the world's two views of the wagons (the
+// The rolling stock as drawn by vehicle (DeviceSprites.TrainLookRow), and the world's two views of the wagons (the
 // host showing the frame's slot), which every wagon is drawn off.
-layout(std430, binding = 19) readonly buffer TrainLooks { vec2 trainLooks[]; };
+layout(std430, binding = 19) readonly buffer TrainLooks { TrainLook trainLooks[]; };
 layout(std430, binding = 20) readonly buffer WagonViews0 { WagonViewRow wagonViews0[]; };
 layout(std430, binding = 21) readonly buffer WagonViews1 { WagonViewRow wagonViews1[]; };
 
@@ -222,6 +305,23 @@ layout(std430, binding = 21) readonly buffer WagonViews1 { WagonViewRow wagonVie
 layout(std430, binding = 22) readonly buffer GearRows { GearRow gearRows[]; };
 layout(std430, binding = 23) readonly buffer GearShown { GearShownRow gearShown[]; };
 layout(std430, binding = 24) readonly buffer LightRows { LightRow lightRows[]; };
+
+// Where each look's tailpipes end, in its body's frame (CAR-54): mostExhausts rows a look; and every car's smoke's track
+// as the step lays it (smoke_track.comp), trackPoints points a car.
+layout(std430, binding = 25) readonly buffer Exhausts { vec2 exhausts[]; };
+layout(std430, binding = 26) readonly buffer SmokeHeads { SmokeHead smokeHeads[]; };
+layout(std430, binding = 27) readonly buffer SmokePoints { SmokePoint smokePoints[]; };
+
+// One pot of a chimney (ChimneyRow, OBJ-7), laid once: where it stands in the town, its key — its stack's fire above
+// ChimneyPotBits, which pot of the stack below — and how wide the pot is there.
+struct ChimneyRow
+{
+    vec2 atM;
+    uint seed;
+    float potWidthM;
+};
+
+layout(std430, binding = 28) readonly buffer Chimneys { ChimneyRow chimneys[]; };
 
 #define LAMP_FIGURES figures
 #define SIGNAL_FIGURES figures

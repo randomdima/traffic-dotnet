@@ -1,8 +1,9 @@
 {
   "id": "industrial_deep_03",
+  "sprite": "industrial_deep_03.webp",
   "footprintM": [
-    3.5,
-    9.5
+    5.2,
+    14.2
   ],
   "cornerRadiusM": 0.525,
   "partsM": [],

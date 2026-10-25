@@ -1,0 +1,9 @@
+{
+  "id": "hedge_privet",
+  "sprite": "hedge_privet.webp",
+  "kind": 1,
+  "footprintM": [2.4, 0.845],
+  "cornerRadiusM": 0.2,
+  "turns": true,
+  "describe": "clipped privet hedge, a block of small glossy green leaves, slightly uneven top"
+}

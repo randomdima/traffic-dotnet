@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_rw02-v1",
+ "ts": "2026-10-22T16:50:40",
+ "op": "edit",
+ "name": "fleet100_rw02",
+ "file": ".tmp/gen/frames/fleet100_rw02-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.020693,
+ "usage": {
+  "prompt_tokens": 2413,
+  "completion_tokens": 158,
+  "total_tokens": 2571,
+  "cost": 0.020693,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.020693,
+   "upstream_inference_prompt_cost": 0.015953,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from directly above the middle of each roof, orthographic, as the attached cars are: the roof centred across the body, and neither flank seen more than the other — no doors, sills or side windows showing along one side. No perspective, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Its shape mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen; wear, rust and odd panels may differ side to side.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car (paint, wear, roof, windows, trim):\n- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.\n- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke.\n\nCars, body length × width without mirrors, and what each is:\n1. 3.20 × 1.60 m (1.99× longer than wide), nearly square corners — 1990s Russian tiny three-door microcar, worn: faded red paint, rust spots on the sills, short flat bonnet, upright boxy cabin, flat roof, upright hatch, small rectangular headlamps, small square tail lamps\n2. 3.50 × 1.65 m (2.13× longer than wide), gently rounded corners — late-1990s Korean tiny five-door city car, average condition, bright yellow, short round bonnet, tall rounded roof, short upright hatchback tail, big round-edged headlamps, small vertical tail lamps\n3. 3.50 × 1.60 m (2.19× longer than wide), gently rounded corners — late-1990s Korean tiny five-door city car, worn: faded pale green paint, rust spots on the wheel arches, short round bonnet, tall rounded roof, short upright hatchback tail, big round-edged headlamps, small vertical tail lamps\n4. 3.73 × 1.47 m (2.55× longer than wide), rounded corners — 1960s Soviet rear-engined two-door small saloon, worn: faded sky blue paint, rust spots, a rounded humped body, short sloping front lid, rounded roof, long rear deck over the engine with air intake slots on its sides, chrome bumpers, round headlamps, small tail lamps\n5. 3.74 × 1.75 m (2.14× longer than wide), gently rounded corners — Soviet three-door small 4×4, average condition, olive green, boxy with flat panels, short flat bonnet, upright cab with a flat roof, squared tail, black plastic wheel-arch trims, round headlamps in a flat grille, small square tail lamps\n6. 4.21 × 1.68 m (2.50× longer than wide), nearly square corners — 1990s Soviet wedge four-door saloon, worn: faded cherry red paint, rust spots on the sills and boot, low sloping wedge bonnet, angular cabin, short separate boot, black plastic bumpers, slim rectangular headlamps, wide flat tail lamps split into red, amber and white sections\n7. 4.25 × 1.73 m (2.46× longer than wide), nearly square corners — 1970s Soviet small four-door saloon, worn: faded teal paint, rust patches, a straight-edged body, flat bonnet, upright cabin, separate boot, chrome bumpers, rectangular headlamps, vertical tail lamps split into red, amber and white sections\n8. 4.36 × 2.13 m (2.04× longer than wide), gently rounded corners — Soviet forward-control 4×4 minibus, worn: faded grey paint with rust at the corners, no bonnet, a rounded loaf-shaped body with a flat front and curved roof edges, round headlamps, small tail lamps\n9. 4.90 × 2.11 m (2.33× longer than wide), nearly square corners — modern mid-size passenger van, good condition, white, short sloping bonnet, long tall body with a flat roof, big square tailgate, large headlamps, tall tail lamps",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "ed65cd732145d8c2",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_rw02_style.png"
+  }
+ ],
+ "cells": [
+  "oka_red_broken",
+  "citymini_yellow_broken",
+  "citymini_green_broken",
+  "rearengine_sky_broken",
+  "niva_olive_broken",
+  "wedgesaloon_cherry_broken",
+  "saloon70s_teal_broken",
+  "loafvan_grey_broken",
+  "vanbus_white_broken"
+ ]
+}

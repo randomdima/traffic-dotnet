@@ -1,0 +1,8 @@
+{
+  "id": "rubble_heap",
+  "sprite": "rubble_heap.webp",
+  "kind": 0,
+  "diameterM": 1.4,
+  "share": 0.4,
+  "describe": "small heap of broken concrete and brick rubble overgrown with weeds"
+}

@@ -2,8 +2,8 @@
   "id": "garages_deep_03",
   "sprite": "garages_deep_03.webp",
   "footprintM": [
-    4.0,
-    9.5
+    5.2,
+    12.3
   ],
   "cornerRadiusM": 0.3,
   "partsM": [],
@@ -17,5 +17,6 @@
     "cooperative",
     "narrow front"
   ],
-  "describe": "row of 3 lock-up garages of a garage cooperative, flat roof of grey slate sheets parted by low brick parapets between the units, patched in places, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "row of 3 lock-up garages of a garage cooperative, flat roof of grey slate sheets parted by low brick parapets between the units, patched in places, standing narrow end to the street with the entrance on that short front wall",
+  "chimneys": [[1.2, -4.5], [1.2, -1.35], [1.2, 2.05]]
 }

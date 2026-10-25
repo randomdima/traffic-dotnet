@@ -2,8 +2,8 @@
   "id": "tower_08",
   "sprite": "tower_08.webp",
   "footprintM": [
-    35.5,
-    12.5
+    46.1,
+    16.2
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],
@@ -16,5 +16,7 @@
     "soviet",
     "panel block"
   ],
-  "describe": "tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge"
+  "describe": "tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge",
+  "chimneys": [[-20.09, -5.14], [20.19, -5.14], [-20.09, 4.01], [20.19, 4.01], [-12.12, -0.82, -11.67, -0.82], [-10.15, -0.87, -9.71, -0.87], [-7.88, -2.37, -7.43, -2.37], [7.85, -3.19, 8.29, -3.19], [12.63, -0.82, 13.08, -0.82]],
+  "potWidthM": 0.45
 }

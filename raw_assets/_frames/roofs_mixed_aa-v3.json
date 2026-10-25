@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_aa-v3",
+ "ts": "2026-10-20T14:07:00",
+ "op": "edit",
+ "name": "roofs_mixed_aa",
+ "file": ".tmp/gen/frames/roofs_mixed_aa-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031036,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 1×2 grid. Redraw only cell 1 (the transparent area). Keep cell 2 exactly as it is, and match its finish.\n\nCell 1's roof in image 1 has the right bitumen, vents, antenna and lift room, but it runs off the edge of its outline with no border: it fills a soft-edged area wider than the outline and has a parapet only along its top. Redraw it so it ends exactly on its outline from image 2 — left edge x=449, right edge x=1088, top edge y=25, bottom edge y=487 — with a crisp bold dark outline along all four edges, like cell 2's, and inside that a low light-grey concrete parapet about 0.3 m wide (about 10 px) running round all four edges, slightly thicker along the bottom street edge. Outside x 449–1088 and y 25–487 everything is flat pure magenta #FF00FF. Keep the roof's details where they are.\n\nTop-down with no perspective, straight square edges, slightly rounded corners as in the outline. No text.\n\n1. 35.1 × 25.4 m (1.4× wider than deep) — tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "524cd5bb6758eb31",
+   "ext": "png",
+   "frame": "roofs_mixed_aa-v2",
+   "was": ".tmp/gen/frames/roofs_mixed_aa-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "b9e51c750beed2ae",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_aa.png"
+  },
+  {
+   "role": "mask",
+   "sha": "0e8790713077d8e4",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_aa-v2/_mask_tower_11.png"
+  }
+ ]
+}

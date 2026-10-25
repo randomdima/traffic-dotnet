@@ -77,7 +77,7 @@ internal static class ExamPlan
                 CentreM = [], Axis = [], HalfExtentM = [], SpaceOffsets = [0], SpacePositionM = [], SpaceHeadingRad = [],
             },
             Buildings = CityPlan.BuildingArrays.None,
-            Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], BearingRad = [], Kind = [] },
+            Props = CityPlan.PropArrays.None,
             Spawns = spawns,
             Water = CityPlan.WaterArrays.None,
             Rails = ground.HasARailway ? RailLines.Lay(Railway(ground, config), ground.WorldSizeM, config) : CityPlan.RailArrays.None,

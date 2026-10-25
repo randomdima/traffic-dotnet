@@ -1,0 +1,62 @@
+{
+ "id": "props_d_shrubs_growth-v1",
+ "ts": "2026-10-25T02:04:47",
+ "op": "edit",
+ "name": "props_d_shrubs_growth",
+ "file": ".tmp/gen/frames/props_d_shrubs_growth-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.013792,
+ "usage": {
+  "prompt_tokens": 1514,
+  "completion_tokens": 158,
+  "total_tokens": 1672,
+  "cost": 0.013792,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.013792,
+   "upstream_inference_prompt_cost": 0.009052,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image is attached: finished art from the same game — the grass these things stand on and two cars, at one scale — to match in style, finish and scale only, not its contents or colours.\n\nMake one image of 16 separate sprites for a 2D city game seen from above: small things that stand in a town's grass verges, parks and yards. Lay them in a 4 by 4 grid — 4 rows of 4, read left to right and top to bottom in the order listed below — each centred in its place in the grid, well apart from its neighbours and from the picture's edge, never touching another.\n\nSize and shape:\n- Each is drawn at the true size given, in metres, against the cars in the style image (4.5 m long, 1.8 m wide): a smaller thing is drawn smaller than a larger one, in proportion. A round thing is as wide as it is deep; a rectangular one keeps the proportion given.\n- A crown, a bush or a patch of plants has its own natural soft edge. A made object (a bin, a bench, a planter) has clean straight or round edges. Nothing is cut off.\n- No hole inside a drawing: where a crown or a bush is thin, darker leaves or branches deeper inside it show.\n\nScale of the details is strict: a leaf is a few centimetres, a flower head a few centimetres, a bench slat 10 cm wide, a bin lid's handle a hand wide. A small thing keeps its details few, simple and readable.\n\nThe view:\n- A thing marked \"front at the bottom\" is turned in the game to face the footway, so it is seen strictly from directly above (orthographic plan view, like a map), its front at the bottom edge: no perspective, no tilt, no side faces.\n- Everything else is never turned, so it may be seen from high above at a slight angle, a little of its side showing towards the bottom, as long as it reads mostly from above: a tree is mostly its crown, a bin mostly its lid.\n- No cast shadow on the ground; soft shading on the thing itself, light from the top-left.\n\nStyle: painted game art like the style image, natural and believable rather than cartoonish: soft detailed painting, no heavy black outlines, rich but natural colours, every drawing clearly different from its neighbours. Summer, in a Black Sea port city.\n\nEverything outside the drawings is fully transparent: no background colour, no ground, no grass under them, no shadow, nothing half-transparent. No text, letters, numbers, logos, labels, grid lines or frames anywhere.\n\nDrawings, row by row, left to right:\n\n\nRow 1\n1. round, 1.6 m across — mock orange shrub, mid green leaves covered in white four-petal flowers\n2. round, 1.6 m across — patch of mixed summer meadow, tall grass with red, yellow, white and blue wildflowers\n3. round, 1.6 m across — patch of sun-dried yellow and straw summer grass, a few green blades\n4. round, 1.6 m across — blackthorn thicket, dense dark twigs, small dark leaves, dusty blue sloes\n\nRow 2\n5. round, 1.4 m across — broom bush, thin green whippy stems covered in yellow pea flowers\n6. round, 1.4 m across — cluster of self-sown maple and ash saplings, a few small leafy tops\n7. round, 1.4 m across — clump of common reed, long narrow grey-green leaves radiating, a few brown plumes\n8. round, 1.4 m across — stand of stinging nettles, toothed dark green leaves in dense tiers\n\nRow 3\n9. round, 1.4 m across — cow parsley, lacy fern-like leaves with many flat white flower umbels\n10. round, 1.4 m across — bracken ferns, large fronds radiating from the centre, bright green\n11. round, 1.2 m across — snowberry shrub, small round blue-green leaves with white berries\n12. round, 1.2 m across — bridal spirea, arching sprays covered in tiny white flowers\n\nRow 4\n13. round, 1.2 m across — steppe feather grass tussock, fine silvery plumes swirling outward\n14. round, 1.2 m across — burdock plant, huge heart-shaped dark green leaves overlapping, a few purple burrs\n15. round, 1.2 m across — wormwood clump, feathery silvery grey-green foliage\n16. round, 1.2 m across — patch of red field poppies among grass",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "fa8eff6a33e96d75",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/props_shrubs_growth_style.png"
+  }
+ ],
+ "cells": [
+  "mock_orange",
+  "mixed_wildflowers",
+  "dry_grass_patch",
+  "blackthorn",
+  "broom_yellow",
+  "sapling_cluster",
+  "reed_clump",
+  "nettles_stand",
+  "cow_parsley_stand",
+  "ferns_bracken",
+  "snowberry",
+  "spirea_white",
+  "feather_grass",
+  "burdock",
+  "mugwort_silver",
+  "poppies_red"
+ ]
+}

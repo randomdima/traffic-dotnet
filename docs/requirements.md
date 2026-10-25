@@ -88,6 +88,32 @@ was drawn in.** An L, a courtyard, a cut corner and a porch are all one defect o
 empty box that stop a car in the open — and the parts are the picture's own, so what is drawn and what
 is stood are one answer and cannot drift apart.
 
+**OBJ-6** `P9` **A roof's fans turn.** Each round fan its picture draws is kept as its geometry alone — its hub and
+its rim — and drawn over as the roof is drawn in one of the fans' looks (`assets/world/building/fans/`), its middle on
+the hub and its edge on the rim, turned round, as a vehicle's is (TRN-13): no instance of its own. Every fan turns at
+the view's one rate (`ViewFigures`), each building's from its own start and in its own look, both read off its ID and
+the tick and nothing kept for it.
+
+**OBJ-7** `P9` **A roof's chimneys smoke.** Where each chimney's pots are is read off its picture (`chimneys`, by eye with
+`qq chimneys`). **Every chimney can smoke, and a share of them is burning at any one time**: each stack's fire is lit
+or let out afresh turn by turn, off its own key and the clock and nothing kept, so the roofs that smoke change a few at a
+time. A burning one puts out a slow plume that the town's wind (`Wind`) lays out downwind, thicker and thinner as its
+fire is stoked and burns down; one lit grows its plume out of the pot, and one let out sees its last smoke carried
+off. **A chimney is the pots its stack
+carries**: whether it smokes is the stack's, and every pot of one that does puts out a plume of its own, so a twin stack
+smokes as two thin plumes and not one wide one. **A wider pot puts out a thicker, wider and longer plume** than a
+house's: how wide a roof's pots are is read off its picture with them (`potWidthM`), and a roof whose file says none has
+a house's. Like a car's (CAR-54), the smoke
+stands nothing, is drawn where the world is stepped on the device and nowhere else, and nothing is kept for it: a puff is
+where the wind has carried it since it left the pot, read off the clock. What it looks like is `SimConfig.Chimneys`.
+
+**OBJ-8** `P9` **Clouds pass over the town, and only their shadows are seen.** A cover of the sky's share is shade,
+over everything that stands and under the interface, and darkens what is under it without changing its colour. The
+clouds are carried the way the town's wind (`Wind`) blows about, at a speed of their own and following none of its
+swings and gusts, and change shape as they go; a shadow's edge is blurred by as much as a cloud's height across the
+sun's width blurs it. Like the smoke, they stand nothing and nothing is kept for them: where they are is the town's
+seed and its clock, so a paused town's sky stands. A clear sky draws nothing. What they are is `SimConfig.Clouds`.
+
 **Props and buildings are solid** — a car hits a tree — and anything static and numerous is priced
 against **the queries it joins**, not against what it draws.
 

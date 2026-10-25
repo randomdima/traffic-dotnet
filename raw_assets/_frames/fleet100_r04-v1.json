@@ -1,0 +1,55 @@
+{
+ "id": "fleet100_r04-v1",
+ "ts": "2026-10-22T19:16:29",
+ "op": "edit",
+ "name": "fleet100_r04",
+ "file": ".tmp/gen/frames/fleet100_r04-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.019127,
+ "usage": {
+  "prompt_tokens": 2359,
+  "completion_tokens": 158,
+  "total_tokens": 2517,
+  "cost": 0.019127,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.019127,
+   "upstream_inference_prompt_cost": 0.014387,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nTHE VIEW MUST BE EXACTLY OVERHEAD. These cars were drawn before as if seen a little from one side: the lower flank's doors, door handles and side windows showed along the bottom edge, and the roof sat above the middle of the body. Draw each one from directly above the middle of its roof, like a plan drawing: the roof centred across the body's width, and neither flank seen more than the other. Worn paint and rust may differ side to side; the view may not.\n\nTHE SIZES DIFFER AND MUST SHOW IT. Car 9 (5.41 m) is drawn a third longer than car 1 (4.07 m), and the pickup and the van (cars 8 and 9) are the longest drawings on the sheet, all at one scale. A long vehicle is long, not wide: the pickup is no wider than the saloons, and the van only a little wider. Leave spare room in each place empty rather than drawing a car wider.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from directly above the middle of each roof, orthographic, as the attached cars are: the roof centred across the body, and neither flank seen more than the other — no doors, sills or side windows showing along one side. No perspective, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Its shape mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen; wear, rust and odd panels may differ side to side.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe cars in the picture only show the style: draw the cars listed, in their own colours. They are drawn at one scale, as the sheet's cars are: a longer car there is a longer drawing.\n- Lamps switched off (unlit glass, no glow). Front corner: a headlamp and, beside it, a separate amber indicator. Rear corner: three separate small lenses side by side, each in its own thin dark frame, as distinct as the front's — red tail and brake lamp outermost, amber indicator next, white reversing lamp innermost. The rear indicator is the same amber as the front one and as large, plainly not red. Never one merged red cluster, never a light bar across the car.\n- Condition shows only in the paint (faded colour, rust spots, a panel in another shade); the body outline is whole.\n\nCars, body length × width without mirrors, and what each is:\n1. 4.07 × 1.61 m (2.53× longer than wide), nearly square corners — 1970s Soviet compact four-door saloon, worn: faded brick red paint, rust spots on the sills and boot lid, one wing in primer grey, long flat bonnet, upright three-box roof, separate flat boot, thin chrome bumpers, two round headlamps each side, vertical tail lamps split into red, amber and white sections\n2. 4.35 × 1.73 m (2.51× longer than wide), gently rounded corners — modern budget four-door saloon taxi, average condition, white with a thin black-and-yellow chequer strip along each flank and a small plain yellow roof sign, simple rounded bonnet, tall roof, short separate boot, large headlamps, round-cornered tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n3. 4.35 × 1.69 m (2.57× longer than wide), nearly square corners — 1990s Soviet five-door liftback, worn: faded dark green paint, rust along the sills, long flat bonnet, long sloping rear window to a short tail, black plastic bumpers, rectangular headlamps, wide flat tail lamps split into red, amber and white sections\n4. 4.41 × 1.79 m (2.46× longer than wide), gently rounded corners — modern small panel van, average condition, white with scuffs on the black bumpers, short sloping bonnet, tall flat roof, two square rear doors, large headlamps, tall tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n5. 4.76 × 1.74 m (2.74× longer than wide), nearly square corners — 1990s German boxy executive four-door saloon, average condition, beige, long flat bonnet, upright glasshouse, long flat boot, wide rectangular headlamps, wide ribbed tail lamps split into red, amber and white sections\n6. 4.78 × 1.92 m (2.49× longer than wide), gently rounded corners — modern two-door muscle coupe, good condition, bright yellow with two black stripes running nose to tail over the bonnet, roof and boot, long bonnet with a raised air intake in its middle — the stripes run either side of the intake and never across it, the intake itself body yellow with a dark opening — short fastback roof, short tail, slim headlamps, three-bar tail lamps at each rear corner; each rear lamp with a separate amber indicator lens and a white reversing lens\n7. 4.82 × 1.93 m (2.50× longer than wide), nearly square corners — modern boxy luxury off-roader, good condition, gloss black, flat square bonnet with indicators on top of the wings, upright square cab, flat roof, square tail with a covered spare wheel, round headlamps, square tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens\n8. 5.33 × 1.86 m (2.87× longer than wide), gently rounded corners — modern double-cab pickup with a hard flat bed cover, good condition, silver, tall square bonnet, double cab, long flat covered bed, tall headlamps, tall tail lamps at the bed's rear corners; each rear lamp with a separate amber indicator lens and a white reversing lens\n9. 5.41 × 2.05 m (2.64× longer than wide), nearly square corners — modern high-roof panel van, average condition, white, short sloping bonnet, very tall flat roof, two square rear doors, large headlamps, tall narrow tail lamps; each rear lamp with a separate amber indicator lens and a white reversing lens",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "95979f190f99520c",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/fleet100_r04_style.png"
+  }
+ ],
+ "cells": [
+  "classic_red",
+  "cab_white",
+  "liftback90s_green",
+  "panelvan_white",
+  "execsaloon90s_beige",
+  "coupe_yellow",
+  "offroader_black",
+  "pickup_silver",
+  "hightopvan_white"
+ ]
+}

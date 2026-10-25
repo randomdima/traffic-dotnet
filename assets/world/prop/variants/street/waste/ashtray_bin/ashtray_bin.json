@@ -1,0 +1,8 @@
+{
+  "id": "ashtray_bin",
+  "sprite": "ashtray_bin.webp",
+  "kind": 2,
+  "diameterM": 0.35,
+  "share": 1.2,
+  "describe": "small round steel ashtray bin, a perforated top"
+}

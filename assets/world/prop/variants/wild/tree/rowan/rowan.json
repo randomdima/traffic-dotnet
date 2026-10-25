@@ -1,0 +1,8 @@
+{
+  "id": "rowan",
+  "sprite": "rowan.webp",
+  "kind": 0,
+  "diameterM": 2.6,
+  "colliderM": 0.5,
+  "describe": "rowan crown, feathery mid green leaflets, several clusters of orange-red berries"
+}

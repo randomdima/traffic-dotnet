@@ -33,13 +33,12 @@ internal static class TerrainStage
     static readonly Vector3 WaveShare = new(0.25f, 0.15f, 0.1f);
 
     /// <summary>
-    /// The water a town stands on: what it is, the four rings the map draws it and its shore from, and the
+    /// The water a town stands on: what it is, the two rings the map draws it and its shore from, and the
     /// line it runs down.
     /// </summary>
     /// <param name="Rings">
-    /// The water's own edge, the outer edge of the shore it is set in, and the two rings that leave a line's
-    /// width along each of those edges (GEN-2c). <b>All four are the same wave at four offsets</b>, so the
-    /// strip is one width the whole way round and each line runs true along it.
+    /// The water's own edge and the outer edge of the shore it is set in (GEN-2c). <b>Both are the same wave at
+    /// two offsets</b>, so the strip is one width the whole way round.
     /// </param>
     /// <param name="CentreM">
     /// The middle of the river, or the shore of the sea — the line the water runs along, which is what a
@@ -123,15 +122,14 @@ internal static class TerrainStage
     }
 
     /// <summary>
-    /// <b>The four rings a water drawn along a course is drawn from</b>: its two banks at their own offsets across the
-    /// course, and the shore and its lines each laid landward of them (GEN-2c) — a map's own course read back
+    /// <b>The two rings a water drawn along a course is drawn from</b>: its two banks at their own offsets across the
+    /// course, and the shore laid landward of them (GEN-2c) — a map's own course read back
     /// (<see cref="Map.TownMap.Courses"/>) drawn as the brief that authored it drew it.
     /// </summary>
     public static CityPlan.WaterArrays Rings(
         ReadOnlySpan<Vector2> middleM, Vector2 across, float nearM, float farM, Vector2 extentM, SimConfig config)
     {
         var shoreM = config.CityGen.ShoreWidthM;
-        var lineM = config.CityGen.ShoreEdgeWidthM;
 
         // Which way is away from the water on the near bank, so that a shore laid on either side of the line
         // is laid on the land side of it.
@@ -139,9 +137,6 @@ internal static class TerrainStage
 
         var outlineM = Ring(middleM, across, nearM, farM);
         var bankM = Ring(middleM, across, nearM + (landward * shoreM), farM - (landward * shoreM));
-        var bankLineM = Ring(
-            middleM, across, nearM + (landward * (shoreM - lineM)), farM - (landward * (shoreM - lineM)));
-        var waterLineM = Ring(middleM, across, nearM + (landward * lineM), farM - (landward * lineM));
 
         // Cut to the map own edges (GEN-2b): the rings are what the water and its shore are drawn from and
         // what says a point is wet, so a bank drawn past the town would be ground nobody could stand on
@@ -150,8 +145,6 @@ internal static class TerrainStage
         {
             Outline = OneRing(outlineM, extentM),
             Shore = OneRing(bankM, extentM),
-            ShoreEdge = OneRing(bankLineM, extentM),
-            WaterEdge = OneRing(waterLineM, extentM),
         };
     }
 

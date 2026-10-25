@@ -1,0 +1,62 @@
+{
+ "id": "service_tow_b-v1",
+ "ts": "2026-10-23T04:13:18",
+ "op": "edit",
+ "name": "service_tow_b",
+ "file": ".tmp/gen/frames/service_tow_b-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.023187,
+ "usage": {
+  "prompt_tokens": 2541,
+  "completion_tokens": 158,
+  "total_tokens": 2699,
+  "cost": 0.023187,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.023187,
+   "upstream_inference_prompt_cost": 0.018447,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 tow trucks for a 2D top-down city game, made by detailing the trucks of the first picture.\n\nThe first picture is nine finished tow trucks in a 3×3 grid. Redraw it — the same nine in the same places, at the same size, with the same outlines, the same cabs (nose, bonnet, windscreen, front lamps, mirrors, cab roof) and the same proportions, straight down from above, each nose to the right — and give every truck the recovery equipment and the crisp detail of the tow truck in the second picture. The first picture's trucks are too plain; these details are what is asked:\n\n- A HEADBOARD across the front of the deck, right behind the cab: a raised dark steel bulkhead the full width of the deck, about 0.3 m deep, carrying a row of four small round work lamps, switched off (pale grey glass, no glow).\n- HAZARD STRIPES down BOTH long sides of the deck as well as across the tail: a narrow band of red and white diagonal stripes along each side edge, as the second picture's deck has, meeting the striped tail bar at the rear corners.\n- A FRAMED DECK: a raised dark steel rail round the deck's edge with a visible lip, the floor dark grey diamond-plate steel with tie-down slots along each side, as on the second picture.\n- TOOLBOXES: a dark steel locker on each side at the front of the deck, just behind the headboard, inside the outline.\n- A FRONT GUARD: a heavy dark steel bar across the front bumper, inside the outline.\n- Crisp dark outlines and clear, hard-edged shading on every part, as the second picture is drawn.\n\nKeep exactly as the first picture draws them: each vehicle's outline, length and width — nothing pushed out past it; the cab's yellow paint and its roof, which stays plain painted metal with NOTHING on it (no light bar, beacon, hatch or lamp: the game fits its own bar there later); the red tail lamps at the rear corners; the dark glass. No crane, boom or arm anywhere: the game draws the tow arm itself. Every lamp switched off. No text, letters, numbers or logos.\n\nBackground: fully transparent outside the trucks — no colour, no glow or halo, no shadow. Each truck's edge ends sharply.\n\nThe trucks, left to right and top to bottom: 1 a Soviet forward-control 4×4, 2 a 2000s Japanese off-road 4×4, 3 a 1990s van, 4 a 1990s panel van, 5 a modern mid-size van, 6 a modern double-cab pickup, 7 a modern high-roof van, 8 a 2000s Russian light van, 9 a large high-roof van.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "98276af48d33c862",
+   "ext": "png",
+   "frame": "service_tow-v3",
+   "was": ".tmp/gen/frames/service_tow-v3.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "f89a85da2366f26f",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_tow_ref.png"
+  }
+ ],
+ "cells": [
+  "evacuatorloaf_yellow",
+  "evacuatoroffroad_yellow",
+  "evacuatorpassvan90s_yellow",
+  "evacuatorvan90s_yellow",
+  "evacuatorbus_yellow",
+  "evacuatorpickup_yellow",
+  "evacuatorhightop_yellow",
+  "evacuator_yellow",
+  "evacuatorbig_yellow"
+ ]
+}

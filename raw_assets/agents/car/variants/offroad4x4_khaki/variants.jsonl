@@ -1,2 +1,4 @@
 {"variant": "offroad4x4_khaki-v1", "frame": "fleet100_b02-v1", "cell": 5, "pxPerM": 114.64, "score": 4, "status": "candidate", "ts": "2026-10-22T00:04:45"}
-{"variant": "offroad4x4_khaki-v5", "frame": "fleet100_b02-v1", "cell": 5, "pxPerM": 114.64, "score": 4, "lampsMirroredFrom": "offroad4x4_khaki-v1", "props": "raw_assets/agents/car/variants/offroad4x4_khaki/offroad4x4_khaki-v1.props.json", "status": "used", "ts": "2026-10-22T04:32:03"}
+{"variant": "offroad4x4_khaki-v5", "frame": "fleet100_b02-v1", "cell": 5, "pxPerM": 114.64, "score": 4, "lampsMirroredFrom": "offroad4x4_khaki-v1", "props": "raw_assets/agents/car/variants/offroad4x4_khaki/offroad4x4_khaki-v1.props.json", "status": "candidate", "ts": "2026-10-22T04:32:03"}
+{"variant": "offroad4x4_khaki-v6", "frame": "fleet100_r01-v1", "cell": 5, "pxPerM": 111.663, "score": 4, "status": "candidate", "ts": "2026-10-22T16:32:12"}
+{"variant": "offroad4x4_khaki-v7", "frame": "fleet100_r01-v1", "cell": 5, "pxPerM": 111.663, "score": 4, "lampsMirroredFrom": "offroad4x4_khaki-v6", "props": "raw_assets/agents/car/variants/offroad4x4_khaki/offroad4x4_khaki-v6.props.json", "status": "used", "ts": "2026-10-22T16:35:22"}

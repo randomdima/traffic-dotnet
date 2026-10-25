@@ -2,8 +2,8 @@
   "id": "tower_deep_04",
   "sprite": "tower_deep_04.webp",
   "footprintM": [
-    15.0,
-    23.0
+    19.5,
+    29.9
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],

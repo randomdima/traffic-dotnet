@@ -53,7 +53,7 @@ internal sealed class DriveRun : IDisposable
     {
         _ask = ask;
         _config = config;
-        _plan = Maps.Plan(ask.Map, config, BuildingCatalog.Roofs);
+        _plan = Maps.Plan(ask.Map, config, ShippedArt.Sizes);
         _world = new TownWorld(_plan, config);
         _scenario = Scenarios.For(_world, config);
         _loop = new SimLoop<TownWorld>(_world, config);

@@ -610,6 +610,12 @@ internal sealed partial class DeviceWorld : WorldLayer
         }
 
         RecordTheView(commands, into, readCovers, stepped: true);
+        if (Smoke is { } smoke)
+        {
+            _vk.BetweenKernels(commands);
+            smoke.Record(commands, dtS);
+        }
+
         _batch.Submit();
         _readingCovers = readCovers;
     }
@@ -1043,4 +1049,19 @@ internal sealed partial class DeviceWorld : WorldLayer
 
     /// <summary>What draws off this world let go of, by the head that draws it (<c>DeviceWorld.Sprites.cs</c>).</summary>
     partial void DisposeTheSprites();
+
+    /// <summary>
+    /// The cars' and the rail vehicles' smoke's tracks (CAR-54, TRN-15), laid behind every step from
+    /// <see cref="LayTheSmoke"/> on; none before.
+    /// </summary>
+    public DeviceSmoke? Smoke { get; private set; }
+
+    /// <summary>
+    /// The smoke's tracks laid behind every step from here on, for whatever draws the smoke off them — the desktop's emit
+    /// (<c>DeviceWorld.Sprites.cs</c>). A world nothing draws smoke off, as a page's, lays none.
+    /// </summary>
+    public void LayTheSmoke() =>
+        Smoke ??= new DeviceSmoke(
+            _held, Config, _cars, _wagons, _wagons > 0 ? _laying.BodyOf(_laying.AgentOfWagon(0)) : 0, _carRows,
+            _solver.Bodies.Pose, _solver.Bodies.Motion, _solver.Bodies.Filter, _tyres.Table.Commands.Device, _rail.Commands);
 }

@@ -167,11 +167,99 @@ internal sealed class ViewFigures
     public int WindowWidthPx { get; init; } = 1600;
 
     public int WindowHeightPx { get; init; } = 900;
-    public float GroundPeriodGrassM { get; init; } = 12f;
-    public float GroundPeriodTarmacM { get; init; } = 6f;
-    public float GroundPeriodPavementM { get; init; } = 4f;
-    public float GroundPeriodDeckM { get; init; } = 8f;
-    public float GroundPeriodWaterM { get; init; } = 18f;
+    /// <summary>
+    /// What each ground surface's looks repeat over. A look is joined from tiles drawn about eight metres a side, the
+    /// most a generated sheet holds at <see cref="ArtPixelsPerMetre"/>, two a side (<c>qq sprites</c>,
+    /// <c>_surfaces.py</c>).
+    /// </summary>
+    public float GroundPeriodGrassM { get; init; } = 16f;
+    public float GroundPeriodTarmacM { get; init; } = 16f;
+    public float GroundPeriodPavementM { get; init; } = 16f;
+    public float GroundPeriodDeckM { get; init; } = 16f;
+    public float GroundPeriodWaterM { get; init; } = 16f;
+    public float GroundPeriodShoreM { get; init; } = 16f;
+
+    /// <summary>How far onto the shore the ground beside it fades out — the grass from its outer edge, the water from its
+    /// own — in place of a line struck along either edge (GEN-2c).</summary>
+    public float ShoreFadeM { get; init; } = 1.5f;
+
+    /// <summary>How wide a patch of each surface is, about (<c>GroundPatches</c>): the widest lumps of worn or kept lawn,
+    /// the finest an eighth of it. A walk is a few metres across, so its patches are short enough to change along one.</summary>
+    public float GroundPatchAcrossGrassM { get; init; } = 24f;
+
+    public float GroundPatchAcrossTarmacM { get; init; } = 18f;
+    public float GroundPatchAcrossPavementM { get; init; } = 10f;
+    public float GroundPatchAcrossDeckM { get; init; } = 14f;
+    public float GroundPatchAcrossWaterM { get; init; } = 40f;
+    public float GroundPatchAcrossShoreM { get; init; } = 12f;
+
+    /// <summary>
+    /// How far apart the middles of the hexes the ground is scattered in are (<c>GroundPatches.Scatter</c>): each reads
+    /// its surface's look from a place of its own, so a look's period never shows. Short of the period, so no hex holds a
+    /// whole repeat, and long enough that each still reads as the drawing it was cut from.
+    /// </summary>
+    public float GroundScatterAcrossM { get; init; } = 5f;
+
+    /// <summary>The power each hex's share of a place is raised to before the three meeting there are summed back to one:
+    /// higher hands one hex over to the next more sharply, and averages less of the drawings' contrast away.</summary>
+    public float GroundScatterSharpness { get; init; } = 6f;
+
+    /// <summary>How far past a kerb's low face its shadow reaches over the road or the grass (<c>Surface.Shadow</c>), and
+    /// how much of the ground's light it takes at the face, fading to none at its far edge.</summary>
+    public float KerbShadowM { get; init; } = 0.1f;
+
+    public float KerbShadowShare { get; init; } = 0.2f;
+
+    /// <summary>How wide the lumps a fade's edge is ragged by are, so turf meets the shore in tufts.</summary>
+    public float GroundFadeRaggedAcrossM { get; init; } = 0.8f;
+
+    /// <summary>How far those lumps move a fade's cover at its middle, a share per standard deviation of them; nought at
+    /// its two ends, so a fade still starts and finishes where it is laid.</summary>
+    public float GroundFadeRaggedShare { get; init; } = 0.5f;
+
+    /// <summary>
+    /// How fast the water's two looks drift with the prevailing wind, as shares of its speed (<c>GroundPatches.DriftAt</c>):
+    /// wind drifts a water's surface at about three in a hundred of its own speed, and the still look slower than that.
+    /// </summary>
+    public float WaterDriftLivelyWindShare { get; init; } = 0.03f;
+
+    public float WaterDriftStillWindShare { get; init; } = 0.012f;
+
+    /// <summary>
+    /// How much of each surface wears its second look — the worn lawn, the worn asphalt — as a share of its ground: the
+    /// patches' field above the quantile of the rest.
+    /// </summary>
+    public float GroundLookShareGrass { get; init; } = 0.4f;
+
+    public float GroundLookShareTarmac { get; init; } = 0.35f;
+    public float GroundLookSharePavement { get; init; } = 0.35f;
+    public float GroundLookShareDeck { get; init; } = 0.4f;
+    public float GroundLookShareWater { get; init; } = 0.4f;
+    public float GroundLookShareShore { get; init; } = 0.4f;
+
+    /// <summary>How soft the hand-over from one look to the other is, in standard deviations of the patches' field: at
+    /// nought a hard edge, at one as wide as a typical patch's slope from its middle.</summary>
+    public float GroundLookEdgeSpread { get; init; } = 0.9f;
+
+    /// <summary>
+    /// How far each surface's light is moved by its patches, and its warmth — red up and blue down, so a lawn yellows
+    /// and water greens — as shares of its colour at a typical patch (one standard deviation of the field); a patch
+    /// twice as marked moves it twice as far. Light and warmth move together, and with the second look: a worn lawn is
+    /// a paler, drier one.
+    /// </summary>
+    public float GroundPatchLightGrass { get; init; } = 0.05f;
+
+    public float GroundPatchWarmGrass { get; init; } = 0.03f;
+    public float GroundPatchLightTarmac { get; init; } = 0.045f;
+    public float GroundPatchWarmTarmac { get; init; } = 0.005f;
+    public float GroundPatchLightPavement { get; init; } = 0.04f;
+    public float GroundPatchWarmPavement { get; init; } = 0.015f;
+    public float GroundPatchLightDeck { get; init; } = 0.035f;
+    public float GroundPatchWarmDeck { get; init; } = 0.015f;
+    public float GroundPatchLightWater { get; init; } = 0.05f;
+    public float GroundPatchWarmWater { get; init; } = 0.04f;
+    public float GroundPatchLightShore { get; init; } = 0.05f;
+    public float GroundPatchWarmShore { get; init; } = 0.03f;
 
     /// <summary>
     /// The grid the ground, the buildings and the props are cut on. <b>The default view is 70 m over
@@ -213,6 +301,21 @@ internal sealed class ViewFigures
     /// picture carries its rear tyres and its dull lenses either way.
     /// </summary>
     public float CarPartLeastPx { get; init; } = 1.5f;
+
+    /// <summary>
+    /// How fast a fan is drawn turning, a locomotive's or a roof's, in turns a second (TRN-13, OBJ-6). A real one's fifteen or so is
+    /// strobed by any frame rate into standing, or turning back; this is slow enough that each frame turns it well
+    /// under a blade.
+    /// </summary>
+    public float FanTurnsPerS { get; init; } = 0.9f;
+
+    /// <summary>
+    /// The narrowest a fan is drawn turning, in interface pixels across; a body whose widest fan is narrower is drawn as
+    /// its picture stands that frame (TRN-13, OBJ-6). <b>It is where the zoom stops the animation</b>: four pixels is a
+    /// blade's width or under, whose turn no one reads, and the framings past it are the ones that hold the most roofs.
+    /// The default framing turns the smallest fan the art draws (0.6 m) at some seven.
+    /// </summary>
+    public float FanLeastPx { get; init; } = 4f;
 
     /// <summary>
     /// The smallest a prop — standing or scenery — is drawn, in interface pixels across its longer side; smaller, the

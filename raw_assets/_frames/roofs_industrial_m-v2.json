@@ -1,0 +1,38 @@
+{
+ "id": "roofs_industrial_m-v2",
+ "ts": "2026-10-20T13:51:01",
+ "op": "edit",
+ "name": "roofs_industrial_m",
+ "file": ".tmp/gen/frames/roofs_industrial_m-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.030931,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 1×2 grid. Redraw only cell 2 (the transparent area). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe faults in cell 2: its details were drawn far too big. Its four roof vents were about 2.6 m across — as wide as a car; a roof vent is about 1 m, so a tiny box. Its loading door canopy at the bottom edge was about 12 m wide; a loading door is about 4 m wide, a short strip in the middle of the bottom edge. Keep the shape, the dark bitumen and the ridge vent along the middle, but draw each detail at its true size, with more small vents rather than a few big ones.\n\nTrace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. The roof fills its outline edge to edge. This hall is 64.5 m wide; cars are 4 m long. No text.\n\n2. 64.5 × 24.8 m (2.6× wider than deep, a thin strip) — warehouse or workshop hall, shallow pitched roof of dark bitumen with a ridge vent along its length",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "08ad5bae33a214f8",
+   "ext": "png",
+   "frame": "roofs_industrial_m-v1",
+   "was": ".tmp/gen/frames/roofs_industrial_m-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "aee5ef079998b640",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_industrial_m.png"
+  },
+  {
+   "role": "mask",
+   "sha": "7f583bb395f1266b",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_industrial_m-v1/_mask_industrial_24.png"
+  }
+ ]
+}

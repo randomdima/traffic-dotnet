@@ -2,8 +2,8 @@
   "id": "retail_deep_03",
   "sprite": "retail_deep_03.webp",
   "footprintM": [
-    6.0,
-    8.5
+    7.8,
+    11.1
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,8 @@
     "shop pavilion",
     "narrow front"
   ],
-  "describe": "single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [1.8618, -3.3143], "rimAtM": [1.8666, -3.2762], "rimM": [0.5574, 0.5615] }
+  ]
 }

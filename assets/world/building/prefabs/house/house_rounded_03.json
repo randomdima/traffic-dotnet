@@ -2,10 +2,10 @@
   "id": "house_rounded_03",
   "sprite": "house_rounded_03.webp",
   "footprintM": [
-    12.0,
-    9.5
+    16.8,
+    13.3
   ],
-  "cornerRadiusM": 2.38,
+  "cornerRadiusM": 3.33,
   "partsM": [],
   "look": "house",
   "tags": [
@@ -16,5 +16,7 @@
     "villa",
     "rounded corners"
   ],
-  "describe": "two-storey villa, hipped roof of red clay tiles with a dormer and two chimneys, a balcony roof over the entrance, its corners rounded in wide curves"
+  "describe": "two-storey villa, hipped roof of red clay tiles with a dormer and two chimneys, a balcony roof over the entrance, its corners rounded in wide curves",
+  "chimneys": [[-3.52, -3.15, -3.07, -3.15], [3.33, -3.15, 3.78, -3.15]],
+  "potWidthM": 0.45
 }

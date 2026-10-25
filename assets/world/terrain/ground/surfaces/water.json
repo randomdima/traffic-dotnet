@@ -1,0 +1,11 @@
+{
+ "id": "water",
+ "kind": "Surface",
+ "sprite": "water.webp",
+ "describe": "a calm town river seen straight down, deep blue-green, small ripples a few tens of centimetres across running every way at once, no foam, no shore, no reflection of anything",
+ "mosaic": 2,
+ "looks": [
+  {"describe": "still deep water, soft small ripples with a very few pale glints", "tiles": 2},
+  {"describe": "slightly livelier water, a touch lighter and greener, more broken ripples with more small pale glints", "tiles": 2}
+ ]
+}

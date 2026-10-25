@@ -1,10 +1,14 @@
 {
   "id": "school_wings",
   "sprite": "school_wings.webp",
+  "describe": "school with two side wings, hipped roofs of grey slate on the wings, a flat roof with a skylight on the middle block",
   "footprintM": [19.00, 18.46],
   "partsM": [
     { "atM": [0.0, 0.24], "sizeM": [18.46, 17.64] },
     { "atM": [-6.18, -2.38], "sizeM": [6.63, 13.54] },
     { "atM": [6.21, -2.38], "sizeM": [6.57, 13.54] }
+  ],
+  "fans": [
+    { "atM": [1.9064, 3.2249], "rimAtM": [1.9069, 3.234], "rimM": [0.3496, 0.3441] }
   ]
 }

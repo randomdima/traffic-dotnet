@@ -1,0 +1,9 @@
+{
+  "id": "fruit_stall",
+  "sprite": "fruit_stall.webp",
+  "kind": 2,
+  "footprintM": [1.8, 0.919],
+  "share": 0.3,
+  "turns": true,
+  "describe": "trestle table of fruit crates, apples, apricots and tomatoes"
+}

@@ -1,5 +1,20 @@
 """
-Cut a car's props (its lamps) out of its sprite as arc polygons, traced off the art, then looked at and adjusted.
+Cut a car's props (its lamps) out of its sprite as arc polygons, traced off the art, then looked at and adjusted; and a
+rail vehicle's or a roof's (its fans).
+
+**A rail vehicle's props are its fans, and so are a roof's** (an id under assets/agents/train/variants/, TRN-13; a
+prefab's under assets/world/building/prefabs/<look>/ or a civic roof's under assets/world/building/variants/, OBJ-6):
+`seed` finds every round dark opening with blades in a pale box (`_props_trace.fan_hubs`) and traces each from its hub;
+`find` lists what it found and the near misses. It is a first probe: it takes a roof drain with a pale flange for a
+fan and misses one a unit's neighbour shades, so look at every roof, `remove` what is none, and `trace V --prop=fanN
+--at=X,Y` from a texel of a missed hub, which reads the dark round opening (`--lens=disc`, an ellipse through the rims
+found along rays out of the hub), drawn once; look at it bare and `snap` it as any prop; `install` writes the picture's `fans` — each its hub, sought where the rings round it are most even, and
+its rim, the ellipse fitted through the outline — and keeps the props beside the picture's variant. A fan's opening is
+drawn over in one of the fans' looks (`assets/world/building/fans/`), its middle on the hub and its edge on the rim, so a
+fan the art drew squashed turns round and covers all of it. Put the outline on
+the opening's outer rim. A roof's fan is a round grille with blades behind it;
+a louvred or square vent, or a twin unit a few texels across, is not one. Nothing else here (lamp kinds, mirror,
+audit) applies to either.
 
 **What a prop is for.** The game lights a prop when its lamp is on, so a prop is the lens the art drew, all of it and
 nothing else: a brake lights red over its lens, an indicator blinks amber over its own. Every prop is:
@@ -85,8 +100,8 @@ is `mirror`'s (7): its lamps are painted from these.
 6. `install CAR`: the game's lamps. The car's zone map is painted from the props (a channel a glass colour, so a
    section inside a housing burns with both), each prop's lens a side becomes a `lamps` entry boxed on its texels,
    and the props file is kept beside the sprite's variant under raw_assets/, as `<variant>.props.json` — one a
-   picture, never written over by another's. It refuses a lens reaching past the lamp sheet's cell (20 texels from
-   its centre) or more than ten. A new picture (`qq sprites use`) drops them; `restore CAR` brings back the props
+   picture, never written over by another's. It refuses a lens reaching past the lamp sheet's cell (INSTALL_CELL_PX:
+   under 56 texels a side, 28 from its centre) or more than ten. A new picture (`qq sprites use`) drops them; `restore CAR` brings back the props
    kept for the picture the sprite is, and `install` puts them back in the game.
 7. `mirror CAR`: the copy side's lamp art painted from the authored side's, each lamp reflected where its prop's copy
    lies, on the picture at its own resolution — the body, its outline and its paint as drawn (paint is never painted
@@ -165,6 +180,9 @@ rather than following its rim), `"lock": true` (out of snap).
     restore CAR                   the props kept for the sprite's picture back as the working file
     mirror CAR                    the copy side's lamp art painted from the authored side's, kept as a new picture,
                                   installed with these props
+    audit all|CAR,CAR             each installed car's kept props against its art: a lens on its frame (ON THE
+                                  FRAME, lit as a dark hole), a lens-coloured patch a lens covers only part of
+                                  (SHORT), a framed one none covers (UNCUT) — the cars to restore and look at
     show CAR [--end=rear]         both ends; or one end, the authored side (`--copy`: the copy side's view too)
     show CAR --prop=P             one prop, the authored side, its parts named
     show CAR --prop=P --vertex=N  round one vertex
@@ -208,6 +226,11 @@ from common import cli, paths
 TIMEOUT_S = 120
 
 VARIANTS = "assets/agents/car/variants"
+#: A rail vehicle's props are its fans, cut here as a car's lamps are and installed as the geometry it turns; and so
+#: are a roof's, a prefab's in its look's folder or a civic roof's in its own.
+TRAINS = "assets/agents/train/variants"
+PREFABS = "assets/world/building/prefabs"
+ROOFS = "assets/world/building/variants"
 ID = re.compile(r"^[a-z0-9_]{1,40}$")
 #: How far from each end of the body its lamps can be, in metres: the end a show draws.
 END_M = 0.8
@@ -240,6 +263,8 @@ SURVEY_ROWS = 8
 def main():
     a = parse_args()
     base = _sim.root()
+    if a.action == "audit":
+        return audit(base, a.car)
     if not ID.match(a.car):
         cli.fail(f"{a.car!r} is not a car id")
     folder = paths.resolve_in_root(a.dir, base)
@@ -248,14 +273,23 @@ def main():
     folder.mkdir(parents=True, exist_ok=True)
     car = load_car(base, a.car)
     car["pull"] = a.pull
+    if car["fans_only"] and a.action == "mirror":
+        cli.fail(f"{a.car} is {car['what']}: its props are fans, drawn once, and nothing of it is mirrored")
     doc_path = folder / f"{a.car}.json"
     if a.action == "seed":
         if doc_path.exists() and not a.force:
             cli.fail(f"{_sim.rel(base, doc_path)} exists: `--force` to seed over it (`undo` steps back)")
-        doc, notes = seeded(car)
+        if car["fans_only"]:
+            doc = seeded_fans(car)
+            notes = traced_fans(doc, car)
+            said = (f"seeded, every fan found traced from its hub: look at each, `remove` one that is none, and trace "
+                    f"one missed, `qq props trace {a.car} --prop=fanN --at=X,Y` (`find` lists the near misses)")
+        else:
+            doc, notes = seeded(car)
+            said = ("seeded, a first outline of each lamp traced off the art where a patch of its colour shows it: a "
+                    "probe to start from, each to check against the art and correct")
         save(doc_path, doc, backup=doc_path.exists())
-        print(f"{_sim.rel(base, doc_path)}: seeded, a first outline of each lamp traced off the art where a patch of its "
-              "colour shows it: a probe to start from, each to check against the art and correct")
+        print(f"{_sim.rel(base, doc_path)}: {said}")
         for line in notes:
             print(line)
         a.action = "show"
@@ -278,6 +312,11 @@ def main():
     if not doc_path.exists():
         cli.fail(f"no {_sim.rel(base, doc_path)}: `qq props seed {a.car}` first")
     doc = load(doc_path)
+    if a.action == "find" and car["fans_only"]:
+        for (x, y), r, rounded, blades, why in trace.fan_hubs(car):
+            print(f"  {x},{y}: rim voted at {r:.0f} texels, {rounded:.2f} round, {blades:.2f} blades — "
+                  f"{why or 'a fan'}")
+        return 0
     if a.action == "find":
         for end in ("rear", "front") if a.end == "both" else (a.end,):
             for line in survey(doc, car, end):
@@ -298,12 +337,18 @@ def main():
         if len(a.at) > 1:
             cli.fail("--at frames one texel; several are for trace and divide")
         a.at = a.at[0]
+    if car["fans_only"] and any(p["kind"] != FAN for p in doc["props"]):
+        cli.fail(f"{a.car} is {car['what']}, whose only props are fans: "
+                 f"{', '.join(p['name'] for p in doc['props'] if p['kind'] != FAN)} is not one")
+    if car["fans_only"] and a.action == "install":
+        return install_fans(base, doc_path, doc, car)
     names = {p["name"] for p in doc["props"]}
     for p in doc["props"]:
         if "part" in p and p["part"] not in names - {p["name"]}:
             cli.fail(f"{p['name']} is a part of {p['part']!r}, which is no prop of {_sim.rel(base, doc_path)}")
     chosen = [p for p in doc["props"] if a.prop in (None, p["name"])]
-    if not chosen:
+    # A picture seeded empty for its fans is still looked round, to find the hub its first fan is traced from.
+    if not chosen and (a.prop is not None or not car["fans_only"]):
         cli.fail(f"no prop {a.prop!r} in {_sim.rel(base, doc_path)}: {', '.join(sorted(names))}")
     one = chosen[0] if a.prop else None
     check_parts(a, one)
@@ -377,13 +422,16 @@ def parse_args():
         formatter_class=Help,
     )
     parser.add_argument("action", choices=["seed", "find", "trace", "show", "snap", "axis", "move", "bow", "split", "drop",
-                                           "divide", "remove", "undo", "cut", "install", "restore", "mirror"],
+                                           "divide", "remove", "undo", "cut", "install", "restore", "mirror", "audit"],
                         help="seed and trace every lamp it can, list each end's lens patches, trace one prop off the "
                              "art, look, pull onto the part, refit the axes, edit a part, divide a housing in two, "
                              "step back, cut, install "
-                             "into the game, restore the lamps kept for the sprite's picture, or mirror the authored "
-                             "side's lamp art onto the copy side")
-    parser.add_argument("car", help="the car's id, a folder under assets/agents/car/variants/")
+                             "into the game, restore the lamps kept for the sprite's picture, mirror the authored "
+                             "side's lamp art onto the copy side, or audit installed cars' lamps against their art")
+    parser.add_argument("car", help="the car's id, a folder under assets/agents/car/variants/, a rail vehicle's "
+                                    "under assets/agents/train/variants/, or a roof's: a prefab's under "
+                                    "assets/world/building/prefabs/<look>/ or a civic roof's under "
+                                    "assets/world/building/variants/; audit: car ids comma-separated, or all")
     parser.add_argument("--prop", default=None, help="the prop of this name: shown close up, snapped, or edited")
     parser.add_argument("--into", default=None, metavar="NAME",
                         help="divide: the new prop the smaller half becomes (a part of that name is replaced)")
@@ -394,10 +442,12 @@ def parse_args():
     parser.add_argument("--at", type=texel_list, default=None, metavar="X,Y",
                         help="show round this texel (without --prop); trace: a texel of the lens, or several joined "
                              "by + for a housing of several colours (X,Y+X,Y)")
-    parser.add_argument("--lens", default="auto", choices=["auto", "colour", "frame", "shade"],
+    parser.add_argument("--lens", default="auto", choices=["auto", "colour", "frame", "shade", "tint", "disc"],
                         help="trace: what tells the lens from what is round it — its colour class, the dark frame "
-                             "round it (a pale lens on pale paint), or its own few shades (a red lens on red paint); "
-                             "auto takes the first that stays within the lamp")
+                             "round it (a pale lens on pale paint), its own few shades (a red lens on red paint), "
+                             "its hue however dark (a beacon's glass, which a beacon_* prop is read by), or a fan's "
+                             "dark round opening out from its hub (which a fan* prop is read by); auto takes "
+                             "the first that stays within the lamp")
     parser.add_argument("--angle", type=bounded(-360, 360), default=None, metavar="DEG",
                         help="turn a --vertex or --at view: its left to right runs along DEG (an --edge view turns "
                              "itself to its edge)")
@@ -632,8 +682,11 @@ def near(doc, car, at, reach_px):
 
 
 def lens_count(doc):
-    """The lenses install writes: a prop or part a side it is drawn on."""
-    return sum(2 if fit.root_of(doc, p)["mirror"] else 1 for p in doc["props"])
+    """The lenses install writes: a prop or part a side it is drawn on, but a reverse beside traced beacons, whose glass
+    is the brake's (install)."""
+    beacons = any(p["kind"] in BEACON_KINDS for p in doc["props"])
+    return sum(2 if fit.root_of(doc, p)["mirror"] else 1 for p in doc["props"]
+               if not (beacons and p["kind"] == "reverse"))
 
 
 def remove(doc, p):
@@ -675,7 +728,13 @@ def load_car(base, car):
     import numpy as np
     from PIL import Image
 
-    folder = base / VARIANTS / car
+    folder, what = base / VARIANTS / car, None
+    if not folder.is_dir() and (base / TRAINS / car).is_dir():
+        folder, what = base / TRAINS / car, "a rail vehicle"
+    elif not folder.is_dir() and (base / ROOFS / car).is_dir():
+        folder, what = base / ROOFS / car, "a roof"
+    elif not folder.is_dir() and (prefab := next((base / PREFABS).glob(f"*/{car}.json"), None)):
+        folder, what = prefab.parent, "a roof"
     described = folder / f"{car}.json"
     if not described.exists():
         cli.fail(f"no car file {_sim.rel(base, described)}")
@@ -686,7 +745,8 @@ def load_car(base, car):
     traced = json.loads(src.read_text(encoding="utf-8"))
     ppm, variant = traced["pxPerM"], traced["variant"]
     rgba = np.asarray(Image.open(folder / d["sprite"]).convert("RGBA")).astype(np.float32) / 255
-    out = {"id": car, "file": d, "rgba": rgba, "ppm": ppm, "variant": variant, "end": int(round(END_M * ppm))}
+    out = {"id": car, "file": d, "rgba": rgba, "ppm": ppm, "variant": variant, "end": int(round(END_M * ppm)),
+           "folder": folder, "fans_only": what is not None, "what": what or "a car"}
     a = rgba[..., 3:4]
     out["colour"] = colour = rgba[..., :3] * a + np.array(fit.GROUND, np.float32) * (1 - a)
     out["dark"] = np.clip((fit.DARK_VAL_NONE - colour.max(-1)) / (fit.DARK_VAL_NONE - fit.DARK_VAL_FULL), 0, 1)
@@ -729,10 +789,20 @@ def end_columns(car, end):
 
 
 def kind_of(name):
-    kind = next((k for k in ("head", "brake", "reverse", "ind") if name.startswith(k)), None)
+    kind = next((k for k in (*BEACON_KINDS, FAN, "head", "brake", "reverse", "ind") if name.startswith(k)), None)
     if kind is None:
-        cli.fail(f"a new prop's kind is read off its name, which starts head, brake, reverse or ind: {name!r} does not")
+        cli.fail(f"a new prop's kind is read off its name, which starts head, brake, reverse, ind, {FAN} or "
+                 f"{', '.join(BEACON_KINDS)}: {name!r} does not")
     return kind
+
+
+#: A beacon bar's ends as prop kinds. Each is its own glass and its own colour, so one is never the other's mirror.
+BEACON_KINDS = ("beacon_red", "beacon_blue", "beacon_amber")
+#: A rail vehicle's fan: the round opening it turns in, drawn once wherever it stands across the roof, read off the art
+#: as a disc from its hub (`--lens=disc`).
+FAN = "fan"
+#: The props drawn once, never mirrored.
+ONCE_KINDS = (*BEACON_KINDS, FAN)
 
 
 def trace_prop(doc, car, name, seeds, by):
@@ -746,12 +816,18 @@ def trace_prop(doc, car, name, seeds, by):
     if any((x >= w / 2) != (end == "front") for x, _ in seeds):
         return None, "a lens's texels are all at one end"
     axis = doc["axisY"][end]
-    t, why = trace.traced(car, seeds, axis, by)
+    p = next((q for q in doc["props"] if q["name"] == name), None)
+    kind = p["kind"] if p is not None else kind_of(name)
+    # A beacon end is dark glass of any hue, drawn once: read by its tint, and never looked for on the other side. A fan
+    # is drawn once too, its disc read out from its hub.
+    once = kind in ONCE_KINDS
+    if by == "auto":
+        by = "tint" if kind in BEACON_KINDS else "disc" if kind == FAN else by
+    t, why = trace.traced(car, seeds, axis, by, mirror=not once)
     if t is None:
         return None, why
-    p = next((q for q in doc["props"] if q["name"] == name), None)
     if p is None:
-        p = {"name": name, "kind": kind_of(name), "mirror": True}
+        p = {"name": name, "kind": kind, "mirror": not once}
         doc["props"].append(p)
     # Judged on the authored side, which was traced: the copy side may draw a section otherwise. A lens lying in a
     # main lamp's housing is a section over it; any other lens it touches it keeps off, or the two would share the
@@ -765,14 +841,18 @@ def trace_prop(doc, car, name, seeds, by):
     if host[0] < SECTION_SHARE and (away := np.any(list(cover.values()), 0) if cover else None) is not None \
             and (away & t["mask"]).any():
         # Kept off what it touches; where that leaves nothing, the lens as traced, its overlap for the report to name.
-        t = trace.traced(car, seeds, axis, by, away=away)[0] or t
+        t = trace.traced(car, seeds, axis, by, mirror=not once, away=away)[0] or t
     for key in ("part", "side", "share", "hold", "lock", "pull", "round", "axisY", "mirrorDx"):
         p.pop(key, None)
-    p["mirror"] = True
+    p["mirror"] = p["kind"] not in ONCE_KINDS
     p["points"] = fit.rounded(t["points"])
     said = f"  {name}: traced by {', '.join(t['how'])} from {len(seeds)} texel{'s' if len(seeds) > 1 else ''}, " \
            f"{len(p['points'])} pts"
-    if t["copy"] is None:
+    if p["kind"] == FAN:
+        said += "; a fan, drawn once: a fan's look is laid over this outline, its edge on it, and turns"
+    elif not p["mirror"]:
+        said += "; a beacon end, drawn once: the other end is a lens of its own colour"
+    elif t["copy"] is None:
         said += "; the copy side draws no such lens, so the copy is the end's mirror image"
     else:
         a_y, dx, agree = t["copy"]
@@ -834,6 +914,30 @@ def seeded(car):
     for end in ("rear", "front"):
         notes += survey(doc, car, end)
     return doc, notes
+
+
+def seeded_fans(car):
+    """A rail vehicle's or a roof's props file before its first fan is traced: no props, each end's axis its picture's
+    middle."""
+    return {"car": car["id"], "sprite": sprite_cut_on(car),
+            "axisY": {e: body_middle(car, e) for e in ("rear", "front")}, "props": []}
+
+
+def traced_fans(doc, car):
+    """seed's fans: each the picture draws (`trace.fan_hubs`) traced from its hub as fan1, fan2, … by its hub's row,
+    then column; a line a fan."""
+    import numpy as np
+
+    hubs = sorted((hub for hub, _, _, _, why in trace.fan_hubs(car) if why is None), key=lambda h: (h[1], h[0]))
+    lines = []
+    for hub in hubs:
+        # A rim voted on a blade's arc leaves the hub off the middle: traced again from the middle of what it read.
+        if (m := trace.disc(car, hub)[0]) is not None and m.any():
+            ys, xs = np.nonzero(m)
+            hub = (int(xs.mean()), int(ys.mean()))
+        p, said = trace_prop(doc, car, f"fan{len(doc['props']) + 1}", [hub], "disc")
+        lines.append(said if p is not None else f"  hub {hub[0]},{hub[1]}: {said}")
+    return lines or [f"  no fan found: {car['id']} draws none, or `find` lists it among the near misses"]
 
 
 def traced_end(doc, car, end, done):
@@ -1086,6 +1190,68 @@ def overlaps(doc, car, end, names):
     return lines
 
 
+#: Audit: a lens this share of whose texels are frame-dark sits on its frame rather than its glass; a patch of lens
+#: colour of AUDIT_PATCH_PX that the props cover partly, under AUDIT_COVERED of it and AUDIT_SHORT_PX short past their
+#: rim, is a lens cut smaller than drawn; one of AUDIT_UNCUT_PX they miss, framed, a lens nobody cut.
+AUDIT_DARK, AUDIT_PATCH_PX, AUDIT_COVERED, AUDIT_SHORT_PX, AUDIT_UNCUT_PX = 0.25, 12, 0.8, 8, 30
+
+
+def audit(base, which):
+    """Every installed car's kept props held against its art: a line for each lens cut on its frame, each patch of
+    lens colour a lens covers only part of, and each framed one none covers. What `show` then looks at."""
+    import numpy as np
+
+    folder = base / VARIANTS
+    ids = sorted(d.name for d in folder.iterdir() if (d / f"{d.name}_zones.png").is_file()) if which == "all" \
+        else which.split(",")
+    flagged = 0
+    for cid in ids:
+        car = load_car(base, cid)
+        kept = kept_props(base, car)
+        if not kept.is_file():
+            print(f"{cid}: no props kept for {Path(car['variant']).name}")
+            continue
+        doc = load(kept)
+        if doc.get("sprite", {}).get("variant", car["variant"]) != car["variant"]:
+            print(f"{cid}: props cut on another picture")
+            continue
+        onto_sprite(doc, car)
+        shape = car["rgba"].shape[:2]
+        solid = car["rgba"][..., 3] > 0.5
+        lines = []
+        for p in doc["props"]:
+            if p["kind"] in BEACON_KINDS:
+                continue
+            for side, ring in zip(("authored", "copy"), fit.rings(doc, car, p)):
+                inside = (fit.coverage([ring], shape) > 0.5) & solid
+                if inside.any() and (dark := float((car["dark"][inside] > 0.5).mean())) >= AUDIT_DARK:
+                    ys, xs = np.nonzero(inside)
+                    lines.append(f"  {p['name']:<12} ON THE FRAME ({side}): {dark:.0%} frame-dark over {int(inside.sum())} "
+                                 f"px, x {xs.min()}-{xs.max()} y {ys.min()}-{ys.max()}")
+        for end in ("rear", "front"):
+            here = [p for p in doc["props"] if fit.end_of(doc, car, p) == end]
+            cover = {p["name"]: fit.coverage(fit.rings(doc, car, p)[:1], shape) > 0.5 for p in here}
+            under = np.any(list(cover.values()), 0) if cover else np.zeros(shape, bool)
+            # A texel next to a lens is its anti-aliased rim, which the outline rightly leaves at the frame.
+            near = fit.window(under, 1, np.max)
+            for c, m, (x, y) in trace.patches(car, end_columns(car, end), doc["axisY"][end]):
+                px = int(m.sum())
+                got = px - int((m & ~near).sum())
+                colour = dict(r="red", a="amber", w="pale")[c]
+                names = ", ".join(n for n, q in cover.items() if (m & q).any())
+                if px >= AUDIT_PATCH_PX and names and got < AUDIT_COVERED * px and px - got >= AUDIT_SHORT_PX:
+                    lines.append(f"  {end:<12} SHORT: {colour} patch {px} px at {x},{y}, {got / px:.0%} under {names}")
+                elif not (m & under).any() and px >= AUDIT_UNCUT_PX and trace.framed(car, m) >= OTHER_RED_FRAMED:
+                    lines.append(f"  {end:<12} UNCUT: {colour} patch {px} px at {x},{y}, framed {trace.framed(car, m):.0%}")
+        if lines:
+            flagged += 1
+            print(cid)
+            for line in lines:
+                print(line)
+    print(f"{flagged} of {len(ids)} cars flagged")
+    return 0
+
+
 def edge_table(doc, car, p, reach):
     """Every edge of one prop: its ends, chord and bow, its contrast, and where the rim search snap and the unrolled
     strips make, within `reach`, finds its rim at each end — positive out — with the bow that would follow it: on the
@@ -1324,7 +1490,8 @@ def kept_props(base, car):
 
 def install(base, doc_path, doc, car):
     """The props into the game: the car's zone map painted from them, a lens a side of each in its `lamps`, and the
-    props file kept under raw_assets/ as what both were made from."""
+    props file kept under raw_assets/ as what both were made from. A service car's beacon lenses are kept, and with
+    them its brake lamp is the `rear` fitting (red braking, white reversing), which is what fits CarLamps.MostLenses."""
     import numpy as np
     from PIL import Image
 
@@ -1338,9 +1505,19 @@ def install(base, doc_path, doc, car):
     zones[..., 3] = 255
     foot = car["file"]["footprintM"]
     per_m = (w / foot[0], h / foot[1])
+    traced_beacons = any(p["kind"] in BEACON_KINDS for p in doc["props"])
+    # A bar whose ends are traced props is cut like every other lamp; one that is not keeps `qq beacons fit`'s lenses.
+    beacons = [] if traced_beacons else \
+        [lamp for lamp in car["file"].get("lamps", []) if lamp["fitting"].startswith("beacon")]
     rows, problems = [], []
     for p in doc["props"]:
         cov = (fit.prop_coverage(doc, car, p, (h, w)) > 0.5) & solid
+        if (beacons or traced_beacons) and p["kind"] == "reverse":
+            # A car with a beacon bar has no lens to spare for it: its glass is the brake's, and the brake lens lights
+            # white in reverse (`rear`).
+            zones[cov, INSTALL_GLASS["brake"]] = 255
+            print(f"{p['name']}: no lens of its own, brake glass under the `rear` fitting beside the beacons")
+            continue
         zones[cov, INSTALL_GLASS[p["kind"]]] = 255
         # A prop drawn once (lopsided art: one a side) and its parts cover one side, a mirrored one both.
         both = fit.root_of(doc, p)["mirror"]
@@ -1355,10 +1532,14 @@ def install(base, doc_path, doc, car):
             cx, cy = round((x0 + x1) / 2), round((y0 + y1) / 2)
             if fault := cell_overrun(xs, ys):
                 problems.append(f"{p['name']} ({side}): {fault}")
-            rows.append((INSTALL_FITTING[p["kind"]], (round(cx / per_m[0] - foot[0] / 2, 3), round(cy / per_m[1] - foot[1] / 2, 3)),
+            fitting = "rear" if (beacons or traced_beacons) and p["kind"] == "brake" else INSTALL_FITTING[p["kind"]]
+            rows.append((fitting, (round(cx / per_m[0] - foot[0] / 2, 3), round(cy / per_m[1] - foot[1] / 2, 3)),
                          (round((x1 - x0) / per_m[0], 3), round((y1 - y0) / per_m[1], 3))))
+    # The beacons are `qq beacons fit`'s, laid on the picture rather than cut off it: kept as they stand.
+    rows += [(lamp["fitting"], tuple(lamp["atM"]), tuple(lamp["sizeM"])) for lamp in beacons]
     if len(rows) > INSTALL_MOST_LENSES:
-        problems.append(f"{len(rows)} lenses, and a car may draw {INSTALL_MOST_LENSES}")
+        problems.append(f"{len(rows)} lenses{f' ({len(beacons)} of them beacons)' if beacons else ''}, and a car may "
+                        f"draw {INSTALL_MOST_LENSES}")
     if problems:
         cli.fail("not installed:\n  " + "\n  ".join(problems))
 
@@ -1399,17 +1580,121 @@ def install(base, doc_path, doc, car):
     return 0
 
 
-#: A prop's kind as the bake's glass channel (LampAtlasBake.Holds) and as a fitting of the car file.
-INSTALL_GLASS = {"brake": 0, "ind": 1, "head": 2, "reverse": 2}
-INSTALL_FITTING = {"brake": "brake", "ind": "indicator", "head": "head", "reverse": "reverse"}
+def install_fans(base, doc_path, doc, car):
+    """A rail vehicle's or a roof's fans into the game, as its file's `fans` (DrawnFan): each its hub and its rim — the
+    ellipse square to the picture fitted through its outline, as the art drew the opening, squashed or not — which the game warps
+    onto a circle about the hub to turn it. The props file is kept under raw_assets/ as what they were cut from. The hub
+    is where the rings round it are most alike all the way round (`unevenness`), in HUB_SEEK_PX of the outline's
+    middle, to the half texel."""
+    import numpy as np
+
+    if onto_sprite(doc, car):
+        print(f"{_sim.rel(base, doc_path)}: scaled onto the sprite at {doc['sprite']['sizePx'][0]}x"
+              f"{doc['sprite']['sizePx'][1]} px")
+    save(doc_path, doc, backup=True)
+    fans = [p for p in doc["props"] if "points" in p]
+    if not fans:
+        cli.fail(f"{_sim.rel(base, doc_path)} has no fan to install: `trace {car['id']} --prop=fan1 --at=X,Y` first")
+    h, w = car["rgba"].shape[:2]
+    foot = car["file"]["footprintM"]
+    per_m = (w / foot[0], h / foot[1])
+    lum = car["colour"].mean(-1)
+    rows = []
+    for p in fans:
+        ring = fit.rings(doc, car, p)[0]
+        cov = fit.prop_coverage(doc, car, p, (h, w)) > 0.5
+        ys, xs = np.nonzero(cov)
+        middle = (xs.mean() + 0.5, ys.mean() + 0.5)
+        inscribed = lambda c: float(np.hypot(ring[:, 0] - c[0], ring[:, 1] - c[1]).min())
+        seek = np.arange(-HUB_SEEK_PX, HUB_SEEK_PX + 1e-6, 0.5)
+        reach = HUB_SHARE * inscribed(middle)
+        hub = min(((round(middle[0] * 2) / 2 + dx, round(middle[1] * 2) / 2 + dy) for dx in seek for dy in seek),
+                  key=lambda c: unevenness(lum, c, reach))
+        (cx, cy), (rx, ry) = rim_of(ring)
+        to_m = lambda x, y: (round(x / per_m[0] - foot[0] / 2, 4), round(y / per_m[1] - foot[1] / 2, 4))
+        rows.append((to_m(*hub), to_m(cx, cy), (round(rx / per_m[0], 4), round(ry / per_m[1], 4))))
+        print(f"{p['name']}: hub {hub[0]:.1f},{hub[1]:.1f}; rim about {cx:.1f},{cy:.1f}, {rx:.1f} by {ry:.1f} texels "
+              f"({abs(rx - ry) / max(rx, ry):.0%} out of round), {2 * rx / per_m[0]:.2f} by {2 * ry / per_m[1]:.2f} m")
+
+    described = car["folder"] / f"{car['id']}.json"
+    raw = kept_props(base, car)
+    shutil.copy(doc_path, raw)
+    text = described.read_text(encoding="utf-8")
+    listed = ",\n".join(f'    {{ "atM": [{hx}, {hy}], "rimAtM": [{cx}, {cy}], "rimM": [{rx}, {ry}] }}'
+                        for (hx, hy), (cx, cy), (rx, ry) in rows)
+    block = f'"fans": [\n{listed}\n  ]'
+    if (at := text.find('"fans"')) >= 0:
+        depth, end = 0, text.index("[", at)
+        for end in range(end, len(text)):
+            depth += {"[": 1, "]": -1}.get(text[end], 0)
+            if depth == 0:
+                break
+        text = text[:at] + block + text[end + 1:]
+    else:
+        text, n = re.subn(r'\n\}\s*$', f',\n  {block}\n}}\n', text.rstrip() + "\n", count=1)
+        if not n:
+            cli.fail(f"cannot place a fans array at the end of {_sim.rel(base, described)}")
+    described.write_text(text, encoding="utf-8")
+    print(f"{_sim.rel(base, described)}: {len(rows)} fan{'s' if len(rows) != 1 else ''}")
+    print(f"{_sim.rel(base, raw)}: what they were cut from")
+    return 0
+
+
+def rim_of(ring):
+    """A fan's rim as the ellipse square to the body through its outline, A·x² + B·y² + C·x + D·y = 1 about the
+    outline's middle: ((centre x, y), (half-axis x, y)), in texels."""
+    import numpy as np
+
+    mx, my = ring[:, 0].mean(), ring[:, 1].mean()
+    xs, ys = ring[:, 0] - mx, ring[:, 1] - my
+    a, b, c, d = np.linalg.lstsq(np.stack([xs * xs, ys * ys, xs, ys], 1), np.ones(len(xs)), rcond=None)[0]
+    ex, ey = -c / (2 * a), -d / (2 * b)
+    scale = 1 + a * ex * ex + b * ey * ey
+    return (float(mx + ex), float(my + ey)), (math.sqrt(scale / a), math.sqrt(scale / b))
+
+
+#: How far from its outline's middle a fan's hub is looked for, in texels: the art draws the shroud a texel or so off
+#: the hub its blades turn about (`diesel_green`).
+HUB_SEEK_PX = 2
+#: The share of a fan's reach its hub is judged over, and the rays each ring of it is read along. The hub only: out
+#: to the shroud, a ring drawn a texel off the hub pulls the centre onto itself, and the blades' speckled ground
+#: matches itself turned too poorly for the blades to say where they turn (`diesel_blue`'s 8 read as 7 or 9).
+HUB_SHARE, HUB_RAYS = 0.4, 96
+
+
+def unevenness(lum, centre, radius):
+    """How much the rings about a centre change going round, out to `radius`: least about the hub, whose rings are
+    each one shade all the way round, the spokes crossing every one of them alike."""
+    import numpy as np
+
+    h, w = lum.shape
+    angles = np.linspace(0, 2 * math.pi, HUB_RAYS, endpoint=False)
+    total = 0.0
+    for r in np.arange(1.0, radius, 0.5):
+        # Bilinear, so a centre half a texel over is judged on what lies there rather than on the texel it rounds to.
+        fx, fy = centre[0] + r * np.cos(angles) - 0.5, centre[1] + r * np.sin(angles) - 0.5
+        x0, y0 = np.floor(fx).astype(int), np.floor(fy).astype(int)
+        tx, ty = fx - x0, fy - y0
+        pick = lambda rows, cols: lum[np.clip(rows, 0, h - 1), np.clip(cols, 0, w - 1)]
+        ring = (pick(y0, x0) * (1 - tx) * (1 - ty) + pick(y0, x0 + 1) * tx * (1 - ty)
+                + pick(y0 + 1, x0) * (1 - tx) * ty + pick(y0 + 1, x0 + 1) * tx * ty)
+        total += float(ring.var())
+    return total
+
+
+#: A prop's kind as the bake's glass channel (LampAtlasBake.Holds) and as a fitting of the car file. A beacon end
+#: shares its colour's channel with the lamps at the car's ends, which no beacon's cell reaches.
+INSTALL_GLASS = {"brake": 0, "ind": 1, "head": 2, "reverse": 2, "beacon_red": 0, "beacon_amber": 1, "beacon_blue": 2}
+INSTALL_FITTING = {"brake": "brake", "ind": "indicator", "head": "head", "reverse": "reverse",
+                   "beacon_red": "beaconRed", "beacon_blue": "beaconBlue", "beacon_amber": "beaconAmber"}
 #: LampAtlas.CellPx and CarLamps.MostLenses.
-INSTALL_CELL_PX, INSTALL_MOST_LENSES = 40, 10
+INSTALL_CELL_PX, INSTALL_MOST_LENSES = 56, 10
 
 
 def cell_overrun(xs, ys):
     """Why the lamp sheet's cell cannot hold a lens of these texels, or None. The bake finds a lens's texels only
-    within a cell centred on it, and a lens the cell's whole 40 texels long is written 0.417 m, past the cell's
-    0.4167, which `LampAtlasTests.EveryLensFitsTheCellItIsCutInto` refuses (`hatch90s_black`, `budgetsuv_brown`)."""
+    within a cell centred on it, and a lens the cell's whole width long is written past the cell, which
+    `LampAtlasTests.EveryLensFitsTheCellItIsCutInto` refuses (`hatch90s_black`, `budgetsuv_brown` at the old 40)."""
     x0, x1, y0, y1 = int(xs.min()), int(xs.max()) + 1, int(ys.min()), int(ys.max()) + 1
     cx, cy = round((x0 + x1) / 2), round((y0 + y1) / 2)
     reach = max(cx - x0, x1 - cx, cy - y0, y1 - cy)

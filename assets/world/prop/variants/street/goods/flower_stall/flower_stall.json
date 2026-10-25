@@ -1,0 +1,9 @@
+{
+  "id": "flower_stall",
+  "sprite": "flower_stall.webp",
+  "kind": 2,
+  "footprintM": [1.6, 0.832],
+  "share": 0.3,
+  "turns": true,
+  "describe": "street flower seller's stand, buckets of roses, peonies and chrysanthemums on a low table"
+}

@@ -1,9 +1,18 @@
 {
   "id": "dep_store",
   "sprite": "dep_store.webp",
+  "describe": "three-storey department store, flat olive-grey roof with a parapet, a plant room, air conditioner units and roof lights, a striped awning inside the street edge",
   "footprintM": [18.00, 17.96],
   "partsM": [
     { "atM": [0.0, -0.79], "sizeM": [18.0, 16.23] },
     { "atM": [-0.02, 0.0], "sizeM": [6.94, 17.96] }
-  ]
+  ],
+  "fans": [
+    { "atM": [4.2387, -6.2705], "rimAtM": [4.2647, -6.2562], "rimM": [0.4631, 0.4537] },
+    { "atM": [5.8452, -6.2899], "rimAtM": [5.8633, -6.261], "rimM": [0.4715, 0.4546] },
+    { "atM": [-5.5548, -1.5096], "rimAtM": [-5.5418, -1.4985], "rimM": [0.4757, 0.4609] },
+    { "atM": [5.6903, 1.5096], "rimAtM": [5.7029, 1.5347], "rimM": [0.4689, 0.4516] }
+  ],
+  "chimneys": [[-0.57, -1.29]],
+  "potWidthM": 0.6
 }

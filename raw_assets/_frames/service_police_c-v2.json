@@ -1,0 +1,62 @@
+{
+ "id": "service_police_c-v2",
+ "ts": "2026-10-22T20:10:04",
+ "op": "edit",
+ "name": "service_police_c",
+ "file": ".tmp/gen/frames/service_police_c-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.017818,
+ "usage": {
+  "prompt_tokens": 1694,
+  "completion_tokens": 158,
+  "total_tokens": 1852,
+  "cost": 0.017818,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.017818,
+   "upstream_inference_prompt_cost": 0.013078,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Image 1 is a finished sprite sheet of nine police cars seen from straight above. Only the transparent strips of the mask are redrawn: they lie along the two long edges of the roofs of car 4 (middle row, left) and car 8 (bottom row, middle), where roof rails were drawn. Paint those strips as plain smooth roof, continuing the roof round them exactly — white on car 4, black on car 8 — with the roof's own shading and its thin edge line where the roof meets the side glass. No roof rails, bars, racks or anything else on the roof. Match image 1's art style exactly. Everything outside the strips stays as it is.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "f969fb1583c9f80a",
+   "ext": "png",
+   "frame": "service_police_c-v1",
+   "was": ".tmp/gen/frames/service_police_c-v1.png"
+  },
+  {
+   "role": "mask",
+   "sha": "d012026407de69ed",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_police_c_rails_mask.png"
+  }
+ ],
+ "cells": [
+  "policeniva_white",
+  "policesaloon80s_white",
+  "policehatch_white",
+  "policesuv_white",
+  "police_white",
+  "policevan_white",
+  "policehybrid_white",
+  "policecrossover_white",
+  "policesaloon_white"
+ ]
+}

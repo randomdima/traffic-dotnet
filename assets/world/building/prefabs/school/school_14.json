@@ -1,8 +1,9 @@
 {
   "id": "school_14",
+  "sprite": "school_14.webp",
   "footprintM": [
-    39.0,
-    30.0
+    62.4,
+    48.0
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +16,17 @@
     "soviet",
     "school wing"
   ],
-  "describe": "Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks"
+  "describe": "Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks",
+  "fans": [
+    { "atM": [-24.57, -18.6282], "rimAtM": [-24.579, -18.5641], "rimM": [1.0106, 0.9805] },
+    { "atM": [19.24, -16.8087], "rimAtM": [19.2419, -16.7655], "rimM": [0.8741, 0.8637] },
+    { "atM": [19.24, -14.7726], "rimAtM": [19.252, -14.73], "rimM": [0.8747, 0.8842] },
+    { "atM": [-21.7533, -5.5451], "rimAtM": [-21.7535, -5.4693], "rimM": [0.8882, 0.8766] },
+    { "atM": [20.7133, -5.3285], "rimAtM": [20.7237, -5.2569], "rimM": [1.0235, 0.998] },
+    { "atM": [-0.6067, -4.2455], "rimAtM": [-0.6606, -4.1474], "rimM": [1.0147, 1.0365] },
+    { "atM": [-21.7533, -3.4657], "rimAtM": [-21.7566, -3.3861], "rimM": [0.8824, 0.8904] },
+    { "atM": [23.3567, 16.2022], "rimAtM": [23.3694, 16.2599], "rimM": [1.0001, 0.9991] }
+  ],
+  "chimneys": [[14.57, -15.12], [25.83, -15.12], [-8.99, 3.31], [8.61, 1.42], [4.54, 5.48], [19.39, 9.92], [-22.14, 18.05]],
+  "potWidthM": 0.6
 }

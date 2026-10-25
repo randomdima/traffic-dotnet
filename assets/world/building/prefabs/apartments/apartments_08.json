@@ -2,8 +2,8 @@
   "id": "apartments_08",
   "sprite": "apartments_08.webp",
   "footprintM": [
-    9.0,
-    7.5
+    11.7,
+    9.8
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,7 @@
     "old town",
     "19th century"
   ],
-  "describe": "19th-century Odesa tenement house, pitched roof of weathered terracotta tiles with brick chimney stacks and roof hatches, a parapet along the street front"
+  "describe": "19th-century Odesa tenement house, pitched roof of weathered terracotta tiles with brick chimney stacks and roof hatches, a parapet along the street front",
+  "chimneys": [[-3.72, -3.27, -3.07, -3.27]],
+  "potWidthM": 0.65
 }

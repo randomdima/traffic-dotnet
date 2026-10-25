@@ -1,0 +1,10 @@
+{
+  "id": "dumpster_open",
+  "sprite": "dumpster_open.webp",
+  "kind": 2,
+  "footprintM": [1.4, 1.248],
+  "cornerRadiusM": 0.05,
+  "share": 1.2,
+  "turns": true,
+  "describe": "grey 1100 litre waste container, one lid open showing bags and boxes heaped inside"
+}

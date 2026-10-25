@@ -1,11 +1,18 @@
 {
   "id": "police_station",
   "sprite": "police_station.webp",
-  "footprintM": [18.00, 16.68],
+  "describe": "police station, flat light grey roof with a parapet, a plant room, air conditioner units and a radio mast, a dark blue band round the front wing's parapet",
+  "footprintM": [23.4, 21.7],
   "partsM": [
-    { "atM": [-0.29, -0.03], "sizeM": [17.0, 9.98] },
-    { "atM": [-2.43, -0.87], "sizeM": [11.3, 13.57] },
-    { "atM": [-0.44, -0.13], "sizeM": [5.49, 15.11] },
-    { "atM": [0.03, -0.61], "sizeM": [17.81, 8.0] }
+    { "atM": [0.0, -3.85], "sizeM": [23.4, 14.0] },
+    { "atM": [-4.2, 7.0], "sizeM": [15.0, 7.7] }
+  ],
+  "fans": [
+    { "atM": [8.2134, -8.5818], "rimAtM": [8.1861, -8.5509], "rimM": [0.3329, 0.3703] },
+    { "atM": [7.371, -8.5818], "rimAtM": [7.3881, -8.5448], "rimM": [0.3526, 0.3731] },
+    { "atM": [-8.2134, -0.7483], "rimAtM": [-8.1937, -0.7213], "rimM": [0.6366, 0.6375] },
+    { "atM": [7.7688, -0.7483], "rimAtM": [7.7582, -0.7183], "rimM": [0.6307, 0.639] },
+    { "atM": [-7.3242, 5.6588], "rimAtM": [-7.3143, 5.6676], "rimM": [0.6388, 0.6328] },
+    { "atM": [-5.4756, 5.6588], "rimAtM": [-5.4775, 5.6674], "rimM": [0.6244, 0.6308] }
   ]
 }

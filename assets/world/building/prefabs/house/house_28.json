@@ -2,8 +2,8 @@
   "id": "house_28",
   "sprite": "house_28.webp",
   "footprintM": [
-    10.0,
-    5.5
+    14.0,
+    7.7
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -15,5 +15,7 @@
     "faded terracotta tiles",
     "detached"
   ],
-  "describe": "detached family house, hipped roof of faded terracotta tiles, a chimney and a skylight, small porch roof over the door"
+  "describe": "detached family house, hipped roof of faded terracotta tiles, a chimney and a skylight, small porch roof over the door",
+  "chimneys": [[-3.75, -1.55, -3.35, -1.55]],
+  "potWidthM": 0.4
 }

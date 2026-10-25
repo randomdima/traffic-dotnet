@@ -1,0 +1,9 @@
+{
+  "id": "planter_concrete_square",
+  "sprite": "planter_concrete_square.webp",
+  "kind": 1,
+  "footprintM": [1.2, 1.205],
+  "cornerRadiusM": 0.05,
+  "turns": true,
+  "describe": "square concrete planter with a rough-cast rim, clipped box ball and pink begonias"
+}

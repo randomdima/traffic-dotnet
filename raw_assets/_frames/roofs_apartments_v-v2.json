@@ -1,0 +1,38 @@
+{
+ "id": "roofs_apartments_v-v2",
+ "ts": "2026-10-20T13:44:16",
+ "op": "edit",
+ "name": "roofs_apartments_v",
+ "file": ".tmp/gen/frames/roofs_apartments_v-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031016,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 2×1 grid. Redraw only cell 1 (the transparent area). Keep cell 2 exactly as it is, and match its style, colours and fine detail.\n\nThe faults in cell 1: the light well showed its inner walls with rows of windows and its floor, and each dormer was drawn as a little house with a wall and a window, all seen from the side. Looking straight down no wall is seen: the light well is a dark rectangular opening about 4 × 10 m showing only its rim, and a dormer is a small roof shape about 1.5 m wide (about 33 px here) with no wall or window showing. A chimney stack is about 0.6 m, about 13 px here.\n\nFor the redrawn cell, trace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: this block stands next to cars 4 m long (about 87 px here). No text.\n\n1. 20.8 × 43.6 m (2.1× deeper than wide) — deep old-town apartment block, hipped roof of dark bitumen round a light well, dormers and chimney stacks, standing narrow end to the street with the entrance on that short front wall",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "b4bc94c58ac717d2",
+   "ext": "png",
+   "frame": "roofs_apartments_v-v1",
+   "was": ".tmp/gen/frames/roofs_apartments_v-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "48453e9995fff259",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_apartments_v.png"
+  },
+  {
+   "role": "mask",
+   "sha": "5e99008e137612b5",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_apartments_v-v1/_mask_apartments_deep_21.png"
+  }
+ ]
+}

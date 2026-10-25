@@ -2,8 +2,8 @@
   "id": "industrial_deep_06",
   "sprite": "industrial_deep_06.webp",
   "footprintM": [
-    6.0,
-    15.0
+    9.0,
+    22.5
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],
@@ -16,5 +16,7 @@
     "workshop",
     "narrow front"
   ],
-  "describe": "small workshop or depot shed, shallow pitched roof of tar paper, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "small workshop or depot shed, shallow pitched roof of tar paper, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back",
+  "chimneys": [[2.1, -8.2, 2.7, -8.2]],
+  "potWidthM": 0.6
 }

@@ -1,33 +1,38 @@
 """
-Lay a sheet's template, cut a generated frame into sprites, keep and use them, and trace a sprite to its prompt.
+Lay a frame's style picture, cut a generated frame into sprites, keep and use them, and trace a sprite to its prompt.
 
-Most art is generated (the remotegen skill), nine or more assets to a frame. A frame is scratch in .tmp/gen/;
+Most art is generated (the remotegen skill), nine or more assets to a frame, asked in words with a style picture as
+the only image and drawn on a transparent background (the owner, 2026-10-25). A frame is scratch in .tmp/gen/;
 what is kept is each asset's cut variant, under raw_assets/ at the path its sprite has under assets/, with
 the record of the frame it came from and the pictures that frame was asked from — so any sprite in the game
 traces back to its first prompt, can be asked again, and has its variants beside it to compare. The rules
 are raw_assets/index.md.
 
-    qq sprites template house_03 house_07 ... --out=.tmp/gen/templates/house_a.png
-    qq sprites cut roofs_house_a-v1              every cell keyed and clipped; flags holes, spill, a part not drawn,
-                                                 and marks them on cuts/<frame>/_overlay.png
-    qq sprites mask roofs_house_a-v1 house_07    the frame with those cells transparent, for a remotegen --mask redo
+    qq sprites style house_05 house_09 --out=.tmp/gen/templates/roofs_a_style.png --cells=.tmp/gen/briefs/roofs_a.cells.json
+    qq sprites cut roofs_house_a-v1              every drawing found in its record's `cells` order and taken whole
+    qq sprites mask roofs_house_a-v1 house_07    the frame with those drawings transparent, for a remotegen --mask redo
     qq sprites keep roofs_house_a-v1 house_03 house_07 --score=4
     qq sprites use house_03-v2                   the variant becomes the game's sprite, at the art grid
     qq sprites trace house_03                    sprite -> variant -> frame(s) -> prompt and inputs
     qq sprites compare house_03                  every kept variant of one asset beside the sprite
     qq sprites check                             every image under assets/ traces, or is on the legacy list
 
-A car's wreck is asked, kept and used as `<car id>_broken` (`hatch_coral_broken`): the car's outline with nothing
-framed in it, installed as the file's `wreck.sprite`. Its zone map is `<car id>_zones`: the sheet its sprite was cut
-from, repainted by the generator in flat zone colours (ZONE_COLOURS), installed as the file's `zones` and read by the
-lamp bake (CAR-14a):
+A car's wreck is asked, kept and used as `<car id>_broken` (`hatch_coral_broken`), installed as the file's
+`wreck.sprite`. Its zone map is `<car id>_zones`: the sheet its sprite was cut from, repainted by the generator in flat
+zone colours (ZONE_COLOURS), installed as the file's `zones` and read by the lamp bake (CAR-14a):
 
     remotegen edit --image cars_civil_b-v3 -p "<zone brief>" --name cars_civil_b_zones
-    qq sprites cut cars_civil_b_zones-v1          fitted like any frame, quantised to the zones; flags a lamp unzoned
+    qq sprites cut cars_civil_b_zones-v1          laid onto its car's drawing, quantised to the zones
     qq sprites keep cars_civil_b_zones-v1 hatch_coral_zones && qq sprites use hatch_coral_zones-v1
 
-The template carries its cells in the PNG itself (a `cells` text chunk), and remotegen keeps every picture
-it sends by content hash, so `cut` needs nothing but the frame's id.
+A ground surface is asked as its looks' tiles, `<surface>_<look letter><n>` (`_surfaces.py`); once every look has one
+used, using any tile joins them all into the surface's picture, its looks stacked:
+
+    qq sprites keep ground_b-v1 grass_a1 grass_b1 && qq sprites use grass_a1-v1 && qq sprites use grass_b1-v1
+
+remotegen keeps the ids a frame draws in its record (`--cells`) and every picture it sends by content hash, so `cut`
+needs nothing but the frame's id. A frame asked from a layout before 2026-10-25 carries its cells in that layout's PNG
+(a `cells` text chunk) and is still cut by it, fitted and clipped, so a kept variant can be cut again.
 """
 
 from __future__ import annotations
@@ -42,6 +47,7 @@ import time
 from pathlib import Path
 
 import _sim
+import _surfaces
 import art
 from common import cli, paths
 
@@ -61,19 +67,17 @@ IMAGES = (".png", ".webp")
 
 #: GPT Image 2.5 Sunburst at 3:2, the only frame the remotegen skill asks for: it takes no resolution.
 SHEET_PX = (1536, 1024)
-#: The owner's floor: never fewer assets to a frame (remotegen SKILL.md).
-MIN_CELLS = 9
-#: The owner's allowance (2026-10-20): building roofs a 3x3 cell holds under their grid may go fewer to a frame, down to
-#: this, laid in whichever grid draws them largest — never a frame of one.
-BIG_ROOF_MIN_CELLS, BUILDINGS = 2, "assets/world/building/"
-#: The magenta such a frame keeps round its cells: the model will not paint within some 25 px of the picture's edge, so
-#: an outline laid there came back 10-30 % short (roofs_mixed_ab, _al, _u).
-BIG_ROOF_GAP_PX = 64
+#: Where the roofs' variant files are: a roof's whole drawing writes the rectangles it is built of (`write_parts`).
+BUILDINGS = "assets/world/building/"
 
-KEY, OUTLINE, FILL = (255, 0, 255), (30, 30, 30), (235, 235, 235)
-BORDER_PX, FRONT_PX = 3, 7
-#: Magenta kept between an outline and its cell's edge, so no two drawings touch.
+#: What follows down to THIN_ASPECT is the cut of a frame asked from a layout, before 2026-10-25: kept so a variant
+#: kept from one can be cut again (raw_assets/index.md, rule 6). No layout is laid any more.
+BORDER_PX = 3
+#: The magenta an old layout kept between an outline and its cell's edge; also the margin `looked_at` lays.
 GAP_PX = 24
+#: How far past its cell a ground square is looked for: where a square of texture lands says nothing about it, and the
+#: model packs a sheet's rows of them up to 50 px towards the top (ground_a-v1).
+SURFACE_REACH_PX = 2 * GAP_PX
 #: Background cut around an outline, so the key's flood starts on background however far a roof spilled.
 MARGIN_PX = 12
 #: Past these a cell is flagged for a look: background showing inside the outline, paint outside it.
@@ -111,24 +115,21 @@ DUST_PX = 8
 WEBP_ERROR = 6.0
 
 #: Per family, by its path under assets/: the art grid it is drawn at (a figure `qq art` reads off the engine), the
-#: edge its front is on, drawn thick on the template, and how its cells are laid. A car's sheet has its nose along +x
-#: (CarCatalog); a building's street front is at the bottom. A grid's cells are equal and the scale is what the
-#: largest fits; `rows` packs the cells along rows at the family's own grid, for assets far longer than wide — a
-#: train's vehicles (TRN-4), which a 3x3 grid would draw at well under the grid.
+#: edge its front is on, and how an old layout laid its cells (`rows` for a train's vehicles, TRN-4). A car's sheet
+#: has its nose along +x (CarCatalog); a building's street front is at the bottom.
 FAMILIES = {"agents/car/": ("CarSpritePixelsPerMetre", "right", "grid"), "agents/train/": ("ArtPixelsPerMetre", "right", "rows"),
-            "world/rail/": ("ArtPixelsPerMetre", "right", "grid")}
+            "world/rail/": ("ArtPixelsPerMetre", "right", "grid"),
+            "world/terrain/ground/kerbs/": ("CarSpritePixelsPerMetre", "bottom", "grid")}
 DEFAULT_FAMILY = ("ArtPixelsPerMetre", "bottom", "grid")
-#: A variant file of this kind is a strip the ground repeats along its length (RAIL-3): no front to mark, the two
-#: rails' lines guided on its template at the gauge `RAIL_FIGURES` states, and installed seamless (`seamless`).
+#: A variant file of this kind is a strip the ground repeats along its length (RAIL-3), installed seamless (`seamless`).
 TRACK = "Track"
-RAIL_FIGURES = "src/core/config/WorldFigures.cs"
-#: How a rail's guide line is drawn on a track's template: thin, in the steel the brief asks it painted over in.
-GUIDE, GUIDE_PX = (150, 150, 155), 2
-#: And where its sleepers end, the track file's own `sleeperLengthM`: dashed, in the ballast's brown.
-SLEEPER_END, DASH_PX = (150, 120, 90), 6
+#: And these are a kerb's strip (TER-3d), repeated along the line it is laid on the same way: its bottom edge is its low
+#: side, where the riser drops to the road or the grass, and it is installed cut at two of its joints (`at_joints`). Laid
+#: at the cars' grid, a kerb being a fifth of a metre across and read up close.
+KERBS = ("Kerb", "Edging")
 #: What an asset switches, by the key its variant file lists the parts under — each a `fitting`, `atM` from the
 #: footprint's centre in the sprite's axes (x right, y down) and `sizeM`, the area it is drawn inside in whatever
-#: shape the art gives it — and per fitting the colour its area is framed in on the template and the words the brief
+#: shape the art gives it — and per fitting the colour an old layout framed its area in and the words a brief
 #: asks for it in. The picture draws every part off; its zone map (ZONES) says which of its texels each part is, and
 #: the lit state is those texels burning (CAR-14a, raw_assets/index.md).
 PARTS = {"lamps": {
@@ -148,6 +149,10 @@ WRECK = "_broken"
 #: the generator with every part of each car one flat colour, and cut with its own fit — it is drawn to the outline
 #: as the sheet was, so both land on the shape. A frame is a zone map by its name: `--name <sheet>_zones`.
 ZONES = "_zones"
+#: A tow truck's arm (EVA-5) is two assets of its own, `<car id>` + a suffix here: each a picture the renderer turns
+#: about the beam's hinge, installed as the file's `beam.<state>.sprite` at its `sizeM`. Its hinge is at the picture's
+#: left, its fork's crossbar at the right.
+BEAMS = {"_beam_extended": "extended", "_beam_collapsed": "collapsed"}
 #: The colours a zone map is painted in, the brief's and `LampAtlas.Zone`'s: a lamp lens by its fitting, and the rest
 #: of the car. A cut is quantised to the nearest; the bake reads only the lamps'.
 ZONE_PARTS = {"rear": (255, 0, 0), "brake": (255, 0, 0), "reverse": (0, 255, 0), "indicator": (255, 255, 0),
@@ -162,9 +167,6 @@ END_WRAP_M = 0.25
 #: frame drew no part there: a skipped lamp comes back as plain paint, not as a hole. A share and not the area's
 #: mean, since a round lens leaves its area's corners bodywork.
 PART_SHARE, PART_CONTRAST = 0.2, 30
-#: How thick a part's frame is drawn on the template. Two: at one a lens of a dozen pixels in dark amber was
-#: drawn over as if it were not there (cars_civil_b-v2, raw_assets/agents/car/prompting.md).
-PART_FRAME_PX = 2
 #: `cut`'s `_parts.png`: how much of the body around a part area it shows, and how far it magnifies.
 PARTS_MARGIN_PX, PARTS_ZOOM = 8, 4
 
@@ -175,39 +177,43 @@ VERSIONED = re.compile(r"^(.+)-v(\d+)$")
 def main():
     a = parse_args()
     base = _sim.root()
-    return {"template": template, "cut": cut, "keep": keep, "use": use, "trace": trace,
+    return {"style": style_picture, "cut": cut, "keep": keep, "use": use, "trace": trace,
             "compare": compare, "check": check, "mask": mask, "drop": drop}[a.action](base, a)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="qq sprites",
-        description="Lay a sheet's template, cut a generated frame into sprites, keep and use them, and trace "
+        description="Lay a frame's style picture, cut a generated frame into sprites, keep and use them, and trace "
                     "a sprite to its prompt.",
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("action", choices=["template", "cut", "mask", "keep", "use", "drop", "trace", "compare", "check"],
-                        help="template IDS | cut FRAME | mask FRAME IDS (an id, id:whole for its grid cell, id:nose "
+    parser.add_argument("action", choices=["style", "cut", "mask", "keep", "use", "drop", "trace", "compare", "check"],
+                        help="style IDS | cut FRAME | mask FRAME IDS (an id, id:whole for its grid cell, id:nose "
                              "or id:tail for one end's lamps) | keep FRAME IDS | use VARIANT | drop VARIANTS | trace ID "
                              "| compare ID | check")
     parser.add_argument("refs", nargs="*", type=identifier,
                         help="asset ids (house_03), a frame id (roofs_house_a-v1) or a variant (house_03-v2)")
-    parser.add_argument("--out", default=".tmp/gen/templates/sheet.png", help="template: where the layout goes")
+    parser.add_argument("--out", default=".tmp/gen/templates/style.png", help="style: where the style picture goes")
+    parser.add_argument("--cells", default="",
+                        help="style: the frame's ids file (<sheet>.cells.json), so no asset it draws is shown as style")
     parser.add_argument("--style-cols", type=int, choices=[1, 2, 3], default=3,
-                        help="template: how many style sprites to a row")
+                        help="style: how many style sprites to a row")
     parser.add_argument("--style-whole", action="store_true",
-                        help="template: style sprites taken whole from the frames they were drawn on, not clipped at "
-                             "their outlines (mirrors kept)")
+                        help="style: sprites taken whole from the frames they were drawn on, not clipped at their "
+                             "footprints (mirrors kept)")
     parser.add_argument("--style-width", type=cli.counting, default=0, metavar="PX",
-                        help="template: the widest the style picture may be, its sprites shrunk to fit (0 = the sheet's)")
-    parser.add_argument("--style", default="",
-                        help="template: ids whose in-game sprites make the style picture, beside --out as <stem>_style.png")
+                        help="style: the widest the picture may be, its sprites shrunk to fit (0 = the sheet's)")
     parser.add_argument("--score", type=int, choices=range(6), default=None,
                         help="keep: the variant's score by eye, 0-5")
     parser.add_argument("--recut", action="store_true",
                         help="keep: keep a cell already kept from this frame again, as a new version naming the one it "
                              "re-cuts — after `cut` itself changed")
+    parser.add_argument("--as", dest="as_ids", default="",
+                        help="keep: the ids the cells are kept as, one per cell in order — a cell drawn as another asset "
+                             "than it was asked for (a trial kept for another surface); its record names the id it was "
+                             "asked as")
     parser.add_argument("--full", action="store_true", help="trace: print every prompt whole")
     return parser.parse_args()
 
@@ -218,164 +224,26 @@ def identifier(text):
     return text
 
 
-# ---------------------------------------------------------------------------------------------- template
+# ---------------------------------------------------------------------------------------------- style
 
-def template(base, a):
-    from PIL import Image, ImageDraw, PngImagePlugin
-
-    found = assets(base)
-    bodies = [body(base, found, i) for i in a.refs]
-    figures = art.read_figures(base)
-    if len(bodies) < MIN_CELLS:
-        small = [b["id"] for b in bodies if not big_roof(b, figures)]
-        if len(bodies) < BIG_ROOF_MIN_CELLS or small:
-            cli.fail(f"a frame holds at least {MIN_CELLS} assets, or {BIG_ROOF_MIN_CELLS} building roofs a 3x3 cell "
-                     f"holds under their grid; given {len(bodies)}" + (f", {', '.join(small)} not such a roof" if small else ""))
-    layouts = {family(b["asset"])[2] for b in bodies}
-    if len(layouts) > 1:
-        cli.fail("a frame lays one family's cells: these ids are laid both as a grid and in rows")
-    if layouts == {"rows"}:
-        scale, slots = packed(bodies, min(grid(figures, b["asset"]) for b in bodies))
-        cols, rows = None, len({s[1] for s in slots})
-    else:
-        few = len(bodies) < MIN_CELLS
-        cols, rows = few_grid(bodies) if few else grid_of(len(bodies))
-        scale = grid_scale(bodies, cols, rows, BIG_ROOF_GAP_PX if few else GAP_PX)
-        cw, ch = SHEET_PX[0] / cols, SHEET_PX[1] / rows
-        slots = [(round((n % cols) * cw), round((n // cols) * ch), round((n % cols + 1) * cw), round((n // cols + 1) * ch))
-                 for n in range(len(bodies))]
-
-    # Magenta and not clear: outlines on a clear layout do not hold the model, which lays its own grid
-    # (fleet100_w01-v1, raw_assets/agents/car/prompting.md).
-    sheet = Image.new("RGB", SHEET_PX, KEY)
-    draw = ImageDraw.Draw(sheet)
-    cells = []
-    for n, b in enumerate(bodies):
-        w, h = round(b["w"] * scale), round(b["d"] * scale)
-        x0, y0, x1, y1 = slots[n]
-        x = round(x0 + (x1 - x0 - w) / 2)
-        y = round(y0 + (y1 - y0 - h) / 2)
-        sw, sh = round(b["sw"] * scale), round(b["sd"] * scale)
-        sx, sy = x + (w - sw) // 2 + round(b["offM"][0] * scale), y + (h - sh) // 2 + round(b["offM"][1] * scale)
-        r = min(round(b["r"] * scale), sw // 2, sh // 2)
-        walls = [[round(x + w / 2 + (a[0] - s[0] / 2) * scale) - sx, round(y + h / 2 + (a[1] - s[1] / 2) * scale) - sy,
-                  round(s[0] * scale), round(s[1] * scale)] for a, s in b["walls"]]
-        outline(draw, b["shape"], (sx, sy, sw, sh), r, FILL, OUTLINE, walls)
-        if b["track"]:
-            for offM in (-rail_offset_m(base), rail_offset_m(base)):
-                gy = round(sy + sh / 2 + offM * scale)
-                draw.line([sx + BORDER_PX, gy, sx + sw - 1 - BORDER_PX, gy], fill=GUIDE, width=GUIDE_PX)
-            # And where the sleepers end, dashed: past them is bare ballast to the strip's edge, which a model left to
-            # itself draws a pixel or two wide (railway_a-v1).
-            for offM in (-b["sleeperM"] / 2, b["sleeperM"] / 2):
-                gy = round(sy + sh / 2 + offM * scale)
-                for gx in range(sx + BORDER_PX, sx + sw - BORDER_PX, 2 * DASH_PX):
-                    draw.line([gx, gy, min(gx + DASH_PX, sx + sw - 1 - BORDER_PX), gy], fill=SLEEPER_END, width=GUIDE_PX)
-        elif b["shape"] == "box":
-            inset = FRONT_PX // 2
-            edge = {"bottom": [sx + r, sy + sh - inset, sx + sw - r, sy + sh - inset],
-                    "right": [sx + sw - inset, sy + r, sx + sw - inset, sy + sh - r]}[family(b["asset"])[1]]
-            draw.line(edge, fill=OUTLINE, width=FRONT_PX)
-        elif walls:
-            # The front is the bottom edge of the rectangle reaching furthest towards the street.
-            fx, fy, fw, fh = max(walls, key=lambda v: v[1] + v[3])
-            gy = sy + fy + fh - FRONT_PX // 2
-            draw.line([sx + fx, gy, sx + fx + fw - 1, gy], fill=OUTLINE, width=FRONT_PX)
-        shape = Image.new("L", SHEET_PX, 0)
-        outline(ImageDraw.Draw(shape), b["shape"], (sx, sy, sw, sh), r, 255, None, walls)
-        parts = []
-        for p in b["parts"]:
-            pw, ph = max(2, round(p["sizeM"][0] * scale)), max(2, round(p["sizeM"][1] * scale))
-            px = round(x + w / 2 + p["atM"][0] * scale - pw / 2)
-            py = round(y + h / 2 + p["atM"][1] * scale - ph / 2)
-            draw.rectangle([px, py, px + pw - 1, py + ph - 1], outline=part_kind(p)[0], width=PART_FRAME_PX)
-            parts.append({"fitting": p["fitting"], "box": [px, py, pw, ph]})
-            if shape.crop((px, py, px + pw, py + ph)).getextrema()[0] < 255:
-                b["outside"] += 1
-        cells.append({"n": n + 1, "id": b["id"], "asset": b["asset"], "shape": b["shape"], "box": [x, y, w, h],
-                      "shapeBox": [sx, sy, sw, sh], "radiusPx": r, "standOff": b["standOff"], "parts": parts,
-                      "bounds": list(slots[n]), "walls": walls})
-
-    info = PngImagePlugin.PngInfo()
-    info.add_text("cells", json.dumps({"size": list(SHEET_PX), "pxPerM": round(scale, 3), "cells": cells}))
+def style_picture(base, a):
+    """The one picture a frame is asked with: the named assets' in-game sprites at one scale (`style`). With `--cells`,
+    an id the frame draws is refused, so the picture shows the look and never the answer."""
+    if not a.refs:
+        cli.fail("style names the assets whose sprites make the picture")
+    asked = set()
+    if a.cells:
+        asked = set(json.loads(paths.resolve_in_root(a.cells, base).read_text(encoding="utf-8")))
     out = paths.resolve_in_root(a.out, base)
     out.parent.mkdir(parents=True, exist_ok=True)
-    sheet.save(out, pnginfo=info)
-
-    asked = set(a.refs)
-    if a.style:
-        style(base, found, [s for s in a.style.split(",") if s], asked, out.with_name(out.stem + "_style.png"),
-              a.style_cols, a.style_width, a.style_whole)
-
-    fronts = sorted({family(b["asset"])[1] for b in bodies if b["shape"] in ("box", "walls") and not b["track"]})
-    if any(b["track"] for b in bodies):
-        print("a track strip has no front: the two thin grey lines along it are where its rails are painted, over them")
-    print(f"{_sim.rel(base, out)}: {f'{cols}x{rows}' if cols else f'{rows} rows'}, {scale:.1f} px/m"
-          + (f", front at the thick {' / '.join(fronts)} edge" if fronts else ""))
-    if any(b["parts"] for b in bodies):
-        print("each thin coloured frame inside an outline is the area a part is drawn in, switched off (unlit glass, "
-              "no glow, no light cast), in whatever shape suits the vehicle; the frame itself is not drawn")
-    for b, c in zip(bodies, cells):
-        under = scale < grid(figures, b["asset"])
-        print(f"{c['n']:>2}. {b['id']:<22} {size_phrase(b)}{'  (under the grid)' if under else ''}"
-              f"{' - ' + b['describe'] if b['describe'] else ''}{parts_phrase(b['parts'])}")
-    outside = [f"{b['id']} ({b['outside']})" for b in bodies if b["outside"]]
-    if outside:
-        print(f"warning: parts reaching past their asset's shape, which the art cannot draw them on: "
-              f"{', '.join(outside)}")
+    style(base, assets(base), a.refs, asked, out, a.style_cols, a.style_width, a.style_whole)
     return 0
 
 
-def packed(bodies, scale):
-    """The cells laid along rows in the order asked, each its own width and a gap either side, a row as tall as its
-    tallest — at the grid, or as far under it as the sheet needs to hold them all. (scale, [(x0, y0, x1, y1)])."""
-    while True:
-        slots, rows, x, row = [], [], 0, []
-        for b in bodies:
-            w, h = b["w"] * scale + 2 * GAP_PX, b["d"] * scale + 2 * GAP_PX
-            if row and x + w > SHEET_PX[0]:
-                rows.append(row)
-                row, x = [], 0
-            row.append((x, w, h))
-            x += w
-        rows.append(row)
-        heights = [max(h for _, _, h in r) for r in rows]
-        if sum(heights) <= SHEET_PX[1] and all(x + w <= SHEET_PX[0] for r in rows for x, w, _ in r):
-            break
-        scale *= 0.97
-    y = (SHEET_PX[1] - sum(heights)) / 2
-    for r, height in zip(rows, heights):
-        spare = (SHEET_PX[0] - sum(w for _, w, _ in r)) / len(r)
-        for k, (x, w, _) in enumerate(r):
-            left = x + spare * (k + 0.5)
-            slots.append((round(left), round(y), round(left + w), round(y + height)))
-        y += height
-    return scale, slots
-
-
 def grid_of(cells):
-    """(columns, rows) a template lays this many cells in — `cut` reads a cell's bounds off it too."""
+    """(columns, rows) an old layout laid this many cells in, for a frame whose cells carry no bounds of their own."""
     rows = max(3, math.ceil(math.sqrt(cells * SHEET_PX[1] / SHEET_PX[0])))
     return max(3, math.ceil(cells / rows)), rows
-
-
-def grid_scale(bodies, cols, rows, gap=GAP_PX):
-    """The px/m the largest of these fits a cell of a cols x rows grid at, `gap` of magenta kept round each."""
-    cw, ch = SHEET_PX[0] / cols, SHEET_PX[1] / rows
-    return min(min((cw - 2 * gap) / b["w"], (ch - 2 * gap) / b["d"]) for b in bodies)
-
-
-def few_grid(bodies):
-    """The grid a frame of fewer than MIN_CELLS big roofs is laid in: of those that hold them all, the one drawing
-    them largest. The template records each cell's bounds, so `cut` never has to know which it was."""
-    n = len(bodies)
-    shapes = [(c, -(-n // c)) for c in range(1, n + 1)]
-    return max(shapes, key=lambda s: grid_scale(bodies, *s, BIG_ROOF_GAP_PX))
-
-
-def big_roof(b, figures):
-    """Whether an asset is a building roof a 3x3 cell holds under its grid (BIG_ROOF_MIN_CELLS)."""
-    return b["asset"].startswith(BUILDINGS) and grid_scale([b], 3, 3) < grid(figures, b["asset"])
 
 
 def cell_bounds(layout, c):
@@ -465,6 +333,13 @@ def body(base, found, i):
     path = found[i]
     d = json.loads(path.read_text(encoding="utf-8"))
     walls, offM = [], (0.0, 0.0)
+    if _surfaces.is_surface(d):
+        if _surfaces.look_of(d, i) is None:
+            cli.fail(f"{i} is a surface joined from its tiles: ask for {', '.join(_surfaces.tile_ids(d))}")
+        w = depth = sw = sd = _surfaces.tile_m(art.read_figures(base), d)
+        return {"id": i, "asset": _sim.rel(base, path), "w": w, "d": depth, "shape": "box", "sw": sw, "sd": sd,
+                "r": 0.0, "standOff": False, "describe": _surfaces.describe(d, i), "parts": [], "outside": 0,
+                "track": False, "kerb": False, "surface": True, "sleeperM": 0.0, "walls": [], "offM": offM}
     if "footprintM" in d:
         w, depth = map(float, d["footprintM"])
         shape, r, (sw, sd), stand = "box", float(d.get("cornerRadiusM", 0.0)), (w, depth), False
@@ -483,26 +358,25 @@ def body(base, found, i):
         shape, r, stand = "disc", w / 2, False
     else:
         cli.fail(f"{_sim.rel(base, path)} states neither footprintM nor diameterM: no outline to draw")
+    if (arm := beam_of(d, i)) is not None:
+        # A tow arm is a picture of its own, its quad the beam's `sizeM`: the outline is that box, nothing framed in it.
+        w, depth = sw, sd = tuple(float(m) for m in d["beam"][arm]["sizeM"])
+        shape, r, stand, walls, offM = "box", 0.0, False, [], (0.0, 0.0)
     wreck = is_wreck(d, i)
-    parts = [] if wreck else [dict(p, kind=key) for key in PARTS for p in d.get(key, [])]
+    parts = [] if wreck or arm is not None else [dict(p, kind=key) for key in PARTS for p in d.get(key, [])]
     for p in parts:
         if p["fitting"] not in PARTS[p["kind"]]:
             cli.fail(f"{_sim.rel(base, path)}: {p['kind']} fitting {p['fitting']!r} has no mark in sprites.PARTS")
     describe = d.get("describe", "")
+    if wreck and describe:
+        describe = f"WRECK of the {describe}"
+    elif arm is not None:
+        describe = f"TOW ARM, {arm}, of the {describe}"
     return {"id": i, "asset": _sim.rel(base, path), "w": w, "d": depth, "shape": shape, "sw": sw, "sd": sd,
-            "r": r, "standOff": stand, "describe": f"WRECK of the {describe}" if wreck and describe else describe,
-            "parts": parts, "outside": 0, "track": d.get("kind") == TRACK, "sleeperM": float(d.get("sleeperLengthM", 0.0)),
+            "r": r, "standOff": stand, "describe": describe,
+            "parts": parts, "outside": 0, "track": d.get("kind") == TRACK, "kerb": d.get("kind") in KERBS, "surface": False,
+            "sleeperM": float(d.get("sleeperLengthM", 0.0)),
             "walls": walls, "offM": offM}
-
-
-def rail_offset_m(base):
-    """How far each rail's middle stands off the track's line: half the gauge and half a rail's head, as the engine
-    lays them (`RailFigures`), read off the file that states them rather than copied."""
-    text = (base / RAIL_FIGURES).read_text(encoding="utf-8")
-    figure = {n: float(v) for n, v in re.findall(r"public float (GaugeM|RailHeadWidthM) \{ get; init; \} = ([\d.]+)f;", text)}
-    if len(figure) != 2:
-        cli.fail(f"{RAIL_FIGURES} no longer states GaugeM and RailHeadWidthM — a track's template reads them from there")
-    return (figure["GaugeM"] + figure["RailHeadWidthM"]) / 2
 
 
 def is_wreck(d, i):
@@ -515,38 +389,19 @@ def is_zones(d, i):
     return i == d["id"] + ZONES
 
 
+def beam_of(d, i):
+    """Which of the variant file `d`'s tow-arm pictures the id asks for (BEAMS), or None."""
+    return next((arm for suffix, arm in BEAMS.items() if "beam" in d and i == d["id"] + suffix), None)
+
+
 def sprite_of(path, i):
     """The sprite file the id's look is installed as, by its variant file's name for it, or None."""
     d = json.loads(path.read_text(encoding="utf-8"))
     if is_wreck(d, i):
         return (d.get("wreck") or {}).get("sprite")
+    if (arm := beam_of(d, i)) is not None:
+        return d["beam"][arm]["sprite"]
     return d.get("zones") if is_zones(d, i) else d.get("sprite")
-
-
-def part_kind(p):
-    """The part's template colour and the words it is asked for in."""
-    return PARTS[p["kind"]][p["fitting"]]
-
-
-def parts_phrase(parts):
-    counts = {}
-    for p in parts:
-        words = part_kind(p)[1]
-        counts[words] = counts.get(words, 0) + 1
-    return "; off: " + "; ".join(f"{n}x {words}" for words, n in counts.items()) if counts else ""
-
-
-def size_phrase(b):
-    if b["shape"] == "disc":
-        return f"disc {b['w']:g} m across"
-    k = b["sw"] / b["sd"]
-    # A front at the right edge makes x the length: a car is long and wide, a building wide and deep.
-    wider, deeper = (("longer than wide", "wider than long") if family(b["asset"])[1] == "right"
-                     else ("wider than deep", "deeper than wide"))
-    ratio = f"{k:.1f}x {wider}" if k >= 1.05 else f"{1 / k:.1f}x {deeper}" if k <= 0.95 else "square"
-    held = f" in a {b['w']:g} x {b['d']:g} m footprint" if b["standOff"] else ""
-    built = f", outline built of {len(b['walls'])} rectangles" if len(b["walls"]) > 1 else ""
-    return f"{round(b['sw'], 2):g} x {round(b['sd'], 2):g} m ({ratio}){held}{built}"
 
 
 def outline(draw, shape, box, r, fill, line, walls=None):
@@ -596,12 +451,19 @@ def cut(base, a):
     if key is not None and flat < KEY_FLAT_MIN:
         print(f"warning: only {flat:.0%} of the frame's border is the key's colour: the background is not flat")
     overlay = on_key(rgb).copy()
+    arms = {c["n"]: arm for c in layout["cells"]
+            if (arm := beam_of(json.loads((base / c["asset"]).read_text(encoding="utf-8")), c["id"])) is not None}
+    if arms:
+        cut_arms(base, fid, frame, rgb, key, layout, arms, out)
     for c in layout["cells"]:
+        if c["n"] in arms:
+            continue
         x, y, w, h = c["box"]
         x0, y0 = max(0, x - MARGIN_PX), max(0, y - MARGIN_PX)
         x1, y1 = min(frame.width, x + w + MARGIN_PX), min(frame.height, y + h + MARGIN_PX)
-        track = json.loads((base / c["asset"]).read_text(encoding="utf-8")).get("kind") == TRACK
-        moved, fit = register(frame, rgb, key, c, cell_bounds(layout, c), track)
+        kind = json.loads((base / c["asset"]).read_text(encoding="utf-8")).get("kind")
+        moved, fit = register(frame, rgb, key, c, cell_bounds(layout, c), kind == TRACK,
+                              SURFACE_REACH_PX if kind == _surfaces.KIND else GAP_PX, kind in KERBS)
         crop = (np.asarray(moved).astype(np.int16) if moved else rgb)[y0:y1, x0:x1]
         keyed = Image.fromarray(chroma_key(crop, key), "RGBA")
         overlay[y0:y1, x0:x1] = on_key(crop)
@@ -664,13 +526,81 @@ def cut(base, a):
     return 0
 
 
+def cut_arms(base, fid, frame, rgb, key, layout, arms, out):
+    """A tow arm's cells: each drawing cut whole by its own extent in its grid cell, never fitted to its box. An arm is a
+    sparse T, not a filled outline, and its box is only the quad its picture is drawn on: the picture is the arm. Its
+    scale is the extended arms' crossbar, which spans the beam's authored `sizeM` height (the fork's width, a primitive);
+    every arm of the frame is measured at that scale, and `use` writes the `sizeM` and `hingeAtM` it gives."""
+    import numpy as np
+    from PIL import Image, PngImagePlugin
+
+    # A drawing spills past its box and its grid cell into the next one's: each cell's arm is the island of paint
+    # nearest its box's middle, wherever it reaches.
+    keyed = chroma_key(rgb, key)
+    solid = keyed[..., 3] > 128
+    drawn = {}
+    for c in layout["cells"]:
+        if c["n"] not in arms:
+            continue
+        x, y, w, h = c["box"]
+        ys, xs = np.nonzero(solid[y:y + h, x:x + w])
+        if not len(ys):
+            print(f"{c['n']:>2} {c['id']:<22} nothing drawn")
+            continue
+        nearest = np.argmin((ys - h / 2) ** 2 + (xs - w / 2) ** 2)
+        island = island_at(solid, y + ys[nearest], x + xs[nearest])
+        iy, ix = np.nonzero(island)
+        crop = keyed[iy.min():iy.max() + 1, ix.min():ix.max() + 1].copy()
+        crop[~island[iy.min():iy.max() + 1, ix.min():ix.max() + 1]] = 0
+        drawn[c["n"]] = (c, crop)
+    spans = [float(json.loads((base / c["asset"]).read_text(encoding="utf-8"))["beam"]["extended"]["sizeM"][1])
+             for n, (c, _) in drawn.items() if arms[n] == "extended"]
+    if not spans:
+        cli.fail(f"{fid} draws no extended arm, whose crossbar is the scale every arm is measured at")
+    heights = [p.shape[0] for n, (_, p) in drawn.items() if arms[n] == "extended"]
+    px_per_m = float(np.median(heights)) / spans[0]
+    for n, (c, picture) in drawn.items():
+        h, w = picture.shape[:2]
+        size_m = [round(w / px_per_m, 3), round(h / px_per_m, 3)]
+        boxed = c["box"][2] / c["box"][3]
+        off = (w / h) / boxed - 1
+        info = PngImagePlugin.PngInfo()
+        info.add_text("cut", json.dumps({"frame": fid, "cell": n, "box": c["box"], "pxPerM": round(px_per_m, 2),
+                                         "arm": {"state": arms[n], "sizeM": size_m,
+                                                 "hingeShare": ARM_HINGE_SHARE[arms[n]]}}))
+        Image.fromarray(picture, "RGBA").save(out / f"{c['id']}.png", pnginfo=info)
+        flag = f"proportion {off:+.0%} off its box" if abs(off) > PROPORTION_FLAG else "ok"
+        print(f"{n:>2} {c['id']:<22} arm {arms[n]:<9} {w}x{h} px = {size_m[0]:.2f} x {size_m[1]:.2f} m  {flag}")
+
+
+def island_at(solid, y0, x0):
+    """The 8-connected island of `solid` holding the texel at y0, x0, as a map the size of `solid`."""
+    import numpy as np
+
+    island = np.zeros_like(solid)
+    island[y0, x0] = True
+    todo = [(y0, x0)]
+    height, width = solid.shape
+    while todo:
+        y, x = todo.pop()
+        for ny in range(max(0, y - 1), min(height, y + 2)):
+            for nx in range(max(0, x - 1), min(width, x + 2)):
+                if solid[ny, nx] and not island[ny, nx]:
+                    island[ny, nx] = True
+                    todo.append((ny, nx))
+    return island
+
+
+#: Where along an arm's picture, from its left end, the hinge it turns about sits: the middle of the hinge block the
+#: brief asks at the left (`service_arms`), read off the drawings.
+ARM_HINGE_SHARE = {"extended": 0.10, "collapsed": 0.10}
+
+
 #: How far a drawing's proportion may stray from its file's before `cut` says so: the drawing is the car either way
 #: (the owner, 2026-10-20), this only tells the eye which cells to look at first.
 PROPORTION_FLAG = 0.08
 #: The lamp zones a car's zone map is read for, by fitting.
 LENS_ZONES = {f: ZONE_PARTS[f] for f in ("head", "indicator", "brake", "reverse")}
-#: How far each wheel centre stands outside the flank it is measured under: CAR-12 owes a share of every tyre past it.
-TYRE_PROUD_M = 0.03
 
 
 def frame_pixels(base, fid):
@@ -708,6 +638,36 @@ def cut_described(base, fid, rec, ids):
     draw = ImageDraw.Draw(overlay)
     for n, i in enumerate(wanted_ids, 1):
         d = json.loads(found[i].read_text(encoding="utf-8"))
+        if "collisionM" not in d and not zoning:
+            # Not a car: the drawing is taken whole, never fitted to an outline or clipped (the owner, 2026-10-24,
+            # 2026-10-25), and sized by the one figure its file authors — a footprint's width, a round asset's diameter
+            # across the drawing's longer side, a ground tile's side; `use` writes a footprint's depth off the picture.
+            x0, y0, x1, y1 = boxes[i]
+            # A box spans its whole row band (`_outline.drawings`): trimmed to its own paint, a drawing shorter than
+            # its row's tallest is not read as deeper than it is.
+            rows_painted = np.flatnonzero(solid[y0:y1, x0:x1].any(1))
+            y0, y1 = y0 + int(rows_painted[0]), y0 + int(rows_painted[-1]) + 1
+            w_px, h_px = x1 - x0, y1 - y0
+            if _surfaces.is_surface(d):
+                side_m = _surfaces.tile_m(art.read_figures(base), d)
+                per_m, filed = w_px / side_m, (side_m, side_m)
+            elif "diameterM" in d:
+                per_m, filed = max(w_px, h_px) / float(d["diameterM"]), (float(d["diameterM"]),) * 2
+            elif d.get("kind") in (TRACK, *KERBS):
+                # A strip is repeated along its line, so its length is whatever was drawn and its depth is the one
+                # figure the ground needs (a kerb's 0.2 m, a track's ballast): sized by it, never squashed to it.
+                per_m, filed = h_px / float(d["footprintM"][1]), tuple(float(v) for v in d["footprintM"])
+            else:
+                per_m, filed = w_px / float(d["footprintM"][0]), tuple(float(v) for v in d["footprintM"])
+            drawn_m = [round(w_px / per_m, 3), round(h_px / per_m, 3)]
+            off = (drawn_m[0] / drawn_m[1]) / (filed[0] / filed[1]) - 1
+            flag = f"proportion {off:+.0%} off its file's" if abs(off) > PROPORTION_FLAG else "ok"
+            png = PngImagePlugin.PngInfo()
+            png.add_text("cut", json.dumps({"frame": fid, "cell": n, "pxPerM": per_m, "whole": drawn_m}))
+            Image.fromarray(pixels[y0:y1, x0:x1].copy(), "RGBA").save(out / f"{i}.png", pnginfo=png)
+            draw.rectangle([x0, y0, x1 - 1, y1 - 1], outline=(255, 255, 255))
+            print(f"{n:>2} {i:<26} whole, {w_px}x{h_px} px, {drawn_m[0]:.2f} x {drawn_m[1]:.2f} m  {flag}")
+            continue
         length = float(d["collisionM"]["sizeM"][0])
         axles = (float(d["frontAxleM"]), float(d["rearAxleM"]))
         box = boxes[i]
@@ -797,8 +757,10 @@ def looked_at(cuts, out):
 
 def write_measured(base, described: Path, m):
     """The car's geometry in its variant file, as its picture measures it: footprint, collision box and track."""
+    import _outline
+
     text = described.read_text(encoding="utf-8")
-    track = round(max(m["axleWidthsM"]) + 2 * TYRE_PROUD_M, 3)
+    track = _outline.track_m(m["axleWidthsM"])
     for pattern, line in ((r'"footprintM":\s*\[[^\]]*\]', f'"footprintM": [{m["footprintM"][0]:.3f}, {m["footprintM"][1]:.3f}]'),
                           (r'"collisionM":\s*\{[^}]*\}',
                            f'"collisionM": {{ "sizeM": [{m["lengthM"]:.3f}, {m["widthM"]:.3f}], '
@@ -826,15 +788,18 @@ def write_lamps(base, described: Path, rows):
     described.write_text(text[:start] + ("[\n" + lines + "\n  ]" if rows else "[]") + text[end + 1:], encoding="utf-8")
 
 
-def drop_lamps(base, described: Path, zones_name, then="`qq props seed` it again"):
+def drop_lamps(base, described: Path, zones_name, then="`qq props seed` it again", keep_beacons=False):
     """A new picture's lamps are not the old one's: its zone map, that map's trace and its `lamps` go, to be cut again
-    by `qq props` and installed — `then` says how."""
+    by `qq props` and installed — `then` says how. A picture that carries the old one's fitted bar (`qq beacons fit`,
+    then repainted, as `qq props mirror` does) keeps its beacon lenses: they were laid with the bar, not cut."""
     for gone in (described.parent / zones_name, described.parent / f"{Path(zones_name).stem}{SOURCE}"):
         gone.unlink(missing_ok=True)
     text = re.sub(r'\n[ \t]*"zones":\s*"[^"]*",', "", described.read_text(encoding="utf-8"), count=1)
     described.write_text(text, encoding="utf-8")
     if '"lamps"' in text:
-        write_lamps(base, described, [])
+        kept = [(l["fitting"], tuple(l["atM"]), tuple(l["sizeM"])) for l in json.loads(text).get("lamps", [])
+                if keep_beacons and l["fitting"].startswith("beacon")]
+        write_lamps(base, described, kept)
     print(f"{_sim.rel(base, described)}: lamps and zone map dropped with the old picture; {then}")
 
 
@@ -1035,7 +1000,7 @@ def zoned(pixels, part, origin, reach):
     return bool(((area[..., :3] == colour).all(-1) & (area[..., 3] > 0)).any())
 
 
-def register(frame, rgb, key, c, cell, track=False):
+def register(frame, rgb, key, c, cell, track=False, reach=GAP_PX, kerb=False):
     """The frame resampled so the body the model drew in a cell lands on the cell's authored shape, and the
     shift and scale it took; or no frame, and why, when the drawing is too far off to be the asset asked for.
 
@@ -1051,8 +1016,8 @@ def register(frame, rgb, key, c, cell, track=False):
 
     # Looked for a gap past its cell: only the body joined to the outline's middle is kept, so a neighbour's paint
     # this reaches is dropped, and a drawing the model shifted a little out of its cell is still found whole.
-    mx0, my0 = max(0, cell[0] - GAP_PX), max(0, cell[1] - GAP_PX)
-    mx1, my1 = min(rgb.shape[1], cell[2] + GAP_PX), min(rgb.shape[0], cell[3] + GAP_PX)
+    mx0, my0 = max(0, cell[0] - reach), max(0, cell[1] - reach)
+    mx1, my1 = min(rgb.shape[1], cell[2] + reach), min(rgb.shape[0], cell[3] + reach)
     solid = body_at_centre(chroma_key(rgb[my0:my1, mx0:mx1], key)[..., 3] > 128, c, (mx0, my0))
     if solid[0].any() or solid[-1].any() or solid[:, 0].any() or solid[:, -1].any():
         return None, {"refused": "drawn up to its cell's edge"}
@@ -1080,7 +1045,9 @@ def register(frame, rgb, key, c, cell, track=False):
     fit = {"shiftPx": [int(round(sx - bx)), int(round(sy - by))], "scale": [round(1 / kx, 4), round(1 / ky, 4)]}
     most = (FIT_ROWS_MAX if family(c["asset"])[2] == "rows"
             else FIT_GEAR_MAX if c["asset"].startswith(GEAR_PREFIX) and not track else FIT_SCALE_MAX)
-    if max(abs(kx - 1), abs(ky - 1)) > most:
+    # A kerb's strip is laid at the kerb's width whatever it was drawn at: its top and its riser are shares of that
+    # width, so across it is squashed onto the outline however tall the model drew it (kerbs_a-v1: 1.3 to 1.6 times).
+    if max(abs(kx - 1), 0.0 if kerb else abs(ky - 1)) > most:
         return None, dict(fit, refused=f"drawn {bw}x{bh} px for a {sw}x{sh} px shape")
     moved = frame.transform(frame.size, Image.AFFINE, (kx, 0, bx - sx * kx, 0, ky, by - sy * ky),
                             resample=Image.BICUBIC, fillcolor=key or (0, 0, 0, 0))
@@ -1123,7 +1090,7 @@ def cells_of(base, rec):
     for inp in rec.get("inputs", []):
         if inp.get("frame"):
             return cells_of(base, frame_record(base, inp["frame"]))
-    cli.fail(f"{rec['id']} was not asked from a `qq sprites template` layout: no input carries cells")
+    cli.fail(f"{rec['id']} names no ids it draws: ask it with remotegen `--cells`")
 
 
 def zoned_sheet(base, fid, rec):
@@ -1232,13 +1199,16 @@ def keep(base, a):
         cli.fail("keep takes a frame id and the asset ids to keep from it")
     from PIL import Image
 
-    fid, ids = a.refs[0], a.refs[1:]
+    fid, asked = a.refs[0], a.refs[1:]
     frame_record(base, fid)
     found = assets(base)
-    for i in ids:
-        cutting = base / CUTS / fid / f"{i}.png"
+    ids = [s for s in a.as_ids.split(",") if s] or asked
+    if len(ids) != len(asked):
+        cli.fail(f"--as names {len(ids)} ids for {len(asked)} cells: one each, in order")
+    for asked_as, i in zip(asked, ids):
+        cutting = base / CUTS / fid / f"{asked_as}.png"
         if not cutting.is_file():
-            cli.fail(f"no cut of {i} from {fid} in {_sim.rel(base, cutting.parent)}: run `qq sprites cut {fid}`")
+            cli.fail(f"no cut of {asked_as} from {fid} in {_sim.rel(base, cutting.parent)}: run `qq sprites cut {fid}`")
         if i not in found:
             cli.fail(f"no variant file under assets/ has the id {i}")
         folder = raw_dir(base, found[i], i)
@@ -1260,6 +1230,7 @@ def keep(base, a):
         append(folder / VARIANTS, {"variant": name, "frame": fid, "cell": info["cell"],
                                     **({"box": info["box"]} if "box" in info else {}),
                                     **({"recutOf": recut[-1]} if recut else {}),
+                                    **({"askedAs": asked_as} if asked_as != i else {}),
                                     "pxPerM": info["pxPerM"], "score": a.score, "status": "candidate",
                                     "ts": time.strftime("%Y-%m-%dT%H:%M:%S")})
         shutil.copyfile(cutting, folder / f"{name}.png")
@@ -1371,20 +1342,37 @@ def use(base, a):
 
     from PIL import Image
 
+    if _surfaces.is_surface(json.loads(described.read_text(encoding="utf-8"))):
+        return use_tile(base, found, described, i, name)
+
     # A drawing asked without a layout is the car's geometry: its file takes what the cut measured before it is sized.
     measured = json.loads(Image.open(variant).text.get("cut", "{}")).get("measured")
-    # A wreck is drawn to its car's geometry and never writes it: it is shrunk to the car's footprint.
-    if measured and not i.endswith(WRECK):
+    # A wreck is drawn to its car's geometry and never writes it: it is shrunk to the car's footprint. Nor does an arm.
+    arm = beam_of(json.loads(described.read_text(encoding="utf-8")), i)
+    if measured and not i.endswith(WRECK) and arm is None:
         write_measured(base, described, measured)
+    whole = json.loads(Image.open(variant).text.get("cut", "{}")).get("whole")
+    # A round asset keeps its diameter, the longer side of its drawing; only a footprint takes the drawing's depth.
+    if whole and "footprintM" in json.loads(described.read_text(encoding="utf-8")):
+        text, n = re.subn(r'"footprintM":\s*\[[^\]]*\]', f'"footprintM": [{whole[0]}, {whole[1]}]',
+                          described.read_text(encoding="utf-8"), count=1)
+        if not n:
+            cli.fail(f"{_sim.rel(base, described)} has no footprintM line to write the drawing's over")
+        described.write_text(text, encoding="utf-8")
+        if _sim.rel(base, described).startswith(BUILDINGS):
+            write_parts(described, variant, json.loads(Image.open(variant).text["cut"])["pxPerM"])
+    if arm is not None and (drawn_arm :=json.loads(Image.open(variant).text.get("cut", "{}")).get("arm")):
+        write_arm(base, described, arm, drawn_arm)
     b = body(base, found, i)
     vw = Image.open(variant).width
     d = json.loads(described.read_text(encoding="utf-8"))
-    density = min(vw / b["w"], grid(art.read_figures(base), b["asset"]))
+    size_m = whole if whole and not _surfaces.is_surface(d) else (b["w"], b["d"])
+    density = min(vw / size_m[0], grid(art.read_figures(base), b["asset"]))
     if "collisionM" in d:
         # A car's lamps are cut and drawn at the art grid (LampAtlas.ArtPxPerM), so its picture is on it even where the
         # drawing came back coarser.
         density = grid(art.read_figures(base), b["asset"])
-    wanted = (max(1, round(b["w"] * density)), max(1, round(b["d"] * density)))
+    wanted = (max(1, round(size_m[0] * density)), max(1, round(size_m[1] * density)))
     zones = is_zones(d, i)
     if zones:
         # The bake reads a zone texel's channels as glass colours (LampAtlasBake.Holds), which a generated palette map
@@ -1409,13 +1397,22 @@ def use(base, a):
             write_lamps(base, described, rows)
     else:
         shrunk = without_dust(art.shrink(variant, wanted))
-        data, how = art.encode(seamless(shrunk, density) if b["track"] else shrunk, "webp", WEBP_ERROR)
+        if b["kerb"]:
+            shrunk = at_joints(shrunk, density)
+            write_picture_m(base, described, round(shrunk.width / density, 4))
+        elif b["track"]:
+            shrunk = seamless(shrunk, density)
+        data, how = art.encode(shrunk, "webp", WEBP_ERROR)
         fmt = "webp"
 
     now = f"{i}.{fmt}"
     was = sprite_of(described, i)
     if is_wreck(d, i):
         name_wreck(base, described, now)
+    elif arm is not None:
+        name_beam(base, described, arm, now)
+        # An arm named from another look's folder is that look's picture, still drawn by it: never removed from here.
+        was = None if was is not None and "/" in was else was
     elif zones:
         name_zones(base, described, now)
     elif was is None:
@@ -1428,28 +1425,90 @@ def use(base, a):
         art.name(base, described.parent / was, now)
         (described.parent / was).unlink(missing_ok=True)
     (described.parent / now).write_bytes(data)
-    if not is_wreck(d, i) and not zones and d.get("zones"):
-        drop_lamps(base, described, d["zones"], *([a.lamps_then] if getattr(a, "lamps_then", None) else []))
-    if not is_wreck(d, i) and (kept := variant.with_name(f"{name}.props.json")).is_file():
+    own_look = not is_wreck(d, i) and not zones and arm is None
+    if measured and own_look:
+        # CAR-12: the track the cut measured on the frame, measured again on the sprite as the game lays it.
+        import _outline
+
+        d = json.loads(described.read_text(encoding="utf-8"))
+        track = _outline.installed_track_m(described.parent / now, float(d["footprintM"][0]),
+                                           (float(d["frontAxleM"]), float(d["rearAxleM"])))
+        described.write_text(re.sub(r'"trackM":\s*[0-9.]+', f'"trackM": {track}',
+                                    described.read_text(encoding="utf-8"), count=1), encoding="utf-8")
+    if own_look and d.get("zones"):
+        bar_kept = "barFitted" in json.loads(Image.open(variant).text.get("cut", "{}"))
+        drop_lamps(base, described, d["zones"], *([a.lamps_then] if getattr(a, "lamps_then", None) else []),
+                   keep_beacons=bar_kept)
+    if own_look and (kept := variant.with_name(f"{name}.props.json")).is_file():
         print(f"{_sim.rel(base, kept)}: lamps were cut on this picture — `qq props restore {i}` and "
               f"`qq props install {i}` put them back")
     source = described.parent / f"{i}{SOURCE}"
     source.write_text(json.dumps({"variant": _sim.rel(base, variant), "pxPerM": round(density, 2),
                                   "encoding": f"{fmt} {how}"}, indent=1) + "\n", encoding="utf-8")
 
-    records = read_jsonl(folder / VARIANTS)
+    mark_used(folder / VARIANTS, name)
+    off_legacy(base, {_sim.rel(base, described.parent / s) for s in (was, now) if s})
+    print(f"{_sim.rel(base, described.parent / now)} <- {name}: {wanted[0]}x{wanted[1]} px at "
+          f"{density:.1f} px/m ({fmt} {how})")
+    return 0
+
+
+def use_tile(base, found, described: Path, i: str, name: str):
+    """A surface's tile: the variant becomes its tile's, and once every look has a tile used, the surface's picture is
+    joined again from all of them (`_surfaces.compose`) and installed, its `.src.json` naming every variant in it."""
+    from PIL import Image
+
+    d = json.loads(described.read_text(encoding="utf-8"))
+    joined = _surfaces.tile_ids(d, joined_only=True)
+    if i not in joined:
+        cli.fail(f"{i} is a tile of a look {d['id']} only tries: move its look into `looks` to use it")
+    mark_used(raw_dir(base, described, i) / VARIANTS, name)
+    # A look moved out of `looks` into `trial` is kept to compare, and is no longer in the picture.
+    for t in set(_surfaces.tile_ids(d)) - set(joined):
+        listing = raw_dir(base, described, t) / VARIANTS
+        if listing.is_file():
+            listing.write_text("".join(json.dumps(dict(r, status="candidate" if r["status"] == "used" else r["status"]))
+                                       + "\n" for r in read_jsonl(listing)), encoding="utf-8")
+    used = {}
+    for t in joined:
+        folder = raw_dir(base, described, t)
+        if r := next((r for r in read_jsonl(folder / VARIANTS) if r["status"] == "used"), None):
+            used[t] = folder / f"{r['variant']}.png"
+    figures = art.read_figures(base)
+    try:
+        picture, layouts = _surfaces.compose(d, {t: Image.open(p).convert("RGBA") for t, p in used.items()}, figures)
+    except ValueError as e:
+        print(f"{name} used; {d['id']} is not joined yet: {e}")
+        return 0
+    data, how = art.encode(picture, "webp", WEBP_ERROR)
+    now = f"{d['id']}.webp"
+    if d.get("sprite") != now:
+        cli.fail(f"{_sim.rel(base, described)} names its picture {d.get('sprite')!r}, and `ProjectPaths` loads {now}")
+    (described.parent / now).write_bytes(data)
+    variants = [_sim.rel(base, p) for p in used.values()]
+    (described.parent / f"{d['id']}{SOURCE}").write_text(json.dumps({
+        "variant": variants[0], "variants": variants, "looks": layouts,
+        "pxPerM": figures["ArtPixelsPerMetre"], "encoding": f"webp {how}"}, indent=1) + "\n", encoding="utf-8")
+    off_legacy(base, {_sim.rel(base, described.parent / now)})
+    shown = "; ".join(", ".join(t + (" mirrored" if m else "") for t, m in layout) for layout in layouts)
+    print(f"{_sim.rel(base, described.parent / now)} <- {len(variants)} tiles: {picture.width}x{picture.height} px, "
+          f"{len(layouts)} looks of {d['mosaic']}x{d['mosaic']} ({shown}), webp {how}")
+    return 0
+
+
+def mark_used(listing: Path, name: str):
+    """The variant is its asset's used one, and the one used before it a candidate again."""
+    records = read_jsonl(listing)
     for r in records:
         r["status"] = "used" if r["variant"] == name else ("candidate" if r["status"] == "used" else r["status"])
-    (folder / VARIANTS).write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+    listing.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
 
-    gone = {_sim.rel(base, described.parent / s) for s in (was, now) if s}
+
+def off_legacy(base, gone: set[str]):
     legacy_path = base / LEGACY
     if legacy_path.is_file():
         lines = legacy_path.read_text(encoding="utf-8").splitlines()
         legacy_path.write_text("".join(l + "\n" for l in lines if l not in gone), encoding="utf-8")
-    print(f"{_sim.rel(base, described.parent / now)} <- {name}: {wanted[0]}x{wanted[1]} px at "
-          f"{density:.1f} px/m ({fmt} {how})")
-    return 0
 
 
 #: The least a track's sleepers are apart: what bounds the pitch `seamless` looks for, below the ballast's own grain.
@@ -1476,14 +1535,7 @@ def seamless(image, density):
     # Between the rails, where a sleeper and the ballast beside it differ most and the rails themselves do not run.
     band = rgba[round(height * 0.42):round(height * 0.58)]
     profile = (band[..., :3].mean(-1) * band[..., 3] / 255).mean(0)
-    profile -= profile.mean()
-    lags = range(max(4, round(SLEEPER_PITCH_LEAST_M * density)), width // 3)
-    score = [float((profile[:-lag] * profile[lag:]).mean()) for lag in lags]
-    # The pitch scores best, and so does every whole number of it: the first peak near the best is the pitch itself.
-    best = max(score)
-    peak = next(k for k in range(1, len(score) - 1) if score[k] >= score[k - 1] and score[k] >= score[k + 1]
-                and score[k] >= SLEEPER_PEAK_SHARE * best) if best > 0 else int(np.argmax(score))
-    pitch = lags[peak]
+    pitch, _ = _surfaces.pitch(profile, max(4, round(SLEEPER_PITCH_LEAST_M * density)), SLEEPER_PEAK_SHARE)
     period = (width - pitch) // pitch * pitch
     out = rgba[:, :period].copy()
     fade = (np.arange(pitch, dtype=np.float32) + 0.5) / pitch
@@ -1491,6 +1543,79 @@ def seamless(image, density):
     tile = Image.fromarray(out.clip(0, 255).astype(np.uint8), "RGBA")
     print(f"seamless: sleepers every {pitch} px, {period // pitch} of them in {period} px, stretched to {width} px")
     return cut_out(np.asarray(tile.resize((width, height), Image.LANCZOS)).copy())
+
+
+#: How far in from a kerb strip's drawn ends a joint is looked for: the model rounds and darkens the ends themselves.
+JOINT_END_MARGIN_M = 0.15
+#: And how far along from each end: the first and the last few stones, so the stones between are most of the strip.
+JOINT_SEARCH_SHARE = 0.3
+#: The width a joint's dip is measured against: the stone's own tone about it, a stone or so along.
+JOINT_BASELINE_M = 0.3
+
+
+def at_joints(image, density):
+    """A kerb's strip made to repeat by cutting it at two of its own joints, the most joint-like near each end, and
+    keeping every stone between them whole — no fade and no stretch.
+
+    The model lays a kerb's joints by eye, a few per cent off even (kerbs_b-v1), so a strip cross-faded at one pitch
+    (`seamless`) ghosts two stones over each other; cut joint to joint, the repeat meets at a joint like any other.
+    A joint is where the column profile above the riser dips furthest below the stone's tone about it."""
+    import numpy as np
+    from PIL import Image
+
+    rgba = np.asarray(image.convert("RGBA")).astype(np.float32)
+    height, width = rgba.shape[:2]
+    band = rgba[round(height * 0.1):round(height * 0.65)]
+    profile = (band[..., :3].mean(-1) * band[..., 3] / 255).mean(0)
+    reach = max(2, round(JOINT_BASELINE_M * density / 2))
+    padded = np.pad(profile, reach, mode="edge")
+    baseline = np.array([np.median(padded[x:x + 2 * reach + 1]) for x in range(width)])
+    dip = baseline - profile
+    margin = max(1, round(JOINT_END_MARGIN_M * density))
+    search = round(width * JOINT_SEARCH_SHARE)
+    first = margin + int(np.argmax(dip[margin:search]))
+    last = width - search + int(np.argmax(dip[width - search:width - margin]))
+    tile = Image.fromarray(rgba[:, first:last].clip(0, 255).astype(np.uint8), "RGBA")
+    print(f"at joints: {first} to {last} px of {width}, {(last - first) / density:.2f} m a picture")
+    return cut_out(np.asarray(tile).copy())
+
+
+#: One level of nesting, as a `partsM` list is written: objects whose fields are two-number lists.
+PARTS_LINE = re.compile(r'"partsM":\s*\[(?:[^\[\]]|\[[^\[\]]*\])*\]')
+
+
+def write_parts(described: Path, variant: Path, per_m: float):
+    """A building's walls (OBJ-5a) as its whole drawing has them, over what its file authored: the rectangles of the
+    drawn silhouette (`_outline.rectangles`), none where it is one plain block. What the words asked for is the brief's;
+    what the town stands is the picture's."""
+    import numpy as np
+    from PIL import Image
+
+    import _outline
+
+    solid = np.asarray(Image.open(variant).convert("RGBA"))[..., 3] >= 128
+    found = _outline.rectangles(solid, per_m)
+    parts = [] if len(found) < 2 else [{"atM": [x, y], "sizeM": [w, h]} for x, y, w, h in found]
+    line = '"partsM": [' + ", ".join(
+        f'{{ "atM": [{p["atM"][0]}, {p["atM"][1]}], "sizeM": [{p["sizeM"][0]}, {p["sizeM"][1]}] }}' for p in parts) + "]"
+    text = described.read_text(encoding="utf-8")
+    text, n = PARTS_LINE.subn(lambda _: line, text, count=1)
+    if not n and parts:
+        text, n = re.subn(r'("footprintM":\s*\[[^\]]*\],)', lambda m: f"{m.group(1)}\n  {line},", text, count=1)
+    described.write_text(text, encoding="utf-8")
+    print(f"{described.name}: {len(parts) or 1} rectangle{'s' if len(parts) > 1 else ''} read off the drawing")
+
+
+def write_picture_m(base, described: Path, picture_m: float):
+    """How long one picture of a kerb's strip is along it, which the ground lays it at end to end (`seamless`)."""
+    text = described.read_text(encoding="utf-8")
+    line = f'"pictureM": {picture_m}'
+    text, n = re.subn(r'"pictureM":\s*[0-9.]+', line, text, count=1)
+    if not n:
+        text, n = re.subn(r'("footprintM":\s*\[[^\]]*\])', rf'\1,\n  {line}', text, count=1)
+    if not n:
+        cli.fail(f"{_sim.rel(base, described)} has no footprintM line to write the picture's length after")
+    described.write_text(text, encoding="utf-8")
 
 
 def cut_out(rgba):
@@ -1521,6 +1646,26 @@ def name_wreck(base, described: Path, now: str):
         text, n = re.subn(r'(\n([ \t]*)"sprite":\s*"[^"]*",)', rf'\1\n\2{line},', text, count=1)
     if not n:
         cli.fail(f"cannot place a wreck line after the sprite in {_sim.rel(base, described)}: `use` the car first")
+    described.write_text(text, encoding="utf-8")
+
+
+def write_arm(base, described: Path, arm: str, drawn: dict):
+    """The variant file's `beam.<arm>` quad and hinge, as the cut measured the drawing (`cut_arms`)."""
+    length, width = drawn["sizeM"]
+    hinge = round(-(length / 2 - drawn["hingeShare"] * length), 3)
+    text, n = re.subn(rf'("{arm}":\s*\{{[^{{}}]*"sizeM":\s*)\[[^\]]*\](,\s*"hingeAtM":\s*)-?[0-9.]+',
+                      rf'\g<1>[{length:.3f}, {width:.3f}]\g<2>{hinge}', described.read_text(encoding="utf-8"), count=1)
+    if not n:
+        cli.fail(f"{_sim.rel(base, described)} has no beam.{arm} sizeM and hingeAtM to write the drawn arm into")
+    described.write_text(text, encoding="utf-8")
+
+
+def name_beam(base, described: Path, arm: str, now: str):
+    """The variant file told its tow arm's `arm` picture is `now`, in its own folder."""
+    text, n = re.subn(rf'("{arm}":\s*\{{\s*"sprite":\s*)"[^"]*"', rf'\1"{now}"', described.read_text(encoding="utf-8"),
+                      count=1)
+    if not n:
+        cli.fail(f"{_sim.rel(base, described)} has no beam.{arm}.sprite line to name {now} in")
     described.write_text(text, encoding="utf-8")
 
 
@@ -1609,11 +1754,14 @@ def trace(base, a):
         print(f"{i}: no {SOURCE} — " + ("on the legacy list" if listed_legacy(base, found[i], i) else "traces to nothing"))
         return 1
     src = json.loads(source.read_text(encoding="utf-8"))
-    name = Path(src["variant"]).stem
-    record = next(r for r in read_jsonl(base / Path(src["variant"]).parent / VARIANTS) if r["variant"] == name)
-    print(f"{i}: {_sim.rel(base, source)} -> {src['variant']} ({src['encoding']}, {src['pxPerM']} px/m)")
-    print(f"  {name}: {record['status']}, score {record['score']}, cell {record['cell']} of {record['frame']}")
-    todo, seen = [record["frame"]], set()
+    variants = src.get("variants", [src["variant"]])
+    print(f"{i}: {_sim.rel(base, source)} -> {', '.join(variants)} ({src['encoding']}, {src['pxPerM']} px/m)")
+    todo, seen = [], set()
+    for variant in variants:
+        name = Path(variant).stem
+        record = next(r for r in read_jsonl(base / Path(variant).parent / VARIANTS) if r["variant"] == name)
+        print(f"  {name}: {record['status']}, score {record['score']}, cell {record['cell']} of {record['frame']}")
+        todo.append(record["frame"])
     while todo:
         f = todo.pop()
         if f in seen:
@@ -1691,9 +1839,10 @@ def audit(base) -> list[str]:
         source = img.parent / f"{img.stem}{SOURCE}"
         if source.is_file():
             traced = json.loads(source.read_text(encoding="utf-8"))
-            variant = traced["variant"]
-            if not (base / variant).is_file():
-                problems.append(f"{rel}: its variant {variant} is gone")
+            # A surface's repeat is joined from several (`use_tile`), and traces through each.
+            for variant in traced.get("variants", [traced["variant"]]):
+                if not (base / variant).is_file():
+                    problems.append(f"{rel}: its variant {variant} is gone")
             # A zone map `qq props install` painted names the picture its lamps were cut on.
             sprite_src = img.parent / f"{img.stem.removesuffix(ZONES)}{SOURCE}"
             if "cutOn" in traced and sprite_src.is_file() and \
@@ -1752,10 +1901,18 @@ def assets(base) -> dict[str, Path]:
             d = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
             continue
-        if isinstance(d, dict) and "id" in d and ("footprintM" in d or "diameterM" in d):
+        if isinstance(d, dict) and _surfaces.is_surface(d):
+            # A surface is asked, kept and used tile by tile; its own id names the repeat they are joined into.
+            found[d["id"]] = path
+            for t in _surfaces.tile_ids(d):
+                found.setdefault(t, path)
+        elif isinstance(d, dict) and "id" in d and ("footprintM" in d or "diameterM" in d):
             found[d["id"]] = path
             if "collisionM" in d:
                 found.setdefault(d["id"] + WRECK, path)
+            if "beam" in d:
+                for suffix in BEAMS:
+                    found.setdefault(d["id"] + suffix, path)
             if d.get("lamps") or "collisionM" in d:
                 found.setdefault(d["id"] + ZONES, path)
     return found

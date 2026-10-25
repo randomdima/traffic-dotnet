@@ -4,12 +4,12 @@
   "zones": "boxsaloon_beige_zones.png",
   "wreck": { "sprite": "boxsaloon_beige_broken.webp" },
   "describe": "1980s Soviet four-door saloon, average condition, faded beige, completely boxy with flat panels and sharp square corners, long and slim, long flat bonnet, upright three-box roof, separate flat boot, thin chrome bumpers, square headlamps, wide flat tail lamps across the corners split into red, amber and white sections",
-  "footprintM": [4.130, 1.965],
-  "collisionM": { "sizeM": [4.130, 1.661], "cornerRadiusM": 0.370 },
+  "footprintM": [4.130, 1.923],
+  "collisionM": { "sizeM": [4.130, 1.620], "cornerRadiusM": 0.392 },
   "massKg": 1060,
   "frontAxleM": 1.285,
   "rearAxleM": -1.135,
-  "trackM": 1.731,
+  "trackM": 1.517,
   "drivetrain": 0,
   "maxSteeringDeg": 32,
   "tyreFriction": 0.78,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.53,
   "handling": { "maxSpeed": 0.75, "acceleration": 0.72, "braking": 0.82 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.856, -0.567], "sizeM": [0.094, 0.312] },
-    { "fitting": "brake", "atM": [-1.856, 0.515], "sizeM": [0.094, 0.312] },
-    { "fitting": "indicator", "atM": [-1.856, -0.587], "sizeM": [0.073, 0.125] },
-    { "fitting": "indicator", "atM": [-1.856, 0.535], "sizeM": [0.073, 0.125] },
-    { "fitting": "head", "atM": [1.898, -0.546], "sizeM": [0.063, 0.177] },
-    { "fitting": "head", "atM": [1.909, 0.473], "sizeM": [0.063, 0.177] },
-    { "fitting": "indicator", "atM": [1.856, -0.691], "sizeM": [0.136, 0.104] },
-    { "fitting": "indicator", "atM": [1.877, 0.629], "sizeM": [0.136, 0.104] },
-    { "fitting": "reverse", "atM": [-1.877, -0.463], "sizeM": [0.073, 0.104] },
-    { "fitting": "reverse", "atM": [-1.877, 0.411], "sizeM": [0.073, 0.104] }
-  ]
+    { "fitting": "brake", "atM": [-1.919, -0.504], "sizeM": [0.115, 0.322] },
+    { "fitting": "brake", "atM": [-1.919, 0.494], "sizeM": [0.115, 0.322] },
+    { "fitting": "indicator", "atM": [-1.919, -0.567], "sizeM": [0.115, 0.197] },
+    { "fitting": "indicator", "atM": [-1.919, 0.556], "sizeM": [0.115, 0.197] },
+    { "fitting": "head", "atM": [1.867, -0.494], "sizeM": [0.104, 0.208] },
+    { "fitting": "head", "atM": [1.867, 0.504], "sizeM": [0.104, 0.208] },
+    { "fitting": "indicator", "atM": [1.815, -0.65], "sizeM": [0.125, 0.104] },
+    { "fitting": "indicator", "atM": [1.815, 0.66], "sizeM": [0.125, 0.104] },
+    { "fitting": "reverse", "atM": [-1.919, -0.39], "sizeM": [0.104, 0.104] },
+    { "fitting": "reverse", "atM": [-1.919, 0.39], "sizeM": [0.104, 0.104] }
+  ],
+  "exhausts": [[-2.034, -0.577]]
 }

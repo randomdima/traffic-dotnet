@@ -1,0 +1,7 @@
+{
+  "id": "fan_seven_sickle",
+  "sprite": "fan_seven_sickle.webp",
+  "footprintM": [3.4, 3.372],
+  "tags": ["fan", "seven blades"],
+  "describe": "a rooftop cooling fan with seven sickle-shaped anthracite blades round a grey hub, a thin light grey rim"
+}

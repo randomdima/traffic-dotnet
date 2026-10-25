@@ -27,6 +27,7 @@ internal sealed partial class SimConfig
     public CarFigures Car { get; init; } = new();
     public TyreFigures Tyre { get; init; } = new();
     public LampFigures Lamps { get; init; } = new();
+    public SmokeFigures Smoke { get; init; } = new();
     public DrivingFigures Driving { get; init; } = new();
     public DrivePatienceFigures Patience { get; init; } = new();
     public PersonFigures Person { get; init; } = new();
@@ -42,6 +43,9 @@ internal sealed partial class SimConfig
     public TrainFigures Train { get; init; } = new();
     public TerrainFigures Terrain { get; init; } = new();
     public MarkFigures Marks { get; init; } = new();
+    public WindFigures Wind { get; init; } = new();
+    public CloudFigures Clouds { get; init; } = new();
+    public ChimneyFigures Chimneys { get; init; } = new();
     public CityGenFigures CityGen { get; init; } = new();
     public ZoneFigures Zones { get; init; } = new();
     public NetworkFigures Network { get; init; } = new();

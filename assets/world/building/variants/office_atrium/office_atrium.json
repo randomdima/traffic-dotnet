@@ -1,9 +1,18 @@
 {
   "id": "office_atrium",
   "sprite": "office_atrium.webp",
+  "describe": "five-storey office block, flat dark grey roof with a parapet, a glass atrium skylight, a plant room and air conditioner units",
   "footprintM": [17.00, 18.07],
   "partsM": [
     { "atM": [0.0, -0.83], "sizeM": [16.65, 16.40] },
     { "atM": [0.0, 0.0], "sizeM": [3.89, 18.07] }
-  ]
+  ],
+  "fans": [
+    { "atM": [6.4623, -7.387], "rimAtM": [6.4852, -7.3779], "rimM": [0.4327, 0.4124] },
+    { "atM": [3.7066, -7.387], "rimAtM": [3.7267, -7.376], "rimM": [0.4399, 0.4237] },
+    { "atM": [5.1039, -7.387], "rimAtM": [5.1226, -7.3742], "rimM": [0.4352, 0.4179] },
+    { "atM": [6.4429, -5.6033], "rimAtM": [6.4442, -5.588], "rimM": [0.4344, 0.3983] }
+  ],
+  "chimneys": [[5.49, 3.64]],
+  "potWidthM": 0.6
 }

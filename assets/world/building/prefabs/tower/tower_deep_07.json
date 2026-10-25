@@ -2,8 +2,8 @@
   "id": "tower_deep_07",
   "sprite": "tower_deep_07.webp",
   "footprintM": [
-    12.5,
-    42.5
+    16.2,
+    55.2
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],
@@ -17,5 +17,7 @@
     "panel block",
     "narrow front"
   ],
-  "describe": "tall Soviet panel tower block, flat roof of grey membrane, 2 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "tall Soviet panel tower block, flat roof of grey membrane, 2 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge, standing narrow end to the street with the entrance on that short front wall",
+  "chimneys": [[-3.0, -6.7], [3.13, -21.47], [3.06, 16.4]],
+  "potWidthM": 0.8
 }

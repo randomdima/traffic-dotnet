@@ -32,7 +32,7 @@ internal static class DeviceAtlasProbe
     {
         Warmup.TheProcess(config);
 
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
         while (loop.Tick < WarmupTicks) loop.Advance();

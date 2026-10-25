@@ -1,8 +1,9 @@
 {
   "id": "religious_deep_01",
+  "sprite": "religious_deep_01.webp",
   "footprintM": [
-    5.0,
-    8.0
+    5.5,
+    8.8
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],

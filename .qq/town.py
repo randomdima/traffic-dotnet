@@ -1,6 +1,10 @@
 """
 Report what a town holds: road curvature, junction spacing and arms, the joints nothing meets at, the
-car parks cut into its roads, and what its own boundary comes to when it is moved off itself.
+car parks cut into its roads, the roofs its buildings wear and where, and what its own boundary comes to when it is
+moved off itself.
+
+`--roofs` lists every building (`--bench roofs`), or with `--roofs=ID,ID` only those wearing those roofs — where each
+stands, to frame a picture of it with `--shot … --at X Y`.
 
 **The figures are the engine's and this only asks for them.** The readings come off the plan the
 generator just laid (`--bench shape`, `--bench joints`, `--bench close`, `--bench shapes`, src/bench/TownShape.cs;
@@ -42,6 +46,9 @@ def main():
     if a.parks:
         return run(base, "parks", a.map)
 
+    if a.roofs is not None:
+        return run(base, "roofs", a.map, keep=roof_filter(a.roofs))
+
     if a.outset:
         return run(base, "outset", a.map)
 
@@ -54,7 +61,7 @@ def main():
     return run(base, "shape", a.map)
 
 
-def run(base, check: str, map_name: str | None = None) -> int:
+def run(base, check: str, map_name: str | None = None, keep=None) -> int:
     argv = ["run", "--project", ENGINE, "-c", "Release", "--", "--bench", check]
     if map_name:
         argv += ["--map", map_name]
@@ -64,8 +71,16 @@ def run(base, check: str, map_name: str | None = None) -> int:
     if laid.code != 0:
         cli.fail(text.splitlines()[-1] if text else f"--bench {check} failed with no output")
 
-    print(text)
+    print("\n".join(line for line in text.splitlines() if keep is None or keep(line)))
     return 0
+
+
+def roof_filter(ids: str):
+    """The lines of `--bench roofs` to keep: all of them, or the heading and the buildings wearing one of `ids`."""
+    wanted = {i for i in ids.split(",") if i}
+    if not wanted:
+        return None
+    return lambda line: not line.startswith("  ") or line.split()[0] == "x" or line.split()[-1] in wanted
 
 
 def parse_args():
@@ -81,6 +96,9 @@ def parse_args():
                         help="list every junction only two roads meet at, where it stands and what kept it")
     parser.add_argument("--parks", action="store_true",
                         help="list every car park cut into a road, where it stands, its arms and its bays")
+    parser.add_argument("--roofs", nargs="?", const="", default=None, metavar="ID,ID",
+                        help="list every building: where it stands, its heading, the roof it wears and that roof's "
+                             "fans; with ids, only the buildings wearing those roofs")
     parser.add_argument("--outset", action="store_true",
                         help="move the town's boundary off itself and report what closed and what did not")
     parser.add_argument("--close", action="store_true",

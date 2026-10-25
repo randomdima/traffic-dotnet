@@ -1,0 +1,8 @@
+{
+  "id": "bench_metal",
+  "sprite": "bench_metal.webp",
+  "kind": 2,
+  "footprintM": [1.8, 0.822],
+  "turns": true,
+  "describe": "modern steel bench, a perforated grey metal seat and back"
+}

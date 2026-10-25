@@ -4,12 +4,12 @@
   "zones": "saloon00s_silver_zones.png",
   "wreck": { "sprite": "saloon00s_silver_broken.webp" },
   "describe": "2000s budget compact four-door saloon, average condition, silver, rounded bonnet, rounded roof, short separate boot, oval headlamps, round-cornered tail lamps",
-  "footprintM": [4.240, 2.130],
-  "collisionM": { "sizeM": [4.240, 1.821], "cornerRadiusM": 0.617 },
+  "footprintM": [4.240, 2.201],
+  "collisionM": { "sizeM": [4.240, 1.897], "cornerRadiusM": 0.721 },
   "massKg": 1080,
   "frontAxleM": 1.3,
   "rearAxleM": -1.27,
-  "trackM": 1.901,
+  "trackM": 1.796,
   "drivetrain": 1,
   "maxSteeringDeg": 33,
   "tyreFriction": 0.8,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.8, "acceleration": 0.8, "braking": 0.88 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.86, -0.606], "sizeM": [0.188, 0.345] },
-    { "fitting": "brake", "atM": [-1.86, 0.543], "sizeM": [0.188, 0.345] },
-    { "fitting": "head", "atM": [1.776, -0.626], "sizeM": [0.375, 0.345] },
-    { "fitting": "head", "atM": [1.776, 0.606], "sizeM": [0.375, 0.345] },
-    { "fitting": "indicator", "atM": [1.755, -0.71], "sizeM": [0.323, 0.178] },
-    { "fitting": "indicator", "atM": [1.755, 0.689], "sizeM": [0.323, 0.178] },
-    { "fitting": "indicator", "atM": [-1.849, -0.689], "sizeM": [0.167, 0.178] },
-    { "fitting": "indicator", "atM": [-1.849, 0.626], "sizeM": [0.167, 0.178] },
-    { "fitting": "reverse", "atM": [-1.901, -0.48], "sizeM": [0.104, 0.115] },
-    { "fitting": "reverse", "atM": [-1.901, 0.439], "sizeM": [0.104, 0.115] }
-  ]
+    { "fitting": "brake", "atM": [-1.797, -0.61], "sizeM": [0.333, 0.376] },
+    { "fitting": "brake", "atM": [-1.807, 0.61], "sizeM": [0.333, 0.376] },
+    { "fitting": "indicator", "atM": [-1.87, -0.621], "sizeM": [0.073, 0.094] },
+    { "fitting": "indicator", "atM": [-1.891, 0.61], "sizeM": [0.073, 0.094] },
+    { "fitting": "head", "atM": [1.849, -0.579], "sizeM": [0.167, 0.219] },
+    { "fitting": "head", "atM": [1.839, 0.589], "sizeM": [0.167, 0.219] },
+    { "fitting": "indicator", "atM": [1.735, -0.746], "sizeM": [0.135, 0.083] },
+    { "fitting": "indicator", "atM": [1.735, 0.756], "sizeM": [0.135, 0.083] },
+    { "fitting": "reverse", "atM": [-1.901, -0.485], "sizeM": [0.125, 0.125] },
+    { "fitting": "reverse", "atM": [-1.912, 0.485], "sizeM": [0.125, 0.125] }
+  ],
+  "exhausts": [[-1.985, -0.66]]
 }

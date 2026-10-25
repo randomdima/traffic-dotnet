@@ -1,0 +1,9 @@
+{
+  "id": "picnic_table",
+  "sprite": "picnic_table.webp",
+  "kind": 2,
+  "footprintM": [1.8, 1.329],
+  "share": 0.4,
+  "turns": true,
+  "describe": "wooden picnic table with two attached benches, planks running along it"
+}

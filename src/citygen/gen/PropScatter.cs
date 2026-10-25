@@ -40,6 +40,8 @@ internal sealed class PropScatter
 
     public List<byte> Kind { get; } = [];
 
+    public List<ushort> Look { get; } = [];
+
     public static PropScatter Over(WorldGrid grid, Vector2 acrossM, float widestM, float apartM)
     {
         var nearestM = widestM + apartM;
@@ -69,7 +71,7 @@ internal sealed class PropScatter
         return false;
     }
 
-    public void Add(Vector2 atM, float reachM, float bearingRad, PropKind kind)
+    public void Add(Vector2 atM, float reachM, float bearingRad, PropKind kind, ushort look)
     {
         var square = _window.IndexAt(atM);
 
@@ -80,5 +82,6 @@ internal sealed class PropScatter
         RadiusM.Add(reachM);
         BearingRad.Add(bearingRad);
         Kind.Add((byte)kind);
+        Look.Add(look);
     }
 }

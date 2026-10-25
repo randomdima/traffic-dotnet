@@ -30,5 +30,5 @@ void main() {
     bool ploughed = mark.strength < 0.0;
     vec2 halfSizeM = vec2(mark.lengthM, mark.widthM * (ploughed ? look.soilBleed : look.rubberBleed)) * 0.5;
     vec4 tint = vec4(ploughed ? look.soil.rgb : vec3(0.0), abs(mark.strength) * (ploughed ? look.soilAlpha : look.rubberAlpha));
-    quadEmit(mark.centreM, halfSizeM, mark.headingRad, vec2(0.0), vec2(1.0), tint, ploughed ? look.soilSheet : look.rubberSheet);
+    quadEmit(mark.centreM, halfSizeM, mark.headingRad, vec2(0.0), vec2(1.0), tint, ploughed ? look.soilSheet : look.rubberSheet, 0u);
 }

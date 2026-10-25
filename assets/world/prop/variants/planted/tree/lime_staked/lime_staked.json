@@ -1,0 +1,8 @@
+{
+  "id": "lime_staked",
+  "sprite": "lime_staked.webp",
+  "kind": 1,
+  "diameterM": 2.2,
+  "colliderM": 0.5,
+  "describe": "newly planted young linden, a small round crown, two wooden support stakes and a ring of bare soil at the centre"
+}

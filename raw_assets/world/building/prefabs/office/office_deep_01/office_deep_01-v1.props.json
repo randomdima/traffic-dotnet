@@ -1,0 +1,20 @@
+{
+  "car": "office_deep_01",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/office/office_deep_01/office_deep_01-v1.png", "sizePx": [191, 293]},
+  "axisY": {"rear": 146.50, "front": 146.50},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [63.68, 47.99, 6.17],
+      [74.42, 70.05, 5.07],
+      [94.92, 58.22, 4.14],
+      [83.72, 40.02, 3.94]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [117.98, 39.86, 4.33],
+      [104.94, 56.54, 1.01],
+      [108.78, 65.36, 5.71],
+      [133.32, 65.27, 2.11],
+      [136.62, 50.45, 4.05]
+    ]}
+  ]
+}

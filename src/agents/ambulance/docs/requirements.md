@@ -25,8 +25,8 @@ first tick, with their crews aboard (SRV-3), half of them to patrol its district
 free bays near it than the apron asks for stands fewer, and one with none stands none: both are real states and
 are reported rather than hidden.
 
-**AMB-3** `P5` An ambulance is an ordinary car with one fact about it: it wears the ambulance's variant from
-the service list. The rest of what it is made of is `SRV-3`.
+**AMB-3** `P5` An ambulance is an ordinary car with one fact about it: it wears one of the ambulance looks from
+the service list (SRV-3b). The rest of what it is made of is `SRV-3`.
 
 ## The priority
 

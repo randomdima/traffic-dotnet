@@ -1,1 +1,2 @@
-{"variant": "saloon00s_silver_broken-v1", "frame": "fleet100_w03-v1", "cell": 8, "pxPerM": 108.726, "score": 4, "status": "used", "ts": "2026-10-22T01:19:39"}
+{"variant": "saloon00s_silver_broken-v1", "frame": "fleet100_w03-v1", "cell": 8, "pxPerM": 108.726, "score": 4, "status": "candidate", "ts": "2026-10-22T01:19:39"}
+{"variant": "saloon00s_silver_broken-v2", "frame": "fleet100_rw01-v1", "cell": 7, "pxPerM": 108.019, "score": 4, "status": "used", "ts": "2026-10-22T16:39:01"}

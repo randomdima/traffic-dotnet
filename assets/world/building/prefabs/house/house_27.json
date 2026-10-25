@@ -2,8 +2,8 @@
   "id": "house_27",
   "sprite": "house_27.webp",
   "footprintM": [
-    9.0,
-    6.0
+    12.6,
+    8.4
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -15,5 +15,7 @@
     "brown metal tiles",
     "detached"
   ],
-  "describe": "detached family house, hipped roof of brown metal tiles, a chimney and a skylight, small porch roof over the door"
+  "describe": "detached family house, hipped roof of brown metal tiles, a chimney and a skylight, small porch roof over the door",
+  "chimneys": [[-1.4, -2.5, -1.0, -2.5]],
+  "potWidthM": 0.4
 }

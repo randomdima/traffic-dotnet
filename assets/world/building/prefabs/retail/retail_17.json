@@ -2,8 +2,8 @@
   "id": "retail_17",
   "sprite": "retail_17.webp",
   "footprintM": [
-    31.5,
-    12.0
+    41.0,
+    15.6
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +15,11 @@
     "light membrane",
     "shops"
   ],
-  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods"
+  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods",
+  "fans": [
+    { "atM": [-16.3959, -3.0672], "rimAtM": [-16.3771, -3.0338], "rimM": [0.7072, 0.69] },
+    { "atM": [-14.9737, -3.0672], "rimAtM": [-14.9641, -3.0356], "rimM": [0.6913, 0.7036] },
+    { "atM": [10.2195, -0.65], "rimAtM": [10.2217, -0.6185], "rimM": [0.697, 0.7027] },
+    { "atM": [11.6214, -0.65], "rimAtM": [11.6296, -0.6107], "rimM": [0.6808, 0.6971] }
+  ]
 }

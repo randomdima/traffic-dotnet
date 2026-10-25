@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Text.Json.Serialization;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.Agents.Train.Body;
 
@@ -60,6 +61,15 @@ internal sealed class TrainVehicleFile
 
     /// <summary>The most its engine pulls with at the rail, shared among its bogies; nought for a vehicle with none.</summary>
     public float TractiveEffortN { get; init; }
+
+    /// <summary>The fans its picture draws, traced off it (<c>qq props</c>) and turned as it is drawn (TRN-13); none on most.</summary>
+    public DrawnFan[] Fans { get; init; } = [];
+
+    /// <summary>
+    /// Where its exhaust stacks open, read off its picture by eye (<c>qq chimneys</c>), from its middle with <c>+x</c> its
+    /// front, which smoke while it runs (TRN-15); none on all but a diesel.
+    /// </summary>
+    public Vector2[] Exhausts { get; init; } = [];
 }
 
 [JsonSourceGenerationOptions(
@@ -70,12 +80,16 @@ internal sealed partial class TrainVehicleJson : JsonSerializerContext;
 
 /// <summary>One vehicle a train may be made of, as the catalogue reads it.</summary>
 /// <param name="SpritePath">Where its picture is, or null where it has none yet.</param>
+/// <param name="ExhaustsM">Where its exhaust stacks open (TRN-15), at most <see cref="MostExhausts"/>.</param>
 internal readonly record struct TrainVehicle(
     string Id, VehicleKind Kind, string? SpritePath, Vector2 FootprintM, float BufferM, float CornerRadiusM, float[] BogiesM,
-    float MassKg, float TractiveEffortN)
+    float MassKg, float TractiveEffortN, DrawnFan[] Fans, Vector2[] ExhaustsM)
 {
     /// <summary>The most bogies a vehicle stands on: a wheel row a bogie, and four rows a body on the device as a car's.</summary>
     public const int MostBogies = 4;
+
+    /// <summary>The most exhaust stacks a vehicle opens: what a look's row on the device holds.</summary>
+    public const int MostExhausts = 2;
 
     /// <summary>
     /// <b>What it is collided as</b>: its footprint short of its buffers at both ends, so coupled vehicles meet buffer to
@@ -138,6 +152,20 @@ internal sealed class TrainCatalog
                 {
                     throw new InvalidDataException($"{one.Id}'s buffers stand {one.BufferM} m out of a {one.FootprintM.X} m footprint.");
                 }
+
+                if (one.ExhaustsM.Length > TrainVehicle.MostExhausts)
+                {
+                    throw new InvalidDataException($"{one.Id} opens {one.ExhaustsM.Length} exhaust stacks, past the {TrainVehicle.MostExhausts} a look holds.");
+                }
+
+                foreach (var fan in one.Fans)
+                {
+                    if (!fan.FitsOn(one.FootprintM))
+                    {
+                        throw new InvalidDataException(
+                            $"{one.Id}'s fan at {fan.AtM} m, its rim {fan.RimM} m about {fan.RimAtM} m, is not round its hub on its picture.");
+                    }
+                }
             }
 
             _ofKind[kind] = of;
@@ -176,7 +204,7 @@ internal sealed class TrainCatalog
             var file = AssetJson.Read(files[at], TrainVehicleJson.Default.TrainVehicleFile);
             vehicles[at] = new TrainVehicle(
                 file.Id, file.Kind, file.Sprite is { } sprite ? AssetJson.Beside(files[at], sprite) : null, file.FootprintM,
-                file.BufferM, file.CornerRadiusM, file.BogiesM, file.MassKg, file.TractiveEffortN);
+                file.BufferM, file.CornerRadiusM, file.BogiesM, file.MassKg, file.TractiveEffortN, file.Fans, file.Exhausts);
         }
 
         return new TrainCatalog(vehicles);

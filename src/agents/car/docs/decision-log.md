@@ -3,6 +3,97 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-24 — a lit road lamp burns a hot core, and spills further
+
+**The owner: "make turned on lamps more contrast".** An amber or clear lens the art already paints near full came on
+barely brighter than it stood, since a lift along a texel's own colour has nowhere to go past full. Three changes, all
+of degree: the lift and floor are higher (`LampAtlasBake.Brighten`, `LitFloor`); a road lamp's core is taken towards
+white as a beacon's is, by as much green as its light carries (`LampAtlasBake.LampHeat`) — a clear lamp white, an amber
+one yellow, a red one red, because red glass burns redder and not pink; and the spill is stronger and a little wider
+(`LampFigures.GlowStrength`, `GlowReachM`), which on a white body adds nothing and is where most of a white car's
+contrast has to come from: the road round it.
+
+## 2026-10-23 — an ambulance's bar is blue at both ends, and every bar runs one 0.5 s loop
+
+**The owner: "ambulance should be blue blue and police blink a bit faster — same as ambulance", then "make all
+sirens same interval 0.7s loop", and then 0.6 s and 0.5 s.**
+
+- **The glass is blue, not only the light** (CAR-14.4): each ambulance's red and blue bar was painted over by the
+  all-blue cut drawn beside it on the same sheet (`qq beacons swap`), at its very place and size, and the props cut on
+  the picture were installed again with the red end named blue. Its wreck, drawn off the car, has its red glass turned
+  to the hue of its own blue end. Burning blue through red glass would break the rule that a lamp keeps its glass's
+  colour.
+- **A bar of blue alone takes its sides in turn**, as an amber one does: a blue end beside a red one still burns
+  second, so a police car and a second bar entered crossed are unchanged.
+- **One loop for every bar, 0.5 s** (`LampFigures.BeaconPeriodS`): each end burns 0.25 s. The period is what the
+  owner gave and is authored as such, the rate derived from it once on `SimConfig`.
+- **No jitter in an animation** (the owner: "don't use it for animations"): a car's fuse jitter, which is what gives
+  two jammed cars up on different ticks, had also run its indicators and its bar off their nominal rates, as a flasher
+  relay drifts, so no two kept time. Every lamp now flashes at the one rate, and the jitter is the patience's alone and
+  never reaches the device.
+
+## 2026-10-23 — the lamp cell is 56 texels, paid for by a second column only where a second light burns
+
+The 40-texel cell cut 17 rear clusters short or split them, lighting a red stretch white reversing, and could not
+hold the police van's big bar. Every lens had kept a second column for a second light that only a one-lens rear
+cluster burns, so two thirds of the sheet was clear: a look's block is now its ten lenses and two second-light
+columns, six looks a row, and the cell grew to 56 for about a sixth more texels rather than double.
+
+## 2026-10-22 — a lit lamp is the drawn lens switched on, in its own colour, and its glow is its own shape
+
+**With the glow off, every lit lamp all but vanished** (the owner): the bake re-coloured each lens from its luminance
+and thinned the darker half to nothing, so the round glow under it did all the work and hid the shape the lens was
+cut to. A solid fill with a hot core read well but wiped the artist's lens off the car — the owner: "respect the
+original image". `LampAtlasBake` now lights the drawn texels themselves: contrast stretched about the lens's own
+mean and brightness raised along each texel's own colour, so the bezel, the highlight and the glass all survive,
+brighter — and never darker than drawn, nor fringed with the black of the clear texels round the cut (the sheet is
+sampled linearly at straight alpha): either drew a dark ring between a lit lens and its glow, which the owner
+called the classic fault. **A lamp keeps the colour its glass is** (the owner): a red beacon end only ever burns red, so a bar's
+ends burn in turn instead of swapping colours (CAR-14.4). **Only where the art has no glass of the light's colour
+does a lens take the light's hue** (the owner, 2026-10-23) — an indicator cut on a section painted red blinked as
+an orange smear in an amber glow, and a red cluster reversing as pink in a white one — read off the lens's own mean
+colour against its light, at the texel's own brightness. A white glow is brought down to an indicator's
+brightness, since added on all three channels it washed a white car's tail out; the coloured ones keep their own,
+because scaled to the brake's a turn read a third dimmer. The glow is no
+longer one round sprite: `LampSprites.Glow` blurs each lit lens's own shape out of the lens sheet when the town
+loads, on the same cell grid at a coarser texel, so a strip spills as a strip and the device draws it off the
+lens's own cell. Each cell spans its own lens and spill, so a glow's quad is no larger than its light (the owner:
+"keep overhead minimal"), and headlamps glow like every other lamp (the owner, 2026-10-22), CAR-14.8's earlier
+"no glow on a headlamp" withdrawn — a glow this tight to its lens does not wash a town in bloom. **The glow is
+light, added and not laid over** (the owner, given the choice against a wider glow): laid over at full it could
+be no more than paint, white on a white body; summed on, it brightens what it falls on. Every sprite pipeline went
+premultiplied for it, a sheet of light writing no coverage, so it costs no pass or quad of its own. **A lens's rim
+is faded and its darkest texels floored** (the owner, 2026-10-23, `liftback_black`'s indicator as a black ring in
+its glow): the glow under a lens lifts the paint round it near to the light's colour, while the art shades a lens's
+outermost texels darker into its frame, and solid they stood between the two as a dark ring. The rim's texel now
+lets the glow through, and no texel of a lit lens burns under about half its glass's hue. **A beacon burns and
+spills harder than a road lamp** (the owner, 2026-10-23: "sirens are too dim"): lit like a tail lamp, a bar on a white
+roof barely changed, and its glow, being added light, added nothing to the white under it. A beacon end now burns its
+light's own colour, floored near full, and goes hot towards white in its middle — at full colour and no hotter it was no
+brighter than the glow round it and read as a dull panel in a lit field ("feels turned off"); and its glow reaches about four times as far at nearly twice the strength,
+off the roof onto the glass and the road round the car, where added light shows. Only a lit beacon draws the larger
+quad, and few cars carry one.
+
+## 2026-10-22 — a tyre shows a quarter of itself past the panels, and an axle stands where the art shades its wheel
+
+**The owner found the fleet's tyres stood too far out**: centres 3 cm outside the flank put 64% of every tyre past the
+bodywork, a car on outriggers. The centres now stand inside the flank, so a quarter shows (`ShowsPastTheBodyworkShare`,
+CAR-12) — enough that the wheel is there, not so much that it reads as a second hull. `CarSpriteTests` holds it from
+both sides now, to a texel, and measures the flank as `qq sprites` does (half-covered texels inside, the median of
+five columns), because the two measures disagreeing by 3 cm was a test failing on its own ruler. **And an axle is where
+the art draws its wheel**: the generated bodies shade a tyre's shadow under the sill, and `qq fleet wheels` lays it
+beside each file's axles. Two disagreed by a quarter of a metre and more — `lightvan_white`'s rear at −1.20 m against a
+shadow at −1.55, `pickup_silver`'s at −1.31 against −1.55 — and the plan's rear overhangs were moved to the art, as
+the figure the picture states. Dark paint shades nothing readable; those cars keep the plan's.
+
+## 2026-10-22 — the fleet is the generated hundred, and a map's named looks are three of them
+
+**The owner retired the sixteen legacy looks** (2026-10-22) once the generated fleet spanned 3.4–5.9 m: art that traced
+to no prompt, lamps lit by rectangle, and `apc_olive` among them as civilian traffic. Their folders are deleted, not
+kept beside the fleet, since nothing could draw them. A map that asks for a look by what it is gets one of the
+fleet's own: `fleetsaloon_silver` plain, `largesuv_black` armoured (the heaviest the fleet ships, 2.6 t, a car worth
+escorting rather than a military body in a town's traffic) and `sportscar_red` sports.
+
 ## 2026-10-20 — a civilian car draws its whole lamp set, and the zone map divides a cluster the art drew as one
 
 The fleet is drawn again as real body classes with every lamp a car has (the owner, 2026-10-20): two headlamps, an
@@ -38,7 +129,7 @@ because a lamp the art drew no lens for is a share of the main lamp (an indicato
 section drawn inside a housing lies over it: one colour a texel would leave the brake dark where its indicator is.
 Head and reverse share white, as they share no end of the car. A generated palette map reads wrongly in this
 encoding (yellow is red and amber), so `qq sprites use` refuses one; a new picture drops the car's lamps until they
-are cut again. The legacy looks keep the rectangle until they are generated again.
+are cut again. The service looks keep the rectangle until they are generated again.
 
 ## 2026-10-16 — a leg gives its place up once, and a light excuses only a queue that reaches it
 
@@ -1006,15 +1097,6 @@ lens is a section of it (CAR-14b), at the end nearest the flank — the part of 
 is; taking a whole diagonal headlight would flash the main beam amber. Two of them are white glass because
 the art paints a clear-lens indicator, which the cut turns amber when it burns. Plain-nosed cars keep the
 block, there being nothing to be a section of.
-
-## 2026-08-27 — a lit lens shades with how solidly it is drawn, never with darkness
-
-A four-texel lens of deep red glass and one chrome highlight painted the glass near-black at four-fifths
-opacity, punching a black strip through a red light; four thousand texels of the sheet were darker than
-the light they sit on. The two ramps became one: a texel is drawn as solidly as it is burning, so a bezel
-reads by letting the glow through rather than by covering it — the argument that stopped an unlit lens
-being drawn at all. The ramp bottoms out at a dim fraction of the lamp's colour rather than black, held by
-a unit test on the shipped picture.
 
 ## 2026-08-26 — a second bar is a crossed pair of fittings and not a phase written down
 

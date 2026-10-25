@@ -2,8 +2,8 @@
   "id": "apartments_33",
   "sprite": "apartments_33.webp",
   "footprintM": [
-    39.0,
-    16.0
+    50.7,
+    20.8
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,7 @@
     "courtyard block",
     "old town"
   ],
-  "describe": "deep old-town apartment block, hipped roof of dark bitumen round a light well, dormers and chimney stacks"
+  "describe": "deep old-town apartment block, hipped roof of dark bitumen round a light well, dormers and chimney stacks",
+  "chimneys": [[-15.55, -6.1, -15.0, -6.1, -14.45, -6.1], [14.74, -6.1, 15.29, -6.1, 15.84, -6.1], [-15.55, 4.2, -15.0, 4.2, -14.45, 4.2], [14.74, 4.2, 15.29, 4.2, 15.84, 4.2]],
+  "potWidthM": 0.55
 }

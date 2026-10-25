@@ -1,0 +1,10 @@
+{
+  "id": "water_barrier",
+  "sprite": "water_barrier.webp",
+  "kind": 2,
+  "footprintM": [1.2, 0.524],
+  "cornerRadiusM": 0.1,
+  "share": 0.4,
+  "turns": true,
+  "describe": "orange plastic water-filled barrier, a ribbed top"
+}

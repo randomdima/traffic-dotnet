@@ -1,0 +1,55 @@
+{
+ "id": "service_police_wrecks-v1",
+ "ts": "2026-10-22T21:32:22",
+ "op": "edit",
+ "name": "service_police_wrecks",
+ "file": ".tmp/gen/frames/service_police_wrecks-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.018486,
+ "usage": {
+  "prompt_tokens": 2016,
+  "completion_tokens": 158,
+  "total_tokens": 2174,
+  "cost": 0.018486,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.018486,
+   "upstream_inference_prompt_cost": 0.013746,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 cars for a 2D top-down city game.\n\nStyle: match the attached picture's art style exactly — outline weight, shading, highlights, level of detail, pixel size.\n\nView: straight down from directly above the middle of each roof, orthographic, as the attached cars are: the roof centred across the body, and neither flank seen more than the other — no doors, sills or side windows showing along one side. No perspective, no ground, no shadow.\n\nLayout: a 3×3 grid, the cars in the order listed, left to right and top to bottom. Each car lies horizontally with its nose to the right, centred in its place, with empty space round it. One shared scale for all.\n\nEvery car:\n- Its length and width as listed, in that proportion, with straight flanks. Narrow cars stay narrow: leave spare room empty rather than draw a car wider.\n- Its shape mirror-symmetric about its long centre line, with two small side mirrors just ahead of the windscreen; wear, rust and odd panels may differ side to side.\n- Roof on. No tyres or wheels (the game draws them), no people, no text, logos, badges or licence plates.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe picture shows these same cars intact, in this order. Draw each as a wreck after a hard crash, plainly the same car (paint, wear, roof, windows, trim):\n- Nose crumpled and pushed in, bonnet buckled, one front corner smashed harder; dents and scrapes to bare metal along one flank; windscreen and side windows shattered, one gone; lamps smashed and dark; a bumper twisted.\n- Same outline: nothing pushed out past it, no debris round the car, no fire or smoke.\n- Police livery kept as in the picture: the blue stripes and the shield badge on the bonnet, scraped. The roof light bar stays where it is, dark and cracked.\n\nCars, body length × width without mirrors, and what each is:\n1. 3.74 × 1.69 m (2.21× longer than wide), gently rounded corners — Soviet three-door small 4×4 patrol car in police livery\n2. 4.13 × 1.63 m (2.53× longer than wide), nearly square corners — 1980s Soviet four-door saloon patrol car in police livery\n3. 4.28 × 1.86 m (2.31× longer than wide), gently rounded corners — modern five-door family hatchback patrol car in police livery\n4. 4.34 × 1.83 m (2.38× longer than wide), gently rounded corners — modern budget compact SUV patrol car in police livery\n5. 4.35 × 1.80 m (2.42× longer than wide), gently rounded corners — plain modern budget four-door saloon patrol car in police livery\n6. 4.41 × 1.94 m (2.27× longer than wide), nearly square corners — modern small panel van in police livery\n7. 4.54 × 1.86 m (2.44× longer than wide), gently rounded corners — modern hybrid five-door liftback patrol car in police livery\n8. 4.60 × 1.95 m (2.36× longer than wide), gently rounded corners — modern compact SUV crossover patrol car in police livery\n9. 4.63 × 1.92 m (2.41× longer than wide), gently rounded corners — modern compact four-door saloon patrol car in police livery",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "13c5c29750bf1ba5",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_police_wrecks_style.png"
+  }
+ ],
+ "cells": [
+  "policeniva_white_broken",
+  "policesaloon80s_white_broken",
+  "policehatch_white_broken",
+  "policesuv_white_broken",
+  "police_white_broken",
+  "policevan_white_broken",
+  "policehybrid_white_broken",
+  "policecrossover_white_broken",
+  "policesaloon_white_broken"
+ ]
+}

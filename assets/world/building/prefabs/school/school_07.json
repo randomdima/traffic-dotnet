@@ -1,8 +1,9 @@
 {
   "id": "school_07",
+  "sprite": "school_07.webp",
   "footprintM": [
-    22.5,
-    11.5
+    36.0,
+    18.4
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +16,7 @@
     "soviet",
     "school wing"
   ],
-  "describe": "Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks"
+  "describe": "Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks",
+  "chimneys": [[-9.29, -1.96], [-10.47, 2.2], [14.9, -5.92], [12.63, 2.73]],
+  "potWidthM": 0.5
 }

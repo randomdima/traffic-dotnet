@@ -4,12 +4,12 @@
   "zones": "oka_red_zones.png",
   "wreck": { "sprite": "oka_red_broken.webp" },
   "describe": "1990s Russian tiny three-door microcar, worn: faded red paint, rust spots on the sills, short flat bonnet, upright boxy cabin, flat roof, upright hatch, small rectangular headlamps, small square tail lamps",
-  "footprintM": [3.200, 1.775],
-  "collisionM": { "sizeM": [3.200, 1.499], "cornerRadiusM": 0.415 },
+  "footprintM": [3.200, 1.972],
+  "collisionM": { "sizeM": [3.200, 1.605], "cornerRadiusM": 0.474 },
   "massKg": 650,
   "frontAxleM": 1.05,
   "rearAxleM": -1.15,
-  "trackM": 1.58,
+  "trackM": 1.516,
   "drivetrain": 1,
   "maxSteeringDeg": 35,
   "tyreFriction": 0.74,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.62, "acceleration": 0.6, "braking": 0.8 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.454, -0.501], "sizeM": [0.094, 0.23] },
-    { "fitting": "brake", "atM": [-1.475, 0.439], "sizeM": [0.094, 0.23] },
-    { "fitting": "head", "atM": [1.392, -0.491], "sizeM": [0.125, 0.178] },
-    { "fitting": "head", "atM": [1.423, 0.449], "sizeM": [0.125, 0.178] },
-    { "fitting": "indicator", "atM": [1.35, -0.616], "sizeM": [0.083, 0.052] },
-    { "fitting": "indicator", "atM": [1.371, 0.595], "sizeM": [0.083, 0.052] },
-    { "fitting": "indicator", "atM": [-1.454, -0.574], "sizeM": [0.063, 0.073] },
-    { "fitting": "indicator", "atM": [-1.454, 0.512], "sizeM": [0.063, 0.073] },
-    { "fitting": "reverse", "atM": [-1.496, -0.428], "sizeM": [0.031, 0.073] },
-    { "fitting": "reverse", "atM": [-1.496, 0.365], "sizeM": [0.031, 0.073] }
-  ]
+    { "fitting": "brake", "atM": [-1.412, -0.569], "sizeM": [0.156, 0.292] },
+    { "fitting": "brake", "atM": [-1.392, 0.579], "sizeM": [0.156, 0.292] },
+    { "fitting": "indicator", "atM": [-1.433, -0.548], "sizeM": [0.115, 0.209] },
+    { "fitting": "indicator", "atM": [-1.433, 0.537], "sizeM": [0.115, 0.209] },
+    { "fitting": "head", "atM": [1.339, -0.579], "sizeM": [0.281, 0.292] },
+    { "fitting": "head", "atM": [1.339, 0.569], "sizeM": [0.281, 0.292] },
+    { "fitting": "indicator", "atM": [1.246, -0.694], "sizeM": [0.104, 0.063] },
+    { "fitting": "indicator", "atM": [1.256, 0.694], "sizeM": [0.104, 0.063] },
+    { "fitting": "reverse", "atM": [-1.444, -0.464], "sizeM": [0.083, 0.094] },
+    { "fitting": "reverse", "atM": [-1.412, 0.475], "sizeM": [0.052, 0.094] }
+  ],
+  "exhausts": [[-1.527, -0.592]]
 }

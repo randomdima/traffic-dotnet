@@ -1,0 +1,40 @@
+{
+  "car": "pickup_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/pickup_silver/pickup_silver-v3.png", "sizePx": [512, 232]},
+  "axisY": {"rear": 116.00, "front": 115.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [15.38, 47.18, 0.22],
+      [13.96, 56.56, 3.16],
+      [19.86, 65.29, 0.88],
+      [23.53, 60.33, -1.56],
+      [31.26, 35.88, 0.35],
+      [33.92, 31.73, 1.00],
+      [31.82, 27.25, 1.25],
+      [23.28, 28.84, 1.90]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 112.0, "mirrorDx": -2.0, "points": [
+      [21.00, 33.48, 1.98],
+      [16.22, 46.38, 2.45],
+      [20.56, 51.45, -0.03],
+      [23.45, 38.88, 0.45],
+      [23.73, 34.01, 0.68]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "pull": "frame", "hold": [4], "axisY": 115.5, "mirrorDx": 1.0, "points": [
+      [477.59, 40.41, 0.00],
+      [492.34, 65.03, 1.20],
+      [498.49, 58.44, 1.57],
+      [486.97, 38.09, 0.29],
+      [483.21, 34.79, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "pull": "frame", "hold": [5], "axisY": 116.0, "mirrorDx": 1.0, "points": [
+      [483.21, 34.79, 0.34],
+      [479.50, 31.01, 0.00],
+      [474.62, 30.75, 0.00],
+      [466.04, 31.19, 0.34],
+      [475.99, 37.73, 0.00],
+      [477.59, 40.41, 0.00]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

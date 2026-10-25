@@ -20,7 +20,7 @@
 import * as opening from './loading.js'
 import { compute, kernelBufferOf, kernelLimits, onLanded, useDevice } from './compute.js'
 
-const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6, standing: 7 };
+const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6, standing: 7, fans: 8 };
 const TEXTURE = { pages: 0, glyphs: 1, surfaces: 2 };
 
 // Draws in painter's order, at their offsets in the indirect buffer. The ground is indexed and so is
@@ -162,14 +162,23 @@ function buildLayout() {
         { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { viewDimension: '2d-array' } },
     ];
 
-    for (let binding = 3; binding <= 8; binding++) {
-        entries.push({ binding, visibility: GPUShaderStage.FRAGMENT, texture: {} });
+    entries.push({ binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: {} });
+    // The five surfaces, each its looks a layer a look (town.wgsl, GroundPatches).
+    for (let binding = 4; binding <= 8; binding++) {
+        entries.push({ binding, visibility: GPUShaderStage.FRAGMENT, texture: { viewDimension: '2d-array' } });
     }
 
     entries.push({ binding: 9, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
     entries.push({ binding: 10, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
     // The track's strip, the sixth surface, after the samplers (town.wgsl).
     entries.push({ binding: 11, visibility: GPUShaderStage.FRAGMENT, texture: {} });
+    // The roofs' fans, read by both sprite stages (town.wgsl, FanTable).
+    entries.push({ binding: 12, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } });
+    // The shore, the seventh surface, after the fans (town.wgsl).
+    entries.push({ binding: 13, visibility: GPUShaderStage.FRAGMENT, texture: { viewDimension: '2d-array' } });
+    // The two kerbs' strips, the eighth and ninth (town.wgsl).
+    entries.push({ binding: 14, visibility: GPUShaderStage.FRAGMENT, texture: {} });
+    entries.push({ binding: 15, visibility: GPUShaderStage.FRAGMENT, texture: {} });
     state.layout = state.device.createBindGroupLayout({ entries, label: 'town' });
 }
 
@@ -178,6 +187,18 @@ function buildPipelines(module) {
     const blend = {
         color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
         alpha: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+    };
+    // The sprites' colour comes premultiplied (town.wgsl's spriteFragment), so a sheet of light, written with no
+    // coverage, adds onto what is under it.
+    const premultiplied = {
+        color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+    };
+
+    // The ground keeps the frame's alpha whole, as the desktop's blend does (TownRenderer.BuildPipeline).
+    const groundBlend = {
+        color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
     };
 
     const float2 = 'float32x2';
@@ -193,7 +214,8 @@ function buildPipelines(module) {
                 ],
             }],
         },
-        fragment: { module, entryPoint: 'groundFragment', targets: [{ format: state.format }] },
+        // Blended for the shore's fades alone (GroundMesh.Fade): everywhere else the ground's cover is one.
+        fragment: { module, entryPoint: 'groundFragment', targets: [{ format: state.format, blend: groundBlend }] },
         primitive: { topology: 'triangle-list' },
     });
 
@@ -210,11 +232,11 @@ function buildPipelines(module) {
                     { shaderLocation: 2, offset: 12, format: 'float32' },
                     { shaderLocation: 3, offset: 16, format: 'uint8x4' },
                     { shaderLocation: 4, offset: 20, format: 'unorm8x4' },
-                    { shaderLocation: 5, offset: 24, format: 'uint32' },
+                    { shaderLocation: 5, offset: 24, format: 'uint16x2' },
                 ],
             }],
         },
-        fragment: { module, entryPoint: 'spriteFragment', targets: [{ format: state.format, blend }] },
+        fragment: { module, entryPoint: 'spriteFragment', targets: [{ format: state.format, blend: premultiplied }] },
         primitive: { topology: 'triangle-strip' },
     });
 
@@ -310,12 +332,16 @@ function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, und
     ];
 
     for (let surface = 0; surface < 5; surface++) {
-        entries.push({ binding: 4 + surface, resource: state.textures[TEXTURE.surfaces + surface].createView() });
+        entries.push({ binding: 4 + surface, resource: state.textures[TEXTURE.surfaces + surface].createView({ dimension: '2d-array' }) });
     }
 
     entries.push({ binding: 9, resource: state.samplers.clamped });
     entries.push({ binding: 10, resource: state.samplers.repeated });
     entries.push({ binding: 11, resource: state.textures[TEXTURE.surfaces + 5].createView() });
+    entries.push({ binding: 12, resource: { buffer: state.buffers[SLOT.fans] } });
+    entries.push({ binding: 13, resource: state.textures[TEXTURE.surfaces + 6].createView({ dimension: '2d-array' }) });
+    entries.push({ binding: 14, resource: state.textures[TEXTURE.surfaces + 7].createView() });
+    entries.push({ binding: 15, resource: state.textures[TEXTURE.surfaces + 8].createView() });
     const group = state.device.createBindGroup({ layout: state.layout, entries });
 
     const pass = state.device.createRenderBundleEncoder({ colorFormats: [state.format] });

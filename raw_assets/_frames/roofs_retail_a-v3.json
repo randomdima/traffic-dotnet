@@ -1,0 +1,38 @@
+{
+ "id": "roofs_retail_a-v3",
+ "ts": "2026-10-20T13:51:18",
+ "op": "edit",
+ "name": "roofs_retail_a",
+ "file": ".tmp/gen/frames/roofs_retail_a-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.032666,
+ "prompt": "Image 1 is the layout to paint into: 9 building outlines seen from above on flat magenta, in a 3×3 grid. Paint only its transparent areas, each of which holds one outline: cells 1, 2, 3, 4, 5, 7 and 8. Everything else stays exactly as it is. Image 2 is finished art from the same game, to match in style only.\n\nThe fault of both earlier attempts at these cells: every roof was drawn 10–30% bigger than its outline and shifted off it, spilling past its edges. Each roof is exactly the size of its outline's light-grey shape in image 1, no bigger: its four edges lie on the outline's four edges, the same corners, nothing past them, no magenta inside.\n\nLook straight down (orthographic): no perspective, no walls seen from the side, no ground, plants, cars or people. The thick bottom edge of each outline is the street front. A flat roof has a thin parapet, about 0.3 m, round its edge. Style: clean, flat-shaded cartoon game art, bold dark outlines, muted natural colours, soft light from the top-left. No text, letters, numbers or logos.\n\nDetails at true size; these buildings stand beside cars 4 m long: an air conditioner unit about 1 × 1 m; a vent about 0.5 m; a plain sign strip about 0.6 m deep along the front, inside the outline.\n\n1. 3.9 × 2.6 m (1.5× wider than deep) — small street booth or stall, flat painted sheet-metal roof with a sign along the front edge\n2. 5.2 × 3.9 m (1.3× wider than deep) — small street booth or stall, flat painted sheet-metal roof with a sign along the front edge\n3. 6.5 × 4.5 m (1.4× wider than deep) — single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge\n4. 3.9 × 5.2 m (1.3× deeper than wide) — small street booth or stall, flat painted sheet-metal roof with a sign along the front edge, standing narrow end to the street with the entrance on that short front wall\n5. 7.8 × 5.9 m (1.3× wider than deep) — single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge\n7. 9.1 × 7.2 m (1.3× wider than deep) — single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge\n8. 5.2 × 7.8 m (1.5× deeper than wide) — single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge, standing narrow end to the street with the entrance on that short front wall",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "09826201496c77bc",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_retail_a.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "5e265601fd062b8e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_retail_a_style.png"
+  },
+  {
+   "role": "mask",
+   "sha": "3dee06c18d1d26a5",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_retail_a-v2/_mask_retail_01_retail_02_retail_03_retail_deep_01_retail_05_retail_06_retail_deep_02.png"
+  }
+ ]
+}

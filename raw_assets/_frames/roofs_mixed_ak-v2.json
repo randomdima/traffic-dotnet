@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_ak-v2",
+ "ts": "2026-10-20T14:10:14",
+ "op": "edit",
+ "name": "roofs_mixed_ak",
+ "file": ".tmp/gen/frames/roofs_mixed_ak-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.034481,
+ "prompt": "Faults of the previous attempt, to fix in this one:\n- Cell 1 was drawn about 13% too narrow, stopping 47 px short of its right edge; cell 2 was shifted about 70 px left of its outline. This time only the transparent areas of the first image may be painted: each is one outline with a thin margin. Colour each outline in exactly as it is given, without moving or resizing it. In this 1536×1024 picture the outlines are (left–right x, top–bottom y):\n  1: x 207–562 (355 px wide), y 227–798;  2: x 793–1510 (717 px wide), y 223–802.\n  Each roof's edge is a crisp bold dark outline on those lines with a low light-grey parapet just inside it on all four sides, and flat pure magenta outside them.\n- The lift machine room showed a strip of wall with doors below it; seen straight down it is only a flat box roof about 3 × 5 m (54 × 90 px). A loading canopy or roof exit is about 3 m wide (54 px).\n\nTwo images are attached. The first is a layout: 2 building outlines seen from above, in a 2×1 grid on a flat magenta background. The second is finished art from the same game, to match in style only — not its layout, shapes, colours or the size of its details.\n\nMake one image with exactly the same 2×1 layout as the first image. Inside each outline, draw the roof of the building described for that cell below, as a top-down sprite for a 2D city game.\n\nShape comes first. Before painting a cell, trace its outline exactly, then paint only inside the traced border:\n- Keep every outline's proportions: match each one's width and height. Each cell's proportion is given below; check it. Never make an outline squarer, shorter or fatter.\n- Every edge is straight and square to the others. Never slant, skew or taper an edge to show perspective. An outline built of several rectangles (an L, a T, a stepped block) is followed corner by corner.\n- Draw nothing outside the outline: no eaves, steps, porches, canopies, ramps or shadows past it. A porch or an entrance canopy is drawn inside the outline at its bottom edge. Inside a roof there is no magenta at all.\n\nScale is the second rule, and it is strict. Every size below is true metres, width × depth, and every detail is drawn at its true size against them. These buildings stand beside cars 4 m long and 1.8 m wide; keep that in mind for every detail. True sizes:\n- school: an air conditioner unit about 1 m; a skylight about 1.5 m; a parapet about 0.4 m thick; tile courses about 0.25 m apart on pitched wings.\n- tower: a lift machine room about 3 × 5 m; a hatch or vent shaft about 1 m; a TV antenna about 2 m across; a parapet about 0.4 m thick; drain funnels about 0.4 m.\n- No detail is bigger than its true size. When in doubt, draw it smaller and keep fewer of them. A large roof has many small details, never a few huge ones.\n\nRules for every cell:\n- Look straight down (orthographic). No perspective, no walls seen from the side, no tilt, no ground, no plants, no cars, no people.\n- The thick bottom edge of each outline is the street front, where the entrance is. The top edge is the back.\n- A gabled roof shows its ridge as one line with the two slopes shaded differently; a lean-to roof is one slope with no ridge; a flat roof has a parapet round its edge.\n- Style: match the style image. Clean, flat-shaded cartoon game art, bold dark outlines, muted natural colours, simple readable details, soft light from the top-left.\n- Outside the roofs, keep the background flat pure magenta #FF00FF. No text, letters, numbers, labels, logos, grid lines or frames anywhere.\n\nCells, left to right, top to bottom:\n\nRow 1\n1. 20 × 32 m (1.6× deeper than wide) — Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks, standing narrow end to the street with the entrance on that short front wall\n2. 40.3 × 32.5 m (1.2× wider than deep) — tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "5888aaa9b3309083",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_ak.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "5e265601fd062b8e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_ak_style.png"
+  },
+  {
+   "role": "mask",
+   "sha": "76de57a9cdcb89b5",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_ak-v1/_mask_school_deep_03_tower_14.png"
+  }
+ ]
+}

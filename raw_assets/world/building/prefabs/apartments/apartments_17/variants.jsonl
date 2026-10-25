@@ -1,0 +1,2 @@
+{"variant": "apartments_17-v1", "frame": "roofs_apartments_e-v1", "cell": 3, "box": [136, 562, 497, 413], "pxPerM": 25.495, "score": 4, "status": "used", "ts": "2026-10-20T13:37:38"}
+{"variant": "apartments_17-v2", "frame": "roofs_apartments_e-v1", "cell": 3, "box": [136, 562, 497, 413], "pxPerM": 25.495, "score": 4, "status": "candidate", "ts": "2026-10-20T13:37:44"}

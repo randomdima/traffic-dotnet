@@ -1,0 +1,9 @@
+{
+  "id": "electric_box_small",
+  "sprite": "electric_box_small.webp",
+  "kind": 2,
+  "footprintM": [0.5, 0.511],
+  "share": 0.8,
+  "turns": true,
+  "describe": "small grey steel electric meter box on a short post"
+}

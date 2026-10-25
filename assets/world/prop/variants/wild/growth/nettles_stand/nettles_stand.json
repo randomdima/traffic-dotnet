@@ -1,0 +1,8 @@
+{
+  "id": "nettles_stand",
+  "sprite": "nettles_stand.webp",
+  "kind": 0,
+  "diameterM": 1.4,
+  "share": 2.0,
+  "describe": "stand of stinging nettles, toothed dark green leaves in dense tiers"
+}

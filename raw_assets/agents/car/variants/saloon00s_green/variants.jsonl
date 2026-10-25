@@ -1,2 +1,4 @@
 {"variant": "saloon00s_green-v1", "frame": "fleet100_b03-v1", "cell": 9, "pxPerM": 103.302, "score": 3, "status": "candidate", "ts": "2026-10-22T01:18:01"}
-{"variant": "saloon00s_green-v5", "frame": "fleet100_b03-v1", "cell": 9, "pxPerM": 103.302, "score": 3, "lampsMirroredFrom": "saloon00s_green-v1", "props": "raw_assets/agents/car/variants/saloon00s_green/saloon00s_green-v1.props.json", "status": "used", "ts": "2026-10-22T04:32:33"}
+{"variant": "saloon00s_green-v5", "frame": "fleet100_b03-v1", "cell": 9, "pxPerM": 103.302, "score": 3, "lampsMirroredFrom": "saloon00s_green-v1", "props": "raw_assets/agents/car/variants/saloon00s_green/saloon00s_green-v1.props.json", "status": "candidate", "ts": "2026-10-22T04:32:33"}
+{"variant": "saloon00s_green-v6", "frame": "fleet100_r03-v1", "cell": 6, "pxPerM": 110.613, "score": 4, "status": "candidate", "ts": "2026-10-22T18:32:43"}
+{"variant": "saloon00s_green-v7", "frame": "fleet100_r03-v1", "cell": 6, "pxPerM": 110.613, "score": 4, "lampsMirroredFrom": "saloon00s_green-v6", "props": "raw_assets/agents/car/variants/saloon00s_green/saloon00s_green-v6.props.json", "status": "used", "ts": "2026-10-22T18:41:05"}

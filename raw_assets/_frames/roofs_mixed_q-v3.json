@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_q-v3",
+ "ts": "2026-10-20T14:03:28",
+ "op": "edit",
+ "name": "roofs_mixed_q",
+ "file": ".tmp/gen/frames/roofs_mixed_q-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.030901,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 1×2 grid. Redraw only cell 1 (the transparent area). Keep cell 2 exactly as it is.\n\nCell 1's church roof in image 1 is right in every detail — the green sheet metal, the hips, the central ribbed dome and the four gilded domes with flat crosses, all seen from above — except its size: it was drawn about 25% too shallow, from y=132 to y=404, while its outline in image 2 runs from y=75 to y=437 (x 289–1248). Draw the same roof again stretched to fill that outline exactly: its top edge on y=75, its bottom edge on the thick bottom edge at y=437, its left and right edges on x=289 and x=1248, with no magenta left inside the rectangle and nothing outside it. Keep the domes round and their sizes as they are.\n\nTop-down with no perspective, straight square edges, flat pure #FF00FF outside the outline. No text.\n\n1. 33.6 × 12.7 m (2.6× wider than deep, a thin strip) — Orthodox church, cross-shaped roof of green-painted sheet metal with a large central dome and smaller gilded domes",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "b3beb1fbb8f378c8",
+   "ext": "png",
+   "frame": "roofs_mixed_q-v2",
+   "was": ".tmp/gen/frames/roofs_mixed_q-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "18252420089356ad",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_q.png"
+  },
+  {
+   "role": "mask",
+   "sha": "1f46bcf7aa71d20d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_q-v2/_mask_religious_06.png"
+  }
+ ]
+}

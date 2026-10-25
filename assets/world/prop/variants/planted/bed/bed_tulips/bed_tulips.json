@@ -1,0 +1,9 @@
+{
+  "id": "bed_tulips",
+  "sprite": "bed_tulips.webp",
+  "kind": 1,
+  "footprintM": [2.6, 1.321],
+  "cornerRadiusM": 0.2,
+  "turns": true,
+  "describe": "rectangular flower bed of dark soil with rows of red and yellow tulips, a low concrete kerb round it"
+}

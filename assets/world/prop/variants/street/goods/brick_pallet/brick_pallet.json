@@ -1,0 +1,9 @@
+{
+  "id": "brick_pallet",
+  "sprite": "brick_pallet.webp",
+  "kind": 2,
+  "footprintM": [1.1, 1.15],
+  "share": 0.5,
+  "turns": true,
+  "describe": "pallet of red bricks, wrapped in clear film"
+}

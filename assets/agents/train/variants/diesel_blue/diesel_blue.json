@@ -11,5 +11,10 @@
   "cornerRadiusM": 0.3,
   "bogiesM": [4.7, -4.7],
   "massKg": 120000,
-  "tractiveEffortN": 250000
+  "tractiveEffortN": 250000,
+  "fans": [
+    { "atM": [-4.5262, -0.0794], "rimAtM": [-4.5495, -0.0913], "rimM": [0.8209, 0.7421] },
+    { "atM": [-2.7792, -0.0953], "rimAtM": [-2.7868, -0.0796], "rimM": [0.8117, 0.7417] }
+  ],
+  "exhausts": [[1.0, 0.0]]
 }

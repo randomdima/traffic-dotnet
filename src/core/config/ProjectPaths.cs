@@ -84,6 +84,10 @@ internal static class ProjectPaths
         ];
     }
 
+    /// <summary>The shore along every bank, the ground's sixth surface: after the track's strip in the order they are filed.</summary>
+    public static string ShoreSurfaceFile() =>
+        Path.Combine(Assets, "world", "terrain", "ground", "surfaces", "shore" + Sheet);
+
     /// <summary>The two signal head strips, car then pedestrian — one frame dark and one per lit lens.</summary>
     public static string[] SignalHeadFiles()
     {

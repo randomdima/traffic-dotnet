@@ -1,0 +1,9 @@
+{
+  "id": "kick_scooter",
+  "sprite": "kick_scooter.webp",
+  "kind": 2,
+  "footprintM": [1.2, 0.553],
+  "cornerRadiusM": 0.1,
+  "turns": true,
+  "describe": "rental electric kick scooter on its stand, a lime green deck, the handlebar to the right"
+}

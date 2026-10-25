@@ -1,0 +1,42 @@
+{
+  "car": "evacuatorbig_yellow",
+  "sprite": {"variant": "raw_assets/agents/car/variants/evacuatorbig_yellow/evacuatorbig_yellow-v7.png", "sizePx": [567, 269]},
+  "axisY": {"rear": 136.00, "front": 136.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [24.99, 50.61, 1.66],
+      [23.35, 70.10, 0.00],
+      [38.84, 68.64, 1.12],
+      [38.47, 45.49, 0.00],
+      [32.08, 44.90, 2.73]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "axisY": 134.0, "mirrorDx": 0.0, "points": [
+      [40.49, 48.82, 0.12],
+      [40.56, 67.59, 0.00],
+      [46.76, 66.92, 1.24],
+      [46.96, 48.99, 0.00]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 137.5, "mirrorDx": -1.0, "points": [
+      [515.90, 47.20, -3.06],
+      [539.53, 77.88, 0.90],
+      [548.27, 81.62, 0.37],
+      [547.43, 75.97, 3.17],
+      [528.24, 47.32, 1.62],
+      [517.53, 44.06, 1.06]
+    ]},
+    {"name": "ind_front", "kind": "ind", "part": "head", "side": "outboard", "share": 0.5},
+    {"name": "beacon_amber_l", "kind": "beacon_amber", "mirror": false, "points": [
+      [374.08, 84.38, 1.36],
+      [374.37, 120.85, 0.00],
+      [397.17, 120.85, 0.30],
+      [397.00, 84.99, 0.66]
+    ]},
+    {"name": "beacon_amber_r", "kind": "beacon_amber", "mirror": false, "points": [
+      [373.46, 149.01, 0.93],
+      [374.22, 184.12, 0.02],
+      [397.06, 183.84, 0.37],
+      [396.73, 149.46, 0.89]
+    ]}
+  ]
+}

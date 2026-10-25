@@ -2,8 +2,8 @@
   "id": "house_deep_18",
   "sprite": "house_deep_18.webp",
   "footprintM": [
-    3.5,
-    11.5
+    4.9,
+    16.1
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -16,5 +16,6 @@
     "courtyard wing",
     "narrow front"
   ],
-  "describe": "long narrow single-storey wing of a courtyard house, lean-to roof of dark grey bitumen shingles sloping to the yard, a chimney, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "long narrow single-storey wing of a courtyard house, lean-to roof of dark grey bitumen shingles sloping to the yard, a chimney, standing narrow end to the street with the entrance on that short front wall, its one slope falling to a long side",
+  "chimneys": [[1.12, -4.75, 1.48, -4.75]]
 }

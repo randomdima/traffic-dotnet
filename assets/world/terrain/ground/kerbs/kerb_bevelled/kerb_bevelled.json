@@ -1,0 +1,11 @@
+{
+  "id": "kerb_bevelled",
+  "sprite": "kerb_bevelled.webp",
+  "kind": "Kerb",
+  "describe": "a street kerb of light grey concrete kerbstones a metre long with a bevelled edge: a flat top and a sloping face on the low side a shade darker, each stone a slightly different shade, light grime on the slope",
+  "footprintM": [
+    6.0,
+    0.2
+  ],
+  "pictureM": 3.944
+}

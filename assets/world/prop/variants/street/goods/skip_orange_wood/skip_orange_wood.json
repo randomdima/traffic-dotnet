@@ -1,0 +1,10 @@
+{
+  "id": "skip_orange_wood",
+  "sprite": "skip_orange_wood.webp",
+  "kind": 2,
+  "footprintM": [3.2, 1.999],
+  "cornerRadiusM": 0.1,
+  "share": 0.2,
+  "turns": true,
+  "describe": "orange builder's skip full of old timber, doors and a broken chair"
+}

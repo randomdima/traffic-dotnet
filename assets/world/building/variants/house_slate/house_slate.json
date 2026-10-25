@@ -1,9 +1,11 @@
 {
   "id": "house_slate",
   "sprite": "house_slate.webp",
+  "describe": "detached two-storey house, hipped roof of dark blue-grey slate, two brick chimneys, a small porch roof at the front",
   "footprintM": [11.00, 11.25],
   "partsM": [
     { "atM": [0.0, -0.5], "sizeM": [11.0, 10.09] },
     { "atM": [0.0, 0.0], "sizeM": [2.46, 11.25] }
-  ]
+  ],
+  "chimneys": [[-3.47, -3.85, -3.12, -3.85], [3.28, -3.85, 3.63, -3.85]]
 }

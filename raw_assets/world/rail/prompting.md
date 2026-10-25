@@ -3,8 +3,10 @@
 What the railway's briefs taught, set by set. Read before writing the next one; the brief itself is in each frame's
 record (`qq sprites trace <id> --full`).
 
-**A track is a strip the ground repeats along every line** (`RAIL-3`): its template carries the rails' lines at the
-gauge and, dashed, where the sleepers end; `cut` fits it by its rails rather than its extent, and `use` makes it seamless.
+**A track is a strip the ground repeats along every line** (`RAIL-3`): `use` makes it seamless. The tracks were asked
+from a layout that drew the rails' lines at the gauge (before 2026-10-25); asked again, the gauge and where the sleepers
+end are the brief's words, and the strip is sized by its depth. Where its rails land off the gauge is a correction for
+the cut to make, if a minor one still looks right; nothing yet makes it.
 
 ## railway_a (2026-10-19) — four tracks and five pieces of crossing gear, three attempts, four kept, $0.10
 

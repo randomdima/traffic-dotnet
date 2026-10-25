@@ -1,0 +1,8 @@
+{
+  "id": "cherry_ornamental",
+  "sprite": "cherry_ornamental.webp",
+  "kind": 1,
+  "diameterM": 3.0,
+  "colliderM": 0.5,
+  "describe": "ornamental cherry in bloom, a round crown of soft pink blossom with a few green leaves"
+}

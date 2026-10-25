@@ -1,0 +1,10 @@
+{
+  "id": "transformer_box",
+  "sprite": "transformer_box.webp",
+  "kind": 2,
+  "footprintM": [2.4, 2.091],
+  "cornerRadiusM": 0.05,
+  "share": 0.2,
+  "turns": true,
+  "describe": "small grey electrical transformer kiosk, a flat roof with a vent ridge"
+}

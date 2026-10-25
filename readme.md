@@ -68,7 +68,7 @@ so a look not shipped yet is seen parked and, taken by hand, driven and lit, its
 `--fleet` works on any map.
 
 ```
-dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet micro_mint,estate_navy --shot .tmp/showroom.png --caption --seconds 3
+dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet citycar_lime,estate_steel --shot .tmp/showroom.png --caption --seconds 3
 ```
 
 **The menu's `Debug` page is cut into sections, one a thing a session is opened to look at** (`OBS-2y`):
@@ -200,7 +200,8 @@ layers that are on draw there — a car, a walker, a way and its claims, a ribbo
 cell — is drawn picked out with its card beside the pointer, and `--pick X Y` clicks there, which pins it
 with its card docked in the corner. A sheet's cells take the same two as `"point"` and `"pick"`.
 
-`--bench census --map NAME` says what a town holds and what the graphs made of it; `--bench shape`,
+`--bench census --map NAME` says what a town holds and what the graphs made of it, its props family by family a
+kilometre of kerb and a hectare of grass; `--bench shape`,
 `--bench joints` and `--bench parks` say what shape it came out — how its roads bend, where its junctions
 stand, which of them are places nothing meets (GEN-51) and where its car parks stand off a street
 (GEN-53). `--bench outset` moves that town's own boundary off itself and **exits non-zero if any run of it

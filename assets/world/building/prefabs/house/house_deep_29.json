@@ -2,8 +2,8 @@
   "id": "house_deep_29",
   "sprite": "house_deep_29.webp",
   "footprintM": [
-    8.5,
-    14.0
+    11.9,
+    19.6
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -16,5 +16,6 @@
     "villa",
     "narrow front"
   ],
-  "describe": "two-storey villa, hipped roof of green-painted sheet metal with a dormer and two chimneys, a balcony roof over the entrance, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "two-storey villa, hipped roof of green-painted sheet metal with a dormer and two chimneys, a balcony roof over the entrance, standing narrow end to the street with the entrance on that short front wall",
+  "chimneys": [[-3.86, -4.05], [3.88, -1.55, 4.22, -1.55]]
 }

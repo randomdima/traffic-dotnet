@@ -1,0 +1,8 @@
+{
+  "id": "bench_backless",
+  "sprite": "bench_backless.webp",
+  "kind": 2,
+  "footprintM": [1.6, 0.509],
+  "turns": true,
+  "describe": "backless wooden slat bench on two black steel legs"
+}

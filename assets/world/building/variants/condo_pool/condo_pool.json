@@ -1,10 +1,15 @@
 {
   "id": "condo_pool",
   "sprite": "condo_pool.webp",
+  "describe": "modern block of flats, flat grey roof terrace with a small rooftop pool about 4 × 6 m, a plant room and a parapet",
   "footprintM": [19.00, 18.92],
   "partsM": [
     { "atM": [-0.21, -1.05], "sizeM": [18.57, 16.66] },
     { "atM": [3.5, -0.43], "sizeM": [11.84, 16.47] },
     { "atM": [0.14, 0.0], "sizeM": [4.37, 18.92] }
+  ],
+  "fans": [
+    { "atM": [5.6555, -4.3649], "rimAtM": [5.6864, -4.331], "rimM": [0.5665, 0.4743] },
+    { "atM": [5.6714, -3.4919], "rimAtM": [5.6909, -3.425], "rimM": [0.5738, 0.4593] }
   ]
 }

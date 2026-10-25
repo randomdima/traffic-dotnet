@@ -1,0 +1,14 @@
+{
+  "car": "retail_deep_04",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/retail/retail_deep_04/retail_deep_04-v1.png", "sizePx": [280, 444]},
+  "axisY": {"rear": 222.00, "front": 222.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [115.73, 105.18, 2.06],
+      [107.95, 120.67, 9.14],
+      [133.97, 141.05, 6.61],
+      [144.98, 112.88, 3.16],
+      [126.51, 101.35, 0.66]
+    ]}
+  ]
+}

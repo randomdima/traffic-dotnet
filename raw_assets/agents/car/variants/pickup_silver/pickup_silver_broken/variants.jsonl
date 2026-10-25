@@ -1,1 +1,2 @@
-{"variant": "pickup_silver_broken-v1", "frame": "fleet100_w11-v1", "cell": 6, "pxPerM": 91.745, "score": 4, "status": "used", "ts": "2026-10-22T14:54:41"}
+{"variant": "pickup_silver_broken-v1", "frame": "fleet100_w11-v1", "cell": 6, "pxPerM": 91.745, "score": 4, "status": "candidate", "ts": "2026-10-22T14:54:41"}
+{"variant": "pickup_silver_broken-v2", "frame": "fleet100_rw04-v1", "cell": 8, "pxPerM": 88.18, "score": 4, "status": "used", "ts": "2026-10-22T19:18:53"}

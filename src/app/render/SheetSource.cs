@@ -28,6 +28,13 @@ internal readonly record struct SheetSource(string? Path, byte[]? Rgba, int Widt
     /// <summary>An image with no file behind it, as rows of RGBA bytes.</summary>
     public static SheetSource Generated(byte[] rgba, int widthPx, int heightPx) =>
         new(null, rgba, widthPx, heightPx, null);
+
+    /// <summary>
+    /// Whether what is drawn from this sheet is light, added to what is under it rather than laid over it: its colour
+    /// times its alpha is summed onto the picture, which nothing covering it can do — a glow on a white body would
+    /// otherwise be white on white. <see cref="SheetPlace.Light"/> carries it to the fragment stage.
+    /// </summary>
+    public bool AddsLight { get; init; }
 }
 
 /// <summary>A rectangle of a sheet in texels, top row first, between two corners that may fall between texels.</summary>

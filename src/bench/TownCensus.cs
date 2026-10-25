@@ -28,7 +28,7 @@ internal static class TownCensus
     public static void Run(string map, SimConfig config)
     {
         var started = Stopwatch.GetTimestamp();
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var elapsed = Stopwatch.GetElapsedTime(started);
 
         Console.WriteLine($"census — {plan.Name}, seed {plan.Seed}");
@@ -124,11 +124,10 @@ internal static class TownCensus
 
         // How many props wear a look with a front, which is the only sense in which the bearing the verge
         // pass laid them on is visible (GEN-6b): a look that does not turn is drawn upright either way.
-        var looks = PropCatalog.Load();
+        var looks = PropCatalog.Shared;
         var turned = 0;
-        for (var prop = 0; prop < plan.Props.Count; prop++)
+        foreach (var look in plan.Props.Look)
         {
-            var look = looks.Look(plan.Props.Kind[prop], plan.Props.RadiusM[prop] * 2f, prop);
             if (looks.Variants[look].Turns) turned++;
         }
 
@@ -178,6 +177,8 @@ internal static class TownCensus
                           $"{plan.Water.Shore.Count} shores of {plan.Water.Shore.PointM.Length}");
         Console.WriteLine();
 
+        Props(plan, config, samplesPerGround[(int)CityGen.Ground.Grass] * stepM * stepM / 10000d);
+
         Console.WriteLine("the roster the plan asks for");
         Console.WriteLine($"  {people} people, {cars} cars");
 
@@ -197,6 +198,62 @@ internal static class TownCensus
 
         Networks(plan, config);
         RibbonCensus.Run(plan, config);
+    }
+
+    /// <summary>
+    /// <b>How thickly the town is propped, look family by look family</b> (GEN-6b, GEN-6e): the verge props a kilometre
+    /// of the walk's outer face and the scenery a hectare of grass, and how much of the grass each family's pictures
+    /// cover. A family is the folder its looks are filed under (<c>street/waste</c>, <c>wild/tree</c>), which is what
+    /// the art says a look is and the one grouping a reader of the town would ask for.
+    /// </summary>
+    static void Props(CityPlan plan, SimConfig config, double grassHa)
+    {
+        var kerbM = 0d;
+        foreach (var face in plan.Paving(config).Rings(config).WalkEdge) kerbM += Spline.TotalLengthM(face);
+
+        var looks = PropCatalog.Shared.Variants;
+        var families = new SortedDictionary<string, (int Props, int Scenery, double CoverM2)>(StringComparer.Ordinal);
+        var familyOf = new string[looks.Length];
+        var root = Path.Combine(ProjectPaths.Assets, "world", "prop", "variants");
+        for (var look = 0; look < looks.Length; look++)
+        {
+            familyOf[look] = Path.GetRelativePath(root, Path.GetDirectoryName(Path.GetDirectoryName(looks[look].SpritePath)!)!)
+                .Replace(Path.DirectorySeparatorChar, '/');
+        }
+
+        var propCoverM2 = 0d;
+        for (var prop = 0; prop < plan.Props.Count; prop++)
+        {
+            var family = familyOf[plan.Props.Look[prop]];
+            var areaM2 = MathF.PI * plan.Props.RadiusM[prop] * plan.Props.RadiusM[prop];
+            propCoverM2 += areaM2;
+            var (props, scenery, coverM2) = families.GetValueOrDefault(family);
+            families[family] = (props + 1, scenery, coverM2 + areaM2);
+        }
+
+        var sceneryCoverM2 = 0d;
+        for (var piece = 0; piece < plan.Scenery.Count; piece++)
+        {
+            var family = familyOf[plan.Scenery.Look[piece]];
+            var areaM2 = MathF.PI * plan.Scenery.RadiusM[piece] * plan.Scenery.RadiusM[piece];
+            sceneryCoverM2 += areaM2;
+            var (props, scenery, coverM2) = families.GetValueOrDefault(family);
+            families[family] = (props, scenery + 1, coverM2 + areaM2);
+        }
+
+        var kerbKm = Math.Max(kerbM / 1000d, 1e-9);
+        var perHa = Math.Max(grassHa, 1e-9);
+        Console.WriteLine(
+            $"props by family — {kerbM / 1000d:F1} km of kerb, {grassHa:F1} ha of grass; verge props " +
+            $"{plan.Props.Count / kerbKm:F0} a km, scenery {plan.Scenery.Count / perHa:F0} a ha; the grass " +
+            $"{100d * (propCoverM2 + sceneryCoverM2) / (perHa * 10000d):F1} % under a picture");
+        foreach (var (family, (props, scenery, coverM2)) in families)
+        {
+            Console.WriteLine($"  {family,-16}{props,7} on verges  {props / kerbKm,6:F1} a km  {scenery,8} scenery  " +
+                              $"{scenery / perHa,6:F1} a ha  {100d * coverM2 / (perHa * 10000d),5:F2} % of the grass");
+        }
+
+        Console.WriteLine();
     }
 
     /// <summary>The cells of a level whose middles stand inside the town, from its corner at the world's origin.</summary>

@@ -1,0 +1,19 @@
+{
+ "id": "sidewalk",
+ "kind": "Surface",
+ "sprite": "sidewalk.webp",
+ "describe": "the pavement people walk on beside a city street, seen straight down, tidy and in good repair, with no grid, rows, lines or direction of any kind",
+ "mosaic": 2,
+ "looks": [
+  {"look": "k", "describe": "a city footway's asphalt: mid grey, clearly lighter and finer than a road's, a tight fine grain of tiny pale and dark specks, soft broad variations of tone", "tiles": 2},
+  {"look": "l", "describe": "the same footway asphalt a little more used: soft lighter worn patches where people walk, a few small faint dark gum spots, no leaves", "tiles": 2}
+ ],
+ "trial": [
+  {"look": "a", "describe": "light warm grey poured concrete, one continuous surface, a fine sandy grain", "tiles": 2},
+  {"look": "b", "describe": "the same concrete a little more used: a shade darker, soft faint grime and a very few small faint dark spots", "tiles": 2},
+  {"look": "m", "describe": "light cool grey city concrete in one continuous surface, painted with soft broad mottling of lighter and darker greys, a fine grain, a few small dark gum spots", "tiles": 2},
+  {"look": "n", "describe": "the same city concrete a little more used: soft grime patches, more small dark gum spots, a very few tiny fallen leaves and faint hairline cracks curving every way", "tiles": 2},
+  {"look": "o", "describe": "light grey terrazzo-like concrete: a smooth pale grey base densely set with small chips of white, grey, charcoal and a few soft blue-grey, 1 to 2 cm across, ground flat", "tiles": 2},
+  {"look": "p", "describe": "the same terrazzo-like concrete a little more used: soft grime patches and a few small faint dark spots, still smooth", "tiles": 2}
+ ]
+}

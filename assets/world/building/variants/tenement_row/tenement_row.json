@@ -1,8 +1,18 @@
 {
   "id": "tenement_row",
   "sprite": "tenement_row.webp",
+  "describe": "five-storey tenement, flat dark roof with a parapet, stair hatches and small air conditioner units in a row",
   "footprintM": [20.00, 17.95],
   "partsM": [
     { "atM": [0.0, -0.73], "sizeM": [20.0, 16.49] }
-  ]
+  ],
+  "fans": [
+    { "atM": [-0.9865, -5.1838], "rimAtM": [-0.9855, -5.1845], "rimM": [0.4717, 0.4373] },
+    { "atM": [1.1219, -5.2032], "rimAtM": [1.1252, -5.1837], "rimM": [0.478, 0.4344] },
+    { "atM": [3.2495, -5.2032], "rimAtM": [3.262, -5.1896], "rimM": [0.4676, 0.4399] },
+    { "atM": [5.3578, -5.1838], "rimAtM": [5.3679, -5.185], "rimM": [0.4651, 0.436] },
+    { "atM": [7.4662, -5.2032], "rimAtM": [7.4831, -5.185], "rimM": [0.4741, 0.4366] }
+  ],
+  "chimneys": [[-0.55, -0.34]],
+  "potWidthM": 0.6
 }

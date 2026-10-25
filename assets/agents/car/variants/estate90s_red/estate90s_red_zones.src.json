@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v6.props.json",
- "cutOn": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v6.png",
+ "variant": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v8.props.json",
+ "cutOn": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v8.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

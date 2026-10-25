@@ -61,13 +61,13 @@ internal static class ZoneFidelity
             return;
         }
 
-        var sizes = BuildingCatalog.Roofs;
-        var plan = Maps.Plan(map, config, sizes);
+        var art = ShippedArt.Sizes;
+        var plan = Maps.Plan(map, config, art);
         var survey = Survey.Of(Maps.Read(map), config);
         var zones = new ZoneTree(plan.Zones, config.Zones);
 
         var real = Side.Of(SurveyFootprints.Read(reference), zones, survey, plan.WorldSizeM);
-        var laid = Side.Of(Footprints(plan.Buildings, sizes), zones, survey, plan.WorldSizeM);
+        var laid = Side.Of(Footprints(plan.Buildings, art.Buildings), zones, survey, plan.WorldSizeM);
         var report = Report(map, zones, real, laid);
         Console.Write(report);
         if (outPath is null) return;

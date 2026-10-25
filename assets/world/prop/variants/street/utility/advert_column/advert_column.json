@@ -1,0 +1,8 @@
+{
+  "id": "advert_column",
+  "sprite": "advert_column.webp",
+  "kind": 2,
+  "diameterM": 1.2,
+  "share": 0.3,
+  "describe": "round advertising column seen from above, a dark green domed cap"
+}

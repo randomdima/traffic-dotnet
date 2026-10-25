@@ -1,0 +1,8 @@
+{
+  "id": "catalpa",
+  "sprite": "catalpa.webp",
+  "kind": 1,
+  "diameterM": 3.6,
+  "colliderM": 0.5,
+  "describe": "catalpa street tree, very large heart-shaped pale green leaves, a few white flower spikes"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "utility_cabinet_grey",
+  "sprite": "utility_cabinet_grey.webp",
+  "kind": 2,
+  "footprintM": [1.0, 0.605],
+  "share": 0.8,
+  "turns": true,
+  "describe": "grey steel telecom street cabinet, flat lid"
+}

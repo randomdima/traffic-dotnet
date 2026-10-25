@@ -1,0 +1,19 @@
+{
+  "car": "hospital_03",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/hospital/hospital_03/hospital_03-v1.png", "sizePx": [429, 214]},
+  "axisY": {"rear": 107.00, "front": 107.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [144.43, 55.71, 5.78],
+      [168.48, 63.09, 2.89],
+      [175.77, 46.88, 3.48],
+      [159.92, 33.97, 7.13]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [187.14, 48.37, 5.03],
+      [203.19, 65.06, 4.46],
+      [220.97, 51.87, 3.85],
+      [209.38, 34.90, 6.05]
+    ]}
+  ]
+}

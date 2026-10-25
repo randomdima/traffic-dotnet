@@ -1,8 +1,9 @@
 {
   "id": "hospital_deep_04",
+  "sprite": "hospital_deep_04.webp",
   "footprintM": [
-    20.0,
-    32.0
+    28.0,
+    44.8
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +16,13 @@
     "hospital wing",
     "narrow front"
   ],
-  "describe": "hospital or clinic wing, flat grey roof with rooftop plant, ducts and a lift room, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "hospital or clinic wing, flat grey roof with rooftop plant, ducts and a lift room, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [-5.6, -16.1115], "rimAtM": [-5.5851, -16.1092], "rimM": [0.823, 0.7924] },
+    { "atM": [-9.6852, -3.4656], "rimAtM": [-9.6667, -3.4464], "rimM": [0.8152, 0.8254] },
+    { "atM": [-7.5508, -3.4656], "rimAtM": [-7.5417, -3.4436], "rimM": [0.8225, 0.8039] },
+    { "atM": [-9.6623, 0.5738], "rimAtM": [-9.6663, 0.5969], "rimM": [0.8281, 0.794] },
+    { "atM": [-7.5508, 0.5738], "rimAtM": [-7.5416, 0.5975], "rimM": [0.8253, 0.7921] },
+    { "atM": [-8.5836, -16.1344], "rimAtM": [-8.5804, -16.1014], "rimM": [0.8328, 0.7892] }
+  ]
 }

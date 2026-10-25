@@ -1,0 +1,7 @@
+{
+  "id": "fan_three_paddle",
+  "sprite": "fan_three_paddle.webp",
+  "footprintM": [3.4, 3.347],
+  "tags": ["fan", "three blades"],
+  "describe": "a rooftop cooling fan with three paddle blades with rounded tips in galvanised steel round a dark hub, a thin galvanised rim"
+}

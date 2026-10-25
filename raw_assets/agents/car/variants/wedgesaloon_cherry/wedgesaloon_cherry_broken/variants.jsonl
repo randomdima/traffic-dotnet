@@ -1,1 +1,2 @@
-{"variant": "wedgesaloon_cherry_broken-v1", "frame": "fleet100_w03-v1", "cell": 7, "pxPerM": 108.314, "score": 4, "status": "used", "ts": "2026-10-22T01:19:39"}
+{"variant": "wedgesaloon_cherry_broken-v1", "frame": "fleet100_w03-v1", "cell": 7, "pxPerM": 108.314, "score": 4, "status": "candidate", "ts": "2026-10-22T01:19:39"}
+{"variant": "wedgesaloon_cherry_broken-v2", "frame": "fleet100_rw02-v1", "cell": 6, "pxPerM": 104.751, "score": 4, "status": "used", "ts": "2026-10-22T16:50:47"}

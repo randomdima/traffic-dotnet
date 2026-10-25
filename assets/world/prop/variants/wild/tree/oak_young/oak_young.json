@@ -1,0 +1,8 @@
+{
+  "id": "oak_young",
+  "sprite": "oak_young.webp",
+  "kind": 0,
+  "diameterM": 4.2,
+  "colliderM": 0.5,
+  "describe": "young English oak crown, dense lobed dark green leaves in rounded clumps, a few gaps of shadow between them"
+}

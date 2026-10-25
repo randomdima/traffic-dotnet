@@ -1,0 +1,8 @@
+{
+  "id": "lavender_clump",
+  "sprite": "lavender_clump.webp",
+  "kind": 1,
+  "diameterM": 0.9,
+  "share": 0.8,
+  "describe": "lavender clump, a silvery dome with purple spikes"
+}

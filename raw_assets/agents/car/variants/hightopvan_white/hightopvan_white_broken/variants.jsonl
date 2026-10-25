@@ -1,1 +1,2 @@
-{"variant": "hightopvan_white_broken-v1", "frame": "fleet100_w11-v1", "cell": 7, "pxPerM": 88.17, "score": 4, "status": "used", "ts": "2026-10-22T14:54:41"}
+{"variant": "hightopvan_white_broken-v1", "frame": "fleet100_w11-v1", "cell": 7, "pxPerM": 88.17, "score": 4, "status": "candidate", "ts": "2026-10-22T14:54:41"}
+{"variant": "hightopvan_white_broken-v2", "frame": "fleet100_rw04-v1", "cell": 9, "pxPerM": 87.246, "score": 4, "status": "used", "ts": "2026-10-22T19:18:53"}

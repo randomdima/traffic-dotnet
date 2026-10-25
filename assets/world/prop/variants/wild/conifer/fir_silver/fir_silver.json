@@ -1,0 +1,9 @@
+{
+  "id": "fir_silver",
+  "sprite": "fir_silver.webp",
+  "kind": 0,
+  "diameterM": 2.6,
+  "colliderM": 0.5,
+  "share": 0.8,
+  "describe": "silver fir seen from above, dense dark green layered branch star, pale tips"
+}

@@ -1,0 +1,31 @@
+{
+ "id": "roofs_mixed_at-v3",
+ "ts": "2026-10-20T14:05:51",
+ "op": "edit",
+ "name": "roofs_mixed_at",
+ "file": ".tmp/gen/frames/roofs_mixed_at-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.034326,
+ "prompt": "Faults of the last two attempts, to fix: both times cell 1 (left) came out about 11% too narrow and started about 25 px too high, and cell 2 (right) started about 40 px too far left and about 25 px too high. Do not move, shrink or re-centre anything: the first image is the exact canvas, and the roofs go exactly where its outlines are, like paint on tracing paper laid over it. Each roof fills its own outline edge to edge: all four edges on the outline's edges, nothing past them and no magenta left inside. Both roofs' top edges sit about a fifth of the way down the picture, level with each other, and both thick bottom edges sit level with each other about four fifths of the way down. Cell 1 is a narrow upright strip 2.8× deeper than wide; cell 2's right edge comes within about 25 px of the picture's right border.\n\nTwo images are attached. The first is a layout: 2 building outlines seen from above, in a 2×1 grid on a flat magenta background. The second is finished art from the same game, to match in style only — not its layout, shapes, colours or the size of its details.\n\nMake one image with exactly the same 2×1 layout as the first image. Inside each outline, draw the roof of the building described for that cell below, as a top-down sprite for a 2D city game.\n\nShape comes first. Before painting a cell, trace its outline exactly, then paint only inside the traced border:\n- Keep every outline's proportions: match each one's width and height. Each cell's proportion is given below; check it. Never make an outline squarer, shorter or fatter.\n- Every edge is straight and square to the others. Never slant, skew or taper an edge to show perspective. An outline built of several rectangles (an L, a T, a stepped block) is followed corner by corner.\n- Draw nothing outside the outline: no eaves, steps, porches, canopies, ramps or shadows past it. A porch or an entrance canopy is drawn inside the outline at its bottom edge. Inside a roof there is no magenta at all.\n\nScale is the second rule, and it is strict. Every size below is true metres, width × depth, and every detail is drawn at its true size against them. These buildings stand beside cars 4 m long and 1.8 m wide; keep that in mind for every detail. True sizes:\n- tower: a lift machine room about 3 × 5 m; a hatch or vent shaft about 1 m; a TV antenna about 2 m across; a parapet about 0.4 m thick; drain funnels about 0.4 m.\n- retail: an air conditioner unit about 1 × 1 m; a vent about 0.5 m; a plain sign strip about 0.6 m deep along the front; a parapet about 0.3 m thick.\n- No detail is bigger than its true size. When in doubt, draw it smaller and keep fewer of them. A large roof has many small details, never a few huge ones.\n\nRules for every cell:\n- Look straight down (orthographic). No perspective, no walls seen from the side, no tilt, no ground, no plants, no cars, no people.\n- The thick bottom edge of each outline is the street front, where the entrance is. The top edge is the back.\n- A gabled roof shows its ridge as one line with the two slopes shaded differently; a lean-to roof is one slope with no ridge; a flat roof has a parapet round its edge.\n- Style: match the style image. Clean, flat-shaded cartoon game art, bold dark outlines, muted natural colours, simple readable details, soft light from the top-left.\n- Outside the roofs, keep the background flat pure magenta #FF00FF. No text, letters, numbers, labels, logos, grid lines or frames anywhere.\n\nCells, left to right, top to bottom:\n\nRow 1\n1. 15 × 41.6 m (2.8× deeper than wide, a thin strip) — tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge, standing narrow end to the street with the entrance on that short front wall\n2. 50.1 × 42.9 m (1.2× wider than deep) — supermarket or shopping centre, broad flat white roof with HVAC units, skylight strips and a loading bay at the back",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "7333fc0a49274b5c",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_at.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "5e265601fd062b8e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_at_style.png"
+  }
+ ]
+}

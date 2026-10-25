@@ -1,0 +1,10 @@
+{
+  "id": "motor_scooter",
+  "sprite": "motor_scooter.webp",
+  "kind": 2,
+  "footprintM": [1.8, 0.851],
+  "cornerRadiusM": 0.2,
+  "share": 0.6,
+  "turns": true,
+  "describe": "parked motor scooter, a cream body and a black seat, the front wheel to the right"
+}

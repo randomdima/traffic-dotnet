@@ -1,0 +1,8 @@
+{
+  "id": "bollard_striped",
+  "sprite": "bollard_striped.webp",
+  "kind": 2,
+  "diameterM": 0.25,
+  "share": 1.5,
+  "describe": "round steel bollard painted red and white, a red top"
+}

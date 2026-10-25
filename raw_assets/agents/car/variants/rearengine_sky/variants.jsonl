@@ -1,2 +1,4 @@
 {"variant": "rearengine_sky-v1", "frame": "fleet100_b01-v1", "cell": 9, "pxPerM": 103.485, "score": 3, "status": "candidate", "ts": "2026-10-21T22:05:59"}
-{"variant": "rearengine_sky-v4", "frame": "fleet100_b01-v1", "cell": 9, "pxPerM": 103.485, "score": 3, "lampsMirroredFrom": "rearengine_sky-v1", "props": "raw_assets/agents/car/variants/rearengine_sky/rearengine_sky-v1.props.json", "status": "used", "ts": "2026-10-22T04:31:49"}
+{"variant": "rearengine_sky-v4", "frame": "fleet100_b01-v1", "cell": 9, "pxPerM": 103.485, "score": 3, "lampsMirroredFrom": "rearengine_sky-v1", "props": "raw_assets/agents/car/variants/rearengine_sky/rearengine_sky-v1.props.json", "status": "candidate", "ts": "2026-10-22T04:31:49"}
+{"variant": "rearengine_sky-v5", "frame": "fleet100_r02-v2", "cell": 4, "pxPerM": 103.753, "score": 4, "status": "candidate", "ts": "2026-10-22T16:49:27"}
+{"variant": "rearengine_sky-v6", "frame": "fleet100_r02-v2", "cell": 4, "pxPerM": 103.753, "score": 4, "lampsMirroredFrom": "rearengine_sky-v5", "props": "raw_assets/agents/car/variants/rearengine_sky/rearengine_sky-v5.props.json", "status": "used", "ts": "2026-10-22T16:50:46"}

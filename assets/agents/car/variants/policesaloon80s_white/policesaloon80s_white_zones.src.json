@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/policesaloon80s_white/policesaloon80s_white-v8.props.json",
+ "cutOn": "raw_assets/agents/car/variants/policesaloon80s_white/policesaloon80s_white-v8.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

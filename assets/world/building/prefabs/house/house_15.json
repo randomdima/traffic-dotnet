@@ -2,8 +2,8 @@
   "id": "house_15",
   "sprite": "house_15.webp",
   "footprintM": [
-    8.0,
-    3.0
+    11.2,
+    4.2
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -15,5 +15,6 @@
     "brown metal tiles",
     "cottage"
   ],
-  "describe": "small single-storey cottage, gabled roof of brown metal tiles, one brick chimney, a lean-to porch on the street side"
+  "describe": "small single-storey cottage, gabled roof of brown metal tiles, one brick chimney, a lean-to porch on the street side",
+  "chimneys": [[4.0, -0.9]]
 }

@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/policecrossover_white/policecrossover_white-v9.props.json",
+ "cutOn": "raw_assets/agents/car/variants/policecrossover_white/policecrossover_white-v9.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

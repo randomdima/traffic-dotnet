@@ -1,0 +1,38 @@
+{
+  "id": "evacuatorloaf_yellow",
+  "sprite": "evacuatorloaf_yellow.webp",
+  "zones": "evacuatorloaf_yellow_zones.png",
+  "wreck": { "sprite": "evacuatorloaf_yellow_broken.webp" },
+  "beam": {
+    "extended": { "sprite": "evacuatorloaf_yellow_beam_extended.webp", "sizeM": [2.699, 1.876], "hingeAtM": -1.08 },
+    "collapsed": { "sprite": "evacuatorloaf_yellow_beam_collapsed.webp", "sizeM": [1.231, 1.095], "hingeAtM": -0.492 },
+    "reachM": 2.2,
+    "pivotM": [-1.13, 0.0]
+  },
+  "describe": "Soviet forward-control 4×4 tow truck with an open tow deck, in recovery livery",
+  "footprintM": [4.360, 2.645],
+  "collisionM": { "sizeM": [4.360, 2.040], "cornerRadiusM": 0.560 },
+  "massKg": 2600,
+  "frontAxleM": 1.23,
+  "rearAxleM": -1.07,
+  "trackM": 1.992,
+  "drivetrain": 2,
+  "maxSteeringDeg": 31,
+  "tyreFriction": 0.76,
+  "cgHeightM": 0.95,
+  "frontWeightShare": 0.5,
+  "handling": { "maxSpeed": 0.51, "acceleration": 0.52, "braking": 0.65 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-1.868, -0.76], "sizeM": [0.208, 0.26] },
+    { "fitting": "rear", "atM": [-1.868, 0.76], "sizeM": [0.208, 0.26] },
+    { "fitting": "indicator", "atM": [-1.722, -0.76], "sizeM": [0.083, 0.24] },
+    { "fitting": "indicator", "atM": [-1.722, 0.781], "sizeM": [0.083, 0.24] },
+    { "fitting": "head", "atM": [1.961, -0.719], "sizeM": [0.156, 0.219] },
+    { "fitting": "head", "atM": [1.961, 0.719], "sizeM": [0.156, 0.219] },
+    { "fitting": "indicator", "atM": [1.961, -0.781], "sizeM": [0.146, 0.104] },
+    { "fitting": "indicator", "atM": [1.961, 0.771], "sizeM": [0.146, 0.104] },
+    { "fitting": "beaconAmber", "atM": [0.848, -0.25], "sizeM": [0.229, 0.229] },
+    { "fitting": "beaconAmber", "atM": [0.838, 0.26], "sizeM": [0.239, 0.229] }
+  ],
+  "exhausts": [[-2.086, -0.793]]
+}

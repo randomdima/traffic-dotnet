@@ -2,8 +2,8 @@
   "id": "retail_09",
   "sprite": "retail_09.webp",
   "footprintM": [
-    22.5,
-    4.0
+    29.2,
+    5.2
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +15,7 @@
     "corrugated sheet",
     "market stalls"
   ],
-  "describe": "row of small shop booths or market stalls under one long flat roof of corrugated sheet"
+  "describe": "row of small shop booths or market stalls under one long flat roof of corrugated sheet",
+  "chimneys": [[4.85, -0.72]],
+  "potWidthM": 0.6
 }

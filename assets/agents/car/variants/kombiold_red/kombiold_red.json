@@ -4,12 +4,12 @@
   "zones": "kombiold_red_zones.png",
   "wreck": { "sprite": "kombiold_red_broken.webp" },
   "describe": "2000s small leisure van, worn: faded red paint, scuffed black bumpers, short sloping bonnet, tall boxy body with a flat high roof, big square tailgate, roof bars, tall headlamps, tall narrow tail lamps",
-  "footprintM": [4.140, 2.148],
-  "collisionM": { "sizeM": [4.140, 1.854], "cornerRadiusM": 0.628 },
+  "footprintM": [4.140, 2.253],
+  "collisionM": { "sizeM": [4.140, 1.896], "cornerRadiusM": 0.676 },
   "massKg": 1250,
   "frontAxleM": 1.27,
   "rearAxleM": -1.32,
-  "trackM": 1.914,
+  "trackM": 1.788,
   "drivetrain": 1,
   "maxSteeringDeg": 33,
   "tyreFriction": 0.78,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.6,
   "handling": { "maxSpeed": 0.75, "acceleration": 0.72, "braking": 0.85 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.799, -0.74], "sizeM": [0.177, 0.177] },
-    { "fitting": "brake", "atM": [-1.757, 0.678], "sizeM": [0.177, 0.177] },
-    { "fitting": "indicator", "atM": [-1.82, -0.74], "sizeM": [0.094, 0.073] },
-    { "fitting": "indicator", "atM": [-1.799, 0.678], "sizeM": [0.094, 0.073] },
-    { "fitting": "head", "atM": [1.715, -0.646], "sizeM": [0.334, 0.334] },
-    { "fitting": "head", "atM": [1.726, 0.594], "sizeM": [0.334, 0.334] },
-    { "fitting": "indicator", "atM": [1.705, -0.73], "sizeM": [0.302, 0.167] },
-    { "fitting": "indicator", "atM": [1.705, 0.678], "sizeM": [0.302, 0.167] },
-    { "fitting": "reverse", "atM": [-1.82, -0.678], "sizeM": [0.125, 0.063] },
-    { "fitting": "reverse", "atM": [-1.778, 0.615], "sizeM": [0.125, 0.063] }
-  ]
+    { "fitting": "brake", "atM": [-1.893, -0.584], "sizeM": [0.125, 0.334] },
+    { "fitting": "brake", "atM": [-1.893, 0.584], "sizeM": [0.125, 0.334] },
+    { "fitting": "indicator", "atM": [-1.882, -0.668], "sizeM": [0.115, 0.167] },
+    { "fitting": "indicator", "atM": [-1.882, 0.668], "sizeM": [0.115, 0.167] },
+    { "fitting": "head", "atM": [1.747, -0.626], "sizeM": [0.25, 0.344] },
+    { "fitting": "head", "atM": [1.747, 0.626], "sizeM": [0.25, 0.344] },
+    { "fitting": "indicator", "atM": [1.601, -0.751], "sizeM": [0.063, 0.073] },
+    { "fitting": "indicator", "atM": [1.601, 0.751], "sizeM": [0.063, 0.073] },
+    { "fitting": "reverse", "atM": [-1.903, -0.48], "sizeM": [0.094, 0.115] },
+    { "fitting": "reverse", "atM": [-1.903, 0.48], "sizeM": [0.094, 0.115] }
+  ],
+  "exhausts": [[-1.997, -0.676]]
 }

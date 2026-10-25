@@ -2,8 +2,8 @@
   "id": "office_08",
   "sprite": "office_08.webp",
   "footprintM": [
-    24.0,
-    19.0
+    27.6,
+    21.8
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +15,12 @@
     "grey membrane",
     "office block"
   ],
-  "describe": "mid-rise office or public building, flat roof of grey membrane with rooftop plant, a lift room and a parapet"
+  "describe": "mid-rise office or public building, flat roof of grey membrane with rooftop plant, a lift room and a parapet",
+  "fans": [
+    { "atM": [9.2754, -7.2332], "rimAtM": [9.3038, -7.1847], "rimM": [0.8182, 0.766] },
+    { "atM": [8.7224, -5.2491], "rimAtM": [8.819, -5.3481], "rimM": [0.3145, 0.3291] },
+    { "atM": [-7.6667, 3.3906], "rimAtM": [-7.6505, 3.4259], "rimM": [0.6779, 0.5952] },
+    { "atM": [-9.4765, 3.4157], "rimAtM": [-9.4609, 3.426], "rimM": [0.6919, 0.5808] },
+    { "atM": [-5.8317, 3.3906], "rimAtM": [-5.8318, 3.4154], "rimM": [0.6848, 0.607] }
+  ]
 }

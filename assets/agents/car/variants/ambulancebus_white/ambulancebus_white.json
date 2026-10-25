@@ -1,0 +1,32 @@
+{
+  "id": "ambulancebus_white",
+  "sprite": "ambulancebus_white.webp",
+  "zones": "ambulancebus_white_zones.png",
+  "wreck": { "sprite": "ambulancebus_white_broken.webp" },
+  "describe": "modern mid-size van ambulance in ambulance livery",
+  "footprintM": [4.900, 2.374],
+  "collisionM": { "sizeM": [4.900, 2.007], "cornerRadiusM": 0.594 },
+  "massKg": 2300,
+  "frontAxleM": 1.65,
+  "rearAxleM": -1.5,
+  "trackM": 1.923,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.82,
+  "cgHeightM": 0.81,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.88, "acceleration": 0.84, "braking": 0.9 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.158, -0.687], "sizeM": [0.302, 0.427] },
+    { "fitting": "rear", "atM": [-2.158, 0.729], "sizeM": [0.302, 0.427] },
+    { "fitting": "indicator", "atM": [-2.221, -0.708], "sizeM": [0.063, 0.125] },
+    { "fitting": "indicator", "atM": [-2.221, 0.739], "sizeM": [0.063, 0.125] },
+    { "fitting": "head", "atM": [2.158, -0.666], "sizeM": [0.25, 0.302] },
+    { "fitting": "head", "atM": [2.158, 0.687], "sizeM": [0.25, 0.302] },
+    { "fitting": "indicator", "atM": [2.075, -0.833], "sizeM": [0.094, 0.073] },
+    { "fitting": "indicator", "atM": [2.054, 0.854], "sizeM": [0.094, 0.073] },
+    { "fitting": "beaconBlue", "atM": [0.594, -0.375], "sizeM": [0.261, 0.573] },
+    { "fitting": "beaconBlue", "atM": [0.594, 0.396], "sizeM": [0.261, 0.531] }
+  ],
+  "exhausts": [[-2.387, -0.712]]
+}

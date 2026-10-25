@@ -1,0 +1,7 @@
+{
+  "id": "planter_concrete_shrub",
+  "sprite": "planter_concrete_shrub.webp",
+  "kind": 1,
+  "diameterM": 1.0,
+  "describe": "round precast concrete planter with a low spreading green shrub"
+}

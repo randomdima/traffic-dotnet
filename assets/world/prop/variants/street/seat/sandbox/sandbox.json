@@ -1,0 +1,9 @@
+{
+  "id": "sandbox",
+  "sprite": "sandbox.webp",
+  "kind": 2,
+  "footprintM": [2.0, 2.045],
+  "share": 0.3,
+  "turns": true,
+  "describe": "children's sandbox, a square wooden frame around pale sand, a red bucket"
+}

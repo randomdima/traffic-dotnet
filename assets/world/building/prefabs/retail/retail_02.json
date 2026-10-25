@@ -2,8 +2,8 @@
   "id": "retail_02",
   "sprite": "retail_02.webp",
   "footprintM": [
-    4.0,
-    3.0
+    5.2,
+    3.9
   ],
   "cornerRadiusM": 0.44999999999999996,
   "partsM": [],

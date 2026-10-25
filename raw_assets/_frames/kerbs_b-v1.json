@@ -1,0 +1,51 @@
+{
+ "id": "kerbs_b-v1",
+ "ts": "2026-10-25T01:52:25",
+ "op": "edit",
+ "name": "kerbs_b",
+ "file": ".tmp/gen/frames/kerbs_b-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.027887,
+ "usage": {
+  "prompt_tokens": 3247,
+  "completion_tokens": 158,
+  "total_tokens": 3405,
+  "cost": 0.027887,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.027887,
+   "upstream_inference_prompt_cost": 0.023147,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Two images are attached. The first is a layout: 9 long thin outlines on a flat magenta background, in a 3 by 3 grid, all at one shared scale. Each is a strip of real kerb stones 6 metres long and 20 centimetres wide, seen from straight above. The second image shows finished ground art from the same game — a footway, a road and a lawn — in the art style to match. Copy its style only, not its contents.\n\nMake one image with exactly the same layout as the first image: the same 9 outlines in the same places at the same sizes. Inside each outline, draw the kerb described for that cell below, as strictly top-down art for a 2D city game.\n\nShape comes first:\n- Fill each outline edge to edge, horizontal, exactly its height. Draw nothing outside the outlines. Inside an outline there is no magenta at all.\n- Each strip is a piece of an endless straight kerb, cut square at its left and right ends so it continues seamlessly into a copy of itself placed beside it: the stone runs right up to the left and right ends, with no border, frame, rounded end or gap there.\n- The stones lie end to end along the strip: cells 1 to 5 exactly 6 kerbstones, cells 7 and 8 exactly 12 edging stones, cells 6 and 9 about 30 small setts.\n- The thick dark bottom edge of each outline marks the kerb's low side: along the bottom of the strip, about a quarter of its height, the stone's face drops away and is a little darker than the top. Soft, not black.\n\nMake it look real, like photographed stone painted in the game's style:\n- No black lines and no outlines anywhere. The joints between stones are hairline gaps only a shade darker than the stone, sometimes filled with pale grit, never a dark stripe.\n- No two stones alike: each a slightly different shade and texture, some a little worn, a few with small chipped corners, faint dirt and stains, but the kerb as a whole one even colour from a distance.\n- Low contrast overall, soft natural light from directly above.\n\nRules for everything:\n- Strictly top-down: the camera looks straight down from high above (orthographic plan view, like a map). No perspective, no tilt, no cast shadow.\n- No text, logos, numbers, people or watermark anywhere.\n- Outside the outlines, keep the background flat pure magenta #FF00FF. No grid lines or frames.\n\nCells, row by row, left to right:\n1. a street kerb of grey granite kerbstones a metre long: fine speckled grey stone, a few small chips at the corners, faint grit and dark tyre rubber along the low face\n2. a street kerb of pale grey precast concrete kerbstones a metre long: smooth concrete, soft grime and a few small stains, a little road dust along the low face\n3. an old street kerb of weathered concrete kerbstones a metre long: mid grey, rounded chipped edges, exposed small aggregate on a few, dark tyre scuffs along the low face\n4. an old city kerb of warm pinkish-grey granite kerbstones a metre long: coarse speckled stone worn smooth on top, a few chipped corners, dirt along the low face\n5. a street kerb of light grey concrete kerbstones a metre long with a bevelled edge: a flat top and a sloping face on the low side a shade darker, light grime on the slope\n6. a footway edging of grey granite setts about 20 cm a side in one row: rough split tops, each sett a little different in size, shade and shape, sandy grit in the joints, a little soil and a few grass blades at the low side\n7. a footway edging of light grey precast concrete edging stones half a metre long: softly rounded tops, faint grime, a little soil along the low side\n8. a footway edging of weathered grey concrete edging stones half a metre long: a little green moss in some joints and along the low side, faint dirt\n9. a footway edging of mixed grey and charcoal granite setts about 20 cm a side in one row: rough tops, the setts in several shades from light to dark grey laid at random, sandy grit in the joints",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "422297fc3c71e5a0",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/kerbs_b.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "24a259a8c15d14d8",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/kerbs_b_style.png"
+  }
+ ]
+}

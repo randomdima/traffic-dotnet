@@ -1,0 +1,13 @@
+{
+  "car": "tower_rounded_01",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/tower/tower_rounded_01/tower_rounded_01-v1.png", "sizePx": [710, 464]},
+  "axisY": {"rear": 231.50, "front": 231.00},
+  "props": [
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [549.35, 108.36, 5.56],
+      [565.13, 128.96, 3.89],
+      [582.51, 115.10, 6.54],
+      [566.13, 92.97, 4.13]
+    ]}
+  ]
+}

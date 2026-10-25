@@ -1,0 +1,32 @@
+{
+  "id": "policesaloon_white",
+  "sprite": "policesaloon_white.webp",
+  "zones": "policesaloon_white_zones.png",
+  "wreck": { "sprite": "policesaloon_white_broken.webp" },
+  "describe": "modern compact four-door saloon patrol car in police livery",
+  "footprintM": [4.630, 2.224],
+  "collisionM": { "sizeM": [4.630, 1.921], "cornerRadiusM": 0.698 },
+  "massKg": 1350,
+  "frontAxleM": 1.395,
+  "rearAxleM": -1.315,
+  "trackM": 1.83,
+  "drivetrain": 1,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.88,
+  "cgHeightM": 0.56,
+  "frontWeightShare": 0.61,
+  "handling": { "maxSpeed": 1.15, "acceleration": 1.3, "braking": 1.08 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.002, -0.592], "sizeM": [0.365, 0.478] },
+    { "fitting": "rear", "atM": [-2.002, 0.582], "sizeM": [0.365, 0.478] },
+    { "fitting": "indicator", "atM": [-2.106, -0.592], "sizeM": [0.094, 0.156] },
+    { "fitting": "indicator", "atM": [-2.106, 0.572], "sizeM": [0.094, 0.156] },
+    { "fitting": "head", "atM": [1.96, -0.655], "sizeM": [0.344, 0.333] },
+    { "fitting": "head", "atM": [1.96, 0.676], "sizeM": [0.344, 0.333] },
+    { "fitting": "indicator", "atM": [1.908, -0.79], "sizeM": [0.083, 0.062] },
+    { "fitting": "indicator", "atM": [1.898, 0.811], "sizeM": [0.083, 0.062] },
+    { "fitting": "beaconRed", "atM": [0.125, -0.301], "sizeM": [0.261, 0.385] },
+    { "fitting": "beaconBlue", "atM": [0.125, 0.301], "sizeM": [0.261, 0.374] }
+  ],
+  "exhausts": [[-2.2, -0.667]]
+}

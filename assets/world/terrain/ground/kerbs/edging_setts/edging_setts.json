@@ -1,0 +1,11 @@
+{
+  "id": "edging_setts",
+  "sprite": "edging_setts.webp",
+  "kind": "Edging",
+  "describe": "a footway edging of grey granite setts about 20 cm a side in one row: rough split tops, each sett a little different in size, shade and shape, sandy grit in the joints, a little soil and a few grass blades at the low side",
+  "footprintM": [
+    6.0,
+    0.2
+  ],
+  "pictureM": 5.069
+}

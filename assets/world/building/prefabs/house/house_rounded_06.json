@@ -2,10 +2,10 @@
   "id": "house_rounded_06",
   "sprite": "house_rounded_06.webp",
   "footprintM": [
-    17.0,
-    14.0
+    23.8,
+    19.6
   ],
-  "cornerRadiusM": 3.5,
+  "cornerRadiusM": 4.9,
   "partsM": [],
   "look": "house",
   "tags": [
@@ -16,5 +16,7 @@
     "villa",
     "rounded corners"
   ],
-  "describe": "two-storey villa, hipped roof of faded terracotta tiles with a dormer and two chimneys, a balcony roof over the entrance, its corners rounded in wide curves"
+  "describe": "two-storey villa, hipped roof of faded terracotta tiles with a dormer and two chimneys, a balcony roof over the entrance, its corners rounded in wide curves",
+  "chimneys": [[-5.67, -6.1, -5.22, -6.1], [5.57, -6.1, 6.02, -6.1]],
+  "potWidthM": 0.45
 }

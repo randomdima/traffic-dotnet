@@ -20,6 +20,73 @@ FLANK_SKIP = 0.2
 #: alpha a rim texel keeps: the model's transparent output wraps every drawing in a faint glow of its own colours
 #: (alpha under ~100, cars_fleet_b), which is no part of the car.
 RIM_PX, RIM_ALPHA_MIN = 2, 64
+#: How far inside the flank each wheel centre stands (CAR-12): `Tyre.WheelWidthM` × (½ − `ShowsPastTheBodyworkShare`),
+#: so that share of every tyre shows past the bodywork and the rest is under it.
+TYRE_INSET_M = 0.22 * (0.5 - 0.25)
+
+
+#: A building's walls (OBJ-5a) read off its drawing: the silhouette on cells of this side, or coarser so its longer side
+#: is at most PART_CELLS_MOST of them, a cell painted where over half of it is; at most PARTS_MOST rectangles, and none
+#: kept that covers under PART_LEAST_SHARE of the silhouette on its own.
+PART_CELL_M, PART_CELLS_MOST, PARTS_MOST, PART_LEAST_SHARE = 0.25, 80, 6, 0.02
+
+
+def rectangles(solid, per_m):
+    """The rectangles a building's silhouette is built of, each (centre x, centre y, width, depth) in metres from the
+    picture's middle, +y down it — as `partsM` authors them. One where the drawing is a plain block. Greedy: each pass
+    takes the all-painted rectangle covering the most not yet covered, until what is left is under PART_LEAST_SHARE."""
+    import numpy as np
+
+    step = max(1, round(PART_CELL_M * per_m), -(-max(solid.shape) // PART_CELLS_MOST))
+    h, w = solid.shape[0] // step, solid.shape[1] // step
+    cells = solid[:h * step, :w * step].reshape(h, step, w, step).mean(axis=(1, 3)) > 0.5
+    painted = cells.tolist()
+    left = cells.copy()
+    total = int(cells.sum())
+    found = []
+    while len(found) < PARTS_MOST and left.sum() >= PART_LEAST_SHARE * total:
+        # Summed area of what is left, so a candidate's gain is four lookups.
+        area = np.zeros((h + 1, w + 1), dtype=int)
+        area[1:, 1:] = left.cumsum(0).cumsum(1)
+        area = area.tolist()
+        best, gain = None, 0
+        heights = [0] * w
+        for y in range(h):
+            heights = [heights[x] + 1 if painted[y][x] else 0 for x in range(w)]
+            for x0 in range(w):
+                low = heights[x0]
+                for x1 in range(x0, w):
+                    low = min(low, heights[x1])
+                    if not low:
+                        break
+                    y0 = y - low + 1
+                    new = area[y + 1][x1 + 1] - area[y0][x1 + 1] - area[y + 1][x0] + area[y0][x0]
+                    if new > gain:
+                        best, gain = (x0, y0, x1 + 1, y + 1), new
+        if best is None or gain < PART_LEAST_SHARE * total:
+            break
+        x0, y0, x1, y1 = best
+        left[y0:y1, x0:x1] = False
+        found.append(best)
+    cx, cy = solid.shape[1] / 2, solid.shape[0] / 2
+    return [(round((x0 + x1) * step / 2 / per_m - cx / per_m, 2), round((y0 + y1) * step / 2 / per_m - cy / per_m, 2),
+             round((x1 - x0) * step / per_m, 2), round((y1 - y0) * step / per_m, 2)) for x0, y0, x1, y1 in found]
+
+
+def track_m(axle_widths_m):
+    """The track over a body whose width over each axle is measured: the wheel centres in from the wider flank."""
+    return round(max(axle_widths_m) - 2 * TYRE_INSET_M, 3)
+
+
+def installed_track_m(sprite, footprint_length_m, axles_m):
+    """The track measured off an installed sprite where the game lays it: the sprite spans the footprint, and the axles
+    stand off its middle. What CarSpriteTests measures, so the file and the gate read one ruler."""
+    import numpy as np
+    from PIL import Image
+
+    solid = np.asarray(Image.open(sprite).convert("RGBA"))[..., 3] >= 128
+    per_m = solid.shape[1] / footprint_length_m
+    return track_m([width_at(solid, solid.shape[1] / 2 + a * per_m) / per_m for a in axles_m])
 
 
 def runs(any_paint):
@@ -36,13 +103,33 @@ def runs(any_paint):
 
 
 def drawings(solid, ids, fail):
-    """Each id's box (x0, y0, x1, y1) on the frame, in the brief's order: bands of rows, then columns in each band."""
-    boxes = []
-    for y0, y1 in runs(solid.any(1)):
-        boxes += [(x0, y0, x1, y1) for x0, x1 in runs(solid[y0:y1].any(0))]
+    """Each id's box (x0, y0, x1, y1) on the frame, in the brief's order: bands of rows, then columns in each band.
+    Only where that finds more drawings than ids are gaps up to BRIDGE_PX closed, narrowest first: a stack of crates or
+    kegs is drawn with clear gaps between its pieces, which split one drawing into several."""
+    for bridge in (0, *BRIDGE_PX):
+        boxes = []
+        for y0, y1 in bridged(runs(solid.any(1)), bridge):
+            boxes += [(x0, y0, x1, y1) for x0, x1 in bridged(runs(solid[y0:y1].any(0)), bridge)]
+        if len(boxes) <= len(ids):
+            break
     if len(boxes) != len(ids):
         fail(f"found {len(boxes)} drawings for {len(ids)} ids: the grid was not kept, so which is which is a guess")
     return dict(zip(ids, boxes))
+
+
+#: The gaps `drawings` closes in turn, frame pixels: well under the room the model keeps between two drawings.
+BRIDGE_PX = (8, 16, 32)
+
+
+def bridged(spans, gap):
+    """Runs closer than `gap` joined into one."""
+    out = []
+    for start, end in spans:
+        if out and start - out[-1][1] < gap:
+            out[-1] = (out[-1][0], end)
+        else:
+            out.append((start, end))
+    return out
 
 
 def flanks(body):
@@ -87,21 +174,26 @@ def measure(body, length_m, axles_m):
     half_l = max(cx - xs.min(), xs.max() + 1 - cx)
     half_w = max(cy - ys.min(), ys.max() + 1 - cy)
 
-    def width_at(axle_m):
-        column = int(round(cx + axle_m * per_m))
-        spans = [body[:, c] for c in range(column - 2, column + 3) if 0 <= c < body.shape[1]]
-        return float(np.median([np.flatnonzero(s)[-1] + 1 - np.flatnonzero(s)[0] for s in spans if s.any()])) / per_m
-
     return {
         "pxPerM": round(per_m, 3),
         "lengthM": round(length_m, 3),
         "widthM": round((bottom - top) / per_m, 3),
         "cornerRadiusM": round(corner_radius_px(body[top:bottom, left:right]) / per_m, 3),
         "footprintM": [round(2 * half_l / per_m, 3), round(2 * half_w / per_m, 3)],
-        "axleWidthsM": [round(width_at(a), 3) for a in axles_m],
+        "axleWidthsM": [round(width_at(body, cx + a * per_m) / per_m, 3) for a in axles_m],
         "centrePx": [round(cx, 1), round(cy, 1)],
         "bodyPx": [left, top, right, bottom],
     }
+
+
+def width_at(body, x_px):
+    """The body's width in pixels across column `x_px`: the median span of the five columns about it, which a mirror's
+    edge or a stray texel does not move."""
+    import numpy as np
+
+    column = int(round(x_px))
+    spans = [body[:, c] for c in range(column - 2, column + 3) if 0 <= c < body.shape[1]]
+    return float(np.median([np.flatnonzero(s)[-1] + 1 - np.flatnonzero(s)[0] for s in spans if s.any()]))
 
 
 def corner_radius_px(inside):

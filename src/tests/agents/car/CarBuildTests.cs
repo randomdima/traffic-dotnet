@@ -38,45 +38,45 @@ public class CarBuildTests
     [Fact]
     public void AVariantIsBuiltFromItsOwnBody()
     {
-        var truck = Of("truck_brown");
-        var compact = Of("compact_green");
+        var truck = Of("pickup_silver");
+        var compact = Of("citycar_lime");
 
-        Assert.Equal(3.56f, truck.LengthM, 1e-3f);
-        Assert.Equal(2000f, truck.MassKg);
-        Assert.Equal(1050f, compact.MassKg);
+        Assert.Equal(5.33f, truck.LengthM, 1e-3f);
+        Assert.Equal(2100f, truck.MassKg);
+        Assert.Equal(940f, compact.MassKg);
         Assert.True(truck.MassKg > compact.MassKg, "a truck outweighs a compact");
 
-        // compact_green's axles are at ±0.98/−1.02 m of its own middle, so the middle stands 1.02 m ahead
-        // of the axle and the nose 1.7 m ahead of the middle.
-        Assert.Equal(1.02f, compact.CentreAheadOfAxleM, 1e-3f);
+        // citycar_lime's axles are at +1.1/−1.28 m of its own middle, so the middle stands 1.28 m ahead
+        // of the axle and the nose 1.8 m ahead of the middle.
+        Assert.Equal(1.28f, compact.CentreAheadOfAxleM, 1e-3f);
         Assert.Equal(compact.CentreAheadOfAxleM + compact.HalfLengthM, compact.NoseAheadOfAxleM, 1e-3f);
         Assert.Equal(compact.HalfLengthM - compact.CentreAheadOfAxleM, compact.TailBehindAxleM, 1e-3f);
-        Assert.Equal(2f, compact.WheelbaseM, 1e-3f);
+        Assert.Equal(2.38f, compact.WheelbaseM, 1e-3f);
     }
 
     /// <summary>
     /// <b>The handling multipliers are read.</b> A file that states what it is worth against the nominal
     /// car gets a top speed, a pedal, a brake and a grip of its own — which is the whole difference between
-    /// a supercar and a tow truck on the same road.
+    /// a sports car and a worn van on the same road.
     /// </summary>
     [Fact]
     public void WhatAVariantIsWorthReachesTheFiguresItIsDrivenBy()
     {
-        var supercar = Of("super_cyan");
-        var evacuator = Of("evacuator_yellow");
+        var sports = Of("sportscar_red");
+        var van = Of("lightvan_white");
 
-        Assert.True(supercar.MaxSpeedMps > evacuator.MaxSpeedMps * 2f);
-        Assert.True(supercar.GripMps2 > evacuator.GripMps2);
+        Assert.True(sports.MaxSpeedMps > van.MaxSpeedMps);
+        Assert.True(sports.GripMps2 > van.GripMps2);
 
         // The pedals are a multiple of what each one's own driven axle holds (CAR-45), so the spread
         // between them is the rubber's and the layout's rather than a figure either file states: both
-        // drive all four wheels, and the supercar's lead is its compound and the engine it hangs on it.
-        Assert.True(supercar.AccelerationMps2 > evacuator.AccelerationMps2 * 2.5f);
+        // drive the rear wheels, and the sports car's lead is its compound and the engine it hangs on it.
+        Assert.True(sports.AccelerationMps2 > van.AccelerationMps2);
 
         // And the derived figures follow: what a car can see is its own stopping distance from its own top
         // speed, so the fast one plans further ahead than the slow one.
-        Assert.True(supercar.SightM > evacuator.SightM);
-        Assert.True(supercar.LookaheadFloorM < evacuator.LookaheadFloorM, "and the long body aims further ahead");
+        Assert.True(sports.SightM > van.SightM);
+        Assert.True(sports.LookaheadFloorM < van.LookaheadFloorM, "and the long body aims further ahead");
     }
 
     /// <summary>
@@ -87,8 +87,8 @@ public class CarBuildTests
     [Fact]
     public void ALongerWheelbaseTurnsInAWiderCircle()
     {
-        var van = Of("van_purple");
-        var sports = Of("sports_red");
+        var van = Of("lightvan_white");
+        var sports = Of("sportscar_red");
 
         Assert.True(van.WheelbaseM > sports.WheelbaseM);
         Assert.True(van.TurningRadiusM > sports.TurningRadiusM);
@@ -128,8 +128,8 @@ public class CarBuildTests
     public void TheSameLineIsDrivenDifferentlyByDifferentCars()
     {
         ReadOnlySpan<ArcSeg> line = [new ArcSeg(Vector2.Zero, 0f, 60f, 0.05f)];
-        var van = Of("van_purple");
-        var compact = Of("compact_green");
+        var van = Of("lightvan_white");
+        var compact = Of("citycar_lime");
 
         var vanRad = CarFollower.Steer(van, line, 0f, Vector2.Zero, Vector2.UnitX, 6f);
         var compactRad = CarFollower.Steer(compact, line, 0f, Vector2.Zero, Vector2.UnitX, 6f);
@@ -183,11 +183,11 @@ public class CarBuildTests
     [Fact]
     public void TheRoadsTrimScalesThisCarAndItsOwnFiguresAreUntouched()
     {
-        var shipped = Of("truck_brown");
+        var shipped = Of("pickup_silver");
         var figures = SimConfig.Shipped();
         figures.Trim.Friction = 2f;
 
-        var trimmed = Of("truck_brown", figures);
+        var trimmed = Of("pickup_silver", figures);
         Assert.Equal(shipped.GripMps2 * 2f, trimmed.GripMps2, 3);
 
         // This truck's own body is what its file says it is, whatever the panel is doing to the road.

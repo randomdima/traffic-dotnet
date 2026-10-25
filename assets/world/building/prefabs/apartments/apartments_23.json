@@ -2,8 +2,8 @@
   "id": "apartments_23",
   "sprite": "apartments_23.webp",
   "footprintM": [
-    30.5,
-    10.0
+    39.6,
+    13.0
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,7 @@
     "soviet",
     "khrushchyovka"
   ],
-  "describe": "five-storey Soviet brick or panel block, flat roof of patched black tar, 2 stairwell exit hatches and vent stacks evenly along the ridge line, TV antennas"
+  "describe": "five-storey Soviet brick or panel block, flat roof of patched black tar, 2 stairwell exit hatches and vent stacks evenly along the ridge line, TV antennas",
+  "chimneys": [[-13.3, -1.0], [-4.5, -1.0], [2.6, -1.0], [12.3, -1.0]],
+  "potWidthM": 0.8
 }

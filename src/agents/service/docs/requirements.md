@@ -55,6 +55,10 @@ the terms SRV-3's service list is the fleet's: a walker's look is drawn by wrapp
 wrap cannot reach past it, so a uniform is worn only by somebody named to wear one — a crew stood with their
 vehicle (SRV-3).
 
+**SRV-3b** `P9` **The town's police cars wear every police look the service list carries, in turn, its
+ambulances every ambulance look and its evacuators every evacuator look**, one vehicle after another as they are
+stood, so an apron is a mix of makes in one livery rather than one car many times over.
+
 **SRV-4** `P5` **A service vehicle breaks like every other car** (PHY-3), the evacuator included. Four
 things follow from what a broken one can be in the middle of.
 

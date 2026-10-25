@@ -3,21 +3,20 @@
 
 // The town's scenery, one quad an instance, read out of the pieces laid on the device once (ScenerySprites.Pieces) by the
 // runs a frame wrote of the rows in view (ScenerySprites.Spans): instance i belongs to the last run drawing nothing
-// after it, and is its first piece and every `every`-th after. A piece's look gives its sheet and its size for a metre of
-// girth.
+// after it, and is its first piece and every `every`-th after. A piece's look gives its sheet and its size.
 
 #include "app/render/kernels/quad.glsl"
 
-// SceneryPiece: where it stands, then its look in the low half of a word and its girth as a half in the high.
+// SceneryPiece: where it stands, then its look.
 struct Piece {
     float x;
     float y;
-    uint lookAndGirth;
+    uint look;
 };
 
-// What a look is drawn as: its half-size for a metre of girth and its sheet.
+// What a look is drawn as: its half-size and its sheet.
 struct SceneryLook {
-    vec2 halfSizePerM;
+    vec2 halfSizeM;
     uint sheet;
     uint pad;
 };
@@ -47,7 +46,6 @@ void main() {
     }
 
     Piece piece = pieces[spans[lo].x + (at - spans[lo].y) * every];
-    SceneryLook drawn = looks[piece.lookAndGirth & 0xFFFFu];
-    float girthM = unpackHalf2x16(piece.lookAndGirth).y;
-    quadEmit(vec2(piece.x, piece.y), drawn.halfSizePerM * girthM, 0.0, vec2(0.0), vec2(1.0), vec4(1.0), drawn.sheet);
+    SceneryLook drawn = looks[piece.look];
+    quadEmit(vec2(piece.x, piece.y), drawn.halfSizeM, 0.0, vec2(0.0), vec2(1.0), vec4(1.0), drawn.sheet, 0u);
 }

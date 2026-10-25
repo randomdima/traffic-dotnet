@@ -7,7 +7,7 @@ namespace TrafficSimulation.App.Render;
 /// One upright quad on the ground: everything the second pipeline is told about a body, and the only
 /// thing that changes between two frames of a standing town. <b>Twenty-eight bytes</b>, packed as the vertex stage
 /// reads it: the centre and the heading as floats, the half-size as two halves, the cell of the sheet as four bytes, the
-/// tint as four normalised bytes and the sheet as a word.
+/// tint as four normalised bytes, and the sheet and the ID as a half-word each.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -47,16 +47,25 @@ internal readonly record struct SpriteInstance
     /// <summary>The tint as red, green, blue and opacity a byte each from the low (<see cref="Tint"/>).</summary>
     public readonly uint PackedTint;
 
-    public readonly uint Sheet;
+    /// <summary>The atlas slot drawn from: fewer than <see cref="SheetAtlas.Slots"/>.</summary>
+    public readonly ushort Sheet;
 
-    public SpriteInstance(Vector2 centreM, Vector2 halfSizeM, SpriteCell cell, uint packedTint, uint sheet, float headingRad)
+    /// <summary>
+    /// Which body of its kind this is, the same every frame — a building's or a wagon's index, its low sixteen bits; nought
+    /// for everything nothing turns on. All a fan's start is taken from (<c>fans.glsl</c>, OBJ-6).
+    /// </summary>
+    public readonly ushort Id;
+
+    public SpriteInstance(
+        Vector2 centreM, Vector2 halfSizeM, SpriteCell cell, uint packedTint, uint sheet, float headingRad, int id = 0)
     {
         CentreM = centreM;
         _halfSize = Halves(halfSizeM);
         HeadingRad = headingRad;
         Cell = cell;
         PackedTint = packedTint;
-        Sheet = sheet;
+        Sheet = (ushort)sheet;
+        Id = (ushort)id;
     }
 
     /// <summary>The quad's half-size as drawn: the one handed in, at a half's precision (<see cref="AsDrawn"/>).</summary>

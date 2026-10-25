@@ -1,0 +1,37 @@
+{
+  "car": "samara_silver",
+  "sprite": {"variant": "raw_assets/agents/car/variants/samara_silver/samara_silver-v6.png", "sizePx": [385, 189]},
+  "axisY": {"rear": 95.50, "front": 94.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 94.5, "mirrorDx": 0.0, "points": [
+      [15.26, 32.41, 0.63],
+      [11.72, 47.05, 0.69],
+      [11.19, 59.53, 2.27],
+      [18.16, 56.60, -0.71],
+      [25.36, 31.90, 1.05],
+      [26.13, 27.00, 2.28]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 94.5, "mirrorDx": 0.0, "points": [
+      [15.40, 34.53, 0.71],
+      [14.23, 44.62, 0.94],
+      [17.15, 45.80, 0.23],
+      [19.50, 34.84, 1.23]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [348.00, 35.88, 0.50],
+      [355.44, 51.88, 0.00],
+      [360.30, 55.07, 1.57],
+      [363.76, 51.13, 0.57],
+      [359.46, 35.40, 0.46],
+      [347.62, 33.20, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 94.0, "mirrorDx": 1.0, "points": [
+      [342.98, 27.36, 0.20],
+      [345.32, 32.63, 0.00],
+      [358.90, 33.17, 0.57],
+      [357.96, 29.18, 0.00],
+      [353.35, 27.88, 1.00]
+    ]}
+  ]
+}

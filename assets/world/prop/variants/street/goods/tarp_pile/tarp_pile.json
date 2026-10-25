@@ -1,0 +1,10 @@
+{
+  "id": "tarp_pile",
+  "sprite": "tarp_pile.webp",
+  "kind": 2,
+  "footprintM": [1.8, 1.13],
+  "cornerRadiusM": 0.1,
+  "share": 0.3,
+  "turns": true,
+  "describe": "pile of materials under a blue tarpaulin, roped down, creased"
+}

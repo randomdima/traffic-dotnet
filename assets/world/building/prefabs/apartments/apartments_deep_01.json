@@ -2,8 +2,8 @@
   "id": "apartments_deep_01",
   "sprite": "apartments_deep_01.webp",
   "footprintM": [
-    3.5,
-    8.5
+    4.5,
+    11.1
   ],
   "cornerRadiusM": 0.525,
   "partsM": [],
@@ -17,5 +17,5 @@
     "courtyard gallery",
     "narrow front"
   ],
-  "describe": "narrow annex or open gallery along an Odesa courtyard, lean-to roof of rust-red painted sheet metal with a wooden stair at one end, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "narrow annex or open gallery along an Odesa courtyard, lean-to roof of rust-red painted sheet metal with a wooden stair at one end, standing narrow end to the street with the entrance on that short front wall, its one slope falling to a long side"
 }

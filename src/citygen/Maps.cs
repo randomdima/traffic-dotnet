@@ -39,10 +39,10 @@ internal static class Maps
     /// looks (<see cref="ShowroomPlan"/>), and the scenario map — a lattice with one traffic scenario staged at
     /// each of its junctions (<see cref="ExamPlan"/>).
     /// </summary>
-    static readonly (string Name, Func<SimConfig, BuildingSizes, CityPlan> Lay)[] Laid =
+    static readonly (string Name, Func<SimConfig, ArtSizes, CityPlan> Lay)[] Laid =
     [
         (IdlePlan.Name, static (config, _) => IdlePlan.Lay(config)),
-        (ShowroomPlan.Name, ShowroomPlan.Lay),
+        (ShowroomPlan.Name, static (config, art) => ShowroomPlan.Lay(config, art.Buildings)),
         (ExamPlan.Name, static (config, _) => ExamPlan.Lay(config)),
     ];
 
@@ -119,17 +119,17 @@ internal static class Maps
     /// </para>
     /// </remarks>
     /// <param name="sizes">
-    /// The prefabs a town stands its buildings as and the roofs its services wear, read off the art by the catalogue
-    /// above this slice and handed down as data (<see cref="BuildingSizes"/>, GEN-54, GEN-58). A map laid in code stands
-    /// what its own code stands, which only the showroom's does off these.
+    /// The prefabs a town stands its buildings as, the roofs its services wear and the looks its props are laid as, read
+    /// off the art by the catalogues above this slice and handed down as data (<see cref="ArtSizes"/>, GEN-54, GEN-58,
+    /// GEN-6e). A map laid in code stands what its own code stands, which only the showroom's does off these.
     /// </param>
-    public static CityPlan Plan(string name, SimConfig config, BuildingSizes sizes) => Planning(name, config, sizes).Through();
+    public static CityPlan Plan(string name, SimConfig config, ArtSizes sizes) => Planning(name, config, sizes).Through();
 
     /// <summary><see cref="Plan"/> a stage at a time (<see cref="TownPlan.Reading"/>): a map laid in code is one block.</summary>
-    public static Staged<CityPlan> Planning(string name, SimConfig config, BuildingSizes sizes) =>
+    public static Staged<CityPlan> Planning(string name, SimConfig config, ArtSizes sizes) =>
         new(made => Planning(name, config, sizes, made));
 
-    static IEnumerable<string> Planning(string name, SimConfig config, BuildingSizes sizes, Action<CityPlan> made)
+    static IEnumerable<string> Planning(string name, SimConfig config, ArtSizes sizes, Action<CityPlan> made)
     {
         if (_kept is { } kept && kept.Is(name, config))
         {
@@ -155,7 +155,7 @@ internal static class Maps
 
     static Kept? _kept;
 
-    static Staged<CityPlan> Lay(string name, SimConfig config, BuildingSizes sizes)
+    static Staged<CityPlan> Lay(string name, SimConfig config, ArtSizes sizes)
     {
         foreach (var (laid, lay) in Laid)
         {

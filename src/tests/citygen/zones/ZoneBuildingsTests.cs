@@ -282,6 +282,6 @@ public class ZoneBuildingsTests
             Buildings = setDown,
         };
 
-        return TownPlan.Lay(survey, Config, Sizes).Buildings;
+        return TownPlan.Lay(survey, Config, new ArtSizes(Sizes, PropSizes.None)).Buildings;
     }
 }

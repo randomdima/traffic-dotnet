@@ -4,12 +4,12 @@
   "zones": "golf3_red_zones.png",
   "wreck": { "sprite": "golf3_red_broken.webp" },
   "describe": "1990s German three-door compact hatchback, worn: faded red paint, rust spots on the wheel arches, one door slightly darker red, level bonnet, long roof, upright hatch with wide pillars, round-cornered headlamps, tall tail lamps",
-  "footprintM": [4.020, 2.183],
-  "collisionM": { "sizeM": [4.020, 1.846], "cornerRadiusM": 0.630 },
+  "footprintM": [4.020, 2.088],
+  "collisionM": { "sizeM": [4.020, 1.757], "cornerRadiusM": 0.635 },
   "massKg": 1050,
   "frontAxleM": 1.18,
   "rearAxleM": -1.29,
-  "trackM": 1.941,
+  "trackM": 1.65,
   "drivetrain": 1,
   "maxSteeringDeg": 33,
   "tyreFriction": 0.78,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.8, "acceleration": 0.8, "braking": 0.85 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.718, -0.593], "sizeM": [0.281, 0.333] },
-    { "fitting": "brake", "atM": [-1.718, 0.582], "sizeM": [0.281, 0.333] },
-    { "fitting": "head", "atM": [1.677, -0.634], "sizeM": [0.281, 0.291] },
-    { "fitting": "head", "atM": [1.698, 0.624], "sizeM": [0.281, 0.291] },
-    { "fitting": "indicator", "atM": [1.541, -0.8], "sizeM": [0.146, 0.062] },
-    { "fitting": "indicator", "atM": [1.562, 0.78], "sizeM": [0.146, 0.062] },
-    { "fitting": "indicator", "atM": [-1.802, -0.582], "sizeM": [0.104, 0.229] },
-    { "fitting": "indicator", "atM": [-1.77, 0.634], "sizeM": [0.104, 0.229] },
-    { "fitting": "reverse", "atM": [-1.791, -0.489], "sizeM": [0.125, 0.114] },
-    { "fitting": "reverse", "atM": [-1.791, 0.468], "sizeM": [0.125, 0.114] }
-  ]
+    { "fitting": "brake", "atM": [-1.781, -0.564], "sizeM": [0.219, 0.376] },
+    { "fitting": "brake", "atM": [-1.781, 0.564], "sizeM": [0.219, 0.376] },
+    { "fitting": "head", "atM": [1.677, -0.595], "sizeM": [0.323, 0.334] },
+    { "fitting": "head", "atM": [1.677, 0.585], "sizeM": [0.323, 0.334] },
+    { "fitting": "indicator", "atM": [1.645, -0.679], "sizeM": [0.271, 0.167] },
+    { "fitting": "indicator", "atM": [1.645, 0.668], "sizeM": [0.271, 0.167] },
+    { "fitting": "indicator", "atM": [-1.802, -0.574], "sizeM": [0.073, 0.104] },
+    { "fitting": "indicator", "atM": [-1.802, 0.574], "sizeM": [0.073, 0.104] },
+    { "fitting": "reverse", "atM": [-1.823, -0.438], "sizeM": [0.125, 0.125] },
+    { "fitting": "reverse", "atM": [-1.823, 0.438], "sizeM": [0.125, 0.125] }
+  ],
+  "exhausts": [[-1.927, -0.626]]
 }

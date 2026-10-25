@@ -1,0 +1,8 @@
+{
+  "id": "planter_wood_herbs",
+  "sprite": "planter_wood_herbs.webp",
+  "kind": 1,
+  "footprintM": [1.6, 0.79],
+  "turns": true,
+  "describe": "wooden slatted trough, rosemary, sage and trailing nasturtiums"
+}

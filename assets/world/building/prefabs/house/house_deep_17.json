@@ -2,8 +2,8 @@
   "id": "house_deep_17",
   "sprite": "house_deep_17.webp",
   "footprintM": [
-    4.0,
-    9.5
+    5.6,
+    13.3
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -16,5 +16,6 @@
     "cottage",
     "narrow front"
   ],
-  "describe": "small single-storey cottage, gabled roof of green-painted sheet metal, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "small single-storey cottage, gabled roof of green-painted sheet metal, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back",
+  "chimneys": [[1.47, -4.35, 1.82, -4.35]]
 }

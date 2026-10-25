@@ -1,10 +1,13 @@
 {
   "id": "cottage_tile",
   "sprite": "cottage_tile.webp",
+  "describe": "L-shaped two-storey house, hipped roof of orange clay tiles, one brick chimney and a skylight",
   "footprintM": [12.00, 12.06],
   "partsM": [
     { "atM": [0.13, -2.52], "sizeM": [11.73, 7.02] },
     { "atM": [2.66, -0.47], "sizeM": [6.68, 11.12] },
     { "atM": [2.57, 0.0], "sizeM": [3.08, 12.06] }
-  ]
+  ],
+  "chimneys": [[2.9, -4.2, 3.3, -4.2]],
+  "potWidthM": 0.4
 }

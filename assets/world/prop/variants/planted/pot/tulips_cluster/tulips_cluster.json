@@ -1,0 +1,8 @@
+{
+  "id": "tulips_cluster",
+  "sprite": "tulips_cluster.webp",
+  "kind": 1,
+  "diameterM": 0.8,
+  "share": 0.8,
+  "describe": "small clump of pink and white tulips with broad leaves"
+}

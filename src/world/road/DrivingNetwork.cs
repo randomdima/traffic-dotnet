@@ -30,13 +30,21 @@ internal sealed class DrivingNetwork
     readonly int[] _linkOfLane;
     readonly int[] _slotOfLane;
 
-    DrivingNetwork(RoadGraph roads, RunNetwork runs, RouteCells cells, int[] linkOfLane, int[] slotOfLane)
+    /// <summary>
+    /// How far into a lane a car coming back down its stretch lands at most: abeam of a bay within
+    /// <see cref="SimConfig.TurnAtALotWithinM"/> of the far end of the lane running back (GEN-4l).
+    /// </summary>
+    readonly float _comingBackLandsWithinM;
+
+    DrivingNetwork(
+        RoadGraph roads, RunNetwork runs, RouteCells cells, int[] linkOfLane, int[] slotOfLane, float comingBackLandsWithinM)
     {
         _roads = roads;
         Runs = runs;
         Cells = cells;
         _linkOfLane = linkOfLane;
         _slotOfLane = slotOfLane;
+        _comingBackLandsWithinM = comingBackLandsWithinM;
     }
 
     public RunNetwork Runs { get; }
@@ -109,11 +117,19 @@ internal sealed class DrivingNetwork
     /// <b>A place on one named lane as the only goal</b> — for a leg that has to arrive on that lane and not on
     /// the other side of its street, as a police car standing at the mouth of a lane it is closing does.
     /// </summary>
+    /// <remarks>
+    /// <b>Not reached by coming back down the stretch where it stands within <see cref="_comingBackLandsWithinM"/> of
+    /// the lane's start</b> (GEN-4l): the search lands a turn at a lot on the lane's first metre, the car lands abeam
+    /// of the bay it turned in, and a place short of that is behind it — sent round the block, it comes back to the
+    /// same bay and lands past the place again.
+    /// </remarks>
     public int GoalOnLane(int lane, float alongLaneM, Span<RouteGoal> into)
     {
         if (into.Length == 0 || _linkOfLane[lane] == TravelGraph.NoLink) return 0;
 
-        into[0] = new RouteGoal(_linkOfLane[lane], PlaceOfM(lane, alongLaneM));
+        var reverse = _roads.LaneReverse[lane];
+        var notEnteredFrom = reverse >= 0 && alongLaneM < _comingBackLandsWithinM ? _linkOfLane[reverse] : TravelGraph.NoLink;
+        into[0] = new RouteGoal(_linkOfLane[lane], PlaceOfM(lane, alongLaneM), notEnteredFrom);
         return 1;
     }
 
@@ -144,7 +160,8 @@ internal sealed class DrivingNetwork
             }
         }
 
-        return new DrivingNetwork(roads, runs, RouteCells.Of(runs.Graph, config), linkOfLane, slotOfLane);
+        return new DrivingNetwork(
+            roads, runs, RouteCells.Of(runs.Graph, config), linkOfLane, slotOfLane, config.TurnAtALotWithinM);
     }
 
     /// <summary>

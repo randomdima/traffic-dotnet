@@ -1,1 +1,2 @@
-{"variant": "liftback90s_green_broken-v1", "frame": "fleet100_w05-v1", "cell": 5, "pxPerM": 100.69, "score": 4, "status": "used", "ts": "2026-10-22T04:55:25"}
+{"variant": "liftback90s_green_broken-v1", "frame": "fleet100_w05-v1", "cell": 5, "pxPerM": 100.69, "score": 4, "status": "candidate", "ts": "2026-10-22T04:55:25"}
+{"variant": "liftback90s_green_broken-v2", "frame": "fleet100_rw04-v1", "cell": 3, "pxPerM": 93.563, "score": 4, "status": "used", "ts": "2026-10-22T19:18:53"}

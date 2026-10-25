@@ -4,12 +4,12 @@
   "zones": "citymini_green_zones.png",
   "wreck": { "sprite": "citymini_green_broken.webp" },
   "describe": "late-1990s Korean tiny five-door city car, worn: faded pale green paint, rust spots on the wheel arches, short round bonnet, tall rounded roof, short upright hatchback tail, big round-edged headlamps, small vertical tail lamps",
-  "footprintM": [3.500, 2.026],
-  "collisionM": { "sizeM": [3.500, 1.750], "cornerRadiusM": 0.564 },
+  "footprintM": [3.500, 1.883],
+  "collisionM": { "sizeM": [3.500, 1.598], "cornerRadiusM": 0.466 },
   "massKg": 810,
   "frontAxleM": 1.09,
   "rearAxleM": -1.25,
-  "trackM": 1.833,
+  "trackM": 1.505,
   "drivetrain": 1,
   "maxSteeringDeg": 35,
   "tyreFriction": 0.76,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.72, "acceleration": 0.72, "braking": 0.85 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.531, -0.637], "sizeM": [0.188, 0.272] },
-    { "fitting": "brake", "atM": [-1.531, 0.522], "sizeM": [0.188, 0.272] },
-    { "fitting": "indicator", "atM": [-1.521, -0.7], "sizeM": [0.177, 0.136] },
-    { "fitting": "indicator", "atM": [-1.521, 0.595], "sizeM": [0.177, 0.136] },
-    { "fitting": "head", "atM": [1.479, -0.553], "sizeM": [0.135, 0.23] },
-    { "fitting": "head", "atM": [1.479, 0.512], "sizeM": [0.135, 0.23] },
-    { "fitting": "indicator", "atM": [1.396, -0.731], "sizeM": [0.177, 0.104] },
-    { "fitting": "indicator", "atM": [1.396, 0.689], "sizeM": [0.177, 0.104] },
-    { "fitting": "reverse", "atM": [-1.573, -0.553], "sizeM": [0.104, 0.094] },
-    { "fitting": "reverse", "atM": [-1.573, 0.428], "sizeM": [0.104, 0.094] }
-  ]
+    { "fitting": "brake", "atM": [-1.531, -0.525], "sizeM": [0.208, 0.312] },
+    { "fitting": "brake", "atM": [-1.531, 0.525], "sizeM": [0.208, 0.312] },
+    { "fitting": "indicator", "atM": [-1.521, -0.609], "sizeM": [0.198, 0.156] },
+    { "fitting": "indicator", "atM": [-1.521, 0.598], "sizeM": [0.198, 0.156] },
+    { "fitting": "head", "atM": [1.542, -0.536], "sizeM": [0.208, 0.312] },
+    { "fitting": "head", "atM": [1.542, 0.546], "sizeM": [0.208, 0.312] },
+    { "fitting": "indicator", "atM": [1.469, -0.65], "sizeM": [0.083, 0.073] },
+    { "fitting": "indicator", "atM": [1.479, 0.64], "sizeM": [0.083, 0.073] },
+    { "fitting": "reverse", "atM": [-1.594, -0.421], "sizeM": [0.083, 0.104] },
+    { "fitting": "reverse", "atM": [-1.594, 0.421], "sizeM": [0.083, 0.104] }
+  ],
+  "exhausts": [[-1.688, -0.565]]
 }

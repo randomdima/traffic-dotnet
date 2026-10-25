@@ -42,7 +42,7 @@ internal static class ConnectorShape
     /// <param name="atM">A place to read every movement near, arc by arc, instead of the town's.</param>
     public static void Run(string map, SimConfig config, Vector2? atM = null)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var lanes = plan.Paving(config).Lanes;
         if (atM is { } placeM)
         {

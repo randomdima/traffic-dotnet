@@ -1,0 +1,31 @@
+{
+  "car": "hospital_deep_03",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/hospital/hospital_deep_03/hospital_deep_03-v1.png", "sizePx": [216, 482]},
+  "axisY": {"rear": 241.00, "front": 241.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [41.94, 77.55, 2.23],
+      [48.56, 91.73, 6.95],
+      [68.07, 79.00, 2.28],
+      [60.50, 65.97, 5.78]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [75.97, 76.24, 3.51],
+      [84.47, 92.38, 2.93],
+      [100.88, 87.22, 4.49],
+      [96.18, 66.76, 5.82]
+    ]},
+    {"name": "fan3", "kind": "fan", "mirror": false, "points": [
+      [152.99, 85.95, 4.84],
+      [154.46, 104.68, 1.49],
+      [165.87, 105.90, 4.72],
+      [170.72, 87.55, 3.64]
+    ]},
+    {"name": "fan4", "kind": "fan", "mirror": false, "points": [
+      [148.17, 351.74, 4.38],
+      [163.90, 362.28, 4.00],
+      [172.38, 346.78, 3.97],
+      [155.18, 340.55, 1.98]
+    ]}
+  ]
+}

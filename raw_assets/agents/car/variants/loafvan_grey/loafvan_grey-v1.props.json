@@ -1,0 +1,33 @@
+{
+  "car": "loafvan_grey",
+  "sprite": {"variant": "raw_assets/agents/car/variants/loafvan_grey/loafvan_grey-v1.png", "sizePx": [419, 242]},
+  "axisY": {"rear": 121.00, "front": 122.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 121.0, "mirrorDx": -1.0, "points": [
+      [22.81, 43.47, -0.30],
+      [21.87, 47.80, 1.40],
+      [20.85, 60.77, 3.39],
+      [29.94, 60.94, -0.41],
+      [35.78, 37.72, 0.04],
+      [37.66, 34.78, 0.90],
+      [36.30, 31.25, 4.47]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 121.5, "mirrorDx": 1.0, "points": [
+      [383.00, 39.91, 0.35],
+      [391.36, 58.21, 1.02],
+      [396.59, 64.05, 2.24],
+      [403.12, 60.28, 0.00],
+      [398.93, 48.21, 2.80],
+      [383.71, 38.56, 0.48]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 122.5, "mirrorDx": -4.0, "points": [
+      [381.09, 30.11, 1.13],
+      [380.34, 33.79, 1.67],
+      [389.64, 37.23, 0.82],
+      [390.02, 33.82, 0.21],
+      [385.94, 30.95, 0.36]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

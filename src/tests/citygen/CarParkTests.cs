@@ -4,6 +4,7 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Statics;
 using Xunit;
 
 namespace TrafficSimulation.Tests.CityGen;
@@ -90,14 +91,17 @@ public class CarParkTests
     }
 
     /// <summary>
-    /// <b>A side of a car park carries a handful of bays or none of them</b> (GEN-4b, GEN-53), and <b>not none
-    /// on both sides</b> — a car park with no bay either side is no car park.
+    /// <b>A side of a car park carries a handful of bays or none of them</b> (GEN-4b, GEN-53), or a service's yard
+    /// as wide as its building (GEN-55), and <b>not none on both sides</b> — a car park with no bay either side is
+    /// no car park.
     /// </summary>
     [Theory]
     [MemberData(nameof(Seeds))]
     public void EverySideOfACarParkCarriesAHandfulOfBaysOrNone(ulong seed)
     {
         var plan = Laid(seed);
+        var most = Config.CityGen.BaysPerLotMost;
+        foreach (var use in ServiceBuildings.Uses) most = Math.Max(most, CarParks.YardBays(Config, BuildingCatalog.Roofs, use));
         for (var carPark = 0; carPark < plan.CarParks.Count; carPark++)
         {
             var right = plan.CarParks.BaysOn(carPark, right: true);
@@ -108,7 +112,7 @@ public class CarParkTests
             {
                 Assert.True(
                     bays == 0
-                    || (bays >= Config.CityGen.BaysPerLotFewest && bays <= Config.CityGen.BaysPerLotMost),
+                    || (bays >= Config.CityGen.BaysPerLotFewest && bays <= most),
                     $"car park {carPark} carries {bays} bays on one side, which is neither none nor a handful");
             }
         }

@@ -1,0 +1,10 @@
+{
+  "id": "wheelie_blue",
+  "sprite": "wheelie_blue.webp",
+  "kind": 2,
+  "footprintM": [0.6, 0.718],
+  "cornerRadiusM": 0.05,
+  "share": 1.5,
+  "turns": true,
+  "describe": "blue 240 litre wheelie bin, its lid seen from above, hinge at the back"
+}

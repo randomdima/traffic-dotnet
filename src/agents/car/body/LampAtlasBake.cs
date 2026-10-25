@@ -20,30 +20,115 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// <para>
 /// <b>The cut is the whole of the shape.</b> Nothing here draws a lens — no rounded corner, no bezel, no
 /// highlight — because the artist already drew all three at the fleet's own resolution, and a lamp that
-/// invents them lands a second pixel grid on top of the first. What is applied is light: each texel's
-/// own luminance carried up a ramp from a dim <see cref="Dimmest"/> of the lamp's colour, through the
-/// colour itself, to a near-white filament — so glass takes the colour and the brightest texel becomes
-/// the bulb, while a dark bezel goes faint rather than dark (<see cref="Lit"/>).
+/// invents them lands a second pixel grid on top of the first. <b>What is applied is light, to the art's own
+/// texels</b>: each keeps its colour, its contrast against the rest of its lens is stretched and it is brightened,
+/// then its lens's core is taken towards white (<see cref="Lit"/>). The bezel stays the bezel and the highlight
+/// the highlight; the lens is the one the artist drew, switched on.
+/// </para>
+/// <para>
+/// <b>A lit lens has to read without a glow round it</b>, and a repaint is not how: a ramp that re-coloured the
+/// lens from its luminance alone thinned the darker half to nothing, and a solid fill with a hot middle wiped the
+/// artist's lens off the car. Brighter and sharper than the dull one is what lit means on the same picture.
 /// </para>
 /// </remarks>
 internal static class LampAtlasBake
 {
-    /// <summary>
-    /// Where the ramp reaches the lamp's own colour, in both what a texel burns and how solidly it is
-    /// drawn. Below it a texel is that colour at a fraction and thinner with it; above it the colour
-    /// washes out towards the filament. <b>It is therefore how much of a lamp is its colour rather than
-    /// white</b>: the span above it is the bulb, and a lamp of a dozen texels has no room for a large one
-    /// before it reads as a white blob.
-    /// </summary>
-    const float Knee = 0.86f;
+    /// <summary>How much a lit lens's light is stretched about its own mean: the detail the artist drew, sharper.</summary>
+    const float Contrast = 1.8f;
 
     /// <summary>
-    /// How much of the lamp's colour the bottom of the ramp still burns. <b>A lit lens is never painted
-    /// black</b>: every texel of it is drawn over the lamp's own glow, and a texel darker than the light
-    /// behind it is a hole in that light rather than a shadow on it — a lamp casts neither. What the
-    /// shading of a lit lens is carried in is how opaque it is, which is <see cref="Lit"/>'s alpha.
+    /// What a lit lens gains, as a share of full, on the strongest channel of every texel and the rest in step. At a
+    /// quarter an amber or clear lens the art paints near full came on barely brighter than it stood (the owner,
+    /// 2026-10-24: "more contrast").
     /// </summary>
-    public const float Dimmest = 0.45f;
+    public const float Brighten = 0.4f;
+
+    /// <summary>
+    /// How much of a lens burning a light its glass is not painted in takes that light's hue (<see cref="Recolours"/>):
+    /// enough to read as the light, and the rest the art's own colour, so it is still the lens that was drawn.
+    /// </summary>
+    const float RecolourShare = 0.85f;
+
+    /// <summary>
+    /// The least a lit texel burns, as a share of full on its glass's hue: a texel the art drew dark inside the lens (a
+    /// shade, a seam, a bezel the outline took in) stays as dark as drawn while the rest brightens, and reads as a black
+    /// hole in the lamp (the owner, 2026-10-23).
+    /// </summary>
+    const float LitFloor = 0.7f;
+
+    /// <summary>
+    /// How far a road lamp's deepest texel is taken towards white, as <see cref="BeaconHeat"/> is a beacon's, in
+    /// proportion to how much green its light carries (<see cref="PeakHeatOf"/>): a clear lamp's core goes white and an
+    /// amber one's yellow, and a red one's stays red — red glass burns redder and not pink. A hot core is what tells a
+    /// lit lens from glass the art already paints bright.
+    /// </summary>
+    const float LampHeat = 0.5f;
+
+    /// <summary>
+    /// What a beacon end gains and the least it burns, in place of <see cref="Brighten"/> and <see cref="LitFloor"/>: a
+    /// strobe is the brightest thing in the street, and a bar lit like a tail lamp read as one barely on (the owner,
+    /// 2026-10-23).
+    /// </summary>
+    const float BeaconBrighten = 0.6f;
+
+    const float BeaconFloor = 0.8f;
+
+    /// <summary>
+    /// How far a beacon end's deepest texel is taken towards white, falling off evenly to none at its rim. <b>The core
+    /// has to outshine its own spill</b>: a lens paler or duller than the glow laid round it at full read as a dull panel
+    /// in a lit field (the owner, 2026-10-23: "feels turned off"). The light's own colour at the rim and hot in the
+    /// middle is how a strobe looks.
+    /// </summary>
+    const float BeaconHeat = 0.7f;
+
+    /// <summary>Under this saturation a colour is white — the glass clear, or the light a white one.</summary>
+    const float PaleSaturation = 0.3f;
+
+    /// <summary>How far apart two hues are, in degrees, before a glass of one is not a lamp of the other.</summary>
+    const float HueApartDeg = 35f;
+
+    /// <summary>
+    /// The light a lens's <paramref name="state"/> burns, as <see cref="LampAtlas.ColourOf"/> gives it.
+    /// </summary>
+    static Vector3 LightOf(CarLampFitting fitting, int state)
+    {
+        var colour = LampAtlas.ColourOf(LampAtlas.ColourAt(fitting, state));
+        return new Vector3(colour.X, colour.Y, colour.Z);
+    }
+
+    /// <summary>
+    /// Whether a lens whose glass is painted <paramref name="glass"/> (its texels' mean) cannot burn
+    /// <paramref name="light"/> in its own colour. <b>A lamp keeps the colour its glass is</b> (the owner, 2026-10-22),
+    /// but where the art has no glass of the light's colour — an indicator cut on a section painted red, a reversing
+    /// lamp that is the red cluster itself, a clear lens that burns amber — the glass's colour would say the wrong
+    /// thing, and the lens takes the light's (the owner, 2026-10-23).
+    /// </summary>
+    static bool Recolours(Vector3 glass, Vector3 light)
+    {
+        var (glassSat, glassHue) = (Saturation(glass), HueDeg(glass));
+        var (lightSat, lightHue) = (Saturation(light), HueDeg(light));
+        if (lightSat < PaleSaturation) return glassSat >= PaleSaturation;
+        if (glassSat < PaleSaturation) return true;
+
+        var apart = MathF.Abs(glassHue - lightHue) % 360f;
+        return MathF.Min(apart, 360f - apart) > HueApartDeg;
+    }
+
+    static float Saturation(Vector3 colour)
+    {
+        var most = MathF.Max(colour.X, MathF.Max(colour.Y, colour.Z));
+        return most > 0f ? (most - MathF.Min(colour.X, MathF.Min(colour.Y, colour.Z))) / most : 0f;
+    }
+
+    static float HueDeg(Vector3 colour)
+    {
+        var most = MathF.Max(colour.X, MathF.Max(colour.Y, colour.Z));
+        var span = most - MathF.Min(colour.X, MathF.Min(colour.Y, colour.Z)) + 1e-6f;
+        var sixths = most == colour.X ? ((colour.Y - colour.Z) / span % 6f + 6f) % 6f
+            : most == colour.Y ? ((colour.Z - colour.X) / span) + 2f
+            : ((colour.X - colour.Y) / span) + 4f;
+        return sixths * 60f;
+    }
 
     /// <summary>
     /// How far in from the cut's own edge it comes up to full strength. <b>The rectangle is not a thing
@@ -59,8 +144,11 @@ internal static class LampAtlasBake
     /// </summary>
     const float EdgeShare = 0.25f;
 
-    /// <summary>What the filament is, which is not quite white: a bulb photographs as its own colour's brightest corner.</summary>
-    static readonly Vector3 Filament = new(1f, 0.97f, 0.92f);
+    /// <summary>How far a texel's strongest channel has to stand over its weakest for it to be tinted glass rather than grey housing.</summary>
+    const int GlassChromaOf255 = 30;
+
+    /// <summary>And how light an untinted texel has to be to be a highlight on the glass rather than the housing.</summary>
+    const float GlassLight = 0.5f;
 
     /// <summary>How far apart two colours have to be, over the RGB cube's 441, before one is not the other.</summary>
     const float ApartOf255 = 70f;
@@ -72,8 +160,8 @@ internal static class LampAtlasBake
     const float CommonShare = 0.02f;
 
     /// <summary>
-    /// Whether a zone map marks a fitting at all: a beacon, which only the legacy looks carry, has no glass of its own
-    /// there yet.
+    /// Whether a zone map marks a fitting at all. Every fitting has a glass there; a beacon end gets it once its outline
+    /// is traced with <c>qq props</c> like any other lens.
     /// </summary>
     public static bool IsZoned(CarLampFitting fitting) => GlassOf(fitting) >= 0;
 
@@ -95,11 +183,15 @@ internal static class LampAtlasBake
         _ => false,
     };
 
+    /// <remarks>
+    /// A beacon end's glass shares its colour's channel with the lamps at the car's ends: a lens's texels are found
+    /// within a cell of its own centre (<see cref="Zoned"/>), and no roof bar stands within a cell of a lamp.
+    /// </remarks>
     static int GlassOf(CarLampFitting fitting) => fitting switch
     {
-        CarLampFitting.Rear or CarLampFitting.Brake => 0,
-        CarLampFitting.Indicator => 1,
-        CarLampFitting.Head or CarLampFitting.Reverse => 2,
+        CarLampFitting.Rear or CarLampFitting.Brake or CarLampFitting.BeaconRed => 0,
+        CarLampFitting.Indicator or CarLampFitting.BeaconAmber => 1,
+        CarLampFitting.Head or CarLampFitting.Reverse or CarLampFitting.BeaconBlue => 2,
         _ => -1,
     };
 
@@ -158,6 +250,14 @@ internal static class LampAtlasBake
             var common = Common(sprite);
 
             var lenses = entry.Lenses;
+            var seconds = 0;
+            foreach (var lens in lenses) seconds += LampAtlas.StatesOf(lens.Fitting) - 1;
+            if (seconds > LampAtlas.SecondLights)
+            {
+                throw new InvalidDataException(
+                    $"{entry.Id} has {seconds} lenses burning a second light, and a look's block keeps room for {LampAtlas.SecondLights}.");
+            }
+
             var centresPx = new Vector2[lenses.Length];
             var rects = new Rectangle[lenses.Length];
             for (var lens = 0; lens < lenses.Length; lens++)
@@ -176,8 +276,9 @@ internal static class LampAtlasBake
 
                     for (var state = 0; state < LampAtlas.StatesOf(fitting); state++)
                     {
-                        PasteZoned(sprite, zoned, atlas, CellOf(variant, lens, state),
-                            LampAtlas.ColourOf(LampAtlas.ColourAt(fitting, state)));
+                        PasteZoned(
+                            sprite, zoned, atlas, CellOf(variant, lens, state, lenses), LightOf(fitting, state),
+                            LampAtlas.IsBeacon(fitting));
                     }
 
                     continue;
@@ -186,12 +287,20 @@ internal static class LampAtlasBake
                 var rect = rects[lens];
                 cut.Add(new CutLamp(entry.Id, fitting, rect.Width, rect.Height, Distinct(sprite, rect, common), false));
 
-                for (var state = 0; state < LampAtlas.StatesOf(lenses[lens].Fitting); state++)
+                for (var state = 0; state < LampAtlas.StatesOf(fitting); state++)
                 {
-                    var colour = LampAtlas.ColourAt(lenses[lens].Fitting, state);
                     Paste(
-                        sprite, rect, centresPx[lens], atlas, CellOf(variant, lens, state), LampAtlas.ColourOf(colour));
+                        sprite, rect, centresPx[lens], atlas, CellOf(variant, lens, state, lenses), LightOf(fitting, state),
+                        beacon: LampAtlas.IsBeacon(fitting));
                 }
+            }
+        }
+
+        for (var row = 0; row < LampAtlas.SheetRows(rows); row++)
+        {
+            for (var column = 0; column < LampAtlas.SheetColumns; column++)
+            {
+                FillClear(atlas, new Point(column * LampAtlas.CellPx, row * LampAtlas.CellPx));
             }
         }
 
@@ -199,7 +308,11 @@ internal static class LampAtlasBake
 
         // Lossless, unlike the sprites it was cut from. The distinctness beside each line is measured
         // off these very pixels, so a lossy sheet would be an instrument reading its own compression.
-        atlas.Save(path, new WebpEncoder { FileFormat = WebpFileFormatType.Lossless });
+        // And the colour under every clear texel kept, which FillClear laid there for the sampler.
+        atlas.Save(path, new WebpEncoder
+        {
+            FileFormat = WebpFileFormatType.Lossless, TransparentColorMode = WebpTransparentColorMode.Preserve,
+        });
         return cut;
     }
 
@@ -272,37 +385,137 @@ internal static class LampAtlasBake
 
     /// <summary>
     /// A zoned lens's texels of the sprite, lit, into its cell, where the quad that draws it lays them back onto the very
-    /// texels they were taken from. The light is <see cref="Paste"/>'s ramp over the lens's own range of light; the shape
-    /// is the zone's, so it needs no fade at a rectangle's edge, having none.
+    /// texels they were taken from, lit about the zone's own mean light (<see cref="Lit"/>). The shape is the zone's, and
+    /// only its rim is faded (<see cref="RimPx"/>).
     /// </summary>
-    static void PasteZoned(Image<Rgba32> sprite, ZoneWindow zoned, Image<Rgba32> atlas, Point cell, Vector4 colour)
+    static void PasteZoned(Image<Rgba32> sprite, ZoneWindow zoned, Image<Rgba32> atlas, Point cell, Vector3 light, bool beacon)
     {
-        var (least, most) = (1f, 0f);
+        var (sum, glass, count) = (0f, Vector3.Zero, 0);
         for (var texel = 0; texel < zoned.Lens.Length; texel++)
         {
             if (!zoned.Lens[texel]) continue;
 
-            var luminance = Luminance(sprite[zoned.At(texel).X, zoned.At(texel).Y]);
-            (least, most) = (MathF.Min(least, luminance), MathF.Max(most, luminance));
+            var drawn = sprite[zoned.At(texel).X, zoned.At(texel).Y];
+            sum += Luminance(drawn);
+            glass += new Vector3(drawn.R, drawn.G, drawn.B) / 255f;
+            count++;
         }
 
-        var span = MathF.Max(most - least, 1e-3f);
-        var tint = new Vector3(colour.X, colour.Y, colour.Z);
+        var mean = sum / Math.Max(count, 1);
+        glass /= Math.Max(count, 1);
+        Vector3? recolour = beacon || Recolours(glass, light) ? light : null;
+        var floor = FloorOf(recolour ?? glass, light, beacon ? BeaconFloor : LitFloor);
+        var brighten = beacon ? BeaconBrighten : Brighten;
+        var peakHeat = PeakHeatOf(light, beacon);
+        var inPx = InFromRim(zoned.Lens);
+        var deepestPx = 0f;
+        foreach (var depth in inPx) deepestPx = MathF.Max(deepestPx, depth - 0.5f);
+
         for (var texel = 0; texel < zoned.Lens.Length; texel++)
         {
             if (!zoned.Lens[texel]) continue;
 
             var at = zoned.At(texel);
-            var carried = Math.Clamp((Luminance(sprite[at.X, at.Y]) - least) / span, 0f, 1f);
             atlas[cell.X + (texel % LampAtlas.CellPx), cell.Y + (texel / LampAtlas.CellPx)] =
-                Lit(sprite[at.X, at.Y].A, carried, tint, 1f);
+                Lit(
+                    sprite[at.X, at.Y], mean, recolour, floor, brighten, HeatAt(peakHeat, inPx[texel] - 0.5f, deepestPx),
+                    SmoothStep(0f, RimPx, inPx[texel] - 0.5f));
+        }
+    }
+
+    /// <summary>
+    /// How far in from a zoned lens's rim it comes up to full strength. <b>The glow lies under the lens</b> and lifts the
+    /// paint round it near to the light's own colour, while the art draws a lens's outermost texels darker as they meet
+    /// its frame: solid, they were a dark ring between the lens and its light (the owner, 2026-10-23). Faded, the
+    /// glow shows through them.
+    /// </summary>
+    const float RimPx = 1.5f;
+
+    /// <summary>Each texel of a cell's lens, its distance in texels from the nearest texel outside it (1 on the rim).</summary>
+    static int[] InFromRim(bool[] lens)
+    {
+        var inPx = new int[lens.Length];
+        var frontier = new Queue<int>();
+        for (var texel = 0; texel < lens.Length; texel++)
+        {
+            if (lens[texel]) continue;
+
+            frontier.Enqueue(texel);
+        }
+
+        while (frontier.TryDequeue(out var texel))
+        {
+            var (x, y) = (texel % LampAtlas.CellPx, texel / LampAtlas.CellPx);
+            for (var dy = -1; dy <= 1; dy++)
+            {
+                for (var dx = -1; dx <= 1; dx++)
+                {
+                    var (nx, ny) = (x + dx, y + dy);
+                    if (nx < 0 || ny < 0 || nx >= LampAtlas.CellPx || ny >= LampAtlas.CellPx) continue;
+
+                    var near = (ny * LampAtlas.CellPx) + nx;
+                    if (!lens[near] || inPx[near] > 0) continue;
+
+                    inPx[near] = inPx[texel] + 1;
+                    frontier.Enqueue(near);
+                }
+            }
+        }
+
+        return inPx;
+    }
+
+    /// <summary><paramref name="share"/> of full on the hue of <paramref name="colour"/>, or of the light where it has none.</summary>
+    static Vector3 FloorOf(Vector3 colour, Vector3 light, float share)
+    {
+        var most = MathF.Max(colour.X, MathF.Max(colour.Y, colour.Z));
+        var hue = most > 0f ? colour / most : light / MathF.Max(light.X, MathF.Max(light.Y, light.Z));
+        return hue * share;
+    }
+
+    /// <summary>
+    /// Every clear texel of one cell given the colour of the nearest lit one, its alpha left at nothing. <b>The sheet is
+    /// sampled linearly and blended by straight alpha</b>, so a clear texel's colour is mixed into the lens's edge:
+    /// left black, it drew a dark ring between every lit lens and the glow under it.
+    /// </summary>
+    static void FillClear(Image<Rgba32> atlas, Point cell)
+    {
+        var filled = new bool[LampAtlas.CellPx * LampAtlas.CellPx];
+        var frontier = new Queue<int>();
+        for (var texel = 0; texel < filled.Length; texel++)
+        {
+            if (atlas[cell.X + (texel % LampAtlas.CellPx), cell.Y + (texel / LampAtlas.CellPx)].A == 0) continue;
+
+            filled[texel] = true;
+            frontier.Enqueue(texel);
+        }
+
+        while (frontier.TryDequeue(out var texel))
+        {
+            var (x, y) = (texel % LampAtlas.CellPx, texel / LampAtlas.CellPx);
+            var colour = atlas[cell.X + x, cell.Y + y];
+            for (var dy = -1; dy <= 1; dy++)
+            {
+                for (var dx = -1; dx <= 1; dx++)
+                {
+                    var (nx, ny) = (x + dx, y + dy);
+                    if (nx < 0 || ny < 0 || nx >= LampAtlas.CellPx || ny >= LampAtlas.CellPx) continue;
+
+                    var near = (ny * LampAtlas.CellPx) + nx;
+                    if (filled[near]) continue;
+
+                    filled[near] = true;
+                    atlas[cell.X + nx, cell.Y + ny] = new Rgba32(colour.R, colour.G, colour.B, 0);
+                    frontier.Enqueue(near);
+                }
+            }
         }
     }
 
     /// <summary>Where a cell's top-left texel is in the sheet.</summary>
-    static Point CellOf(int variant, int lens, int state)
+    static Point CellOf(int variant, int lens, int state, ReadOnlySpan<CarLens> lenses)
     {
-        var (column, row) = LampAtlas.CellOf(variant, lens, state);
+        var (column, row) = LampAtlas.CellOf(variant, lens, state, lenses);
         return new(column * LampAtlas.CellPx, row * LampAtlas.CellPx);
     }
 
@@ -313,18 +526,27 @@ internal static class LampAtlasBake
     /// around it is the car's own quad, already drawn.
     /// </summary>
     /// <remarks>
-    /// <b>The ramp is spread over the cut's own range of light and not over the whole scale</b>, because
-    /// what a lens is painted at is the artist's business: a dark red cluster on a black coupé and a
+    /// <b>The contrast is stretched about the cut's own mean light and not about the middle of the scale</b>,
+    /// because what a lens is painted at is the artist's business: a dark red cluster on a black coupé and a
     /// bright one on a white ambulance are both a bezel, a glass and a highlight, and both have to burn.
     /// </remarks>
+    /// <param name="beacon">
+    /// A beacon end, which burns harder (<see cref="BeaconBrighten"/>) and cuts only the glass inside the rectangle
+    /// (<see cref="IsGlass"/>): one whose outline is not traced yet is a rectangle <c>qq beacons fit</c> measured,
+    /// holding its housing too, and a housing lit — and blurred into a glow — is a coloured box round the lamp.
+    /// </param>
     static void Paste(
-        Image<Rgba32> sprite, Rectangle rect, Vector2 centrePx, Image<Rgba32> atlas, Point cell, Vector4 colour)
+        Image<Rgba32> sprite, Rectangle rect, Vector2 centrePx, Image<Rgba32> atlas, Point cell, Vector3 light,
+        bool beacon)
     {
         var intoX = cell.X + AnchorIn(rect.Width, centrePx.X - rect.X);
         var intoY = cell.Y + AnchorIn(rect.Height, centrePx.Y - rect.Y);
-        var (least, most) = Range(sprite, rect);
-        var span = MathF.Max(most - least, 1e-3f);
-        var tint = new Vector3(colour.X, colour.Y, colour.Z);
+        var (mean, glass) = Mean(sprite, rect, glassOnly: beacon);
+        Vector3? recolour = beacon || Recolours(glass, light) ? light : null;
+        var floor = FloorOf(recolour ?? glass, light, beacon ? BeaconFloor : LitFloor);
+        var brighten = beacon ? BeaconBrighten : Brighten;
+        var peakHeat = PeakHeatOf(light, beacon);
+        var deepestPx = (Math.Min(rect.Width, rect.Height) - 1) * 0.5f;
         var edge = MathF.Min(EdgePx, Math.Min(rect.Width, rect.Height) * EdgeShare);
 
         for (var y = 0; y < rect.Height; y++)
@@ -332,13 +554,25 @@ internal static class LampAtlasBake
             for (var x = 0; x < rect.Width; x++)
             {
                 var texel = sprite[rect.X + x, rect.Y + y];
-                var carried = Math.Clamp((Luminance(texel) - least) / span, 0f, 1f);
+                if (beacon && !IsGlass(texel)) continue;
+
+                // The glass's own edge is its outline; only a cut that is the whole rectangle needs its edge faded.
                 var inFromEdge = Math.Min(Math.Min(x, y), Math.Min(rect.Width - 1 - x, rect.Height - 1 - y));
                 atlas[intoX + x, intoY + y] = Lit(
-                    texel.A, carried, tint, SmoothStep(0f, edge, inFromEdge + 0.5f));
+                    texel, mean, recolour, floor, brighten, HeatAt(peakHeat, inFromEdge, deepestPx),
+                    beacon ? 1f : SmoothStep(0f, edge, inFromEdge + 0.5f));
             }
         }
     }
+
+    /// <summary>
+    /// Whether a texel of a beacon's rectangle is its glass: tinted, or lit up by a highlight — and not the housing,
+    /// which is drawn dark and grey.
+    /// </summary>
+    static bool IsGlass(Rgba32 texel) =>
+        texel.A >= 128
+        && ((Math.Max(texel.R, Math.Max(texel.G, texel.B)) - Math.Min(texel.R, Math.Min(texel.G, texel.B)) >= GlassChromaOf255)
+            || Luminance(texel) >= GlassLight);
 
     /// <summary>
     /// Where a cut's first texel goes along one axis of its cell, so that the lens centre inside the cut
@@ -351,30 +585,56 @@ internal static class LampAtlasBake
         (int)MathF.Round((LampAtlas.CellPx * 0.5f) - centreInCut), 0, LampAtlas.CellPx - extent);
 
     /// <summary>
-    /// One texel of bodywork, burning. Its place in the cut's own range of light is the whole of the
-    /// shading — the shape, the bezel and the highlight the artist drew survive the change of colour,
-    /// which is why a lit lamp is still recognisably the lamp that was there when it was dark.
+    /// One texel of the art, switched on: its own colour stretched by <see cref="Contrast"/> about its lens's
+    /// <paramref name="mean"/> light and raised by <paramref name="brighten"/>. <b>Nothing in it is the bake's but the
+    /// light</b>: drawn solid over the dull lens, it is that lens, brighter and sharper.
     /// </summary>
-    /// <remarks>
-    /// <b>How lit a texel is, is how opaque it is</b>, and the ramp to full opacity is the ramp to the
-    /// lamp's own colour: nothing is drawn solid until it is burning that colour, so what a lens shades
-    /// with is the glow it lets through rather than a darkness of its own. The darkest texels of a lens
-    /// are the outline the artist drew around it, and an outline is not a thing that lights — it is
-    /// already on screen in the car's own picture, with the lamp's spill falling across it.
-    /// </remarks>
+    /// <param name="recolour">
+    /// The light the lens burns where its glass is not painted that colour (<see cref="Recolours"/>): the texel then
+    /// takes that hue at its own brightness, <see cref="RecolourShare"/> of the way.
+    /// </param>
+    /// <param name="floor">The least it burns, each channel (<see cref="LitFloor"/>).</param>
+    /// <param name="brighten">What it gains on its strongest channel (<see cref="Brighten"/>).</param>
+    /// <param name="heat">How far it is then taken towards white (<see cref="PeakHeatOf"/>).</param>
     /// <param name="atEdge">How much of the cut is here rather than at its fading rim (<see cref="EdgePx"/>).</param>
-    static Rgba32 Lit(byte alpha, float carried, Vector3 colour, float atEdge)
+    static Rgba32 Lit(Rgba32 texel, float mean, Vector3? recolour, Vector3 floor, float brighten, float heat, float atEdge)
     {
-        var lit = carried < Knee
-            ? colour * (Dimmest + ((1f - Dimmest) * carried / Knee))
-            : Vector3.Lerp(colour, Filament, (carried - Knee) / (1f - Knee));
+        var drawn = new Vector3(texel.R, texel.G, texel.B) / 255f;
+        var stretched = Vector3.Max(((drawn - new Vector3(mean)) * Contrast) + new Vector3(mean), Vector3.Zero);
 
+        // Raised along its own colour rather than towards white, so red glass burns redder and not pink.
+        var strongest = MathF.Max(stretched.X, MathF.Max(stretched.Y, stretched.Z));
+        var lifted = strongest > 0f ? Vector3.Min(stretched + (stretched / strongest * brighten), Vector3.One) : stretched;
+
+        // Never darker than the art it was cut from: a texel the stretch pushed below its own drawn shade is a dark
+        // rim between the lens and the glow round it, which a lamp coming on does not draw. A recoloured one is held
+        // at its drawn brightness rather than its drawn colour, which is the colour it is leaving.
+        Vector3 lit;
+        if (recolour is { } light)
+        {
+            var value = MathF.Max(MathF.Max(lifted.X, MathF.Max(lifted.Y, lifted.Z)), MathF.Max(drawn.X, MathF.Max(drawn.Y, drawn.Z)));
+            var hue = light / MathF.Max(light.X, MathF.Max(light.Y, light.Z));
+            lit = Vector3.Lerp(Vector3.Max(lifted, drawn), hue * value, RecolourShare);
+        }
+        else
+        {
+            lit = Vector3.Max(lifted, drawn);
+        }
+
+        lit = Vector3.Lerp(Vector3.Max(lit, floor), Vector3.One, heat);
         return new Rgba32(
             (byte)Math.Clamp(lit.X * 255f, 0f, 255f),
             (byte)Math.Clamp(lit.Y * 255f, 0f, 255f),
             (byte)Math.Clamp(lit.Z * 255f, 0f, 255f),
-            (byte)Math.Clamp(alpha * SmoothStep(0f, Knee, carried) * atEdge, 0f, 255f));
+            (byte)Math.Clamp(texel.A * atEdge, 0f, 255f));
     }
+
+    /// <summary>How far a lens burning <paramref name="light"/> is taken towards white at its deepest texel.</summary>
+    static float PeakHeatOf(Vector3 light, bool beacon) =>
+        beacon ? BeaconHeat : LampHeat * light.Y / MathF.Max(light.X, MathF.Max(light.Y, light.Z));
+
+    static float HeatAt(float peakHeat, float inFromRimPx, float deepestPx) =>
+        peakHeat * Math.Clamp(inFromRimPx / MathF.Max(deepestPx, 1f), 0f, 1f);
 
     static float SmoothStep(float from, float to, float at)
     {
@@ -384,24 +644,24 @@ internal static class LampAtlasBake
 
     static float Luminance(Rgba32 texel) => ((0.30f * texel.R) + (0.59f * texel.G) + (0.11f * texel.B)) / 255f;
 
-    /// <summary>The darkest and the brightest of a cut, over the texels the car actually covers.</summary>
-    static (float Least, float Most) Range(Image<Rgba32> sprite, Rectangle rect)
+    /// <summary>The mean light and colour of a cut, over the texels the car actually covers — or its glass alone.</summary>
+    static (float Light, Vector3 Colour) Mean(Image<Rgba32> sprite, Rectangle rect, bool glassOnly)
     {
-        var least = 1f;
-        var most = 0f;
+        var (sum, colour, count) = (0f, Vector3.Zero, 0);
         for (var y = rect.Y; y < rect.Y + rect.Height; y++)
         {
             for (var x = rect.X; x < rect.X + rect.Width; x++)
             {
                 var texel = sprite[x, y];
-                if (texel.A < 128) continue;
+                if (texel.A < 128 || (glassOnly && !IsGlass(texel))) continue;
 
-                least = MathF.Min(least, Luminance(texel));
-                most = MathF.Max(most, Luminance(texel));
+                sum += Luminance(texel);
+                colour += new Vector3(texel.R, texel.G, texel.B) / 255f;
+                count++;
             }
         }
 
-        return most > least ? (least, most) : (0f, 1f);
+        return count > 0 ? (sum / count, colour / count) : (0.5f, Vector3.Zero);
     }
 
     /// <summary>

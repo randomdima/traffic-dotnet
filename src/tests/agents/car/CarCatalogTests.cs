@@ -82,7 +82,7 @@ public class CarCatalogTests
         {
             var build = CarBuild.Of(Figures, Catalogue.Variants[entry]);
             var reach = build.AccelerationMps2 / build.DrivenTractionMps2;
-            Assert.InRange(reach, 0.5f, 1.5f);
+            Assert.True(reach is >= 0.5f and <= 1.5f, $"{Catalogue.Variants[entry].Id}'s engine reaches {reach:F2} of its tyres");
         }
     }
 
@@ -206,37 +206,38 @@ public class CarCatalogTests
     }
 
     /// <summary>
-    /// EVA-5: <b>the evacuator is the one variant that tows on an arm</b>, and the arm is its picture's — the
+    /// EVA-5: <b>the evacuators are the only variants that tow on an arm</b>, and the arm is their picture's — the
     /// reach the coupling is held at is a distance somebody drew, so it is read off the same file as the
     /// sprite and not chosen in the config.
     /// </summary>
     [Fact]
-    public void TheEvacuatorIsTheOnlyVariantWithATowArm()
+    public void OnlyTheEvacuatorsTowOnAnArm()
     {
         for (var entry = 0; entry < Catalogue.SheetCount; entry++)
         {
-            Assert.Equal(entry == Catalogue.Evacuator, Catalogue.BeamOf(entry) is not null);
-            Assert.Equal(entry == Catalogue.Evacuator, Catalogue.BeamSlotOf(entry, towing: false) != CarCatalog.NoBeam);
+            var evacuator = Catalogue.IsEvacuator(entry);
+            Assert.Equal(evacuator, Catalogue.BeamOf(entry) is not null);
+            Assert.Equal(evacuator, Catalogue.BeamSlotOf(entry, towing: false) != CarCatalog.NoBeam);
+            if (!evacuator) continue;
+
+            var beam = Catalogue.BeamOf(entry)!.Value;
+            CarTowArm[] pictures = [beam.Collapsed, beam.Extended];
+            foreach (var arm in pictures)
+            {
+                Assert.True(File.Exists(arm.SpritePath), $"the arm names art that is not there: {arm.SpritePath}");
+            }
+
+            // Two pictures of one machine, and two slots: an arm drawn in reaches less far than one that is out.
+            Assert.NotEqual(Catalogue.BeamSlotOf(entry, towing: false), Catalogue.BeamSlotOf(entry, towing: true));
+            Assert.True(beam.Collapsed.SizeM.X < beam.Extended.SizeM.X, "the arm drawn in is no shorter than the arm out");
+            Assert.True(beam.ReachM > 0f, "an arm with no reach holds nothing at any distance");
+
+            // The hinge is bolted behind the middle of the truck and the fork reaches past its tail, or the arm
+            // is drawn somewhere inside the bodywork it is meant to stick out of.
+            var half = Catalogue.Variants[entry].FootprintM.X * 0.5f;
+            var id = Catalogue.Variants[entry].Id;
+            Assert.True(beam.PivotM.X < 0f && beam.PivotM.X > -half, $"{id}'s hinge sits at {beam.PivotM.X:F2} m");
+            Assert.True(-beam.PivotM.X + beam.ReachM > half, $"{id}'s fork does not reach past the truck's own tail");
         }
-
-        var beam = Catalogue.BeamOf(Catalogue.Evacuator)!.Value;
-        CarTowArm[] pictures = [beam.Collapsed, beam.Extended];
-        foreach (var arm in pictures)
-        {
-            Assert.True(File.Exists(arm.SpritePath), $"the arm names art that is not there: {arm.SpritePath}");
-        }
-
-        // Two pictures of one machine, and two slots: an arm drawn in reaches less far than one that is out.
-        Assert.NotEqual(
-            Catalogue.BeamSlotOf(Catalogue.Evacuator, towing: false),
-            Catalogue.BeamSlotOf(Catalogue.Evacuator, towing: true));
-        Assert.True(beam.Collapsed.SizeM.X < beam.Extended.SizeM.X, "the arm drawn in is no shorter than the arm out");
-        Assert.True(beam.ReachM > 0f, "an arm with no reach holds nothing at any distance");
-
-        // The hinge is bolted behind the middle of the truck and the fork reaches past its tail, or the arm
-        // is drawn somewhere inside the bodywork it is meant to stick out of.
-        var half = Catalogue.Variants[Catalogue.Evacuator].FootprintM.X * 0.5f;
-        Assert.True(beam.PivotM.X < 0f && beam.PivotM.X > -half, $"the hinge sits at {beam.PivotM.X:F2} m");
-        Assert.True(-beam.PivotM.X + beam.ReachM > half, "the fork does not reach past the truck's own tail");
     }
 }

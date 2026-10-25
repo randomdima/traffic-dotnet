@@ -37,8 +37,27 @@ void writeCar(uint car)
     uint run = spritesRunOf(row);
     if (run == RunNone) return;
 
+    // Every pipe's puffs oldest first (spritesPuffsShown), the first pass's verdict asked again puff by puff: it is the
+    // instance, and a count of them is all the first pass kept.
+    uint slot = spritesCarSlot(run, PartSmoke, car);
+    if (countAt(slot) != 0u)
+    {
+        uint variant = row.variant % figures.carSheets;
+        uint at = starts[slot];
+        for (uint pipe = 0u; pipe < carLooks[variant].exhaustCount; pipe++)
+        {
+            PuffRun puffs = spritesPuffRun(car, pipe);
+            SmokePipe tailpipe = spritesTailpipe(variant, pipe);
+            for (uint left = figures.tailpipe.puffsEach; left > 0u; left--)
+            {
+                SpriteOut sprite;
+                if (spritesPuff(car, tailpipe, puffs, left - 1u, sprite)) put(run, at++, sprite);
+            }
+        }
+    }
+
     // A part the first pass counted is one it found shown, so it is built and laid without asking again.
-    uint slot = spritesCarSlot(run, PartTyres, car);
+    slot = spritesCarSlot(run, PartTyres, car);
     if (countAt(slot) != 0u)
     {
         SpriteOut first;
@@ -62,14 +81,14 @@ void writeCar(uint car)
 
     uint variant = row.variant % figures.carSheets;
     uint glowAt = starts[slot];
-    uint lensAt = glowAt + spritesGlowing(shown);
+    uint lensAt = glowAt + drawn;
     for (uint lens = 0u; lens < figures.mostLenses; lens++)
     {
         if ((shown.x & (1u << lens)) == 0u) continue;
 
         LensRow at = lenses[variant * figures.mostLenses + lens];
         uint colour = (shown.y >> (3u * lens)) & 7u;
-        if (spritesGlows(colour)) put(run, glowAt++, spritesGlow(row, at, colour));
+        put(run, glowAt++, spritesGlow(row, at, colour));
         put(run, lensAt++, spritesLens(row, at, colour));
     }
 }
@@ -107,6 +126,32 @@ void main()
 
         uint aboveSlot = spritesWagonsAboveFrom() + unit;
         if (figures.bridged != 0u && countAt(aboveSlot) != 0u) put(RunAbove, starts[aboveSlot], spritesWagon(unit));
+
+        // Its stacks' puffs in whichever run it was counted in, oldest first, the first pass's verdict asked again.
+        uint smokeSlot = spritesWagonSmokeFrom() + unit;
+        uint smokeRun = RunOver;
+        if (countAt(smokeSlot) == 0u && figures.bridged != 0u)
+        {
+            smokeSlot = spritesWagonSmokeAboveFrom() + unit;
+            smokeRun = RunAbove;
+        }
+
+        if (countAt(smokeSlot) == 0u) return;
+
+        uint track = figures.firstWagonTrack + unit;
+        TrainLook look = trainLooks[spritesWagonLook(unit)];
+        uint at = starts[smokeSlot];
+        for (uint stack = 0u; stack < look.exhaustCount; stack++)
+        {
+            PuffRun puffs = spritesPuffRun(track, stack);
+            SmokePipe pipe = spritesStack(look, stack);
+            for (uint left = figures.stack.puffsEach; left > 0u; left--)
+            {
+                SpriteOut sprite;
+                if (spritesPuff(track, pipe, puffs, left - 1u, sprite)) put(smokeRun, at++, sprite);
+            }
+        }
+
         return;
     }
 
@@ -128,8 +173,25 @@ void main()
     }
 
     unit -= figures.gearCount;
-    if (unit >= figures.lightCount) return;
+    if (unit < figures.lightCount)
+    {
+        uint lightSlot = spritesLightsFrom() + unit;
+        if (countAt(lightSlot) != 0u) put(RunOver, starts[lightSlot], spritesCrossingLight(unit));
+        return;
+    }
 
-    uint lightSlot = spritesLightsFrom() + unit;
-    if (countAt(lightSlot) != 0u) put(RunOver, starts[lightSlot], spritesCrossingLight(unit));
+    // A chimney's puffs oldest first, the first pass's verdict asked again puff by puff, as a car's are.
+    unit -= figures.lightCount;
+    if (unit >= figures.chimneyCount) return;
+
+    uint chimneySlot = spritesChimneysFrom() + unit;
+    if (countAt(chimneySlot) == 0u) return;
+
+    uint at = starts[chimneySlot];
+    ChimneyPot pot = spritesChimneyPot(unit);
+    for (uint left = pot.puffs; left > 0u; left--)
+    {
+        SpriteOut sprite;
+        if (spritesChimneyPuff(unit, pot, left - 1u, sprite)) put(RunOver, at++, sprite);
+    }
 }

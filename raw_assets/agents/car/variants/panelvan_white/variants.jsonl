@@ -1,2 +1,5 @@
 {"variant": "panelvan_white-v1", "frame": "fleet100_b05-v2", "cell": 7, "pxPerM": 93.197, "score": 4, "status": "candidate", "ts": "2026-10-22T04:49:30"}
-{"variant": "panelvan_white-v2", "frame": "fleet100_b05-v2", "cell": 7, "pxPerM": 93.197, "score": 4, "lampsMirroredFrom": "panelvan_white-v1", "props": "raw_assets/agents/car/variants/panelvan_white/panelvan_white-v1.props.json", "status": "used", "ts": "2026-10-22T04:52:05"}
+{"variant": "panelvan_white-v2", "frame": "fleet100_b05-v2", "cell": 7, "pxPerM": 93.197, "score": 4, "lampsMirroredFrom": "panelvan_white-v1", "props": "raw_assets/agents/car/variants/panelvan_white/panelvan_white-v1.props.json", "status": "candidate", "ts": "2026-10-22T04:52:05"}
+{"variant": "panelvan_white-v3", "frame": "fleet100_r03-v1", "cell": 9, "pxPerM": 106.122, "score": 2, "status": "candidate", "ts": "2026-10-22T18:32:43"}
+{"variant": "panelvan_white-v4", "frame": "fleet100_r04-v2", "cell": 4, "pxPerM": 89.569, "score": 4, "status": "candidate", "ts": "2026-10-22T19:17:37"}
+{"variant": "panelvan_white-v5", "frame": "fleet100_r04-v2", "cell": 4, "pxPerM": 89.569, "score": 4, "lampsMirroredFrom": "panelvan_white-v4", "props": "raw_assets/agents/car/variants/panelvan_white/panelvan_white-v4.props.json", "status": "used", "ts": "2026-10-22T19:20:54"}

@@ -1,0 +1,8 @@
+{
+  "id": "bollard_steel",
+  "sprite": "bollard_steel.webp",
+  "kind": 2,
+  "diameterM": 0.25,
+  "share": 2.0,
+  "describe": "brushed steel post bollard, a flat round top"
+}

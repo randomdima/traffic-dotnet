@@ -70,7 +70,31 @@ public class ScenerySpriteTests
         Assert.Equal(left, right);
     }
 
-    /// <summary><paramref name="across"/> by <paramref name="across"/> pieces evenly over the town, every one a metre across.</summary>
+    /// <summary>
+    /// <b>A piece is drawn at its look's own size</b> (GEN-6e), kept once a look and not once a piece.
+    /// </summary>
+    [Fact]
+    public void APieceIsDrawnAtItsLooksAuthoredSize()
+    {
+        var scenery = Lattice(10);
+        var sprites = Lay(scenery, mostDrawn: scenery.Count);
+
+        var drawn = Drawn(sprites, WorldM * 0.5f, WorldM, scenery.Count);
+
+        // To the half an instance carries its size in (SpriteInstance): eleven bits of it.
+        var halfM = Props.Variants[Wild].SizeM * 0.5f;
+        Assert.NotEmpty(drawn);
+        Assert.All(drawn, instance =>
+        {
+            Assert.Equal(halfM.X, instance.HalfSizeM.X, halfM.X / 1024f);
+            Assert.Equal(halfM.Y, instance.HalfSizeM.Y, halfM.Y / 1024f);
+        });
+    }
+
+    /// <summary>The first wild look, which every piece of <see cref="Lattice"/> wears.</summary>
+    static readonly ushort Wild = (ushort)Array.FindIndex(Props.Variants, variant => variant.Kind == (int)PropKind.WildNature);
+
+    /// <summary><paramref name="across"/> by <paramref name="across"/> pieces evenly over the town, every one in the first wild look.</summary>
     internal static CityPlan.SceneryArrays Lattice(int across)
     {
         var centreM = new Vector2[across * across];
@@ -81,16 +105,14 @@ public class ScenerySpriteTests
         }
 
         var radiusM = new float[centreM.Length];
-        Array.Fill(radiusM, 0.5f);
-        return new CityPlan.SceneryArrays { CentreM = centreM, RadiusM = radiusM };
+        Array.Fill(radiusM, Props.Variants[Wild].GirthM * 0.5f);
+        var look = new ushort[centreM.Length];
+        Array.Fill(look, Wild);
+        return new CityPlan.SceneryArrays { CentreM = centreM, RadiusM = radiusM, Look = look };
     }
 
-    internal static ScenerySprites Lay(CityPlan.SceneryArrays scenery, int mostDrawn)
-    {
-        var aspects = new float[Props.Count];
-        Array.Fill(aspects, 1f);
-        return ScenerySprites.Lay(scenery, WorldM, Props, 0, aspects, SimConfig.Shipped().Grid.Main, mostDrawn);
-    }
+    internal static ScenerySprites Lay(CityPlan.SceneryArrays scenery, int mostDrawn) =>
+        ScenerySprites.Lay(scenery, WorldM, Props, 0, SimConfig.Shipped().Grid.Main, mostDrawn);
 
     static SpriteInstance[] Drawn(ScenerySprites sprites, Vector2 viewCentreM, Vector2 viewSpanM, int room)
     {

@@ -1,0 +1,31 @@
+{
+  "car": "estate90s_red",
+  "sprite": {"variant": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v8.png", "sizePx": [411, 208]},
+  "axisY": {"rear": 105.50, "front": 104.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 104.0, "mirrorDx": 0.0, "points": [
+      [20.25, 36.52, 0.65],
+      [14.26, 61.99, 1.36],
+      [22.43, 58.55, 0.00],
+      [27.03, 38.46, 2.07],
+      [35.52, 30.33, 0.00],
+      [26.76, 30.28, 0.00]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 104.5, "mirrorDx": 0.0, "points": [
+      [364.87, 32.24, 1.87],
+      [386.80, 60.02, 2.00],
+      [391.74, 58.19, 1.09],
+      [384.28, 37.49, -0.18],
+      [378.80, 29.30, 0.00],
+      [364.30, 29.50, 0.50]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 104.5, "mirrorDx": 0.0, "over": ["head"], "points": [
+      [371.57, 30.16, 0.57],
+      [372.10, 33.26, 1.82],
+      [379.41, 31.68, 0.97],
+      [375.13, 28.11, 0.58]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "litter_bin_steel",
+  "sprite": "litter_bin_steel.webp",
+  "kind": 2,
+  "footprintM": [0.5, 0.61],
+  "cornerRadiusM": 0.08,
+  "share": 1.2,
+  "turns": true,
+  "describe": "square stainless steel litter bin with a flat lid, a slot on the front"
+}

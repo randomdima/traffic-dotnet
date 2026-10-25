@@ -105,7 +105,9 @@ internal static class CarParks
         var refused = new List<int>();
 
         Span<int> perSide = stackalloc int[Sides.Length];
-        var onTheRight = new bool[config.CityGen.BaysPerLotMost * Sides.Length];
+        var mostAYard = config.CityGen.BaysPerLotMost;
+        foreach (var use in ServiceBuildings.Uses) mostAYard = Math.Max(mostAYard, YardBays(config, sizes, use));
+        var onTheRight = new bool[mostAYard * Sides.Length];
 
         for (var want = 0; want < wanted; want++)
         {
@@ -114,7 +116,7 @@ internal static class CarParks
             // decides which places can carry one (GEN-10).
             var (use, district) = want < services.Count ? services[want] : (BuildingUse.Ordinary, AnyDistrict);
             if (use == BuildingUse.Ordinary) BaysPerSide(config, perSide, ref draw);
-            else AYard(config, perSide);
+            else AYard(config, sizes, use, perSide);
 
             Vector2? facingM = use == BuildingUse.Ordinary ? null : townM;
 
@@ -488,16 +490,24 @@ internal static class CarParks
     }
 
     /// <summary>
-    /// <b>A service's own car park is a yard: one rank, on one side, as wide as a car park gets</b>
-    /// (GEN-55, GEN-4k). <b>One side</b> because a special building stands past the far end of its own rank
-    /// and there is only one of it; <b>the widest</b> because the apron it holds is the bays nearest its
-    /// door, and a station with three bays stands three vehicles. <b>Which side is the site's to say</b>
-    /// (<see cref="FaceTheTown"/>), so the rank is written on the first and moved there.
+    /// <b>A service's own car park is a yard: one rank, on one side, as wide as a car park gets or as its
+    /// building's frontage, whichever is wider</b> (GEN-55, GEN-4k). <b>One side</b> because a special building
+    /// stands past the far end of its own rank and there is only one of it; <b>the widest</b> because the apron
+    /// it holds is the bays nearest its door, and a station with three bays stands three vehicles. <b>Which side
+    /// is the site's to say</b> (<see cref="FaceTheTown"/>), so the rank is written on the first and moved there.
     /// </summary>
-    static void AYard(SimConfig config, Span<int> perSide)
+    static void AYard(SimConfig config, BuildingSizes sizes, BuildingUse use, Span<int> perSide)
     {
-        for (var at = 0; at < perSide.Length; at++) perSide[at] = at == 0 ? config.CityGen.BaysPerLotMost : 0;
+        var bays = YardBays(config, sizes, use);
+        for (var at = 0; at < perSide.Length; at++) perSide[at] = at == 0 ? bays : 0;
     }
+
+    /// <summary>
+    /// <b>How many bays a service's yard holds</b>: enough that its building's whole frontage stands on the flat of
+    /// the rank with a lane to spare (<c>BuildingStage.SquareOnItsRank</c>), and never fewer than the widest lot.
+    /// </summary>
+    internal static int YardBays(SimConfig config, BuildingSizes sizes, BuildingUse use) =>
+        Math.Max(config.CityGen.BaysPerLotMost, (int)MathF.Ceiling(sizes.Of(use).X / config.LaneWidthM) + 1);
 
     static int Bays(SimConfig config, ref Rng draw, bool orNone)
     {

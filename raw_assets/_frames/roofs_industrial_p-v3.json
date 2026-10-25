@@ -1,0 +1,38 @@
+{
+ "id": "roofs_industrial_p-v3",
+ "ts": "2026-10-20T13:50:40",
+ "op": "edit",
+ "name": "roofs_industrial_p",
+ "file": ".tmp/gen/frames/roofs_industrial_p-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031186,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 2×1 grid. Redraw only cell 2 (the transparent area). Keep the other cell exactly as it is, and match its style, colours and fine detail.\n\nThe fault in cell 2, twice now: it was drawn in perspective, like a cylinder seen at an angle, its top and bottom edges and every corrugation bowed into curves. Seen straight down, a barrel-vaulted roof is a plain rectangle: four straight edges, square corners, and every corrugation a perfectly straight horizontal line running from the left edge to the right edge. The vault's curve shows only as shading across the width: a light band along the middle (the crown, running from the street to the back), darkening evenly towards the left and right edges. No curved line anywhere in this cell.\n\nFor the redrawn cell, trace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: this hall stands beside cars 4 m long; corrugations about 0.2 m apart, a roof vent about 1 m, patches a few metres across, a loading door about 5 m wide on the street edge. No text.\n\n2. 46.5 × 59.2 m (1.3× deeper than wide) — large factory hall or depot, barrel-vaulted corrugated roof, weathered and patched, standing narrow end to the street with the entrance on that short front wall",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "c788357f6e2e22c5",
+   "ext": "png",
+   "frame": "roofs_industrial_p-v2",
+   "was": ".tmp/gen/frames/roofs_industrial_p-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "3bb9259c0b8eb878",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_industrial_p.png"
+  },
+  {
+   "role": "mask",
+   "sha": "6cf2bf653bf6c1ff",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_industrial_p-v2/_mask_industrial_deep_12.png"
+  }
+ ]
+}

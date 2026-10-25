@@ -67,15 +67,26 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// </summary>
     const int TrackBinding = ScenerySpansBinding + 1;
 
-    const int Bindings = TrackBinding + 1;
+    /// <summary>The fans (<see cref="FanTable"/>), the one block the fragment stage reads as well as the vertex stage.</summary>
+    const int FanTableBinding = TrackBinding + 1;
+
+    /// <summary>The shore (<see cref="Surface.Shore"/>), the ground's seventh picture, last for the reason the track's strip is.</summary>
+    const int ShoreBinding = FanTableBinding + 1;
+
+    /// <summary>The two kerbs' strips (<see cref="Surface.Kerb"/>, <see cref="Surface.Edging"/>), last for the same reason.</summary>
+    const int KerbBinding = ShoreBinding + 1;
+
+    const int EdgingBinding = KerbBinding + 1;
+
+    const int Bindings = EdgingBinding + 1;
 
     /// <summary>The words a frame's scenery runs open with (<c>scenery.vert</c>'s <c>Spans</c>): the draw, the thinning, how many runs.</summary>
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct SceneryRunsHead(DrawIndirectCommand Draw, uint Every, uint Runs, uint Pad0 = 0, uint Pad1 = 0);
 
-    /// <summary>What a scenery look is drawn as (<c>scenery.vert</c>'s <c>SceneryLook</c>): its half-size for a metre of girth and its sheet.</summary>
+    /// <summary>What a scenery look is drawn as (<c>scenery.vert</c>'s <c>SceneryLook</c>): its half-size and its sheet.</summary>
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct SceneryLook(Vector2 HalfSizePerM, uint Sheet, uint Pad = 0);
+    readonly record struct SceneryLook(Vector2 HalfSizeM, uint Sheet, uint Pad = 0);
 
     /// <summary>
     /// How many interface and debug quads a frame may write. The busiest frame is the debug layers
@@ -142,6 +153,9 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
     readonly GpuBuffer _sceneryLooks;
 
+    /// <summary>The fans, laid with the town (<see cref="FanTable"/>): read by the sprite stages, vertex and fragment.</summary>
+    readonly GpuBuffer _fanTable;
+
     /// <summary>The ground it was laid for: its parts' sizes and its surfaces' periods.</summary>
     readonly GroundMesh _mesh;
 
@@ -168,8 +182,11 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     Pipeline _overlayPipeline;
     Pipeline _markPipeline;
     Pipeline _sceneryPipeline;
+    Pipeline _cloudPipeline;
     ShaderModule _markVertexShader;
     ShaderModule _sceneryVertexShader;
+    ShaderModule _cloudVertexShader;
+    ShaderModule _cloudFragmentShader;
     ShaderModule _vertexShader;
     ShaderModule _fragmentShader;
     ShaderModule _spriteVertexShader;
@@ -275,9 +292,18 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _sceneryLooks = vk.CreateBuffer(
             (ulong)(SheetAtlas.Slots * sizeof(SceneryLook)), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit,
             hostVisible: false);
+        _fanTable = vk.CreateBuffer(
+            (ulong)(FanTable.Words * sizeof(uint)), BufferUsageFlags.UniformBufferBit | BufferUsageFlags.TransferDstBit,
+            hostVisible: false);
 
         _textures = new GpuTexture[surfaceTextures.Count];
-        for (var texture = 0; texture < _textures.Length; texture++) _textures[texture] = GpuTexture.Load(vk, surfaceTextures[texture]);
+        // Every surface is its looks, a layer a look (GroundPatches); a strip among them — the track's, a kerb's — is one picture.
+        for (var texture = 0; texture < _textures.Length; texture++)
+        {
+            _textures[texture] = (Surface)texture is Surface.Track or Surface.Kerb or Surface.Edging
+                ? GpuTexture.Load(vk, surfaceTextures[texture])
+                : GpuTexture.LoadLooks(vk, surfaceTextures[texture]);
+        }
 
         if (sheetTextures.Count > SheetAtlas.Slots) throw new InvalidOperationException(
             $"{sheetTextures.Count} sheets, and the sprite shader's table holds {SheetAtlas.Slots}.");
@@ -379,7 +405,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
             SheetAtlas.Slots, into =>
             {
                 into.Clear();
-                var sizes = scenery.HalfSizePerM;
+                var sizes = scenery.HalfSizeM;
                 for (var look = 0; look < Math.Min(sizes.Length, into.Length); look++)
                 {
                     into[look] = new SceneryLook(sizes[look], (uint)(scenery.FirstSheet + look));
@@ -390,6 +416,8 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _markLook.Upload<MarkLook>(1, into => into[0] = markLook, PipelineStageFlags2.VertexShaderBit, AccessFlags2.UniformReadBit);
 
         _propCull = new Vector4(0f, looks.FirstPropSheet, looks.FirstPropSheet + looks.Props.Count, 0f);
+        _fanTable.Upload<uint>(
+            looks.Fans, PipelineStageFlags2.VertexShaderBit | PipelineStageFlags2.FragmentShaderBit, AccessFlags2.UniformReadBit);
         _propLeastPx = propLeastPx;
     }
 
@@ -640,6 +668,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _cameras[image].Span<CameraView>()[0] = view with
         {
             SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, PropCull = _propCull,
+            Patches = _mesh.Patches,
         };
         WriteTheGround((int)image);
         WrittenBytes = _written + sizeof(CameraView);
@@ -836,7 +865,8 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _vk.Api.DestroyDescriptorSetLayout(_vk.Device, _setLayout, null);
         foreach (var shader in (ReadOnlySpan<ShaderModule>)[
                      _vertexShader, _fragmentShader, _spriteVertexShader, _spriteFragmentShader,
-                     _overlayVertexShader, _overlayFragmentShader, _markVertexShader, _sceneryVertexShader])
+                     _overlayVertexShader, _overlayFragmentShader, _markVertexShader, _sceneryVertexShader,
+                     _cloudVertexShader, _cloudFragmentShader])
         {
             Vk.Count();
             _vk.Api.DestroyShaderModule(_vk.Device, shader, null);
@@ -851,6 +881,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _markLook.Dispose();
         _sceneryPieces.Dispose();
         _sceneryLooks.Dispose();
+        _fanTable.Dispose();
         foreach (var texture in _textures) texture.Dispose();
     }
 

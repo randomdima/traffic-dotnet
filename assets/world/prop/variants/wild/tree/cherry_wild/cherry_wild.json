@@ -1,0 +1,8 @@
+{
+  "id": "cherry_wild",
+  "sprite": "cherry_wild.webp",
+  "kind": 0,
+  "diameterM": 2.4,
+  "colliderM": 0.5,
+  "describe": "wild cherry crown, glossy green leaves with scattered dark red cherries"
+}

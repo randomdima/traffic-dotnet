@@ -2,8 +2,8 @@
   "id": "industrial_14",
   "sprite": "industrial_14.webp",
   "footprintM": [
-    12.5,
-    10.0
+    18.8,
+    15.0
   ],
   "cornerRadiusM": 0.8,
   "partsM": [],
@@ -15,5 +15,7 @@
     "grey corrugated slate",
     "workshop"
   ],
-  "describe": "small workshop or depot shed, shallow pitched roof of grey corrugated slate"
+  "describe": "small workshop or depot shed, shallow pitched roof of grey corrugated slate",
+  "chimneys": [[6.6, -5.05, 7.2, -5.05]],
+  "potWidthM": 0.6
 }

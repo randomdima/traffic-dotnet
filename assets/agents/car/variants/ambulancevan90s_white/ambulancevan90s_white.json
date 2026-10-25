@@ -1,0 +1,32 @@
+{
+  "id": "ambulancevan90s_white",
+  "sprite": "ambulancevan90s_white.webp",
+  "zones": "ambulancevan90s_white_zones.png",
+  "wreck": { "sprite": "ambulancevan90s_white_broken.webp" },
+  "describe": "1990s panel van ambulance in ambulance livery",
+  "footprintM": [4.830, 2.386],
+  "collisionM": { "sizeM": [4.830, 1.994], "cornerRadiusM": 0.634 },
+  "massKg": 2100,
+  "frontAxleM": 1.615,
+  "rearAxleM": -1.215,
+  "trackM": 1.889,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.76,
+  "cgHeightM": 0.85,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.72, "acceleration": 0.62, "braking": 0.78 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.144, -0.651], "sizeM": [0.302, 0.448] },
+    { "fitting": "rear", "atM": [-2.124, 0.682], "sizeM": [0.302, 0.448] },
+    { "fitting": "indicator", "atM": [-2.207, -0.672], "sizeM": [0.115, 0.156] },
+    { "fitting": "indicator", "atM": [-2.186, 0.724], "sizeM": [0.115, 0.156] },
+    { "fitting": "head", "atM": [2.144, -0.61], "sizeM": [0.219, 0.292] },
+    { "fitting": "head", "atM": [2.144, 0.641], "sizeM": [0.219, 0.292] },
+    { "fitting": "indicator", "atM": [2.019, -0.818], "sizeM": [0.239, 0.135] },
+    { "fitting": "indicator", "atM": [2.019, 0.849], "sizeM": [0.239, 0.135] },
+    { "fitting": "beaconBlue", "atM": [0.375, -0.38], "sizeM": [0.271, 0.573] },
+    { "fitting": "beaconBlue", "atM": [0.375, 0.412], "sizeM": [0.271, 0.531] }
+  ],
+  "exhausts": [[-2.321, -0.716]]
+}

@@ -1,0 +1,8 @@
+{
+  "id": "birch_clump",
+  "sprite": "birch_clump.webp",
+  "kind": 0,
+  "diameterM": 3.4,
+  "colliderM": 0.5,
+  "describe": "three young silver birches growing together, three small light green airy crowns merged, a glimpse of white bark at the middle"
+}

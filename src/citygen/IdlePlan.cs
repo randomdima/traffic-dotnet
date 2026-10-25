@@ -317,7 +317,7 @@ internal static class IdlePlan
             {
                 CentreM = [], SizeM = [], HeadingRad = [], Capacity = [], Use = [], EntryOffsets = [0], EntryPointM = [],
             },
-            Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], BearingRad = [], Kind = [] },
+            Props = CityPlan.PropArrays.None,
             Spawns = Spawns(ring, config),
             Water = CityPlan.WaterArrays.None,
         };

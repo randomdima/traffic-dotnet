@@ -1,0 +1,51 @@
+{
+ "id": "ground_f-v1",
+ "ts": "2026-10-24T22:57:29",
+ "op": "edit",
+ "name": "ground_f",
+ "file": ".tmp/gen/frames/ground_f-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "high",
+  "background": "transparent"
+ },
+ "costUsd": 0.067434,
+ "usage": {
+  "prompt_tokens": 3600,
+  "completion_tokens": 1372,
+  "total_tokens": 4972,
+  "cost": 0.067434,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.067434,
+   "upstream_inference_prompt_cost": 0.026274,
+   "upstream_inference_completions_cost": 0.04116
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 1372
+  }
+ },
+ "prompt": "Two images are attached. The first is a layout: 12 equal squares in a 4×3 grid on a flat magenta background. The second shows finished art from the same top-down 2D city game: roofs and cars, and on the right a square of the game's grass. Match that art's look: clean hand-painted game art, natural colours, tidy and well kept. It must NOT look like a photograph: no blur, no photographic noise.\n\nMake one image with exactly the same 4×3 layout as the first image. Fill each square with the patch of ground described for that cell below: a ground texture the game repeats over large areas of a tidy town, under the cars and the road markings.\n\nShape comes first:\n- Each square is filled edge to edge, right into all four corners, and stops exactly at its outline. Paint over the outline itself: the finished square has no border, frame, rim, bevel, outline, shadow or vignette, and its edges look the same as its middle.\n- Draw nothing outside the squares. Outside them, keep the background fully transparent. No text, numbers, labels or grid lines anywhere.\n\nWhat earlier attempts got wrong, and must not be drawn: pebbles and stones you can pick out one by one, gravel, rubble, cracks, potholes, holes, chips, broken edges and big dark oil blotches. They made a good town road look damaged and abandoned. These surfaces are smooth and in good repair.\n\nHow each square is built: a smooth, even painted surface whose grain is very fine — tiny specks only a pixel or two across, so close together that they read as a texture and never as separate stones — with only gentle, soft, broad variations of tone across the square.\n\nRules for every cell:\n- Look straight down (orthographic). No perspective, no light falling off towards any edge.\n- Each square is 9.2 × 9.2 m of ground.\n- No direction and no pattern: no joints, slabs, tiles, seams, lines, stripes, grooves, brush strokes or grid of any kind, so the square looks the same turned any way.\n- Even texture: the same tone and the same fine grain all over the square, nothing that catches the eye, so it repeats without a visible pattern.\n- Squares that share a description are the same ground: exactly the same colours, grain and style, so they can be joined without a visible seam.\n- Nothing stands on the ground and nothing is painted on it: no paint, road markings, lines, kerbs, manholes, drains, litter or objects.\n\nCells, left to right, top to bottom:\n\nRow 1 — cells 1 and 2: a well-kept town road's asphalt: smooth even dark charcoal grey, a very fine tight grain of tiny grey and pale specks.\nRow 1 — cells 3 and 4: the same road a little more used: a shade lighter and greyer, the same fine grain, with soft faint lighter patches where tyres have polished it and a very few faint small darker spots. Still smooth and in good repair.\n\nRow 2 — cells 5 and 6: a town pavement of poured concrete in one continuous surface: smooth light warm grey, a very fine sandy grain. No slabs and no joints.\nRow 2 — cells 7 and 8: the same pavement a little more used: a shade darker, soft faint grime and a very few small faint dark spots. Still smooth, no slabs and no joints.\n\nRow 3 — cells 9 and 10: a bridge deck's smooth cast concrete: mid grey, slightly darker and cooler than row 2, a very fine grain and a few soft faint pale water marks.\nRow 3 — cells 11 and 12: the same bridge concrete older: slightly darker, a few small soft rust-brown stain spots no bigger than a hand, still smooth. No streaks, drips or cracks.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "48776d0974a7dc0b",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_c.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "c753fd607933bc53",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_style.png"
+  }
+ ]
+}

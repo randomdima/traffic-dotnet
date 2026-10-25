@@ -17,7 +17,9 @@ namespace TrafficSimulation.CityGen.Gen;
 /// passes that answer different questions (GEN-6b). <b>The kerbs are walked first</b>, because a verge is a
 /// line and not an area: what stands along one is found by following the line the concrete stops at, on that
 /// line's own bearing, and not by sweeping a lattice and asking each square whether it happens to be near a
-/// street. <b>Then the ground the town is not on is swept</b>, well clear of the walk that pass took.
+/// street — a tree-lined ring's row at its pitch first (GEN-6f), then the scatter, a share of its stations a run of
+/// one look (GEN-6h). <b>Then the ground the town is not on is swept</b>, well clear of the walk that pass took, each
+/// candidate that stands the heart of a clump as thick as the ground's thickets are there (GEN-6g).
 /// </para>
 /// <para>
 /// <b>Neither pass searches for anything</b>: a candidate that does not stand is not a prop, and the ground
@@ -25,9 +27,10 @@ namespace TrafficSimulation.CityGen.Gen;
 /// it — the roads and the boundary they leave — which is what makes one pass over each enough.
 /// </para>
 /// <para>
-/// <b>A kind carries its own size band</b>, because a set is only as wide as the art authored for it: the
-/// great trees put the wild set's band past the other two, and a wild look drawn at that size on a verge is
-/// what a street tree is.
+/// <b>A prop is laid at the size of the look it will wear</b> (GEN-6e): the pass draws its kind, then one of that
+/// kind's looks as often as each one's share says (<see cref="PropSizes"/>), and the prop's girth is that look's. The art
+/// states every size and the plan none, so a bollard is laid a bollard's width and a great tree a great tree's, and a
+/// kind nothing was drawn for lays nothing.
 /// </para>
 /// </remarks>
 internal static class PropStage
@@ -37,48 +40,100 @@ internal static class PropStage
     /// grows beyond them as scenery that stands nothing — a city's yards, parks and waste ground being millions of props
     /// too many to stand as bodies.
     /// </summary>
-    /// <param name="setDown">The props the map sets down, laid before either pass and so kept clear of by both.</param>
+    /// <param name="setDown">
+    /// The props the map sets down, laid before either pass and so kept clear of by both — each in a look of its kind
+    /// drawn as a pass draws one, and none where the art holds nothing of that kind.
+    /// </param>
     /// <param name="growth">How thickly what grows wild covers the open ground at a place, as a share of the most it holds.</param>
+    /// <param name="looks">The looks a prop may wear (GEN-6e): a town handed none lays no prop.</param>
     public static (CityPlan.PropArrays AlongTheKerbs, CityPlan.SceneryArrays Beyond) LayApart(
         Vector2 acrossM, Paving paving, GroundShapes ground, GenClaims claims, Map.TownMap.PropArrays setDown,
-        Func<Vector2, float> growth, SimConfig config, ref Rng draw)
+        Func<Vector2, float> growth, PropSizes looks, SimConfig config, ref Rng draw)
     {
-        var scatter = Scatter(acrossM, config);
+        var scatter = PropScatter.Over(config.Grid, acrossM, looks.WidestM, config.CityGen.PropApartM);
         for (var prop = 0; prop < setDown.Count; prop++)
         {
-            scatter.Add(setDown.CentreM[prop], WidestM(setDown.Kind[prop], config) * 0.5f, setDown.BearingRad[prop], setDown.Kind[prop]);
+            var kind = setDown.Kind[prop];
+            if (!Drawn(looks, kind, draw.NextFloat(), out var look)) continue;
+
+            scatter.Add(setDown.CentreM[prop], looks.GirthM[look] * 0.5f, setDown.BearingRad[prop], kind, look);
         }
 
-        AlongTheKerbs(paving.Rings(config), ground, claims, config, scatter, ref draw);
+        var rings = paving.Rings(config);
+        TreeLined(rings, ground, claims, looks, config, scatter, ref draw);
+        AlongTheKerbs(rings, ground, claims, looks, config, scatter, ref draw);
         var kerbside = scatter.CentreM.Count;
-        OverWhatIsLeft(acrossM, ground, claims, growth, config, scatter, ref draw);
+        OverWhatIsLeft(acrossM, ground, claims, growth, looks, config, scatter, ref draw);
 
         var beyond = scatter.CentreM.Count - kerbside;
         return (
-            Arrays(scatter, kerbside),
+            Arrays(scatter, kerbside, looks),
             new CityPlan.SceneryArrays
             {
                 CentreM = CollectionsMarshal.AsSpan(scatter.CentreM).Slice(kerbside, beyond).ToArray(),
                 RadiusM = CollectionsMarshal.AsSpan(scatter.RadiusM).Slice(kerbside, beyond).ToArray(),
+                Look = CollectionsMarshal.AsSpan(scatter.Look).Slice(kerbside, beyond).ToArray(),
             });
     }
 
-    static PropScatter Scatter(Vector2 acrossM, SimConfig config) =>
-        PropScatter.Over(
-            config.Grid, acrossM, MathF.Max(config.CityGen.PropDiameterMaxM, config.CityGen.PropWildDiameterMaxM),
-            config.CityGen.PropApartM);
-
-    /// <summary>The first <paramref name="count"/> props laid, or every one.</summary>
-    static CityPlan.PropArrays Arrays(PropScatter scatter, int count = int.MaxValue)
+    /// <summary>
+    /// The first <paramref name="count"/> props laid, each standing as its look's body (GEN-6e): spaced and cleared by
+    /// its girth, and nothing but what stands bodies reads the body.
+    /// </summary>
+    static CityPlan.PropArrays Arrays(PropScatter scatter, int count, PropSizes looks)
     {
         count = Math.Min(count, scatter.CentreM.Count);
+        var bodyRadiusM = new float[count];
+        for (var prop = 0; prop < count; prop++) bodyRadiusM[prop] = looks.BodyM[scatter.Look[prop]] * 0.5f;
+
         return new()
         {
             CentreM = CollectionsMarshal.AsSpan(scatter.CentreM)[..count].ToArray(),
             RadiusM = CollectionsMarshal.AsSpan(scatter.RadiusM)[..count].ToArray(),
+            BodyRadiusM = bodyRadiusM,
             BearingRad = CollectionsMarshal.AsSpan(scatter.BearingRad)[..count].ToArray(),
             Kind = CollectionsMarshal.AsSpan(scatter.Kind)[..count].ToArray(),
+            Look = CollectionsMarshal.AsSpan(scatter.Look)[..count].ToArray(),
         };
+    }
+
+    /// <summary>
+    /// <b>A tree-lined street's trees, before anything else along its kerb</b> (GEN-6f): a share of the walk's rings
+    /// each carry one crowned look at a regular pitch, its near rim on the near edge of the verge, so the row runs
+    /// straight along the street and the furniture and planting laid after it fill between its trees.
+    /// </summary>
+    /// <remarks>
+    /// <b>A ring is one block's kerb all round</b>, so a block is lined or not and one look lines it: a street's two
+    /// sides are two rings and may differ, which is what a street planted a block at a time looks like. A tree that does
+    /// not stand — a drive, a corner's sight line (TER-4c.4), a building up against the walk — leaves its place in the
+    /// row empty and moves nothing else.
+    /// </remarks>
+    static void TreeLined(
+        GroundRings rings, GroundShapes ground, GenClaims claims, PropSizes looks, SimConfig config, PropScatter scatter,
+        ref Rng draw)
+    {
+        var nearM = config.CityGen.PropVergeNearM;
+        var pitchM = config.CityGen.PropStreetTreePitchM;
+        var candidates = new Candidates(ground, claims, scatter, config.Terrain.GroundStepM, standOffM: 0f);
+        foreach (var face in rings.WalkEdge)
+        {
+            // Drawn whether or not the ring is lined, so what the stream has spent by a ring is the rings before it.
+            var lined = draw.NextFloat() < config.CityGen.PropTreeLinedShare;
+            var look = looks.DrawCrown(PropKind.UrbanNature, draw.NextFloat());
+            var phaseM = draw.NextFloat() * pitchM;
+            if (!lined || look < 0) continue;
+
+            var reachM = looks.GirthM[look] * 0.5f;
+            var lengthM = Spline.TotalLengthM(face);
+            var cursor = default(SplineCursor);
+            for (var stationM = phaseM; stationM < lengthM; stationM += pitchM)
+            {
+                var on = Spline.SampleFrom(face, stationM, ref cursor);
+                candidates.Add(on.PositionM - (on.Right * (reachM + nearM)), reachM, on.HeadingRad, PropKind.UrbanNature, (ushort)look);
+            }
+        }
+
+        candidates.Flush();
     }
 
     /// <summary>
@@ -105,34 +160,50 @@ internal static class PropStage
     /// </para>
     /// </remarks>
     static void AlongTheKerbs(
-        GroundRings rings, GroundShapes ground, GenClaims claims, SimConfig config, PropScatter scatter,
+        GroundRings rings, GroundShapes ground, GenClaims claims, PropSizes looks, SimConfig config, PropScatter scatter,
         ref Rng draw)
     {
         var nearM = config.CityGen.PropVergeNearM;
         var bandM = config.CityGen.PropVergeFarM - nearM;
         var pitchM = config.CityGen.PropVergePitchM;
+        var gapM = config.CityGen.PropRunGapM;
+        var runMost = Math.Max(config.CityGen.PropRunMost, 1);
 
-        // The one point before the girth, because a disc is walked from its rim and most of a verge is somebody's
-        // tarmac: reading the ground round a place that has already failed buys nothing.
-        var candidates = new Candidates(ground, claims, scatter, config.Terrain.GroundStepM, centreAsked: false);
+        var candidates = new Candidates(ground, claims, scatter, config.Terrain.GroundStepM, standOffM: 0f);
         foreach (var face in rings.WalkEdge)
         {
             var lengthM = Spline.TotalLengthM(face);
             var cursor = default(SplineCursor);
             for (var alongM = 0f; alongM < lengthM; alongM += pitchM)
             {
-                var stationM = alongM + (draw.NextFloat() * pitchM);
-                if (stationM >= lengthM) continue;
-
                 // Drawn before the ground is asked about anything, so that what the stream has spent by
-                // station n is the rings' own length and never what the ground answered at the stations
-                // before it.
+                // station n is the rings' own length and the looks handed down, and never what the ground
+                // answered at the stations before it.
+                var stationM = alongM + (draw.NextFloat() * pitchM);
                 var kind = OnAVerge(config, ref draw);
-                var reachM = draw.NextFloat(config.CityGen.PropDiameterMinM, WidestM(kind, config)) * 0.5f;
-                var outM = reachM + nearM + (draw.NextFloat() * bandM);
+                var drawn = Drawn(looks, kind, draw.NextFloat(), out var look);
+                var outU = draw.NextFloat();
+                var runs = draw.NextFloat() < config.CityGen.PropRunShare;
+                var count = 2 + draw.NextInt(runMost - 1);
+                if (stationM >= lengthM || !drawn) continue;
+
+                var reachM = looks.GirthM[look] * 0.5f;
+                var outM = reachM + nearM + (outU * bandM);
 
                 var on = Spline.SampleFrom(face, stationM, ref cursor);
-                candidates.Add(on.PositionM - (on.Right * outM), reachM, on.HeadingRad, kind);
+                candidates.Add(on.PositionM - (on.Right * outM), reachM, on.HeadingRad, kind, look);
+                if (!runs || !RunsOf(looks, kind, look)) continue;
+
+                // A run is the one look again, a gap of grass apart along the face and on its bearing there.
+                var runCursor = cursor;
+                for (var member = 1; member < count; member++)
+                {
+                    var memberM = stationM + (member * ((2f * reachM) + gapM));
+                    if (memberM >= lengthM) break;
+
+                    var at = Spline.SampleFrom(face, memberM, ref runCursor);
+                    candidates.Add(at.PositionM - (at.Right * outM), reachM, at.HeadingRad, kind, look);
+                }
             }
         }
 
@@ -140,41 +211,96 @@ internal static class PropStage
     }
 
     /// <summary>
+    /// <b>What a verge lays a run of</b> (GEN-6h): what a town sets out by hand — its furniture and its planting — and
+    /// never a crowned look, whose row is the street's (GEN-6f), nor the wild set, which nobody set out.
+    /// </summary>
+    static bool RunsOf(PropSizes looks, PropKind kind, ushort look) =>
+        kind != PropKind.WildNature && !(looks.BodyM[look] < looks.GirthM[look]);
+
+    /// <summary>
     /// <b>The last pass: what grows where the town is not</b> (GEN-6b). A stratified sweep — one candidate
     /// per cell of a coarse lattice, jittered inside it — so the cost is the ground rather than the count,
     /// and every candidate standing within a stand-off of a walk or a car park is left to the first pass.
     /// <b>As thickly as the zone it stands in grows</b> (GEN-58): a candidate on open ground is kept at its zone's
-    /// share. <b>Nothing here is laid on a bearing</b>: what the wild set holds has no front to turn.
+    /// share. <b>Each that stands is a clump's heart</b> (GEN-6g), and what grows round it is laid once every heart has
+    /// been, so a heart is never crowded out by the clump of the cell before it. <b>Nothing here is laid on a
+    /// bearing</b>: what the wild set holds has no front to turn.
     /// </summary>
     static void OverWhatIsLeft(
-        Vector2 acrossM, GroundShapes ground, GenClaims claims, Func<Vector2, float> growth, SimConfig config,
+        Vector2 acrossM, GroundShapes ground, GenClaims claims, Func<Vector2, float> growth, PropSizes looks, SimConfig config,
         PropScatter scatter, ref Rng draw)
     {
+        if (!looks.Holds(PropKind.WildNature)) return;
+
         var spacingM = config.CityGen.PropSpacingM;
         var standOffM = config.CityGen.PropWildStandOffM;
         var columns = (int)(acrossM.X / spacingM);
         var rows = (int)(acrossM.Y / spacingM);
 
-        var candidates = new Candidates(ground, claims, scatter, config.Terrain.GroundStepM, centreAsked: true);
+        var thickets = new Thickets(
+            ((ulong)draw.NextUint() << 32) | draw.NextUint(), config.CityGen.PropThicketM, config.CityGen.PropThicketContrast);
+        var firstHeart = scatter.CentreM.Count;
+        var candidates = new Candidates(
+            ground, claims, scatter, config.Terrain.GroundStepM, standOffM, atM => growth(atM) * thickets.At(atM));
         for (var row = 0; row < rows; row++)
         {
             for (var column = 0; column < columns; column++)
             {
+                // Every cell draws the same whatever its ground, so the stream is the lattice's and the cells' ground,
+                // growth and stand-off are asked of them all at once, on every thread, as a block is flushed.
                 var atM = new Vector2(
                     (column + draw.NextFloat()) * spacingM,
                     (row + draw.NextFloat()) * spacingM);
+                var growsAbove = draw.NextFloat();
+                Drawn(looks, PropKind.WildNature, draw.NextFloat(), out var look);
+                candidates.Add(atM, looks.GirthM[look] * 0.5f, 0f, PropKind.WildNature, look, growsAbove);
+            }
+        }
 
-                // The cell the candidate stands on is the cheapest corner of the tests below, and most of a
-                // town is not grass: reading the ground around one that has already failed buys nothing. Asked
-                // in the sweep, because whether the candidate is drawn a girth hangs on it.
-                if (ground.At(atM) != Ground.Grass) continue;
+        candidates.Flush();
+        Clumps(firstHeart, scatter.CentreM.Count, thickets, growth, ground, claims, looks, config, scatter, ref draw);
+    }
 
-                if (ground.PavingWithin(atM, standOffM)) continue;
-                if (draw.NextFloat() >= growth(atM)) continue;
+    /// <summary>
+    /// <b>What grows round each heart the sweep laid</b> (GEN-6g): of the wild set no wider than the heart, each a
+    /// clearance and up to <see cref="CityGenFigures.PropClumpReachM"/> more off its rim — a thicket round a tree, a patch
+    /// of weeds round a weed, and never a tree sheltering under a bush. <b>As many as the ground is thick there</b>: up to
+    /// <see cref="CityGenFigures.PropClumpMost"/> where the thickets' field is at its thickest, half that where it is
+    /// even, and none in a clearing.
+    /// </summary>
+    /// <remarks>
+    /// <b>A member keeps the stand-off from the paving its heart kept</b> (GEN-6b), asked of each one with the rest of its
+    /// ground: a clump at the edge of the open ground reaches toward the verge, and the strip between the passes stays a
+    /// strip. <b>And grows only as thickly as its own zone does</b> (GEN-58): one reaching over a zone's edge into ground
+    /// that grows thinner than its heart's is kept at the share the two growths stand in, so a car park beside a wood
+    /// grows nothing of it. A member that does not stand is not a prop, as anywhere else.
+    /// </remarks>
+    static void Clumps(
+        int firstHeart, int hearts, Thickets thickets, Func<Vector2, float> growth, GroundShapes ground, GenClaims claims,
+        PropSizes looks, SimConfig config, PropScatter scatter, ref Rng draw)
+    {
+        var most = Math.Max(config.CityGen.PropClumpMost, 0);
+        var reachM = config.CityGen.PropClumpReachM;
+        var apartM = config.CityGen.PropApartM;
+        var candidates = new Candidates(
+            ground, claims, scatter, config.Terrain.GroundStepM, standOffM: config.CityGen.PropWildStandOffM, growth);
+        for (var heart = firstHeart; heart < hearts; heart++)
+        {
+            var heartM = scatter.CentreM[heart];
+            var heartRadiusM = scatter.RadiusM[heart];
+            var heartGrowth = growth(heartM);
+            var members = draw.NextInt((int)MathF.Round(most * thickets.At(heartM) / Thickets.Thickest) + 1);
+            for (var member = 0; member < members; member++)
+            {
+                var look = looks.DrawNoWider(PropKind.WildNature, draw.NextFloat(), 2f * heartRadiusM);
+                var towards = Heading.Unit(draw.NextFloat() * MathF.Tau);
+                var outU = draw.NextFloat();
+                var keptU = draw.NextFloat();
+                if (look < 0) continue;
 
-                var reachM = draw.NextFloat(
-                    config.CityGen.PropDiameterMinM, config.CityGen.PropWildDiameterMaxM) * 0.5f;
-                candidates.Add(atM, reachM, 0f, PropKind.WildNature);
+                var memberRadiusM = looks.GirthM[look] * 0.5f;
+                var offM = heartRadiusM + memberRadiusM + apartM + (outU * reachM);
+                candidates.Add(heartM + (towards * offM), memberRadiusM, 0f, PropKind.WildNature, (ushort)look, keptU * heartGrowth);
             }
         }
 
@@ -190,7 +316,14 @@ internal static class PropStage
     /// stream and the scatter, and both stay in order; what the ground and the claims answer of a candidate hangs on
     /// nothing a pass lays, so it is the same answer asked on any thread (<see cref="GroundShapes.Scan"/>).
     /// </remarks>
-    sealed class Candidates(GroundShapes ground, GenClaims claims, PropScatter scatter, float stepM, bool centreAsked)
+    /// <param name="standOffM">How far off the paving a candidate keeps, asked here; nought where its pass asked it already or keeps none.</param>
+    /// <param name="growth">
+    /// How thickly the ground grows at a place, where a candidate is kept only above the growth it was added with (GEN-6g);
+    /// none where the pass keeps every candidate the ground affords.
+    /// </param>
+    sealed class Candidates(
+        GroundShapes ground, GenClaims claims, PropScatter scatter, float stepM, float standOffM,
+        Func<Vector2, float>? growth = null)
     {
         /// <summary>How many are drawn before they are asked about: a working set a few megabytes whatever the town.</summary>
         const int Block = 1 << 16;
@@ -199,6 +332,8 @@ internal static class PropStage
         readonly float[] _reachM = new float[Block];
         readonly float[] _bearingRad = new float[Block];
         readonly PropKind[] _kind = new PropKind[Block];
+        readonly ushort[] _look = new ushort[Block];
+        readonly float[] _growsAbove = new float[Block];
         readonly bool[] _stands = new bool[Block];
 
         /// <summary>The threads' working sets, kept from one block to the next rather than laid again for each.</summary>
@@ -206,9 +341,11 @@ internal static class PropStage
 
         int _count;
 
-        public void Add(Vector2 atM, float reachM, float bearingRad, PropKind kind)
+        /// <param name="growsAbove">The growth the ground must pass at the candidate for it to stand, where the pass asks one.</param>
+        public void Add(Vector2 atM, float reachM, float bearingRad, PropKind kind, ushort look, float growsAbove = 0f)
         {
-            (_atM[_count], _reachM[_count], _bearingRad[_count], _kind[_count]) = (atM, reachM, bearingRad, kind);
+            (_atM[_count], _reachM[_count], _bearingRad[_count], _kind[_count], _look[_count], _growsAbove[_count]) =
+                (atM, reachM, bearingRad, kind, look, growsAbove);
             if (++_count == Block) Flush();
         }
 
@@ -217,13 +354,13 @@ internal static class PropStage
             InChunks.Over(
                 _count,
                 () => _scans.TryTake(out var scan) ? scan : ground.NewScan(),
-                (scan, at) => _stands[at] = Stands(scan, _atM[at], _reachM[at]),
+                (scan, at) => _stands[at] = (growth is null || growth(_atM[at]) > _growsAbove[at]) && Stands(scan, _atM[at], _reachM[at]),
                 _scans.Add);
             for (var at = 0; at < _count; at++)
             {
                 if (!_stands[at] || scatter.Reaches(_atM[at], _reachM[at])) continue;
 
-                scatter.Add(_atM[at], _reachM[at], _bearingRad[at], _kind[at]);
+                scatter.Add(_atM[at], _reachM[at], _bearingRad[at], _kind[at], _look[at]);
             }
 
             _count = 0;
@@ -247,9 +384,14 @@ internal static class PropStage
         /// them: a prop is no shape of the town's and claims nothing, because the only thing that ever has to know
         /// where one stands is the next candidate along.
         /// </para>
+        /// <para>
+        /// <b>The one point before the girth</b>, because a disc is walked from its rim and most of a verge and of a
+        /// lattice is somebody's tarmac: reading the ground round a place that has already failed buys nothing.
+        /// </para>
         /// </remarks>
         bool Stands(GroundShapes.Scan scan, Vector2 atM, float reachM) =>
-            (centreAsked || ground.At(scan, atM) == Ground.Grass)
+            ground.At(scan, atM) == Ground.Grass
+            && (standOffM <= 0f || !ground.PavingWithin(scan, atM, standOffM))
             && ground.IsAll(scan, atM, reachM, stepM, Ground.Grass)
             && claims.IsFree(atM, reachM);
     }
@@ -267,7 +409,14 @@ internal static class PropStage
         return draw.NextFloat() < config.CityGen.PropWildOnAVergeShare ? PropKind.WildNature : PropKind.UrbanNature;
     }
 
-    /// <summary>The widest a prop of one kind is drawn: only the wild set holds art authored past the ordinary band (GEN-6b).</summary>
-    static float WidestM(PropKind kind, SimConfig config) =>
-        kind == PropKind.WildNature ? config.CityGen.PropWildDiameterMaxM : config.CityGen.PropDiameterMaxM;
+    /// <summary>
+    /// <b>One look of a kind, each as often as the art's share of it says</b> (GEN-6e), off one draw <paramref name="u"/>
+    /// in [0, 1) — and false, with nothing drawn, where the art holds none of the kind.
+    /// </summary>
+    static bool Drawn(PropSizes looks, PropKind kind, float u, out ushort look)
+    {
+        var drawn = looks.Draw(kind, u);
+        look = (ushort)Math.Max(drawn, 0);
+        return drawn >= 0;
+    }
 }

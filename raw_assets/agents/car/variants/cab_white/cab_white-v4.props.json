@@ -1,0 +1,37 @@
+{
+  "car": "cab_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/cab_white/cab_white-v4.png", "sizePx": [418, 203]},
+  "axisY": {"rear": 102.00, "front": 102.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [21.34, 36.16, 1.74],
+      [13.62, 62.00, 0.48],
+      [23.63, 62.89, 0.12],
+      [26.21, 60.02, -3.70],
+      [40.81, 31.11, 0.62],
+      [40.74, 28.43, 3.57]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "points": [
+      [21.51, 39.12, 1.02],
+      [16.76, 44.30, 0.03],
+      [16.23, 47.76, 0.72],
+      [18.35, 50.44, 1.22],
+      [28.87, 42.78, 2.36],
+      [26.56, 38.24, 0.12]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "points": [
+      [385.51, 36.88, 0.65],
+      [399.92, 59.75, 0.15],
+      [402.97, 60.12, 1.51],
+      [398.38, 39.98, 0.05],
+      [390.67, 30.99, 0.29]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 102.5, "mirrorDx": -1.0, "points": [
+      [372.24, 26.63, 0.00],
+      [383.60, 34.72, 1.08],
+      [388.35, 33.64, 0.33],
+      [387.79, 29.57, 0.93]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

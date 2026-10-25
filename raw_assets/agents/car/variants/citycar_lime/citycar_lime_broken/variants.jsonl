@@ -1,1 +1,2 @@
-{"variant": "citycar_lime_broken-v1", "frame": "fleet100_w01-v2", "cell": 6, "pxPerM": 95.556, "score": 3, "status": "used", "ts": "2026-10-21T22:08:17"}
+{"variant": "citycar_lime_broken-v1", "frame": "fleet100_w01-v2", "cell": 6, "pxPerM": 95.556, "score": 3, "status": "candidate", "ts": "2026-10-21T22:08:17"}
+{"variant": "citycar_lime_broken-v2", "frame": "fleet100_rw01-v1", "cell": 2, "pxPerM": 110.833, "score": 4, "status": "used", "ts": "2026-10-22T16:39:01"}

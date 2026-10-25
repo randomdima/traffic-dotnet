@@ -1,11 +1,18 @@
 {
   "id": "hospital",
   "sprite": "hospital.webp",
-  "footprintM": [18.00, 16.57],
+  "describe": "hospital, flat white roof with a parapet, plant rooms and air conditioner units on the main block, a plain red cross symbol painted on it, the entrance wing at the front with a flat canopy",
+  "footprintM": [23.4, 21.5],
   "partsM": [
-    { "atM": [-0.25, -0.21], "sizeM": [16.84, 9.52] },
-    { "atM": [-2.61, -1.0], "sizeM": [11.19, 13.3] },
-    { "atM": [-0.21, -0.2], "sizeM": [5.33, 15.03] },
-    { "atM": [0.05, -0.6], "sizeM": [17.75, 7.92] }
+    { "atM": [0.0, -3.75], "sizeM": [23.4, 14.0] },
+    { "atM": [0.0, 7.0], "sizeM": [9.0, 7.5] }
+  ],
+  "fans": [
+    { "atM": [7.3775, -8.4603], "rimAtM": [7.441, -8.4016], "rimM": [0.5544, 0.5674] },
+    { "atM": [8.8562, -8.4603], "rimAtM": [8.9121, -8.4007], "rimM": [0.5648, 0.5658] },
+    { "atM": [-8.19, -8.2168], "rimAtM": [-8.1435, -8.155], "rimM": [0.4071, 0.4139] },
+    { "atM": [-9.2137, -8.2168], "rimAtM": [-9.1934, -8.1466], "rimM": [0.3845, 0.411] },
+    { "atM": [-7.995, -0.2923], "rimAtM": [-7.9482, -0.2479], "rimM": [0.4427, 0.4674] },
+    { "atM": [-9.23, -0.2923], "rimAtM": [-9.1934, -0.245], "rimM": [0.4529, 0.4547] }
   ]
 }

@@ -1,2 +1,4 @@
 {"variant": "estate90s_red-v3", "frame": "fleet100_b04-v1", "cell": 7, "pxPerM": 101.869, "score": 3, "status": "candidate", "ts": "2026-10-22T03:11:17"}
-{"variant": "estate90s_red-v6", "frame": "fleet100_b04-v1", "cell": 7, "pxPerM": 101.869, "score": 3, "lampsMirroredFrom": "estate90s_red-v3", "props": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v3.props.json", "status": "used", "ts": "2026-10-22T04:32:51"}
+{"variant": "estate90s_red-v6", "frame": "fleet100_b04-v1", "cell": 7, "pxPerM": 101.869, "score": 3, "lampsMirroredFrom": "estate90s_red-v3", "props": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v3.props.json", "status": "candidate", "ts": "2026-10-22T04:32:51"}
+{"variant": "estate90s_red-v7", "frame": "fleet100_r03-v1", "cell": 7, "pxPerM": 111.449, "score": 4, "status": "candidate", "ts": "2026-10-22T18:32:43"}
+{"variant": "estate90s_red-v8", "frame": "fleet100_r03-v1", "cell": 7, "pxPerM": 111.449, "score": 4, "lampsMirroredFrom": "estate90s_red-v7", "props": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v7.props.json", "status": "used", "ts": "2026-10-22T18:36:26"}

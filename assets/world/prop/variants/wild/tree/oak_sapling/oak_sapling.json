@@ -1,0 +1,8 @@
+{
+  "id": "oak_sapling",
+  "sprite": "oak_sapling.webp",
+  "kind": 0,
+  "diameterM": 2.6,
+  "colliderM": 0.5,
+  "describe": "oak sapling, small open crown of lobed dark green leaves"
+}

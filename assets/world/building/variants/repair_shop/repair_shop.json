@@ -1,8 +1,12 @@
 {
   "id": "repair_shop",
   "sprite": "repair_shop.webp",
-  "footprintM": [18.00, 16.63],
+  "describe": "vehicle repair depot, large workshop under a shallow pitched roof of grey corrugated metal with skylight strips, a small flat office roof at one front corner",
+  "footprintM": [23.4, 21.6],
   "partsM": [
-    { "atM": [0.0, -0.37], "sizeM": [18.0, 15.88] }
+    { "atM": [0.0, 0.0], "sizeM": [23.4, 21.6] }
+  ],
+  "fans": [
+    { "atM": [8.8888, 6.4638], "rimAtM": [8.9404, 6.5156], "rimM": [0.5482, 0.5808] }
   ]
 }

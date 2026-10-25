@@ -110,14 +110,11 @@ public class GroundMeshTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Read off the shades and not off the surfaces</b>: each kerb wears the surface of the ground it
-    /// bounds — the walk's own the concrete, the town's the tarmac — so what tells a line from that fill is
-    /// the tint, which is the whole of how a line beside a road is drawn here.
+    /// <b>Each kerb is read off its own surface</b> (<see cref="Surface.Kerb"/>, <see cref="Surface.Edging"/>).
     /// </para>
     /// <para>
-    /// <b>The walk's own shade is the shore's too</b>, the shore being pavement drawn plain, so the first
-    /// triangle wearing it is the walk's and the last is whichever of the two was laid later. That is why the
-    /// walk is read by where it starts. <b>And the last plain tarmac is a slab rather than the
+    /// <b>The walk is read by where it starts</b>, the first triangle wearing plain pavement being the walk's
+    /// whatever is laid in it later. <b>And the last plain tarmac is a slab rather than the
     /// carriageway</b>, to the same end: what the town's kerb is asked to be over is every piece of tarmac
     /// the town lays as a surface.
     /// </para>
@@ -142,27 +139,23 @@ public class GroundMeshTests
             if (mesh.Indices[index] >= mesh.FirstMarkVertex) break;
 
             var vertex = mesh.Vertices[(int)mesh.Indices[index]];
+            if (vertex.Surface == Surface.Kerb) kerbFirst = Math.Min(kerbFirst, index);
+
             if (vertex.Surface == Surface.Tarmac)
             {
-                if (Wears(vertex, GroundMesh.Paint))
-                {
-                    kerbFirst = Math.Min(kerbFirst, index);
-                }
-                else
-                {
-                    tarmacFirst = Math.Min(tarmacFirst, index);
-                    tarmacLast = index;
-                }
+                tarmacFirst = Math.Min(tarmacFirst, index);
+                tarmacLast = index;
             }
 
-            if (vertex.Surface != Surface.Pavement) continue;
-
-            if (Wears(vertex, GroundMesh.Stone))
+            if (vertex.Surface == Surface.Edging)
             {
                 walkKerbFirst = Math.Min(walkKerbFirst, index);
                 walkKerbLast = index;
             }
-            else if (Wears(vertex, Vector3.One))
+
+            if (vertex.Surface != Surface.Pavement) continue;
+
+            if (Wears(vertex, Vector3.One))
             {
                 walkFirst = Math.Min(walkFirst, index);
             }
@@ -191,8 +184,8 @@ public class GroundMeshTests
     {
         var config = SimConfig.Shipped();
         KerbCovers(
-            map, Ground(map), Drawn(Towns.Of(map).Paving(config).Rings(config).Carriageway.Rings),
-            GroundMesh.Paint, config.Road.KerbWidthM, "the boundary");
+            map, PartOf(Ground(map), GroundPart.Kerb, Surface.Kerb),
+            Drawn(Towns.Of(map).Paving(config).Rings(config).Carriageway.Rings), config.Road.KerbWidthM, "the boundary");
     }
 
     /// <summary>
@@ -206,8 +199,48 @@ public class GroundMeshTests
     {
         var config = SimConfig.Shipped();
         KerbCovers(
-            map, Ground(map), Drawn(Towns.Of(map).Paving(config).Rings(config).WalkEdge),
-            GroundMesh.Stone, config.Road.KerbWidthM, "the walk's outer face");
+            map, PartOf(Ground(map), GroundPart.WalkKerb, Surface.Edging),
+            Drawn(Towns.Of(map).Paving(config).Rings(config).WalkEdge), config.Road.KerbWidthM, "the walk's outer face");
+    }
+
+    /// <summary>
+    /// <b>A kerb's riser and its shadow are on its low side</b> (<see cref="Surface.Kerb"/>, <see cref="Surface.Shadow"/>):
+    /// every corner of the town's kerb filed at the right of its line, where the stage draws the riser, and every corner
+    /// of the shadow it casts, stands on the carriageway. Laid the other way round, the kerb stands up off the walk and
+    /// steps down to it from the road.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a corner on the line itself</b>: where the line hooks tighter than half a kerb the stroke's reach that
+    /// side is the turn's radius (<c>GroundMesh.Reach</c>), so the corner stands on the line and on neither side of it.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void TheTownsKerbStandsUpOffTheRoad(string map)
+    {
+        var config = SimConfig.Shipped();
+        var mesh = Ground(map);
+        var carriageway = Binned(PartOf(mesh, GroundPart.Carriageway));
+        var offTheLine = OffTheLine(Drawn(Towns.Of(map).Paving(config).Rings(config).Carriageway.Rings));
+        var tally = mesh.Parts[(int)GroundPart.Kerb];
+
+        var low = 0;
+        var off = new List<Vector2>();
+        for (var index = tally.FirstIndex; index < tally.FirstIndex + tally.IndexCount; index++)
+        {
+            var corner = mesh.Vertices[(int)mesh.Indices[index]];
+            var lowSide = corner.Surface == Surface.Shadow || (corner.Surface == Surface.Kerb && corner.Across >= 1f);
+            if (!lowSide || offTheLine(corner.PositionM) < config.Road.KerbWidthM * 0.25f) continue;
+
+            low++;
+            if (!Covered(carriageway.GetValueOrDefault(Cell(corner.PositionM), []), corner.PositionM) && off.Count < Named)
+            {
+                off.Add(corner.PositionM);
+            }
+        }
+
+        Assert.True(low > 0 && off.Count == 0,
+            $"{map}: {off.Count} of {low} corners on the kerb's low side stand off the carriageway, "
+            + $"the first at {string.Join("; ", off.Select(at => $"{at.X:F1}, {at.Y:F1}"))}");
     }
 
     /// <summary>
@@ -240,16 +273,17 @@ public class GroundMeshTests
         var rings = Towns.Of(map).Paving(config).Rings(config);
         var kerbM = config.Road.KerbWidthM;
 
-        FillHides(map, Ground(map), GroundMesh.Filled(Drawn(rings.Carriageway.Rings), kerbM),
-            GroundMesh.Paint, "the carriageway");
-        FillHides(map, Ground(map), GroundMesh.Filled(Drawn(rings.WalkEdge), kerbM),
-            GroundMesh.Stone, "the walk");
+        var mesh = Ground(map);
+        FillHides(map, PartOf(mesh, GroundPart.Kerb, Surface.Kerb), GroundMesh.Filled(Drawn(rings.Carriageway.Rings), kerbM),
+            "the carriageway");
+        FillHides(map, PartOf(mesh, GroundPart.WalkKerb, Surface.Edging), GroundMesh.Filled(Drawn(rings.WalkEdge), kerbM),
+            "the walk");
     }
 
     /// <summary>One fill's own boundary walked, with every place along it asked whether it wears kerb.</summary>
-    static void FillHides(string map, GroundMesh mesh, Vector2[][] outline, Vector3 tint, string named)
+    static void FillHides(string map, List<Vector2[]> laid, Vector2[][] outline, string named)
     {
-        var kerb = Binned(Tinted(mesh, tint));
+        var kerb = Binned(laid);
 
         var sampled = 0;
         var bare = new List<Vector2>();
@@ -295,9 +329,10 @@ public class GroundMeshTests
         var config = SimConfig.Shipped();
         var rings = Towns.Of(map).Paving(config).Rings(config);
         var halfM = config.Road.KerbWidthM * 0.5f;
+        var mesh = Ground(map);
 
-        KerbKeepsTo(map, Ground(map), Drawn(rings.Carriageway.Rings), GroundMesh.Paint, halfM, "the boundary");
-        KerbKeepsTo(map, Ground(map), Drawn(rings.WalkEdge), GroundMesh.Stone, halfM, "the walk's outer face");
+        KerbKeepsTo(map, PartOf(mesh, GroundPart.Kerb, Surface.Kerb), Drawn(rings.Carriageway.Rings), halfM, "the boundary");
+        KerbKeepsTo(map, PartOf(mesh, GroundPart.WalkKerb, Surface.Edging), Drawn(rings.WalkEdge), halfM, "the walk's outer face");
     }
 
     /// <summary>
@@ -309,7 +344,27 @@ public class GroundMeshTests
     /// reaches, and a corner half a width off it stands in a cell that box may just fail to touch.
     /// </remarks>
     static void KerbKeepsTo(
-        string map, GroundMesh mesh, Vector2[][] lines, Vector3 tint, float halfM, string named)
+        string map, List<Vector2[]> laid, Vector2[][] lines, float halfM, string named)
+    {
+        var offTheLine = OffTheLine(lines);
+        var strayed = new List<(Vector2 AtM, float OffM)>();
+        foreach (var triangle in laid)
+        {
+            foreach (var cornerM in triangle)
+            {
+                var offM = offTheLine(cornerM);
+                if (offM > halfM + Rounding && strayed.Count < Named) strayed.Add((cornerM, offM));
+            }
+        }
+
+        Assert.True(
+            strayed.Count == 0,
+            $"{map}: {strayed.Count} corners of the kerb stand further than {halfM:F2} m off {named}, "
+            + $"the first at {string.Join("; ", strayed.Select(at => $"{at.AtM.X:F1}, {at.AtM.Y:F1} by {at.OffM:F3} m"))}");
+    }
+
+    /// <summary>How far a place stands off the nearest stretch of a set of closed lines, exactly and not off a sampling of them.</summary>
+    static Func<Vector2, float> OffTheLine(Vector2[][] lines)
     {
         var stretches = new Dictionary<(int X, int Y), List<(Vector2 FromM, Vector2 OntoM)>>();
         foreach (var line in lines)
@@ -330,32 +385,23 @@ public class GroundMeshTests
             }
         }
 
-        var strayed = new List<(Vector2 AtM, float OffM)>();
-        foreach (var triangle in Tinted(mesh, tint))
+        return pointM =>
         {
-            foreach (var cornerM in triangle)
+            var offM = float.MaxValue;
+            var (x, y) = Cell(pointM);
+            for (var downY = -1; downY <= 1; downY++)
             {
-                var offM = float.MaxValue;
-                var (x, y) = Cell(cornerM);
-                for (var downY = -1; downY <= 1; downY++)
+                for (var acrossX = -1; acrossX <= 1; acrossX++)
                 {
-                    for (var acrossX = -1; acrossX <= 1; acrossX++)
+                    foreach (var (fromM, ontoM) in stretches.GetValueOrDefault((x + acrossX, y + downY), []))
                     {
-                        foreach (var (fromM, ontoM) in stretches.GetValueOrDefault((x + acrossX, y + downY), []))
-                        {
-                            offM = MathF.Min(offM, OffStretchM(fromM, ontoM, cornerM));
-                        }
+                        offM = MathF.Min(offM, OffStretchM(fromM, ontoM, pointM));
                     }
                 }
-
-                if (offM > halfM + Rounding && strayed.Count < Named) strayed.Add((cornerM, offM));
             }
-        }
 
-        Assert.True(
-            strayed.Count == 0,
-            $"{map}: {strayed.Count} corners of the kerb stand further than {halfM:F2} m off {named}, "
-            + $"the first at {string.Join("; ", strayed.Select(at => $"{at.AtM.X:F1}, {at.AtM.Y:F1} by {at.OffM:F3} m"))}");
+            return offM;
+        };
     }
 
     /// <summary>
@@ -384,9 +430,9 @@ public class GroundMeshTests
     /// </para>
     /// </remarks>
     static void KerbCovers(
-        string map, GroundMesh mesh, Vector2[][] lines, Vector3 tint, float kerbM, string named)
+        string map, List<Vector2[]> laid, Vector2[][] lines, float kerbM, string named)
     {
-        var kerb = Binned(Tinted(mesh, tint));
+        var kerb = Binned(laid);
         var offM = kerbM * 0.25f;
 
         var sampled = 0;
@@ -497,17 +543,6 @@ public class GroundMeshTests
     }
 
     /// <summary>
-    /// Every triangle of the ground wearing one shade, as three corners each — <b>which is what names a
-    /// line here</b>: each of the two kerbs wears the surface of the ground it bounds and is told from that
-    /// ground, and from the other kerb, by its tint alone.
-    /// </summary>
-    /// <remarks>
-    /// <b>The ground and not the marks over it</b> (<c>GroundMesh.FirstMarkVertex</c>): the town's kerb is
-    /// laid in the paint's own shade on the carriageway's own surface, so a dash is a triangle neither the
-    /// tint nor the surface tells from it and every claim here is about the line rather than about the
-    /// markings.
-    /// </remarks>
-    /// <summary>
     /// <b>A corner keeps its shade to half a filing step and its surface exactly</b> (<see cref="GroundVertex.Pack"/>):
     /// paint, brighter than the ground, as well as an edge darker than it, on a surface and as paint.
     /// </summary>
@@ -521,31 +556,53 @@ public class GroundMeshTests
         var halfStep = GroundVertex.BrightestTint / 511f * 0.5f;
 
         Assert.Equal((Surface)surface, vertex.Surface);
+        Assert.False(vertex.Fades);
         Assert.InRange(Vector3.Abs(vertex.Tint - new Vector3(r, g, b)).Length(), 0f, halfStep * MathF.Sqrt(3f));
+    }
+
+    /// <summary>
+    /// <b>A fading corner keeps its surface exactly and its cover to half a filing step</b>
+    /// (<see cref="GroundVertex.Fading"/>), on the last surface below paint as on the first.
+    /// </summary>
+    [Theory]
+    [InlineData(0f, (uint)Surface.Grass)]
+    [InlineData(0.4f, (uint)Surface.Water)]
+    [InlineData(1f, (uint)Surface.Shore)]
+    public void AFadingCornerKeepsItsCoverAndItsSurface(float cover, uint surface)
+    {
+        var vertex = new GroundVertex(Vector2.Zero, GroundVertex.Fading((Surface)surface, cover));
+
+        Assert.Equal((Surface)surface, vertex.Surface);
+        Assert.True(vertex.Fades);
+        Assert.InRange(MathF.Abs(vertex.Cover - cover), 0f, 0.5f / 511f);
     }
 
     /// <summary>Whether a corner wears a shade, as a corner files one (<see cref="GroundVertex.Pack"/>).</summary>
     static bool Wears(GroundVertex vertex, Vector3 tint) => vertex.Shade == GroundVertex.Pack(tint, vertex.Surface);
 
-    static List<Vector2[]> Tinted(GroundMesh mesh, Vector3 tint)
+    /// <summary>
+    /// Every triangle one part of the ground laid (<see cref="GroundTally"/>), as three corners each — or only those
+    /// wearing one surface: a kerb's part is its stones and the shadow they cast.
+    /// </summary>
+    static List<Vector2[]> PartOf(GroundMesh mesh, GroundPart part, Surface? wearing = null)
     {
-        var vertices = mesh.Vertices;
+        var tally = mesh.Parts[(int)part];
         var triangles = new List<Vector2[]>();
-        for (var index = 0; index + 2 < mesh.Indices.Length; index += 3)
+        for (var index = tally.FirstIndex; index < tally.FirstIndex + tally.IndexCount; index += 3)
         {
-            var first = (int)mesh.Indices[index];
-            if (first >= mesh.FirstMarkVertex) break;
-            if (!Wears(vertices[first], tint)) continue;
+            if (wearing is { } surface && mesh.Vertices[(int)mesh.Indices[index]].Surface != surface) continue;
 
-            triangles.Add(
-            [
-                vertices[first].PositionM, vertices[(int)mesh.Indices[index + 1]].PositionM,
-                vertices[(int)mesh.Indices[index + 2]].PositionM,
-            ]);
+            triangles.Add(Corners(mesh, index));
         }
 
         return triangles;
     }
+
+    static Vector2[] Corners(GroundMesh mesh, int index) =>
+    [
+        mesh.Vertices[(int)mesh.Indices[index]].PositionM, mesh.Vertices[(int)mesh.Indices[index + 1]].PositionM,
+        mesh.Vertices[(int)mesh.Indices[index + 2]].PositionM,
+    ];
 
     /// <summary>
     /// A water outline is cut into ears, not fanned: a river is concave, and a fan from one vertex
@@ -566,7 +623,8 @@ public class GroundMeshTests
         var laid = 0;
         for (var index = 0; index < mesh.Indices.Length; index += 3)
         {
-            if (mesh.Vertices[(int)mesh.Indices[index]].Surface == Surface.Water) laid++;
+            var corner = mesh.Vertices[(int)mesh.Indices[index]];
+            if (corner.Surface == Surface.Water && !corner.Fades) laid++;
         }
 
         Assert.Equal(owed, laid);

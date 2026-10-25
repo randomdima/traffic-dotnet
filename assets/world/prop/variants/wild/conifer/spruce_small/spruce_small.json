@@ -1,0 +1,9 @@
+{
+  "id": "spruce_small",
+  "sprite": "spruce_small.webp",
+  "kind": 0,
+  "diameterM": 1.8,
+  "colliderM": 0.5,
+  "share": 0.8,
+  "describe": "small spruce, a tight dark green star of layered branches"
+}

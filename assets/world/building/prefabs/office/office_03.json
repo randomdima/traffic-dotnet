@@ -2,8 +2,8 @@
   "id": "office_03",
   "sprite": "office_03.webp",
   "footprintM": [
-    17.0,
-    12.5
+    19.5,
+    14.4
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +15,16 @@
     "dark bitumen",
     "office block"
   ],
-  "describe": "mid-rise office or public building, flat roof of dark bitumen with rooftop plant, a lift room and a parapet"
+  "describe": "mid-rise office or public building, flat roof of dark bitumen with rooftop plant, a lift room and a parapet",
+  "fans": [
+    { "atM": [-6.7361, -3.9213], "rimAtM": [-6.7194, -3.8583], "rimM": [0.7318, 0.7136] },
+    { "atM": [-5.0397, -3.9378], "rimAtM": [-4.9917, -3.8634], "rimM": [0.7064, 0.7244] },
+    { "atM": [-6.9172, 0.7085], "rimAtM": [-6.9087, 0.7611], "rimM": [0.587, 0.6075] },
+    { "atM": [-0.527, 2.8668], "rimAtM": [-0.4935, 2.9313], "rimM": [0.6326, 0.6736] },
+    { "atM": [0.8894, 2.8668], "rimAtM": [0.9159, 2.9343], "rimM": [0.6514, 0.6766] },
+    { "atM": [2.3057, 2.8668], "rimAtM": [2.3255, 2.9378], "rimM": [0.6388, 0.6729] },
+    { "atM": [-6.9172, 4.3661], "rimAtM": [-6.8945, 4.4259], "rimM": [0.5944, 0.5884] }
+  ],
+  "chimneys": [[7.76, -4.68]],
+  "potWidthM": 0.6
 }

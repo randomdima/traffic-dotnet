@@ -2,8 +2,8 @@
   "id": "apartments_29",
   "sprite": "apartments_29.webp",
   "footprintM": [
-    24.5,
-    19.5
+    31.9,
+    25.4
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -16,5 +16,7 @@
     "courtyard block",
     "old town"
   ],
-  "describe": "deep old-town apartment block, hipped roof of rust-red painted sheet metal round a light well, dormers and chimney stacks"
+  "describe": "deep old-town apartment block, hipped roof of rust-red painted sheet metal round a light well, dormers and chimney stacks",
+  "chimneys": [[-12.25, -6.2, -11.35, -6.2], [12.2, -6.2], [12.45, 4.35, 13.35, 4.35], [-12.45, 5.35]],
+  "potWidthM": 0.9
 }

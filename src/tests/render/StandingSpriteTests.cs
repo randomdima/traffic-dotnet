@@ -11,9 +11,8 @@ namespace TrafficSimulation.Tests.Render;
 
 /// <summary>
 /// The town's standing geometry as instances: that every building and every prop of every shipped map
-/// is drawn exactly once, that the cull is a superset and never a subset, and that the two look rules —
-/// the nearest roof turned to its door, the prop's kind and band — are the rules and not something near
-/// them.
+/// is drawn exactly once, that the cull is a superset and never a subset, and that a prop is drawn in the
+/// look the plan laid it in, at that look's own size.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P5)]
@@ -27,14 +26,7 @@ public class StandingSpriteTests
     static StandingSprites Lay(CityPlan plan) => Lay(plan, BuildingUses.Of(plan));
 
     static StandingSprites Lay(CityPlan plan, BuildingUses uses) =>
-        StandingSprites.Lay(plan, Buildings, uses, Props, 0, Buildings.Count, Aspects(), SimConfig.Shipped().Grid.Main);
-
-    static float[] Aspects()
-    {
-        var aspects = new float[Buildings.Count + Props.Count];
-        Array.Fill(aspects, 1f);
-        return aspects;
-    }
+        StandingSprites.Lay(plan, Buildings, uses, Props, 0, Buildings.Count, SimConfig.Shipped().Grid.Main);
 
     static SpriteInstance[] Everything(CityPlan plan, StandingSprites standing)
     {
@@ -108,14 +100,26 @@ public class StandingSpriteTests
         }
     }
 
+    /// <summary><b>A prop is drawn in the look the plan laid it in</b> (GEN-6e): the catalogue chooses nothing.</summary>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void EveryPropIsDrawnInThePlansLook(string map)
+    {
+        var plan = Towns.Of(map);
+        var drawn = DrawnByPlace(plan, Lay(plan));
+
+        for (var prop = 0; prop < plan.Props.Count; prop++)
+        {
+            Assert.Equal((uint)(Buildings.Count + plan.Props.Look[prop]), drawn[plan.Props.CentreM[prop]].Sheet);
+        }
+    }
+
     /// <summary>
-    /// <b>A prop is drawn inside the circle its body is</b> (GEN-6d): the longest side of the picture is
-    /// the diameter the plan laid it at, so nothing is drawn past the ground a car is held off. And it
-    /// wears a look from its own kind's set.
+    /// <b>A prop is drawn at its look's own size</b> (GEN-6e), and nothing the plan laid stretches it.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryPropIsDrawnAtItsOwnSizeInItsOwnKind(string map)
+    public void EveryPropIsDrawnAtItsLooksAuthoredSize(string map)
     {
         var plan = Towns.Of(map);
         var drawn = DrawnByPlace(plan, Lay(plan));
@@ -123,42 +127,10 @@ public class StandingSpriteTests
         for (var prop = 0; prop < plan.Props.Count; prop++)
         {
             // To the half an instance carries its size in (SpriteInstance): eleven bits of it.
-            var instance = drawn[plan.Props.CentreM[prop]];
-            var radiusM = plan.Props.RadiusM[prop];
-            Assert.Equal(radiusM, MathF.Max(instance.HalfSizeM.X, instance.HalfSizeM.Y), radiusM / 1024f);
-
-            var variant = (int)instance.Sheet - Buildings.Count;
-            Assert.InRange(variant, 0, Props.Count - 1);
-            Assert.Equal(plan.Props.Kind[prop], (byte)Props.Variants[variant].Kind);
-        }
-    }
-
-    /// <summary>
-    /// The two-step: a look inside the tolerance is picked from the band, and a size no look was
-    /// authored for falls back to the nearest in the kind rather than to nothing.
-    /// </summary>
-    [Fact]
-    public void APropTakesTheBandItsSizeNamesAndTheNearestWhenThereIsNoBand()
-    {
-        for (var kind = 0; kind <= 2; kind++)
-        {
-            var authored = Props.Variants.Where(variant => variant.Kind == kind).Select(variant => variant.DiameterM).ToArray();
-            Assert.NotEmpty(authored);
-
-            foreach (var diameterM in authored.Distinct())
-            {
-                for (var index = 0; index < 32; index++)
-                {
-                    var look = Props.Variants[Props.Look(kind, diameterM, index)];
-                    Assert.Equal(kind, look.Kind);
-                    Assert.True(MathF.Abs(look.DiameterM - diameterM) <= PropCatalog.BandToleranceM,
-                        $"a {diameterM} m prop of kind {kind} wears {look.Id} at {look.DiameterM} m");
-                }
-            }
-
-            var offTheScale = Props.Variants[Props.Look(kind, 40f, 0)];
-            Assert.Equal(kind, offTheScale.Kind);
-            Assert.Equal(authored.Max(), offTheScale.DiameterM);
+            var sizeM = Props.Variants[plan.Props.Look[prop]].SizeM;
+            var halfM = drawn[plan.Props.CentreM[prop]].HalfSizeM;
+            Assert.Equal(sizeM.X * 0.5f, halfM.X, sizeM.X / 1024f);
+            Assert.Equal(sizeM.Y * 0.5f, halfM.Y, sizeM.Y / 1024f);
         }
     }
 
@@ -175,21 +147,5 @@ public class StandingSpriteTests
             .Select(variant => variant.Id);
 
         Assert.Empty(turned);
-    }
-
-    /// <summary>The look is a function of the prop's index, so two runs of the same town draw the same town.</summary>
-    [Fact]
-    public void TheSameIndexAlwaysDrawsTheSameLook()
-    {
-        for (var index = 0; index < 1_000; index++)
-        {
-            Assert.Equal(Props.Look(0, 2.2f, index), Props.Look(0, 2.2f, index));
-        }
-
-        // And it is a hash rather than a constant: the shipped catalogue has several looks in every
-        // band, and a town of one look is what a broken mix looks like.
-        var looks = new HashSet<int>();
-        for (var index = 0; index < 1_000; index++) looks.Add(Props.Look(0, 2.2f, index));
-        Assert.True(looks.Count > 1);
     }
 }

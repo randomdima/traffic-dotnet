@@ -26,7 +26,7 @@ internal static class TrainProbe
 
     public static void Run(string map, SimConfig config, double seconds)
     {
-        var plan = Maps.Plan(map, config, World.Statics.BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, World.Statics.ShippedArt.Sizes);
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
         var ticks = (int)((seconds > 0 ? seconds : DefaultSeconds) * config.Sim.TickRateHz);

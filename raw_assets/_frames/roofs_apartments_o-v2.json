@@ -1,0 +1,38 @@
+{
+ "id": "roofs_apartments_o-v2",
+ "ts": "2026-10-20T13:41:40",
+ "op": "edit",
+ "name": "roofs_apartments_o",
+ "file": ".tmp/gen/frames/roofs_apartments_o-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031046,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 1×2 grid. Redraw only cell 1 (the transparent area). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe fault in cell 1: it showed walls seen from the side. The light well showed a cream wall with a row of windows, and each dormer showed its front wall with a window, as if viewed at an angle. Seen straight down, a light well is a plain dark rectangle (its floor in shadow) with no wall or window visible, and a dormer is only its own small gabled roof, about 2 m wide and 2 m deep, its ridge running out from the main roof, with no wall or window visible. Keep the shape, the grey sheet metal and the hips exactly as before.\n\nTrace the outline in image 2 exactly, keep its proportions and its widely rounded corners, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: a chimney stack about 0.6 m, a roof hatch about 1 m, against cars 4 m long. No text.\n\n1. 44.9 × 23.4 m (1.9× wider than deep, corners widely rounded) — deep old-town apartment block, hipped roof of grey sheet metal round a light well, dormers and chimney stacks, its corners rounded in wide curves",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "60572865d349406d",
+   "ext": "png",
+   "frame": "roofs_apartments_o-v1",
+   "was": ".tmp/gen/frames/roofs_apartments_o-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "b1c35e8c3d75e53c",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_apartments_o.png"
+  },
+  {
+   "role": "mask",
+   "sha": "039e24106d8f1216",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_apartments_o-v1/_mask_apartments_rounded_06.png"
+  }
+ ]
+}

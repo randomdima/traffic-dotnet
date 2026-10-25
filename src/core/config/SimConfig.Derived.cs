@@ -51,6 +51,12 @@ internal sealed partial class SimConfig
     /// <summary>And how much it gives back in one tick once none does (<see cref="TyreFigures.SlipRecoverS"/>).</summary>
     public float TyreSlipRecoverPerTick => Laid.SlipRecover;
 
+    /// <summary>
+    /// <see cref="LampFigures.BeaconPeriodS"/> as a rate, divided once here so the device is handed the host's own
+    /// float and a lamp kernel needs no quotient.
+    /// </summary>
+    public float BeaconHz => 1f / Lamps.BeaconPeriodS;
+
     /// <summary>+1 where traffic keeps right, which with <c>+y</c> down is the way curvature counts positive.</summary>
     public float RoadSideSign => Road.TrafficKeepsRight ? 1f : -1f;
 
@@ -619,6 +625,12 @@ internal sealed partial class SimConfig
 
     /// <summary>How early a pair is given a manifold. See <see cref="SolverFigures.AllowedPenetrationM"/>.</summary>
     public float SolverSpeculativeM => Solver.AllowedPenetrationM * 4f;
+
+    /// <summary>
+    /// How wide the blur at a cloud's shadow's edge is (OBJ-8): the ground there sees part of the sun past the cloud's
+    /// edge, which from <see cref="CloudFigures.HeightM"/> up is that height across the sun's width.
+    /// </summary>
+    public float CloudPenumbraM => Clouds.HeightM * Trig.Tan(Clouds.SunAcrossDeg * MathF.PI / 180f);
 
     /// <summary>How many steps in a row a body has to end at rest before it freezes (SOL-37) — never fewer than one.</summary>
     public int SolverRestTicks => Math.Max(1, (int)MathF.Ceiling(Solver.RestS * Sim.TickRateHz));

@@ -1,0 +1,49 @@
+{
+ "variant": "raw_assets/world/terrain/ground/surfaces/bridge_a1/bridge_a1-v3.png",
+ "variants": [
+  "raw_assets/world/terrain/ground/surfaces/bridge_a1/bridge_a1-v3.png",
+  "raw_assets/world/terrain/ground/surfaces/bridge_a2/bridge_a2-v3.png",
+  "raw_assets/world/terrain/ground/surfaces/bridge_b1/bridge_b1-v3.png",
+  "raw_assets/world/terrain/ground/surfaces/bridge_b2/bridge_b2-v3.png"
+ ],
+ "looks": [
+  [
+   [
+    "bridge_a1",
+    false
+   ],
+   [
+    "bridge_a2",
+    false
+   ],
+   [
+    "bridge_a2",
+    true
+   ],
+   [
+    "bridge_a1",
+    true
+   ]
+  ],
+  [
+   [
+    "bridge_b1",
+    false
+   ],
+   [
+    "bridge_b2",
+    false
+   ],
+   [
+    "bridge_b2",
+    true
+   ],
+   [
+    "bridge_b1",
+    true
+   ]
+  ]
+ ],
+ "pxPerM": 31.5,
+ "encoding": "webp q90"
+}

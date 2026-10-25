@@ -1,8 +1,9 @@
 {
   "id": "hospital_01",
+  "sprite": "hospital_01.webp",
   "footprintM": [
-    6.0,
-    4.0
+    8.4,
+    5.6
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -14,5 +15,10 @@
     "grey membrane",
     "annex"
   ],
-  "describe": "small single-storey annex of a clinic, flat grey roof with a vent and an air conditioner unit"
+  "describe": "small single-storey annex of a clinic, flat grey roof with a vent and an air conditioner unit",
+  "fans": [
+    { "atM": [2.4091, -1.5591], "rimAtM": [2.4026, -1.5473], "rimM": [0.3798, 0.3699] }
+  ],
+  "chimneys": [[-2.4, 0.4]],
+  "potWidthM": 0.6
 }

@@ -1,0 +1,62 @@
+{
+ "id": "service_ambulance_b-v2",
+ "ts": "2026-10-23T02:57:11",
+ "op": "edit",
+ "name": "service_ambulance_b",
+ "file": ".tmp/gen/frames/service_ambulance_b-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.021082,
+ "usage": {
+  "prompt_tokens": 2390,
+  "completion_tokens": 158,
+  "total_tokens": 2548,
+  "cost": 0.021082,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.021082,
+   "upstream_inference_prompt_cost": 0.016342,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 ambulances for a 2D top-down city game, made by repainting the vehicles of the first picture.\n\nThe first picture is nine finished vehicles in a 3×3 grid. Redraw it exactly — the same nine vehicles in the same places, at the same size, with the same outlines, proportions, glass, mirrors, lamps, roof panels, shading and art style, straight down from above — and turn each into an ambulance of the town, painted like the ambulance in the second picture.\n\nKEEP EVERY BODY EXACTLY AS WIDE AND AS LONG AS IN THE FIRST PICTURE: do not widen, round out or enlarge any vehicle — trace each outline from the first picture. The first picture's sizes are true and differ on purpose: the bottom row is the longest, and car 9 is a third longer than car 1. The last drawing of this sheet made them all about one size and came out too wide for its length — cars 1, 2, 3, 6 and 7 about 10 % too wide, car 9 18 % and car 8 23 % too wide. Each body's length against its width, without mirrors, is exactly: car 1 2.25 times, car 2 2.46, car 3 2.74, car 4 2.60, car 5 2.50, car 6 2.58, car 7 2.64, car 8 2.66, car 9 2.97 — long and slim, as the first picture draws them. Leave spare room in each place empty rather than draw a vehicle wider. Car 1 is a Soviet forward-control 4×4 minibus with no bonnet at all: a flat front, a rounded loaf-shaped body, exactly as the first picture draws it. Car 3 is a long low estate car with a long bonnet, not a van.\n\nNOTHING ON THE ROOF BUT PAINT. Draw no light bar, no beacon, no dome, no roof rails, no rack and no roof vents on any vehicle, whatever the second picture shows: the game fits its own light bar later. Cars 3 and 5 lose the roof rails the first picture draws — the last drawing kept the two thin bars along their roof edges, and they must be gone: those roofs are plain smooth white paint from edge to edge, with only the roof's own thin edge line where it meets the side glass. The roof ribs of the vans stay as the first picture draws them.\n\nLivery:\n- The whole body painted white, every panel, nose to tail — the four old worn vehicles, 1, 3, 5 and 8, a slightly yellowed white with their wear kept; no panel left in the first picture's colour.\n- A thin red stripe runs the length of each flank just inside the outline, as on the second picture.\n- One plain red cross on the roof, in its rear half, well behind the windscreen — the front third of every roof stays bare white for the light bar the game adds. The cross about a third of the roof's width, its arms equal.\n- On the middle of the bonnet a small blue six-armed star, as on the second picture's bonnet, about a third of the bonnet's width; car 1 has no bonnet and carries none. No text, letters, numbers or crests anywhere.\n- The glass dark, the lamps exactly where and as the first picture draws them, switched off: the tail lamps clean lenses in their housings, no red smeared onto the bodywork round them.\nChange nothing else: not the shape, not the length or width, not the position.\n\nBackground: fully transparent outside the vehicles — no colour, no glow or halo, no shadow. Each vehicle's edge ends sharply.\n\nThe vehicles, left to right and top to bottom: 1 a Soviet forward-control 4×4 minibus, 2 a modern small panel van, 3 a 1990s boxy estate car, 4 a 1990s passenger van, 5 a 1990s panel van, 6 a modern mid-size van, 7 a modern high-roof van, 8 a 2000s Russian light van, 9 a large high-roof van.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "537b3eca97115412",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_ambulance_b_style.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "19823ad99751839e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_ambulance_b_ref.png"
+  }
+ ],
+ "cells": [
+  "ambulanceloaf_white",
+  "ambulancevan_white",
+  "ambulanceestate90s_white",
+  "ambulancepassvan90s_white",
+  "ambulancevan90s_white",
+  "ambulancebus_white",
+  "ambulance_white",
+  "ambulancelight_white",
+  "ambulancebig_white"
+ ]
+}

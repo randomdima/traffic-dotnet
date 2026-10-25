@@ -1,2 +1,4 @@
 {"variant": "pickup_silver-v1", "frame": "fleet100_b11-v2", "cell": 6, "pxPerM": 87.242, "score": 4, "status": "candidate", "ts": "2026-10-22T14:49:00"}
-{"variant": "pickup_silver-v2", "frame": "fleet100_b11-v2", "cell": 6, "pxPerM": 87.242, "score": 4, "lampsMirroredFrom": "pickup_silver-v1", "props": "raw_assets/agents/car/variants/pickup_silver/pickup_silver-v1.props.json", "status": "used", "ts": "2026-10-22T14:51:53"}
+{"variant": "pickup_silver-v2", "frame": "fleet100_b11-v2", "cell": 6, "pxPerM": 87.242, "score": 4, "lampsMirroredFrom": "pickup_silver-v1", "props": "raw_assets/agents/car/variants/pickup_silver/pickup_silver-v1.props.json", "status": "candidate", "ts": "2026-10-22T14:51:53"}
+{"variant": "pickup_silver-v3", "frame": "fleet100_r04-v1", "cell": 8, "pxPerM": 87.054, "score": 3, "status": "used", "ts": "2026-10-22T19:17:37"}
+{"variant": "pickup_silver-v4", "frame": "fleet100_r04-v1", "cell": 8, "pxPerM": 87.054, "score": 3, "lampsMirroredFrom": "pickup_silver-v3", "props": "raw_assets/agents/car/variants/pickup_silver/pickup_silver-v3.props.json", "status": "candidate", "ts": "2026-10-22T19:21:08"}

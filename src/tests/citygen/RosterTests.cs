@@ -166,7 +166,7 @@ public class RosterTests
             Zones = houses.Length == 0 ? Zoned.Town(1000f, 1000f, counts) : Zoned.Town(1000f, 1000f, counts, Zoned.Terrace(houses)),
         };
 
-        return TownPlan.Lay(survey, Config, Houses);
+        return TownPlan.Lay(survey, Config, new ArtSizes(Houses, PropSizes.None));
     }
 
     /// <summary>One house prefab, of 12 by 8 m.</summary>

@@ -1,0 +1,58 @@
+{
+ "id": "props_d_trees_large-v1",
+ "ts": "2026-10-25T02:04:15",
+ "op": "edit",
+ "name": "props_d_trees_large",
+ "file": ".tmp/gen/frames/props_d_trees_large-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.013547,
+ "usage": {
+  "prompt_tokens": 1465,
+  "completion_tokens": 158,
+  "total_tokens": 1623,
+  "cost": 0.013547,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.013547,
+   "upstream_inference_prompt_cost": 0.008807,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image is attached: finished art from the same game — the grass these things stand on and two cars, at one scale — to match in style, finish and scale only, not its contents or colours.\n\nMake one image of 12 separate sprites for a 2D city game seen from above: small things that stand in a town's grass verges, parks and yards. Lay them in a 4 by 3 grid — 3 rows of 4, read left to right and top to bottom in the order listed below — each centred in its place in the grid, well apart from its neighbours and from the picture's edge, never touching another.\n\nSize and shape:\n- Each is drawn at the true size given, in metres, against the cars in the style image (4.5 m long, 1.8 m wide): a smaller thing is drawn smaller than a larger one, in proportion. A round thing is as wide as it is deep; a rectangular one keeps the proportion given.\n- A crown, a bush or a patch of plants has its own natural soft edge. A made object (a bin, a bench, a planter) has clean straight or round edges. Nothing is cut off.\n- No hole inside a drawing: where a crown or a bush is thin, darker leaves or branches deeper inside it show.\n\nScale of the details is strict: a leaf is a few centimetres, a flower head a few centimetres, a bench slat 10 cm wide, a bin lid's handle a hand wide. A small thing keeps its details few, simple and readable.\n\nThe view:\n- A thing marked \"front at the bottom\" is turned in the game to face the footway, so it is seen strictly from directly above (orthographic plan view, like a map), its front at the bottom edge: no perspective, no tilt, no side faces.\n- Everything else is never turned, so it may be seen from high above at a slight angle, a little of its side showing towards the bottom, as long as it reads mostly from above: a tree is mostly its crown, a bin mostly its lid.\n- No cast shadow on the ground; soft shading on the thing itself, light from the top-left.\n\nStyle: painted game art like the style image, natural and believable rather than cartoonish: soft detailed painting, no heavy black outlines, rich but natural colours, every drawing clearly different from its neighbours. Summer, in a Black Sea port city.\n\nEverything outside the drawings is fully transparent: no background colour, no ground, no grass under them, no shadow, nothing half-transparent. No text, letters, numbers, logos, labels, grid lines or frames anywhere.\n\nDrawings, row by row, left to right:\n\n\nRow 1\n1. round, 4.2 m across — young English oak crown, dense lobed dark green leaves in rounded clumps, a few gaps of shadow between them\n2. round, 4.4 m across — young walnut crown, broad and open, large pale olive-green compound leaves, airy with dark gaps\n3. round, 4.4 m across — young horse chestnut crown, big hand-shaped leaves in heavy deep green clumps, a few upright white flower candles\n4. round, 4.5 m across — young plane tree crown, broad maple-like light green leaves, loose layered clumps\n\nRow 2\n5. round, 4 m across — young sycamore maple crown, dense mid green five-lobed leaves, rounded billowing shape\n6. round, 4 m across — young weeping willow crown, fine silvery green narrow leaves in soft streaming tufts radiating from the centre\n7. round, 3.8 m across — young linden crown, heart-shaped fresh green leaves, smooth even dome with pale yellow-green blossom flecks\n8. round, 3.8 m across — young copper beech crown, dense deep purple-red leaves with darker shadowed clumps\n\nRow 3\n9. round, 3.8 m across — young ash crown, feathery mid green leaflets, open and light, dark shadowed hollows between the sprays\n10. round, 3.6 m across — young black locust (wild acacia) crown, small rounded bright yellow-green leaflets, open lacy texture\n11. round, 3.6 m across — young field elm crown, small rough dark green leaves, irregular lumpy outline\n12. round, 3.6 m across — young field maple crown, small lobed leaves in mid green with a few yellowing ones, compact",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "fa8eff6a33e96d75",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/props_trees_large_style.png"
+  }
+ ],
+ "cells": [
+  "oak_young",
+  "walnut_young",
+  "horse_chestnut_young",
+  "plane_young",
+  "sycamore_young",
+  "willow_young",
+  "lime_young",
+  "copper_beech_young",
+  "ash_young",
+  "robinia_young",
+  "elm_young",
+  "field_maple_young"
+ ]
+}

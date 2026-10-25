@@ -1,5 +1,122 @@
 # CityGen — decision log
 
+## 2026-10-25 — the props are laid as a town sets them out and as the ground grows them
+
+**The owner asked for better prop placement and counts.** Measured first (`--bench census`, which now prints the props
+family by family): Odesa stood 8 707 verge props, 88 a kilometre of the walk's face, and 28 266 pieces of scenery, 60 a
+hectare of grass, with 2.9 % of the grass under a picture; a street tree was one draw in twenty along a kerb, and the
+open ground was a lattice thinned at random, which reads as even noise at every distance. Four changes, each a
+relation, and the figures on `SimConfig.CityGen`:
+
+- **A look is drawn by an authored share** (`GEN-6e`, `share` on a variant file, one where left out) rather than evenly,
+  so the art can say a skip is rarer than a bin. Not weighted by size: a size is the art's for a different question,
+  and a weight read off it would be a derived figure standing in for one nobody authored. No variant states one yet.
+- **A tree-lined block's trees stand in a row at a pitch** (`GEN-6f`), laid before the scatter. A street tree is a
+  crowned look — one whose body is narrower than its girth — which is the only sense the plan has of a tree, and needs
+  no family or folder crossing the seam.
+- **The open ground grows in clumps, and the clumps in thickets and clearings** (`GEN-6g`): the sweep's candidates are
+  hearts, members no wider than the heart grow round them, and a field off the map's seed (`Thickets`) multiplies the
+  zone's share and the clump's size. Clumps alone, on the even lattice, read as a denser noise; it was the field that
+  made the ground read as groves and lawns on the contact sheet. The lattice was tightened from 7.4 m to 6.5 m.
+- **A verge sets things out in runs** (`GEN-6h`): a share of its stations lay one look again a gap along. The gap is a
+  figure of its own above `PropApartM`, because a run laid at exactly the GEN-6c clearance is refused member by member
+  wherever the face bends inward or the arithmetic rounds down.
+
+**What it came to** (`--bench census`, `--bench load`, `--bench sprites`):
+
+| | Odesa before | Odesa after | OdesaOsm before | OdesaOsm after |
+|---|---|---|---|---|
+| verge props (bodies) | 8 707, 88 a km | 10 507, 106 a km | 260 077, 125 a km | 320 382, 154 a km |
+| of them street trees | 331 | 3 260 | 10 273 | 79 039 |
+| scenery | 28 266, 60 a ha | 104 509, 223 a ha | 688 897, 55 a ha | 2 193 499, 176 a ha |
+| grass under a picture | 2.9 % | 5.8 % | 2.7 % | 4.8 % |
+| the props stage | 187 ms | 254 ms | 6.2 s | 6.9 s |
+| the whole plan | 928 ms | 1 009 ms | 44.6 s | 45.4 s |
+
+The sweep's ground, growth and stand-off are now asked on every thread with the rest of a candidate's tests, which
+paid for most of the clumps. OdesaOsm stands 1 923 MiB resident once its world is up, against 1 889. The desktop's frame
+reads the scenery as runs and is untouched; the page's fill of it is in [tech-debt](../../../docs/tech-debt.md).
+
+**Furniture gathered at corners and crossings rather than mid-block was weighed and not built**: the walk's face knows
+nothing of the junctions, and the corner's sight line (TER-4c.4) already clears what stands nearest one.
+
+## 2026-10-25 — a prop is laid at the size of the look it will wear
+
+**A prop's size was the plan's**: a diameter drawn in a band per kind (0.6–2.2 m, the wild set to 3 m), and the
+renderer picked a look within 0.3 m of it and stretched it to the draw. A bollard 0.25 m across was drawn at 0.6–0.9,
+and a 4.5 m crown could never be asked for — the band was an authored figure standing in for what the art already
+said. **The plan now draws the look and takes its girth** (`GEN-6e`): the kind as before, then one of that kind's
+looks evenly, and the renderer draws that look at its own size. The band, its tolerance and the three figures
+(`PropDiameterMinM`, `PropDiameterMaxM`, `PropWildDiameterMaxM`) are gone.
+
+- **The seam is `ArtSizes`, the roofs' `BuildingSizes` and the looks' `PropSizes` side by side** (`World.Statics.ShippedArt`),
+  and not props added to `BuildingSizes`: that name would then lie, and the stages that stand buildings would be
+  handed looks they never read. `Maps.Plan` and `TownPlan.Lay` take the pair; every building stage still takes only
+  its half.
+- **A round look's picture is its diameter along its longest side** (the owner, 2026-10-25: props are drawn without
+  outline layouts and each drawing taken whole, so a disc's picture is not always square), its other side the
+  sprite's own aspect, read off the sprite's header as the catalogue loads. A box's footprint is written off the
+  drawing by `qq sprites use`, its width authored and its depth measured. **A round look's girth is its diameter and
+  a box's its diagonal**: a crown fills its disc and its picture's corners are bare, so a diagonal would keep a disc
+  1.4 times too wide and thin the town; a box turned onto a kerb's bearing needs the whole diagonal to stay inside
+  the disc the town clears for it.
+- **A picture may reach past its body** (the owner, 2026-10-25: "Prop assets are allowed to have minor visuals beyond
+  collider. That can even be good for some of them."): an optional `colliderM` is the disc a kerbside prop stands as,
+  a street tree's 0.5 m trunk under a 4 m crown, and the girth where it is left out. **Spacing stays on the girth**
+  so crowns do not pile up: the scatter, the claims, the grass test and the stand-off from driven ground read
+  `RadiusM`, and only the statics read `BodyRadiusM`. A disc stays the one shape for every body, over a box collider
+  per prop.
+- **A kind with no look lays nothing**, a set-down prop included, and a town handed no looks (`ArtSizes.None`) lays
+  no prop: a disc the town collides with and nothing draws is what a renderer bug looks like. The suite's small
+  towns laid with `ArtSizes.None` stand no props now; those that ask about props hand looks of their own.
+- **A piece of scenery is its place and its look** (`SceneryPiece`): the size is the look's, kept once a look on the
+  device rather than once a piece.
+
+## 2026-10-22 — the showroom stands still, and the car picked out runs through its lamps
+
+**The owner asked for the showroom to be a map for reviewing the assets and their animations, with no actors on it**,
+and for the car picked out, unless it is being driven, to loop its lamps two seconds a state.
+
+- **Its cars run no round** (CAR-8, `TownWorld._showroom`): each stands where it was parked until a hand or an order
+  drives it. It already had nobody on foot.
+- **The car picked out shows headlamps, reversing, brake, left, right and hazard lamps in turn** (CAR-14.9), off the
+  town's clock. A parked car's tick is skipped (`TownWorld.StandsParked`), so the showroom signals its lamps there: in
+  turn while picked out, dark the tick after it is let go of.
+- **Both indicators at once flash both sides** (`CarLamps.Shown`); before, a set naming both lit neither.
+
+## 2026-10-20 — the buildings are drawn at the size the city builds them, and a yard is as wide as its building
+
+**The owner found the buildings small beside the cars and the props**, and chose to grow the footprints rather than
+redraw the old art to them: a factor a look, proposed off a lineup at one scale beside a 3.95 m car and the city's own
+survey, and approved as a table. The prefabs are sections of split footprints, so the survey's ratio was moderated.
+
+| look | factor | survey/prefab median, linear |
+|---|---|---|
+| house | 1.4 | 1.67 |
+| apartments, tower, garages, shed, retail | 1.3 | 1.29–2.13 |
+| industrial | 1.5 | 1.71 |
+| school | 1.6 | 2.05 |
+| hospital (prefab), greenhouse | 1.4 | 1.48, 1.68 |
+| office | 1.15 | 1.17 |
+| religious, canopy | 1.1 | 1.07, 1.09 |
+| kiosk, the eighteen ordinary roofs | 1.0 | 0.89 |
+| the three civic roofs | 1.3 | — |
+
+- **The footprints were rewritten in the variant files** (`qq prefabs scale`), a rounded corner with them and an
+  eave's radius kept: a footprint is an authored length, and a factor kept beside it would be a second answer to how
+  big a house is. **`OdesaOsm` against its survey** (`--bench zones`): 96 776 buildings laid against the place's
+  91 977 where it laid 111 920, the fit 86.6 → 88.9 %, an old town's cover 31.2 → 32.8 % of 38.6.
+- **The civic roofs were asked at 1.6 and given 1.3**: a hospital stands on the flat of its yard's rank (GEN-55), and
+  a yard was the widest car park, six bays. **A yard is now as wide as its building's frontage** (`CarParks.YardBays`):
+  eight bays for a 23.4 m roof, six for the 18 m one, so the old roofs lay the old towns. At 1.6 (28.8 m, nine bays)
+  a district in the suite's city and one in `Odesa` found no kerb straight for that long and stood no hospital or no
+  depot; **at 1.3 one of `Odesa`'s eight districts still stands no depot, which the owner accepted** — GEN-56 is
+  restated as no district standing two, the shortfall the census's (GEN-8).
+- **Their walls were drawn again with the art**: the old civic parts were measured off the old pictures, four
+  near-coincident rectangles each; a hospital is now a main block and an entrance wing, a police station the same with
+  the wing off-centre, a depot one block.
+- **A bigger town found a router loop**, the routing log's entry of the same day.
+
 ## 2026-10-18 — a map holds its railway, and a traced one OSM's main lines
 
 **The owner asked for trains** ([agents/train](../../agents/train/docs/decision-log.md)), on the generated cities and on
@@ -1766,9 +1883,7 @@ arrives on, so a movement leaving a node needs some road other than its own arri
 Every prop was a coin toss between *tree*, *scatter* and *furniture*, so a litter bin stood in a field as
 often as an oak and the town read as three-way noise. **The kinds are placements** (`GEN-6b`) — wild,
 planted, furniture — and a verge still carries wild looks, since a kerb planted only with what a town plants
-reads as a catalogue. **The size band went with the kind**: the great trees are authored at 2.6–3 m against
-a draw stopping at 2.2, so nine looks were reachable only through a fallback that does not resize. **Thirty
-looks were deleted rather than filed**, each failing one test — name what this is and which of the three
+reads as a catalogue. **Thirty looks were deleted rather than filed**, each failing one test — name what this is and which of the three
 places it stands in; eleven were park amenities, and this town has no park. **A prop's picture was bigger
 than the prop** (`GEN-6d`): drawn `diameterM` tall, the flower planter was 3.45 m across against an authored
 1.9. Props no longer overlap, indexed by a grid of the widest prop's own width because neither pass can see

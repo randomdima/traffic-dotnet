@@ -1,2 +1,0 @@
-{"variant": "minivan_wine-v1", "frame": "cars_civil_a-v3", "cell": 8, "box": [538, 748, 459, 211], "pxPerM": 105.455, "score": 4, "status": "candidate", "ts": "2026-10-18T18:14:59"}
-{"variant": "minivan_wine-v2", "frame": "cars_civil_c-v2", "cell": 8, "box": [538, 748, 459, 211], "pxPerM": 105.455, "score": 3, "status": "used", "ts": "2026-10-18T19:45:18"}

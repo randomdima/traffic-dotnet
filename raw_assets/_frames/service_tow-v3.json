@@ -1,0 +1,62 @@
+{
+ "id": "service_tow-v3",
+ "ts": "2026-10-23T03:19:14",
+ "op": "edit",
+ "name": "service_tow",
+ "file": ".tmp/gen/frames/service_tow-v3.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.018968,
+ "usage": {
+  "prompt_tokens": 1924,
+  "completion_tokens": 158,
+  "total_tokens": 2082,
+  "cost": 0.018968,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.018968,
+   "upstream_inference_prompt_cost": 0.014228,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Image 1 is a finished sprite sheet of nine tow trucks for a 2D top-down city game, seen straight down from above, each with its nose to the right. Only the transparent areas of the mask are redrawn: the places of truck 2 (top row, middle) and truck 4 (middle row, left). Redraw each of those two trucks in its place, matching the other seven trucks of image 1 exactly in art style, outline weight, shading, livery and detail:\n\n- An orange-yellow cab at the front, then an open dark grey steel tow deck behind it with a low dark rail each side, and across the very tail a bar in red and white diagonal hazard stripes with a tail lamp at each rear corner — as the other trucks of image 1 have.\n- EACH CAB HAS A LONG FLAT ROOF: behind the windscreen, a plain yellow cab roof about as long as truck 3's (top row, right) before the deck begins — never the windscreen running straight into the deck.\n- SLIMMER: truck 2 and truck 4 are each exactly as wide as truck 3 beside them, and as long as the space they had in image 1. In the last drawing both came out about 10 % too wide.\n- Truck 2 is a 2000s Japanese off-road 4×4: a flat square bonnet, square front corners. Truck 4 is a 1990s van: a short sloping bonnet.\n- Nothing on the cab roof but paint. No crane, boom or arm. The glass dark, every lamp switched off, no text, letters, numbers or logos.\n\nBackground: fully transparent outside the trucks — no colour, no glow or halo, no shadow. Everything outside the masked areas stays as it is.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "478d8b95410ca3cb",
+   "ext": "png",
+   "frame": "service_tow-v2",
+   "was": ".tmp/gen/frames/service_tow-v2.png"
+  },
+  {
+   "role": "mask",
+   "sha": "9fb3bd298e872daf",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/service_tow-v2/_mask_evacuatoroffroad_yellow-whole_evacuatorvan90s_yellow-whole.png"
+  }
+ ],
+ "cells": [
+  "evacuatorloaf_yellow",
+  "evacuatoroffroad_yellow",
+  "evacuatorpassvan90s_yellow",
+  "evacuatorvan90s_yellow",
+  "evacuatorbus_yellow",
+  "evacuatorpickup_yellow",
+  "evacuatorhightop_yellow",
+  "evacuator_yellow",
+  "evacuatorbig_yellow"
+ ]
+}

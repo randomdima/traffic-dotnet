@@ -1,0 +1,13 @@
+{
+  "variants": [
+    "../kerb_granite/kerb_granite.json",
+    "../edging_setts/edging_setts.json",
+    "../kerb_concrete/kerb_concrete.json",
+    "../kerb_concrete_worn/kerb_concrete_worn.json",
+    "../kerb_granite_warm/kerb_granite_warm.json",
+    "../kerb_bevelled/kerb_bevelled.json",
+    "../edging_concrete/edging_concrete.json",
+    "../edging_concrete_moss/edging_concrete_moss.json",
+    "../edging_charcoal/edging_charcoal.json"
+  ]
+}

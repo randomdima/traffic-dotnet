@@ -1,0 +1,13 @@
+{
+  "car": "hospital_deep_01",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/hospital/hospital_deep_01/hospital_deep_01-v1.png", "sizePx": [143, 286]},
+  "axisY": {"rear": 143.00, "front": 143.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [80.07, 126.52, 1.13],
+      [89.73, 131.06, 6.44],
+      [106.54, 112.97, 4.96],
+      [86.54, 101.30, 6.88]
+    ]}
+  ]
+}

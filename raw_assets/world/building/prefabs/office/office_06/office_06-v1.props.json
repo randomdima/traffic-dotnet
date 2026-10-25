@@ -1,0 +1,19 @@
+{
+  "car": "office_06",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/office/office_06/office_06-v1.png", "sizePx": [739, 210]},
+  "axisY": {"rear": 103.00, "front": 103.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [118.59, 102.45, 1.46],
+      [125.15, 111.90, 5.79],
+      [142.93, 100.84, 3.91],
+      [128.98, 89.43, 3.44]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [150.24, 99.85, 4.20],
+      [163.27, 113.04, 2.53],
+      [174.48, 103.25, 3.98],
+      [163.54, 89.34, 3.29]
+    ]}
+  ]
+}

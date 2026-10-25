@@ -1,0 +1,9 @@
+{
+  "id": "spruce_norway",
+  "sprite": "spruce_norway.webp",
+  "kind": 0,
+  "diameterM": 3.0,
+  "colliderM": 0.5,
+  "share": 0.8,
+  "describe": "Norway spruce seen from above, dark green star of drooping layered branches round a pointed centre"
+}

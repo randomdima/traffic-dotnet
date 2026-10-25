@@ -1,0 +1,7 @@
+{
+  "id": "sapling_cluster",
+  "sprite": "sapling_cluster.webp",
+  "kind": 0,
+  "diameterM": 1.4,
+  "describe": "cluster of self-sown maple and ash saplings, a few small leafy tops"
+}

@@ -1,0 +1,38 @@
+{
+ "id": "roofs_industrial_g-v2",
+ "ts": "2026-10-20T13:47:55",
+ "op": "edit",
+ "name": "roofs_industrial_g",
+ "file": ".tmp/gen/frames/roofs_industrial_g-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.030996,
+ "prompt": "Image 1 is the layout to paint into: 2 building outlines seen from above on flat magenta, in a 2×1 grid. Paint only its transparent area, which holds the left outline (cell 1); everything else stays as it is. Image 2 is finished art from the same game, to match in style only.\n\nThe fault of the last attempt at this cell: the roof was drawn about 17% too wide (842 px for a 718 px wide outline), running past the outline's right edge, and its ridge vent was missing. The roof now fills the outline's light-grey rectangle exactly, edge to edge: its left and right edges on the outline's sides, its top on the top edge, its bottom on the thick bottom edge. No magenta inside the outline.\n\nLook straight down (orthographic): no perspective, no walls seen from the side, no ground. Style: clean, flat-shaded cartoon game art, bold dark outlines, muted natural colours, soft light from the top-left. No text. Details at true size; this hall stands beside cars 4 m long: roof sheet ribs about 0.2 m apart, a roof vent about 1 m, a ridge vent a narrow strip about 0.6 m wide along the ridge.\n\n1. 33.8 × 10.5 m (3.2× wider than deep, a thin strip) — warehouse or workshop hall, shallow pitched roof of dark bitumen with a ridge vent along its length",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "3c1ae1ca7abefb54",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_industrial_g.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "5e265601fd062b8e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_industrial_g_style.png"
+  },
+  {
+   "role": "mask",
+   "sha": "1277090b98e1da28",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_industrial_g-v1/_mask_industrial_15.png"
+  }
+ ]
+}

@@ -1,8 +1,9 @@
 {
   "id": "greenhouse_deep_01",
+  "sprite": "greenhouse_deep_01.webp",
   "footprintM": [
-    11.0,
-    15.5
+    15.4,
+    21.7
   ],
   "cornerRadiusM": 0.3,
   "partsM": [],

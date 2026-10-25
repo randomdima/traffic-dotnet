@@ -1,0 +1,25 @@
+{
+  "car": "retail_13",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/retail/retail_13/retail_13-v1.png", "sizePx": [518, 414]},
+  "axisY": {"rear": 206.50, "front": 206.50},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [58.96, 68.87, 3.32],
+      [71.91, 82.03, 4.67],
+      [89.99, 68.66, 5.83],
+      [73.16, 50.14, 4.96]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [97.26, 70.27, 2.57],
+      [109.46, 82.06, 8.29],
+      [128.02, 61.40, 2.96],
+      [112.44, 50.95, 5.80]
+    ]},
+    {"name": "fan3", "kind": "fan", "mirror": false, "points": [
+      [363.03, 300.78, 3.70],
+      [379.19, 310.94, 1.78],
+      [389.38, 302.28, 6.95],
+      [376.11, 280.96, 5.97]
+    ]}
+  ]
+}

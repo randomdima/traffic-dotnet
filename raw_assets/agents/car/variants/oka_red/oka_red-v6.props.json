@@ -1,0 +1,36 @@
+{
+  "car": "oka_red",
+  "sprite": {"variant": "raw_assets/agents/car/variants/oka_red/oka_red-v6.png", "sizePx": [307, 189]},
+  "axisY": {"rear": 93.00, "front": 93.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 95.0, "mirrorDx": 1.0, "points": [
+      [16.56, 32.07, 1.29],
+      [11.23, 54.59, 0.00],
+      [16.12, 53.67, 0.00],
+      [26.90, 26.45, 1.86]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 94.0, "mirrorDx": 0.0, "points": [
+      [14.64, 36.73, 0.32],
+      [11.54, 48.38, 2.46],
+      [16.48, 50.31, 0.00],
+      [21.87, 34.71, 0.45],
+      [19.90, 31.90, 2.14]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 94.0, "mirrorDx": 1.0, "points": [
+      [268.52, 25.96, 0.72],
+      [270.32, 33.08, -0.18],
+      [275.95, 39.67, 0.44],
+      [283.93, 50.71, 1.15],
+      [291.41, 52.63, 4.60],
+      [289.35, 35.86, 0.21],
+      [283.50, 29.97, 1.75]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "over": ["head"], "axisY": 94.5, "mirrorDx": 1.0, "points": [
+      [268.42, 27.86, 2.85],
+      [278.05, 28.63, 0.41],
+      [276.54, 26.10, 0.45],
+      [270.08, 25.91, 0.63]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

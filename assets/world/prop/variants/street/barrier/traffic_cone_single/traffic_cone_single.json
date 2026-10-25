@@ -1,0 +1,8 @@
+{
+  "id": "traffic_cone_single",
+  "sprite": "traffic_cone_single.webp",
+  "kind": 2,
+  "diameterM": 0.4,
+  "share": 0.8,
+  "describe": "orange traffic cone seen from above, a square black base, orange cone rings with a white band, the tip at the middle"
+}

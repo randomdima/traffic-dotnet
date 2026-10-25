@@ -2,8 +2,8 @@
   "id": "office_10",
   "sprite": "office_10.webp",
   "footprintM": [
-    41.5,
-    15.5
+    47.7,
+    17.8
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +15,12 @@
     "light gravel ballast",
     "office block"
   ],
-  "describe": "mid-rise office or public building, flat roof of light gravel ballast with rooftop plant, a lift room and a parapet"
+  "describe": "mid-rise office or public building, flat roof of light gravel ballast with rooftop plant, a lift room and a parapet",
+  "fans": [
+    { "atM": [-9.0566, -3.6438], "rimAtM": [-9.1361, -3.5222], "rimM": [1.1267, 1.0859] },
+    { "atM": [-17.823, -3.0634], "rimAtM": [-17.812, -3.0234], "rimM": [1.0155, 0.9229] },
+    { "atM": [-9.0243, -0.8062], "rimAtM": [-9.0012, -0.6871], "rimM": [1.255, 1.1371] },
+    { "atM": [-17.823, 0.7739], "rimAtM": [-17.8297, 0.7816], "rimM": [1.0106, 0.9734] },
+    { "atM": [-9.0243, 1.967], "rimAtM": [-9.0248, 2.0262], "rimM": [1.24, 1.2078] }
+  ]
 }

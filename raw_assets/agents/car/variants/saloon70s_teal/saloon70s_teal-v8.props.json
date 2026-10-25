@@ -1,0 +1,31 @@
+{
+  "car": "saloon70s_teal",
+  "sprite": {"variant": "raw_assets/agents/car/variants/saloon70s_teal/saloon70s_teal-v8.png", "sizePx": [408, 199]},
+  "axisY": {"rear": 98.50, "front": 99.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 99.0, "mirrorDx": 0.0, "points": [
+      [11.16, 43.95, 0.93],
+      [13.38, 49.21, 1.55],
+      [18.79, 46.72, -0.24],
+      [23.02, 28.29, 0.39],
+      [22.20, 26.16, 1.53],
+      [14.04, 28.65, 0.76]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 100.0, "mirrorDx": 0.0, "points": [
+      [387.74, 37.81, 0.15],
+      [390.44, 51.01, 1.78],
+      [396.43, 52.69, 0.37],
+      [398.04, 48.58, 0.41],
+      [396.51, 36.75, 0.86],
+      [391.50, 36.53, 0.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 98.5, "mirrorDx": 1.0, "points": [
+      [385.77, 29.22, 0.15],
+      [388.00, 35.76, 0.50],
+      [392.40, 35.01, 1.90],
+      [386.77, 26.51, 0.59]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

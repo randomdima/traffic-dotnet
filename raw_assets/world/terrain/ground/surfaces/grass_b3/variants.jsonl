@@ -1,0 +1,2 @@
+{"variant": "grass_b3-v1", "frame": "ground_b-v2", "cell": 7, "box": [814, 366, 293, 293], "pxPerM": 31.884, "score": 4, "status": "candidate", "ts": "2026-10-24T22:02:05"}
+{"variant": "grass_b3-v2", "frame": "ground_d-v1", "cell": 7, "box": [814, 366, 293, 293], "pxPerM": 31.884, "score": 5, "status": "used", "ts": "2026-10-24T22:33:36"}

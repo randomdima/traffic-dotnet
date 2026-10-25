@@ -1,0 +1,8 @@
+{
+  "id": "planter_wood_square",
+  "sprite": "planter_wood_square.webp",
+  "kind": 1,
+  "footprintM": [1.0, 1.089],
+  "turns": true,
+  "describe": "square wooden box planter, a rounded flowering hydrangea"
+}

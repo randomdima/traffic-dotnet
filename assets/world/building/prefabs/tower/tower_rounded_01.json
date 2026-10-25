@@ -2,10 +2,10 @@
   "id": "tower_rounded_01",
   "sprite": "tower_rounded_01.webp",
   "footprintM": [
-    27.5,
-    18.0
+    35.8,
+    23.4
   ],
-  "cornerRadiusM": 4.5,
+  "cornerRadiusM": 5.85,
   "partsM": [],
   "look": "tower",
   "tags": [
@@ -17,5 +17,10 @@
     "panel block",
     "rounded corners"
   ],
-  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge, its corners rounded in wide curves"
+  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge, its corners rounded in wide curves",
+  "fans": [
+    { "atM": [10.6392, -6.1778], "rimAtM": [10.6433, -6.1047], "rimM": [0.8535, 0.8987] }
+  ],
+  "chimneys": [[-1.15, -6.07]],
+  "potWidthM": 0.6
 }

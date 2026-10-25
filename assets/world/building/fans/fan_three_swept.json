@@ -1,0 +1,7 @@
+{
+  "id": "fan_three_swept",
+  "sprite": "fan_three_swept.webp",
+  "footprintM": [3.4, 3.351],
+  "tags": ["fan", "three blades"],
+  "describe": "a rooftop cooling fan with three wide swept silver blades round a dark hub, a thin dark steel rim"
+}

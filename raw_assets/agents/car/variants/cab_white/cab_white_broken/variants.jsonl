@@ -1,1 +1,2 @@
-{"variant": "cab_white_broken-v1", "frame": "fleet100_w05-v1", "cell": 4, "pxPerM": 103.678, "score": 4, "status": "used", "ts": "2026-10-22T04:55:25"}
+{"variant": "cab_white_broken-v1", "frame": "fleet100_w05-v1", "cell": 4, "pxPerM": 103.678, "score": 4, "status": "candidate", "ts": "2026-10-22T04:55:25"}
+{"variant": "cab_white_broken-v2", "frame": "fleet100_rw04-v1", "cell": 2, "pxPerM": 94.023, "score": 4, "status": "used", "ts": "2026-10-22T19:18:53"}

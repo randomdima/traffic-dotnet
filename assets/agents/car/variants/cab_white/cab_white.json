@@ -1,15 +1,15 @@
 {
   "id": "cab_white",
   "sprite": "cab_white.webp",
-  "wreck": { "sprite": "cab_white_broken.webp" },
   "zones": "cab_white_zones.png",
+  "wreck": { "sprite": "cab_white_broken.webp" },
   "describe": "modern budget four-door saloon taxi, average condition, white with a thin black-and-yellow chequer strip along each flank and a small plain yellow roof sign, simple rounded bonnet, tall roof, short separate boot, large headlamps, round-cornered tail lamps",
-  "footprintM": [4.350, 2.055],
-  "collisionM": { "sizeM": [4.350, 1.742], "cornerRadiusM": 0.636 },
+  "footprintM": [4.350, 2.117],
+  "collisionM": { "sizeM": [4.350, 1.824], "cornerRadiusM": 0.597 },
   "massKg": 1120,
   "frontAxleM": 1.355,
   "rearAxleM": -1.275,
-  "trackM": 1.813,
+  "trackM": 1.742,
   "drivetrain": 1,
   "maxSteeringDeg": 33,
   "tyreFriction": 0.82,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.88, "acceleration": 0.95, "braking": 0.95 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.925, -0.558], "sizeM": [0.281, 0.355] },
-    { "fitting": "brake", "atM": [-1.946, 0.516], "sizeM": [0.281, 0.355] },
-    { "fitting": "indicator", "atM": [-1.956, -0.569], "sizeM": [0.146, 0.115] },
-    { "fitting": "indicator", "atM": [-1.956, 0.558], "sizeM": [0.146, 0.115] },
-    { "fitting": "head", "atM": [1.915, -0.527], "sizeM": [0.146, 0.24] },
-    { "fitting": "head", "atM": [1.915, 0.495], "sizeM": [0.146, 0.24] },
-    { "fitting": "indicator", "atM": [1.8, -0.694], "sizeM": [0.177, 0.094] },
-    { "fitting": "indicator", "atM": [1.78, 0.683], "sizeM": [0.177, 0.094] },
-    { "fitting": "reverse", "atM": [-1.998, -0.443], "sizeM": [0.146, 0.115] },
-    { "fitting": "reverse", "atM": [-2.008, 0.391], "sizeM": [0.146, 0.115] }
-  ]
+    { "fitting": "brake", "atM": [-1.884, -0.579], "sizeM": [0.281, 0.365] },
+    { "fitting": "brake", "atM": [-1.884, 0.589], "sizeM": [0.281, 0.365] },
+    { "fitting": "indicator", "atM": [-1.936, -0.6], "sizeM": [0.146, 0.125] },
+    { "fitting": "indicator", "atM": [-1.936, 0.61], "sizeM": [0.146, 0.125] },
+    { "fitting": "head", "atM": [1.925, -0.579], "sizeM": [0.177, 0.292] },
+    { "fitting": "head", "atM": [1.925, 0.589], "sizeM": [0.177, 0.292] },
+    { "fitting": "indicator", "atM": [1.79, -0.746], "sizeM": [0.167, 0.094] },
+    { "fitting": "indicator", "atM": [1.78, 0.756], "sizeM": [0.167, 0.094] },
+    { "fitting": "reverse", "atM": [-1.967, -0.464], "sizeM": [0.135, 0.125] },
+    { "fitting": "reverse", "atM": [-1.967, 0.474], "sizeM": [0.135, 0.125] }
+  ],
+  "exhausts": [[-2.092, -0.635]]
 }

@@ -1,0 +1,11 @@
+{
+  "id": "kerb_granite",
+  "sprite": "kerb_granite.webp",
+  "kind": "Kerb",
+  "describe": "a street kerb of grey granite kerbstones a metre long, laid end to end: fine speckled grey stone, each stone a slightly different grey, a few small chips at the corners, faint grit and dark tyre rubber along the low face",
+  "footprintM": [
+    6.0,
+    0.2
+  ],
+  "pictureM": 3.8147
+}

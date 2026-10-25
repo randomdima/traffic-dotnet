@@ -1,0 +1,8 @@
+{
+  "id": "bench_concrete",
+  "sprite": "bench_concrete.webp",
+  "kind": 2,
+  "footprintM": [2.0, 0.604],
+  "turns": true,
+  "describe": "Soviet park bench, wooden slats on two grey concrete ends"
+}

@@ -1,0 +1,36 @@
+{
+  "car": "retro500_cream",
+  "sprite": {"variant": "raw_assets/agents/car/variants/retro500_cream/retro500_cream-v5.png", "sizePx": [343, 188]},
+  "axisY": {"rear": 93.50, "front": 92.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "points": [
+      [16.53, 44.32, 1.89],
+      [16.17, 55.94, 1.02],
+      [21.73, 53.70, 0.01],
+      [33.54, 32.53, 2.23],
+      [33.23, 27.10, 3.89]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "points": [
+      [20.62, 34.75, 0.28],
+      [16.73, 46.00, 0.67],
+      [18.26, 49.20, 2.20],
+      [24.59, 47.50, 0.22],
+      [30.60, 37.72, 1.99],
+      [26.08, 31.78, 1.09]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33},
+    {"name": "head", "kind": "head", "mirror": true, "pull": "frame", "axisY": 93.0, "mirrorDx": 1.0, "points": [
+      [305.31, 31.34, 0.00],
+      [304.56, 33.43, 0.00],
+      [316.76, 45.39, 3.29],
+      [327.19, 41.95, 3.28],
+      [318.53, 29.11, 1.00]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 93.0, "mirrorDx": 1.0, "points": [
+      [301.67, 24.76, 1.59],
+      [304.60, 29.15, 0.17],
+      [308.79, 27.94, 1.47],
+      [307.76, 23.14, 0.74]
+    ]}
+  ]
+}

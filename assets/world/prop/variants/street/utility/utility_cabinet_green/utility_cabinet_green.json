@@ -1,0 +1,9 @@
+{
+  "id": "utility_cabinet_green",
+  "sprite": "utility_cabinet_green.webp",
+  "kind": 2,
+  "footprintM": [0.8, 0.484],
+  "share": 0.8,
+  "turns": true,
+  "describe": "dark green steel utility cabinet, flat lid"
+}

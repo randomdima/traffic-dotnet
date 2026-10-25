@@ -20,6 +20,12 @@ internal sealed partial class TownWorld
     /// <summary>Whether any bay of this town can be driven into, which is what says its cars park rather than tour.</summary>
     bool _townParks;
 
+    /// <summary>
+    /// Whether this is the showroom (<see cref="CityGen.ShowroomPlan"/>), whose cars run no round: they stand where they
+    /// were parked for the art to be looked at, until a hand or an order drives one.
+    /// </summary>
+    readonly bool _showroom;
+
     /// <summary>How many times a car on its round has set off from where it stood for a bay somewhere else.</summary>
     public long RoundsSetOff { get; private set; }
 

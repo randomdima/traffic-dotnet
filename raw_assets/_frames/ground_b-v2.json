@@ -1,0 +1,65 @@
+{
+ "id": "ground_b-v2",
+ "ts": "2026-10-24T22:01:49",
+ "op": "edit",
+ "name": "ground_b",
+ "file": ".tmp/gen/frames/ground_b-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.041962,
+ "usage": {
+  "prompt_tokens": 4868,
+  "completion_tokens": 158,
+  "total_tokens": 5026,
+  "cost": 0.041962,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.041962,
+   "upstream_inference_prompt_cost": 0.037222,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Three images are attached. The first is a finished sheet of 12 ground textures for a top-down 2D city game, in a 4×3 grid; the second is its layout; the third shows the game's finished art — roofs, cars, and on the right a square of the game's old grass. The eight grass squares of rows 1 and 2 are to be painted again; keep the four water squares of row 3 exactly as they are.\n\nWhat was wrong: the first attempt drew every grass square as a uniform fine noise of tiny specks, which reads as blurry mush. Paint it the way the old grass on the right of the third image is built, but less cartoony and more painterly like the roofs: a calm, smooth base of soft painted green with gentle broad variation, and on it, scattered at random and spaced apart, distinct readable painted details — small grass tufts about 30 cm across drawn as a few crisp blades fanning out, tiny flower clusters, small patches of earth. Every detail sharp-edged and readable, about a third of the square's area left as calm base between them. No blur, no photographic noise, no speckle.\n\nEach repainted square is filled edge to edge, right into all four corners, and stops exactly where the old square's edges were: no border, frame, rim, bevel, outline, shadow or vignette. Outside the squares the background stays fully transparent. No text anywhere. Look straight down. Each square is 9.2 × 9.2 m of ground: a tuft about 30 cm, a flower cluster the size of a hand, an earth patch at most half a metre. Details point every way and are scattered at random, never in rows, stripes or a grid, and no single detail is bigger or brighter than the rest, so the square repeats without a feature catching the eye. Squares in the same row are the same lawn: the same colours, density and style, so they join without a seam.\n\nRow 1 — cells 1, 2, 3, 4: a kept town lawn. Base a fresh mid green; tufts in lighter and darker greens; a little clover; a very few tiny white daisy clusters; only the odd tiny earth spot.\n\nRow 2 — cells 5, 6, 7, 8: the same lawn worn and drier. Base a softer olive green, not yellow; tufts in olive and straw; more small bare brown earth patches; a few tiny yellow flower clusters. Clearly the same grass as row 1, only more worn.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "da9ec8bf8bcb0d50",
+   "ext": "png",
+   "frame": "ground_b-v1",
+   "was": ".tmp/gen/frames/ground_b-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "d01d25883c7416dc",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_b.png"
+  },
+  {
+   "role": "image 3",
+   "sha": "c753fd607933bc53",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_style.png"
+  },
+  {
+   "role": "mask",
+   "sha": "abd76af44fad99b8",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/ground_b-v1/_mask_grass_a1-whole_grass_a2-whole_grass_a3-whole_grass_a4-whole_grass_b1-whole_grass_b2-whole_grass_b3-whole_grass_b4-whole.png"
+  }
+ ]
+}

@@ -1,0 +1,7 @@
+{
+  "id": "fan_four_black",
+  "sprite": "fan_four_black.webp",
+  "footprintM": [3.4, 3.393],
+  "tags": ["fan", "four blades"],
+  "describe": "a rooftop cooling fan with four broad black blades round a silver hub, a thin pale grey rim"
+}

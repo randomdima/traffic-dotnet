@@ -1,0 +1,8 @@
+{
+  "id": "boulder_limestone",
+  "sprite": "boulder_limestone.webp",
+  "kind": 0,
+  "diameterM": 1.2,
+  "share": 0.6,
+  "describe": "pale cream shell limestone block, porous and pitted, softly rounded edges"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "sycamore_young",
+  "sprite": "sycamore_young.webp",
+  "kind": 0,
+  "diameterM": 4.0,
+  "colliderM": 0.5,
+  "describe": "young sycamore maple crown, dense mid green five-lobed leaves, rounded billowing shape"
+}

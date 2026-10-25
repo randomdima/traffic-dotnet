@@ -1,0 +1,38 @@
+{
+ "id": "roofs_civic_a-v2",
+ "ts": "2026-10-20T13:41:02",
+ "op": "edit",
+ "name": "roofs_civic_a",
+ "file": ".tmp/gen/frames/roofs_civic_a-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031106,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 2×1 grid. Redraw only cell 1 (the transparent area). Keep the other cell exactly as it is, and match its style, colours and fine detail.\n\nThe fault in cell 1: its entrance wing at the front was drawn about 10% too short, its bottom edge about 25 px above the outline's thick bottom edge, so the whole drawing is shorter than its outline. The roof must fill both rectangles of the outline exactly: the main block from the outline's top edge down to its step, and the entrance wing down to the thick bottom edge. Nothing is drawn below the main block's bottom edge on either side of the wing.\n\nFor the redrawn cell, trace the outline in image 2 exactly, corner by corner, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: this building stands beside cars 4 m long; an air conditioner unit is about 1 m, a plant room about 3 × 4 m, a parapet about 0.3 m thick. No text.\n\n1. 23.4 × 21.5 m (1.1× wider than deep, outline built of 2 rectangles) — hospital, flat white roof with a parapet, plant rooms and air conditioner units on the main block, a plain red cross symbol painted on it, the entrance wing at the front with a flat canopy",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "69a8c63a1dd6f0e6",
+   "ext": "png",
+   "frame": "roofs_civic_a-v1",
+   "was": ".tmp/gen/frames/roofs_civic_a-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "67f3ec95e84fe399",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_civic_a.png"
+  },
+  {
+   "role": "mask",
+   "sha": "772ae14afb3d0b21",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_civic_a-v1/_mask_hospital.png"
+  }
+ ]
+}

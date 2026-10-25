@@ -4,6 +4,30 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-25 — art is asked in words, against a style picture, on a transparent ground
+
+**The owner (2026-10-25): "No outlines should be used for generation. Since models are not following them anyway. And
+to save cost. Only style references. And never with background - only transparent."** The rule is
+[raw_assets/index.md](../raw_assets/index.md) (rule 4) and the remotegen skill.
+
+- **The layouts were not held.** Every family's sheets came back off their outlines: roofs drifted and evened out,
+  trains 11–16 % wide, crossing gear 10–16 % big, kerbs 1.3–1.6× deep, and the first props' crowns 10–35 % big with the
+  small ones worst (`props_trees_mid-v1`); each was answered with an allowance to fit further, a re-roll, or a lost
+  cell. A layout is also a second input picture paid for on every frame.
+- **What is drawn is the asset, and the engine maps it.** A drawing is found by the order its ids were asked in and
+  taken whole, sized by the one figure its file authors; its other extents are the drawing's — a footprint's depth, a
+  strip's length (sized by its depth, which the ground needs), the rectangles a roof is built of (read off its
+  silhouette, `_outline.rectangles`). A car was already asked this way (2026-10-20).
+- **A result may be corrected, the generator never limited** (the owner, the same day: "cutting and sizing part of the
+  gen images fine if it looks correct … not to try to limit gen models … minor corrections – its ok. Just dont overuse
+  it. Most assets will look bad if you do this"; "Do allow complex building … describing it with words as best as we
+  can. And try to map results in the engine").
+- **The old cut stays for old frames**, so a variant kept from a layout can be cut again (rule 6); `qq sprites` lays no
+  layout.
+- **Props may reach past their colliders** (the owner, the same day: "minor visuals beyond collider … can even be good
+  for some of them"), and **a prop that never turns need not be strictly top-down** ("since we dont need to rotate some
+  of them").
+
 ## 2026-10-19 — every authored map runs a railway, the fixture's laid clear of its staging
 
 **The owner (2026-10-19): "add it on all maps"**, asked why O10 had no trains (RAIL-2).

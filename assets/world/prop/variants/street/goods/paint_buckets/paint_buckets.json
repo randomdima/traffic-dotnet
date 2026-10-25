@@ -1,0 +1,8 @@
+{
+  "id": "paint_buckets",
+  "sprite": "paint_buckets.webp",
+  "kind": 2,
+  "diameterM": 0.6,
+  "share": 0.5,
+  "describe": "three white plastic paint buckets with lids, paint drips"
+}

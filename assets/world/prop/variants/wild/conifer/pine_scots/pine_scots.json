@@ -1,0 +1,9 @@
+{
+  "id": "pine_scots",
+  "sprite": "pine_scots.webp",
+  "kind": 0,
+  "diameterM": 3.2,
+  "colliderM": 0.5,
+  "share": 0.8,
+  "describe": "Scots pine crown, blue-green needle tufts in flat irregular clusters, orange-brown branch glimpses between them"
+}

@@ -2,8 +2,8 @@
   "id": "apartments_deep_12",
   "sprite": "apartments_deep_12.webp",
   "footprintM": [
-    6.5,
-    23.5
+    8.5,
+    30.6
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -17,5 +17,7 @@
     "19th century",
     "narrow front"
   ],
-  "describe": "19th-century Odesa tenement house, pitched roof of weathered terracotta tiles with brick chimney stacks and roof hatches, a parapet along the street front, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "19th-century Odesa tenement house, pitched roof of weathered terracotta tiles with brick chimney stacks and roof hatches, a parapet along the street front, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back",
+  "chimneys": [[-3.04, -8.65, -2.15, -8.65], [2.3, -2.95, 3.2, -2.95], [2.3, 6.85, 3.2, 6.85]],
+  "potWidthM": 0.9
 }

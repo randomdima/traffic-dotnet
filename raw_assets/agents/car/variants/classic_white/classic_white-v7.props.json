@@ -1,0 +1,35 @@
+{
+  "car": "classic_white",
+  "sprite": {"variant": "raw_assets/agents/car/variants/classic_white/classic_white-v7.png", "sizePx": [391, 187]},
+  "axisY": {"rear": 93.50, "front": 93.50},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 94.5, "mirrorDx": 0.0, "points": [
+      [18.85, 28.14, 1.54],
+      [13.15, 55.26, 0.49],
+      [20.16, 55.96, 0.03],
+      [27.17, 32.52, -0.31],
+      [32.21, 27.41, 1.12],
+      [31.98, 24.01, 2.12]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "mirror": true, "over": ["brake"], "axisY": 94.5, "mirrorDx": 0.0, "points": [
+      [15.50, 44.80, 0.00],
+      [23.50, 44.60, 0.00],
+      [24.70, 34.10, 0.00],
+      [15.80, 34.50, 0.00]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 94.5, "mirrorDx": 0.0, "points": [
+      [363.82, 33.82, 0.61],
+      [371.79, 53.06, 0.91],
+      [374.90, 52.70, 0.48],
+      [374.32, 46.37, 2.10],
+      [369.29, 32.10, 2.36]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "axisY": 94.5, "mirrorDx": 0.0, "points": [
+      [358.78, 25.48, 1.37],
+      [369.93, 30.11, 0.96],
+      [371.33, 26.16, 1.41],
+      [360.19, 23.16, 0.86]
+    ]},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

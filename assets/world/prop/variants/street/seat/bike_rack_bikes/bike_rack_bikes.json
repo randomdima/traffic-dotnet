@@ -1,0 +1,8 @@
+{
+  "id": "bike_rack_bikes",
+  "sprite": "bike_rack_bikes.webp",
+  "kind": 2,
+  "footprintM": [2.0, 1.497],
+  "turns": true,
+  "describe": "row of steel hoop bike stands with three parked bicycles of different colours"
+}

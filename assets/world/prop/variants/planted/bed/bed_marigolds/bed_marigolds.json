@@ -1,0 +1,9 @@
+{
+  "id": "bed_marigolds",
+  "sprite": "bed_marigolds.webp",
+  "kind": 1,
+  "footprintM": [1.6, 0.887],
+  "cornerRadiusM": 0.1,
+  "turns": true,
+  "describe": "small bed of orange and yellow marigolds edged with a row of half-buried bricks"
+}

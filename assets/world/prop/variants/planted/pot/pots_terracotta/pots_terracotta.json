@@ -1,0 +1,8 @@
+{
+  "id": "pots_terracotta",
+  "sprite": "pots_terracotta.webp",
+  "kind": 1,
+  "diameterM": 1.0,
+  "share": 0.8,
+  "describe": "three terracotta pots of different sizes, red geraniums and a herb"
+}

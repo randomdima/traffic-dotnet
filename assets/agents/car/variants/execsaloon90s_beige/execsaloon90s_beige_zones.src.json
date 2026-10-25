@@ -1,6 +1,6 @@
 {
- "variant": "raw_assets/agents/car/variants/execsaloon90s_beige/execsaloon90s_beige-v2.props.json",
- "cutOn": "raw_assets/agents/car/variants/execsaloon90s_beige/execsaloon90s_beige-v2.png",
+ "variant": "raw_assets/agents/car/variants/execsaloon90s_beige/execsaloon90s_beige-v4.props.json",
+ "cutOn": "raw_assets/agents/car/variants/execsaloon90s_beige/execsaloon90s_beige-v4.png",
  "pxPerM": 96.0,
  "encoding": "png lossless"
 }

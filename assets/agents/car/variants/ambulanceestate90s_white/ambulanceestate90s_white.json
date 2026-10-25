@@ -1,0 +1,32 @@
+{
+  "id": "ambulanceestate90s_white",
+  "sprite": "ambulanceestate90s_white.webp",
+  "zones": "ambulanceestate90s_white_zones.png",
+  "wreck": { "sprite": "ambulanceestate90s_white_broken.webp" },
+  "describe": "1990s boxy estate car ambulance in ambulance livery",
+  "footprintM": [4.770, 2.149],
+  "collisionM": { "sizeM": [4.770, 1.805], "cornerRadiusM": 0.559 },
+  "massKg": 1800,
+  "frontAxleM": 1.535,
+  "rearAxleM": -1.265,
+  "trackM": 1.713,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.78,
+  "cgHeightM": 0.61,
+  "frontWeightShare": 0.52,
+  "handling": { "maxSpeed": 0.82, "acceleration": 0.76, "braking": 0.88 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.135, -0.574], "sizeM": [0.323, 0.417] },
+    { "fitting": "rear", "atM": [-2.135, 0.605], "sizeM": [0.323, 0.417] },
+    { "fitting": "indicator", "atM": [-2.135, -0.678], "sizeM": [0.302, 0.209] },
+    { "fitting": "indicator", "atM": [-2.135, 0.709], "sizeM": [0.302, 0.209] },
+    { "fitting": "head", "atM": [2.156, -0.532], "sizeM": [0.219, 0.292] },
+    { "fitting": "head", "atM": [2.156, 0.553], "sizeM": [0.219, 0.292] },
+    { "fitting": "indicator", "atM": [2.031, -0.741], "sizeM": [0.229, 0.125] },
+    { "fitting": "indicator", "atM": [2.02, 0.772], "sizeM": [0.229, 0.125] },
+    { "fitting": "beaconBlue", "atM": [0.323, -0.282], "sizeM": [0.26, 0.365] },
+    { "fitting": "beaconBlue", "atM": [0.323, 0.282], "sizeM": [0.26, 0.355] }
+  ],
+  "exhausts": [[-2.312, -0.645]]
+}

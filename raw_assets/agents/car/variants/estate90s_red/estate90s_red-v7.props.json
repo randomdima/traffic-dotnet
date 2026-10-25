@@ -1,0 +1,29 @@
+{
+  "car": "estate90s_red",
+  "sprite": {"variant": "raw_assets/agents/car/variants/estate90s_red/estate90s_red-v7.png", "sizePx": [411, 208]},
+  "axisY": {"rear": 105.50, "front": 104.00},
+  "props": [
+    {"name": "brake", "kind": "brake", "mirror": true, "axisY": 104.0, "mirrorDx": 0.0, "points": [
+      [21.25, 36.21, 1.51],
+      [15.15, 61.86, 2.08],
+      [22.24, 59.79, 0.00],
+      [27.33, 36.83, 0.39]
+    ]},
+    {"name": "head", "kind": "head", "mirror": true, "axisY": 104.5, "mirrorDx": 0.0, "points": [
+      [368.75, 38.34, 1.82],
+      [386.55, 60.11, 2.00],
+      [391.74, 58.19, 1.09],
+      [384.28, 37.49, -0.18],
+      [378.76, 34.58, 0.74],
+      [369.64, 33.15, 1.51]
+    ]},
+    {"name": "ind_front", "kind": "ind", "mirror": true, "points": [
+      [372.30, 32.66, 0.56],
+      [377.15, 33.39, 0.92],
+      [378.61, 29.89, 1.70],
+      [372.00, 28.84, 0.92]
+    ]},
+    {"name": "ind_rear", "kind": "ind", "part": "brake", "side": "outboard", "share": 0.5},
+    {"name": "reverse", "kind": "reverse", "part": "brake", "side": "inboard", "share": 0.33}
+  ]
+}

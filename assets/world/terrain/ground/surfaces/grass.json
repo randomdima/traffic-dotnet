@@ -1,0 +1,11 @@
+{
+ "id": "grass",
+ "kind": "Surface",
+ "sprite": "grass.webp",
+ "describe": "town grass seen straight down, short blades every way at once, no plant, stone or flower bigger than a coin",
+ "mosaic": 2,
+ "looks": [
+  {"describe": "a kept lawn, fresh mid green, dense short blades with a little clover and a very few tiny white daisies", "tiles": 4},
+  {"describe": "a worn, drier lawn, yellow-green and olive blades with tiny bare brown earth spots, a few tiny yellow flowers", "tiles": 4}
+ ]
+}

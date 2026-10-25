@@ -128,7 +128,7 @@ internal static class TownProbe
 
     public static TownSample Sample(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
 
         var started = Stopwatch.GetTimestamp();
         using var world = new TownWorld(plan, config);

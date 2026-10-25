@@ -2,8 +2,8 @@
   "id": "house_37",
   "sprite": "house_37.webp",
   "footprintM": [
-    16.0,
-    7.0
+    22.4,
+    9.8
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -16,5 +16,7 @@
     "terraced",
     "courtyard house"
   ],
-  "describe": "long low courtyard house of the old suburbs, one ridge along its length, roof of red clay tiles, several chimneys spaced along the ridge"
+  "describe": "long low courtyard house of the old suburbs, one ridge along its length, roof of red clay tiles, several chimneys spaced along the ridge",
+  "chimneys": [[-8.78, -1.8, -8.33, -1.8], [-3.67, -1.8, -3.22, -1.8], [2.48, -1.8, 2.93, -1.8], [8.37, -1.8, 8.82, -1.8]],
+  "potWidthM": 0.45
 }

@@ -1,0 +1,31 @@
+{
+ "id": "redo_mixed_d-v1",
+ "ts": "2026-10-20T14:30:23",
+ "op": "edit",
+ "name": "redo_mixed_d",
+ "file": ".tmp/gen/frames/redo_mixed_d-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.034226,
+ "prompt": "Two images are attached. The first is a layout: 2 building outlines seen from above, in a 1×2 grid on a flat magenta background. The second is finished art from the same game, to match in style only — not its layout, shapes, colours or the size of its details.\n\nMake one image with exactly the same 1×2 layout as the first image. Inside each outline, draw the roof of the building described for that cell below, as a top-down sprite for a 2D city game.\n\nShape comes first. Before painting a cell, trace its outline exactly, then paint only inside the traced border:\n- Trace each outline like paint on tracing paper laid over it: do not re-centre, move or resize it, and leave the magenta margins between outlines and around the picture's edge exactly as they are.\n- Keep every outline's proportions: match each one's width and height. Each cell's proportion is given below; check it. Never make an outline squarer, shorter or fatter.\n- Every edge is straight and square to the others. Never slant, skew or taper an edge to show perspective. An outline built of several rectangles (an L, a T, a stepped block) is followed corner by corner.\n- Draw nothing outside the outline: no eaves, steps, porches, canopies, ramps or shadows past it. A porch or an entrance canopy is drawn inside the outline at its bottom edge. Inside a roof there is no magenta at all.\n\nScale is the second rule, and it is strict. Every size below is true metres, width × depth, and every detail is drawn at its true size against them. These buildings stand beside cars 4 m long and 1.8 m wide; keep that in mind for every detail. True sizes:\n- tower: a lift machine room about 3 × 5 m; a hatch or vent shaft about 1 m; a TV antenna about 2 m across; a parapet about 0.4 m thick; drain funnels about 0.4 m.\n- garages: each lock-up is about 3 m wide with a 2.5 m door on the street edge; a parapet between units about 0.3 m.\n- No detail is bigger than its true size. When in doubt, draw it smaller and keep fewer of them. A large roof has many small details, never a few huge ones.\n\nRules for every cell:\n- Look straight down (orthographic). No perspective, no tilt, no ground, no plants, no cars, no people. No wall, door, window, garage door or shop front is ever seen: stairwells, lift rooms and dormers are flat-topped boxes seen only from above, a dome is a circle shaded as a dome, a light well is only its flat floor.\n- The thick bottom edge of each outline is the street front, where the entrance is. The top edge is the back.\n- A gabled roof shows its ridge as one line with the two slopes shaded differently; a lean-to roof is one slope with no ridge; a flat roof has a parapet round its edge.\n- Style: match the style image. Clean, flat-shaded cartoon game art, bold dark outlines, muted natural colours, simple readable details, soft light from the top-left.\n- Outside the roofs, keep the background flat pure magenta #FF00FF. No text, letters, numbers, labels, logos, grid lines or frames anywhere.\n\nCells, left to right, top to bottom:\n\nRow 1\n1. 32.5 × 7.2 m (4.5× wider than deep, a long strip) — narrow link wing between two tall blocks, flat bitumen roof with a parapet round its whole edge and a few small vent stacks; its outline spans 22–78 % of the picture's width and 16–34 % of its height, filled from exactly 16 % to exactly 34 % of the picture's height — earlier attempts drew this roof 20–45 % too shallow, so give it its full depth\n\nRow 2\n2. 37.7 × 14.3 m (2.6× wider than deep) — row of 9 lock-up garages of a garage cooperative, flat roof of black tar paper parted by low brick parapets between the units running from the street to the back, patched in places, no garage door seen; its outline spans 17–83 % of the picture's width and 56–94 % of its height, filled from exactly 56 % to exactly 94 % of the picture's height",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "3bd31a9253cebf7d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/redo_mixed_d.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "5e265601fd062b8e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/redo_mixed_d_style.png"
+  }
+ ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "pallet_sacks",
+  "sprite": "pallet_sacks.webp",
+  "kind": 2,
+  "footprintM": [1.2, 1.02],
+  "share": 0.5,
+  "turns": true,
+  "describe": "pallet stacked with white cement sacks"
+}

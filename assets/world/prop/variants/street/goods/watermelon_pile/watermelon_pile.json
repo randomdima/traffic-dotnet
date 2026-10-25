@@ -1,0 +1,8 @@
+{
+  "id": "watermelon_pile",
+  "sprite": "watermelon_pile.webp",
+  "kind": 2,
+  "diameterM": 1.4,
+  "share": 0.3,
+  "describe": "heap of striped green watermelons on straw, one cut open red"
+}

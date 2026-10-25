@@ -1,0 +1,8 @@
+{
+  "id": "maple_globe",
+  "sprite": "maple_globe.webp",
+  "kind": 1,
+  "diameterM": 2.8,
+  "colliderM": 0.5,
+  "describe": "globe maple, a perfectly round tight ball of bright green lobed leaves"
+}

@@ -50,10 +50,11 @@ struct CarLampMoment
     bool beaconOn;
     bool amberOn;
     bool firstHalf;
-    bool swapped;
+    // Whether the look draws a red beacon end (CarLamps.HasRedGlass), which the including kernel reads off its lenses.
+    bool redGlass;
 };
 
-CarLampMoment lampsMoment(uint showing, float elapsedS, float rateJitter)
+CarLampMoment lampsMoment(uint showing, float elapsedS)
 {
     CarLampMoment moment;
     moment.showing = showing;
@@ -61,14 +62,12 @@ CarLampMoment lampsMoment(uint showing, float elapsedS, float rateJitter)
     moment.rearOn = moment.braking || (showing & LampReverse) != 0u;
     moment.indicating = showing & (LampTurnLeft | LampTurnRight);
 
-    precise float flashHz = LAMP_FIGURES.flashHz * rateJitter;
-    moment.flashOn = moment.indicating != 0u && lampsPhase(elapsedS, flashHz) < LAMP_FIGURES.flashOnShare;
+    moment.flashOn = moment.indicating != 0u && lampsPhase(elapsedS, LAMP_FIGURES.flashHz) < LAMP_FIGURES.flashOnShare;
     moment.beaconOn = (showing & LampBeacon) != 0u;
     moment.amberOn = moment.beaconOn || (showing & LampWorks) != 0u;
 
-    precise float beaconHz = LAMP_FIGURES.beaconHz * rateJitter;
-    moment.firstHalf = lampsPhase(elapsedS, beaconHz) < 0.5;
-    moment.swapped = moment.beaconOn && moment.firstHalf;
+    moment.firstHalf = lampsPhase(elapsedS, LAMP_FIGURES.beaconHz) < 0.5;
+    moment.redGlass = false;
     return moment;
 }
 
@@ -90,14 +89,14 @@ uint lampsLensColour(CarLampMoment moment, uint fitting, vec2 atBodyM, out bool 
 
     if (fitting == FittingBeaconRed)
     {
-        lit = moment.beaconOn;
-        return moment.swapped ? LampBeaconBlue : LampBeaconRed;
+        lit = moment.beaconOn && moment.firstHalf;
+        return LampBeaconRed;
     }
 
     if (fitting == FittingBeaconBlue)
     {
-        lit = moment.beaconOn;
-        return moment.swapped ? LampBeaconRed : LampBeaconBlue;
+        lit = moment.beaconOn && (moment.redGlass ? !moment.firstHalf : moment.firstHalf != onTheRight);
+        return LampBeaconBlue;
     }
 
     if (fitting == FittingHead)

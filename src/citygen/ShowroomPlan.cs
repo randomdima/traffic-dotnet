@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
@@ -6,15 +7,17 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>The showroom</b>: one big car park with every car look parked in it once — the fleet's and the service vehicles'
-/// — and every building look stood once in rows all round it. The map the art is looked at in: parked, pulling out
-/// lit, driving to another bay, and the town it would stand in.
+/// — every building look stood once in rows all round it, and a yard of sidings along its foot with every rolling-stock
+/// look standing on it once. The map the art and its animations are looked at in: parked, the car picked out putting its
+/// lamps through their states (CAR-14.9), driven by hand, and the town it would stand in.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The car park is a loop with ranks of bays down both kerbs of its long sides</b> — the idle ring's shape
 /// (<see cref="IdlePlan.Loop"/>) drawn out wide — every bay the bay every town lays (GEN-53): a lane wide, square to
 /// the kerb, a node a lead off each end. A car spawn stands on every bay, so the town parks each look there
-/// (<c>TownWorld.StandCar</c>), and the bays past the last look are the room a parked car's round drives to.
+/// (<c>TownWorld.StandCar</c>), and the bays past the last look stand empty. <b>Nobody else is on it</b>: no pavement and
+/// nobody on foot, and its cars run no round (CAR-8) — each stands where it was parked until a hand or an order drives it.
 /// </para>
 /// <para>
 /// <b>What it shows is whatever the looks are</b>, which is the run's to say (<c>--fleet</c>, or the shipped list): the
@@ -26,6 +29,11 @@ namespace TrafficSimulation.CityGen;
 /// <b>The rows go round the car park ring by ring, the shallowest nearest</b>, each building's door wall on the row's
 /// inner edge and facing the car park: a row is as deep as its deepest building, and sorting by depth keeps a row
 /// from being one tower and a strip of sheds.
+/// </para>
+/// <para>
+/// <b>The yard is the car park's twin for the rolling stock</b> (<see cref="Yard"/>): it lays <see cref="Sidings"/>
+/// straight tracks, and the town stands a train on each, every look once (<c>Trains</c>), coupled and braked in the
+/// middle of the map and never sent — each stands until a hand drives it, as the cars do.
 /// </para>
 /// <para>
 /// <b>Laid but not shipped</b>: it measures nothing, so no probe or sweep reads it. It is offered
@@ -62,8 +70,15 @@ internal static class ShowroomPlan
     const float EdgeM = 20f;
 
     /// <summary>
-    /// Whether the cars on this map are every look once each rather than the fleet's wrap, and its service buildings
-    /// stand no fleet of their own. Stated here because the map's name is all a town has to go on.
+    /// How many sidings the yard has, which is the most trains it shows: a train a locomotive look (<c>Trains</c>), and
+    /// the rolling stock's four with room for more.
+    /// </summary>
+    public const int Sidings = 6;
+
+    /// <summary>
+    /// Whether the cars on this map are every look once each rather than the fleet's wrap, its service buildings
+    /// stand no fleet of their own, its cars run no round and the one picked out shows its lamps in turn (CAR-14.9).
+    /// Stated here because the map's name is all a town has to go on.
     /// </summary>
     public static bool ShowsEachLookOnce(string name) => string.Equals(name, Name, StringComparison.Ordinal);
 
@@ -71,8 +86,12 @@ internal static class ShowroomPlan
     {
         var lot = new Lot(config);
         var rows = Rows(Footings(sizes), lot.HalfM + new Vector2(RowGapM), config);
-        var worldSizeM = new Vector2(MathF.Ceiling(2f * (rows.ExtentM.X + EdgeM)), MathF.Ceiling(2f * (rows.ExtentM.Y + EdgeM)));
-        var centreM = worldSizeM * 0.5f;
+
+        // The yard along the map's foot, under the rows, its sidings a double line's spacing apart.
+        var yardM = config.Rail.BallastWidthM + ((Sidings - 1) * config.Rail.TrackSpacingM) + RowGapM;
+        var worldSizeM = new Vector2(
+            MathF.Ceiling(2f * (rows.ExtentM.X + EdgeM)), MathF.Ceiling((2f * (rows.ExtentM.Y + EdgeM)) + yardM));
+        var centreM = new Vector2(worldSizeM.X * 0.5f, worldSizeM.Y - rows.ExtentM.Y - EdgeM);
 
         var loop = IdlePlan.Loop(centreM, lot.LoopHalfM, lot.CornerM);
         var bays = Bays(loop, lot, config);
@@ -100,9 +119,34 @@ internal static class ShowroomPlan
                 CentreM = [], Axis = [], HalfExtentM = [], SpaceOffsets = [0], SpacePositionM = [], SpaceHeadingRad = [],
             },
             Buildings = rows.Buildings(centreM),
-            Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], BearingRad = [], Kind = [] },
+            Props = CityPlan.PropArrays.None,
             Spawns = bays.Spawns,
             Water = CityPlan.WaterArrays.None,
+            Rails = RailLines.Lay(Yard(worldSizeM, config), worldSizeM, config),
+        };
+    }
+
+    /// <summary>
+    /// <b>The yard</b>: <see cref="Sidings"/> straight tracks side by side along the map's foot, each a line of its own run
+    /// one way and on past the map at both ends as every track is (TRN-7) — so each fields one train, which the town
+    /// stands on it rather than sends.
+    /// </summary>
+    static TownMap.RailArrays Yard(Vector2 worldSizeM, SimConfig config)
+    {
+        var rail = config.Rail;
+        var pointM = new Vector2[2 * Sidings];
+        var offsets = new int[Sidings + 1];
+        for (var siding = 0; siding < Sidings; siding++)
+        {
+            var y = EdgeM + (rail.BallastWidthM * 0.5f) + (siding * rail.TrackSpacingM);
+            (pointM[2 * siding], pointM[(2 * siding) + 1]) = (new Vector2(-rail.RunOffM, y), new Vector2(worldSizeM.X + rail.RunOffM, y));
+            offsets[siding + 1] = 2 * (siding + 1);
+        }
+
+        return new TownMap.RailArrays
+        {
+            Line = [.. Enumerable.Range(0, Sidings)], Runs = [.. Enumerable.Repeat(TownMap.TrackRuns.Forward, Sidings)],
+            PointOffsets = offsets, PointM = pointM, Level = new byte[pointM.Length],
         };
     }
 

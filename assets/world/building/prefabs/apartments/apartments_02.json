@@ -2,8 +2,8 @@
   "id": "apartments_02",
   "sprite": "apartments_02.webp",
   "footprintM": [
-    8.0,
-    4.0
+    10.4,
+    5.2
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],

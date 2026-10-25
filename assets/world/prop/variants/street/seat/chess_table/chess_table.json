@@ -1,0 +1,8 @@
+{
+  "id": "chess_table",
+  "sprite": "chess_table.webp",
+  "kind": 2,
+  "diameterM": 1.2,
+  "share": 0.3,
+  "describe": "concrete park table with a chessboard top and four round stools"
+}

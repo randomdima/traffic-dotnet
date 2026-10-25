@@ -1,0 +1,65 @@
+{
+ "id": "ground_c-v2",
+ "ts": "2026-10-24T22:03:30",
+ "op": "edit",
+ "name": "ground_c",
+ "file": ".tmp/gen/frames/ground_c-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.040827,
+ "usage": {
+  "prompt_tokens": 4641,
+  "completion_tokens": 158,
+  "total_tokens": 4799,
+  "cost": 0.040827,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.040827,
+   "upstream_inference_prompt_cost": 0.036087,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Three images are attached. The first is a finished sheet of 12 ground textures for a top-down 2D city game, in a 4×3 grid; the second is its layout; the third shows the game's finished art. The two squares at the right of row 3, cells 11 and 12, are to be painted again; keep every other square exactly as it is.\n\nWhat was wrong: the first attempt drew rust-brown drip streaks running down the square, which gives the ground a direction; the game lays it under roads at every angle, so nothing may run one way.\n\nCells 11 and 12: older bridge deck concrete seen straight down, the same mid grey as cells 9 and 10 beside them, a shade darker: a calm smooth painted base, and scattered at random small round pits, a few small round rust-brown stain spots no bigger than a hand, and tiny hairline cracks no longer than a hand curving every way. No streaks, drips, lines, joints or anything running in one direction. Both squares the same concrete, same colours and density, so they join without a seam.\n\nEach repainted square is filled edge to edge, right into all four corners, and stops exactly where the old square's edges were: no border, frame, rim, bevel, outline, shadow or vignette. Outside the squares the background stays fully transparent. No text anywhere. Crisp hand-painted look matching the first image's other squares; no blur, no photographic noise.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "c3436aa3422e8636",
+   "ext": "png",
+   "frame": "ground_c-v1",
+   "was": ".tmp/gen/frames/ground_c-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "48776d0974a7dc0b",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_c.png"
+  },
+  {
+   "role": "image 3",
+   "sha": "c753fd607933bc53",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_style.png"
+  },
+  {
+   "role": "mask",
+   "sha": "08809c3ec8f7130e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/ground_c-v1/_mask_bridge_b1-whole_bridge_b2-whole.png"
+  }
+ ]
+}

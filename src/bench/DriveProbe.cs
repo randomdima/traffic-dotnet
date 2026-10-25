@@ -87,7 +87,7 @@ internal static class DriveProbe
 
     public static DriveSample Sample(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         using var world = new TownWorld(plan, config) { CountsRedBarCrossings = true };
         var terrain = new GroundLocator(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);

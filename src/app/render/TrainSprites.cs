@@ -1,12 +1,14 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Train.Body;
+using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Render;
 
 /// <summary>
 /// <b>The trains, as instances</b> (TRN-4): one quad a wagon in the world, turned to the heading its body is at, drawn in
-/// the look its train put on it — a wagon's art is one frame with its front along <c>+x</c>, as a car's is.
+/// the look its train put on it — a wagon's art is one frame with its front along <c>+x</c>, as a car's is — and its index
+/// its ID, which its fans turn from (TRN-13, <see cref="FanTable"/>).
 /// </summary>
 /// <remarks>
 /// <b>A vehicle with no art yet is drawn plain</b> (<see cref="Plain"/>): its own shape in its kind's colour, a roof a
@@ -66,9 +68,10 @@ internal static class TrainSprites
     {
         var written = 0;
         var halfSpanM = viewSpanM * 0.5f;
-        foreach (ref readonly var wagon in wagons)
+        for (var each = 0; each < wagons.Length && written < into.Length; each++)
         {
-            if (!wagon.IsInWorld || wagon.OnABridge != onABridge || written == into.Length) continue;
+            ref readonly var wagon = ref wagons[each];
+            if (!wagon.IsInWorld || wagon.OnABridge != onABridge) continue;
 
             ref readonly var vehicle = ref catalog.Vehicles[wagon.Look];
             var reachM = vehicle.FootprintM.X * 0.5f;
@@ -77,7 +80,7 @@ internal static class TrainSprites
 
             into[written++] = new SpriteInstance(
                 wagon.PositionM, vehicle.FootprintM * 0.5f, SpriteCell.Whole, SpriteTint.Plain, (uint)(firstSheet + wagon.Look),
-                wagon.HeadingRad);
+                wagon.HeadingRad, each);
         }
 
         return written;

@@ -1,0 +1,8 @@
+{
+  "id": "birch_silver",
+  "sprite": "birch_silver.webp",
+  "kind": 0,
+  "diameterM": 2.8,
+  "colliderM": 0.5,
+  "describe": "young silver birch crown, small fresh light green leaves, light and airy, fine drooping twigs, darker shadow between the twig clusters"
+}

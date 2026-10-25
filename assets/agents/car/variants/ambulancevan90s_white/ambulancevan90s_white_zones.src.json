@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/ambulancevan90s_white/ambulancevan90s_white-v4.props.json",
+ "cutOn": "raw_assets/agents/car/variants/ambulancevan90s_white/ambulancevan90s_white-v4.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

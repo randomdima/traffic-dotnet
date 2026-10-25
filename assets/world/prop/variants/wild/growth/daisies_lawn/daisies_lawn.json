@@ -1,0 +1,8 @@
+{
+  "id": "daisies_lawn",
+  "sprite": "daisies_lawn.webp",
+  "kind": 0,
+  "diameterM": 0.9,
+  "share": 2.0,
+  "describe": "patch of lawn daisies in short grass, tiny white flowers"
+}

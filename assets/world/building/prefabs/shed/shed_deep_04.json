@@ -2,8 +2,8 @@
   "id": "shed_deep_04",
   "sprite": "shed_deep_04.webp",
   "footprintM": [
-    3.0,
-    4.0
+    3.9,
+    5.2
   ],
   "cornerRadiusM": 0.3,
   "partsM": [],
@@ -16,5 +16,5 @@
     "outbuilding",
     "narrow front"
   ],
-  "describe": "small yard outbuilding or shed, lean-to roof of rusty sheet metal, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "small yard outbuilding or shed, lean-to roof of rusty sheet metal, standing narrow end to the street with the entrance on that short front wall, its one slope falling to a long side"
 }

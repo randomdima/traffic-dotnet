@@ -2,8 +2,8 @@
   "id": "house_deep_20",
   "sprite": "house_deep_20.webp",
   "footprintM": [
-    5.0,
-    8.5
+    7.0,
+    11.9
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -16,5 +16,7 @@
     "cottage",
     "narrow front"
   ],
-  "describe": "small single-storey cottage, gabled roof of grey corrugated asbestos-cement slate, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "small single-storey cottage, gabled roof of grey corrugated asbestos-cement slate, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back",
+  "chimneys": [[1.77, -2.85, 2.22, -2.85]],
+  "potWidthM": 0.45
 }

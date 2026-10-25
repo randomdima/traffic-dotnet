@@ -1,0 +1,8 @@
+{
+  "id": "flat_stone",
+  "sprite": "flat_stone.webp",
+  "kind": 0,
+  "diameterM": 0.9,
+  "share": 0.6,
+  "describe": "flat grey slab of stone lying in grass, slightly cracked"
+}

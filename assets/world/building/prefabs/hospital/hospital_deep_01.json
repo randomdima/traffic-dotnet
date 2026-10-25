@@ -1,8 +1,9 @@
 {
   "id": "hospital_deep_01",
+  "sprite": "hospital_deep_01.webp",
   "footprintM": [
-    4.0,
-    8.0
+    5.6,
+    11.2
   ],
   "cornerRadiusM": 0.6,
   "partsM": [],
@@ -15,5 +16,10 @@
     "annex",
     "narrow front"
   ],
-  "describe": "small single-storey annex of a clinic, flat grey roof with a vent and an air conditioner unit, standing narrow end to the street with the entrance on that short front wall"
+  "describe": "small single-storey annex of a clinic, flat grey roof with a vent and an air conditioner unit, standing narrow end to the street with the entrance on that short front wall",
+  "fans": [
+    { "atM": [0.7441, -1.1357], "rimAtM": [0.7808, -1.0554], "rimM": [0.6019, 0.6] }
+  ],
+  "chimneys": [[-0.63, -3.9], [-0.68, 3.5]],
+  "potWidthM": 0.5
 }

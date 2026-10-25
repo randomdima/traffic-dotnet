@@ -63,31 +63,33 @@ BLD_STYLE_IDS = ["tower_06", "tower_09", "tower_deep_06", "tower_deep_04", "towe
                  "tower_deep_03", "tower_08", "tower_deep_08", "tower_deep_07"]
 BLD_CELL_PX, BLD_FIT_PX = 400, 330
 
-# Nine of the game's cars to redraw, and six others as the style picture. pickup_maroon and super_cyan
-# carry a visible watermark and police_white carries text, so none of them is shown to a model.
+# Nine of the game's cars to redraw, and six others as the style picture. police_white carries text, so
+# it is not shown to a model.
 # Each car's outline is a rounded box at its footprint with the corner radius of its body type — the
 # one shape term a brief for a car that does not exist yet can still give. Not the sprite's own
 # silhouette: that only exists for a car already drawn, and hands the model the answer.
 BODY_CORNER_M = {"square": 0.12, "boxy": 0.2, "saloon": 0.32, "sporty": 0.5, "round": 0.7}
 CARS = {
-    "sedan_silver": ("saloon", "four-door family car, silver grey, long flat roof with three ribbed lines"),
-    "hatch_teal": ("saloon", "five-door hatchback, teal, a cage rack over the rear half of the roof"),
-    "taxi_yellow": ("saloon", "four-door taxi, yellow, a black-and-white chequered strip along both sides, "
-                              "a small white roof sign in the middle with no text on it"),
-    "pickup_tan": ("boxy", "off-road pickup, tan, a roll frame over an open load bed with crates in it, "
-                           "a spare wheel on the tailgate"),
-    "van_purple": ("boxy", "boxy compact van, purple, short nose, one long flat ribbed roof from the "
-                           "windscreen to the rear"),
-    "sports_red": ("sporty", "low mid-engine sports car, red, long front, small cabin set back, slatted "
-                             "engine cover behind the cabin"),
-    "muscle_blue": ("saloon", "muscle car, blue, long bonnet, darker blue roof, two white racing stripes "
-                              "over the boot"),
-    "compact_green": ("round", "small rounded two-door city car, bright green, short bonnet, big windscreen"),
-    "truck_brown": ("square", "square off-road truck, brown, short cab, ribbed load deck, a spare wheel "
-                              "at the rear"),
+    "fleetsaloon_silver": ("saloon", "plain budget four-door saloon, dull silver, one rear wing a slightly darker "
+                                     "grey, tall roof, short separate boot lid, black unpainted bumpers"),
+    "hatch_blue": ("saloon", "five-door family hatchback, deep metallic blue, long flat roof, near-vertical "
+                             "hatchback tail"),
+    "cab_yellow": ("saloon", "four-door saloon taxi, bright yellow, a small plain white roof sign with no text "
+                             "on it, long low bonnet, short boot"),
+    "pickup_silver": ("boxy", "double-cab pickup, silver, tall square bonnet, a hard flat cover over a long bed"),
+    "lightvan_white": ("boxy", "worn light van, dull white, rust at the wheel arches, short bonnet, tall boxy "
+                               "body, flat roof, two square rear doors"),
+    "sportscar_red": ("sporty", "rear-engined sports coupe, glossy red, low wide body, long sloping front lid "
+                                "between raised front wings, rounded fastback roof, a slim rear spoiler"),
+    "coupe_yellow": ("saloon", "muscle coupe, bright yellow, two black stripes over the bonnet and roof, long "
+                               "bonnet, short fastback roof"),
+    "citycar_lime": ("round", "five-door city car, lime green, short rounded bonnet, tall roof with one long "
+                              "glass area, short hatchback tail"),
+    "offroader_black": ("square", "boxy luxury off-roader, gloss black, flat square bonnet, upright square "
+                                  "cab, flat roof, a covered spare wheel on the square tail"),
 }
-CAR_STYLE_BODIES = {"coupe_black": "saloon", "muscle_orange": "saloon", "sedan_rust": "saloon",
-                    "sports_pink": "round", "apc_olive": "boxy", "ambulance_white": "boxy"}
+CAR_STYLE_BODIES = {"liftback_black": "saloon", "estate_steel": "saloon", "evsaloon_red": "saloon",
+                    "retro500_cream": "round", "bigvan_silver": "boxy", "ambulance_white": "boxy"}
 CAR_CELL_PX = (600, 400)
 CAR_PX_PER_M = 100
 

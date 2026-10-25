@@ -100,37 +100,96 @@ public class LampAtlasTests
     }
 
     /// <summary>
-    /// <b>Nothing in the sheet is dark</b>. Every texel of it is drawn over the lamp's own glow
-    /// (<c>LampSprites</c>), so a texel darker than that light is a hole punched in it — which is what a
-    /// lens whose glass the artist painted deep against a bright highlight used to draw down the middle
-    /// of its own glow. A lit lens shades with how solidly it is drawn (<see cref="LampAtlasBake.Dimmest"/>).
+    /// <b>A lit lens is the dull one brighter</b>: over the texels its zone map gives it, every lit state of a zoned lens
+    /// burns on average stronger (<see cref="Strength"/>) than the art it was cut from — the lamp the artist drew, switched
+    /// on, rather than a picture of some other lamp. By how much is the art's: a lens painted near white has little room
+    /// left (<see cref="LampAtlasBake.Brighten"/>).
     /// </summary>
     [Fact]
-    public void NoTexelOfALitLensIsDarkerThanTheLightAroundIt()
+    public void EveryLitLensIsBrighterThanTheArtItWasCutFrom()
     {
         using var sheet = Image.Load<Rgba32>(ProjectPaths.LampAtlasFile());
-        var least = (byte)(LampAtlasBake.Dimmest * 255f);
-
-        sheet.ProcessPixelRows(rows =>
+        for (var row = 0; row < Catalogue.SheetCount; row++)
         {
-            for (var y = 0; y < rows.Height; y++)
+            var variant = Catalogue.Variants[row];
+            if (variant.ZonesPath is null) continue;
+
+            using var sprite = Image.Load<Rgba32>(variant.SpritePath);
+            var perM = new System.Numerics.Vector2(sprite.Width / variant.FootprintM.X, sprite.Height / variant.FootprintM.Y);
+            for (var lens = 0; lens < variant.Lenses.Length; lens++)
             {
-                var row = rows.GetRowSpan(y);
-                for (var x = 0; x < row.Length; x++)
+                var fitting = variant.Lenses[lens].Fitting;
+                if (!LampAtlasBake.IsZoned(fitting)) continue;
+
+                var centrePx = ((variant.FootprintM * 0.5f) + variant.Lenses[lens].AtBodyM) * perM;
+                var originX = (int)MathF.Round(centrePx.X) - (LampAtlas.CellPx / 2);
+                var originY = (int)MathF.Round(centrePx.Y) - (LampAtlas.CellPx / 2);
+                for (var state = 0; state < LampAtlas.StatesOf(fitting); state++)
                 {
-                    // Every lamp colour has a channel at full, so the dimmest a burning texel can be
-                    // drawn is that channel at Dimmest. Anything under it is bodywork, not light.
-                    var texel = row[x];
-                    if (texel.A == 0) continue;
+                    var (column, sheetRow) = LampAtlas.CellOf(row, lens, state, variant.Lenses);
+                    var (lit, drawn, count) = (0f, 0f, 0);
+                    for (var y = 0; y < LampAtlas.CellPx; y++)
+                    {
+                        for (var x = 0; x < LampAtlas.CellPx; x++)
+                        {
+                            if (sheet[(column * LampAtlas.CellPx) + x, (sheetRow * LampAtlas.CellPx) + y].A == 0) continue;
+
+                            lit += Strength(sheet[(column * LampAtlas.CellPx) + x, (sheetRow * LampAtlas.CellPx) + y]);
+                            drawn += Strength(sprite[originX + x, originY + y]);
+                            count++;
+                        }
+                    }
+
+                    if (count == 0) continue;
 
                     Assert.True(
-                        Math.Max(texel.R, Math.Max(texel.G, texel.B)) >= least,
-                        $"the cell at {x / LampAtlas.CellPx},{y / LampAtlas.CellPx} draws " +
-                        $"{texel.R},{texel.G},{texel.B} at alpha {texel.A}.");
+                        lit > drawn,
+                        $"{variant.Id}'s {fitting} lens {lens} burns {lit / count:F2} over art of {drawn / count:F2}.");
                 }
             }
-        });
+        }
     }
+
+    /// <summary>
+    /// <b>Every clear texel of a lit cell carries the colour of a lit texel of that cell</b>: the sheet is sampled
+    /// linearly at straight alpha, so the colour under a clear texel is mixed into the lens's edge, and the black an
+    /// image clears to there is a dark ring between the lit lens and its glow.
+    /// </summary>
+    [Fact]
+    public void TheClearTexelsRoundALitLensCarryItsColour()
+    {
+        using var sheet = Image.Load<Rgba32>(ProjectPaths.LampAtlasFile());
+        var lit = new HashSet<(byte, byte, byte)>();
+        for (var cellY = 0; cellY < sheet.Height; cellY += LampAtlas.CellPx)
+        {
+            for (var cellX = 0; cellX < sheet.Width; cellX += LampAtlas.CellPx)
+            {
+                lit.Clear();
+                for (var texel = 0; texel < LampAtlas.CellPx * LampAtlas.CellPx; texel++)
+                {
+                    var at = sheet[cellX + (texel % LampAtlas.CellPx), cellY + (texel / LampAtlas.CellPx)];
+                    if (at.A > 0) lit.Add((at.R, at.G, at.B));
+                }
+
+                if (lit.Count == 0) continue;
+
+                for (var texel = 0; texel < LampAtlas.CellPx * LampAtlas.CellPx; texel++)
+                {
+                    var at = sheet[cellX + (texel % LampAtlas.CellPx), cellY + (texel / LampAtlas.CellPx)];
+                    Assert.True(
+                        at.A > 0 || lit.Contains((at.R, at.G, at.B)),
+                        $"the cell at {cellX / LampAtlas.CellPx},{cellY / LampAtlas.CellPx} carries {at.R},{at.G},{at.B} " +
+                        "under a clear texel, the colour of none of its lit ones.");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// How strong a texel's light is: its strongest channel. Not its luminance, which a lens that takes its light's
+    /// hue — clear glass burning amber — loses however brightly it burns.
+    /// </summary>
+    static float Strength(Rgba32 texel) => Math.Max(texel.R, Math.Max(texel.G, texel.B)) / 255f;
 
     /// <summary>
     /// <b>A zone map is the size of the sprite it maps</b>, texel for texel: it is the same cell of the same sheet cut and
@@ -174,7 +233,7 @@ public class LampAtlasTests
                 var burnt = 0;
                 for (var state = 0; state < LampAtlas.StatesOf(fitting); state++)
                 {
-                    var (column, sheetRow) = LampAtlas.CellOf(row, lens, state);
+                    var (column, sheetRow) = LampAtlas.CellOf(row, lens, state, variant.Lenses);
                     for (var y = 0; y < LampAtlas.CellPx; y++)
                     {
                         for (var x = 0; x < LampAtlas.CellPx; x++)

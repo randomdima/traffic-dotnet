@@ -1,1 +1,2 @@
-{"variant": "samara_silver_broken-v1", "frame": "fleet100_w02-v1", "cell": 3, "pxPerM": 114.963, "score": 4, "status": "used", "ts": "2026-10-22T00:05:31"}
+{"variant": "samara_silver_broken-v1", "frame": "fleet100_w02-v1", "cell": 3, "pxPerM": 114.963, "score": 4, "status": "candidate", "ts": "2026-10-22T00:05:31"}
+{"variant": "samara_silver_broken-v2", "frame": "fleet100_rw03-v1", "cell": 1, "pxPerM": 106.983, "score": 4, "status": "used", "ts": "2026-10-22T18:34:01"}

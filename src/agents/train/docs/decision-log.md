@@ -1,5 +1,40 @@
 # The train — decision log
 
+## 2026-10-23 — the showroom's yard
+
+**The owner asked for trains in the showroom, "same logic as cars there"**: every look once, standing, driven only by
+hand (TRN-14).
+
+- **A yard of sidings along the map's foot** (`ShowroomPlan.Yard`): straight tracks a double line's spacing apart, each
+  its own line run one way past the map at both ends, so each fields exactly one train and the run-in, the claims and the
+  hand's controls are the ones every train has. Six, for the four locomotive looks and room for more, as the car park
+  lays more bays than the fleet has looks.
+- **A train a locomotive look, never a look alone**: a lone coach is no train of TRN-4's, so each wagon look is dealt to a
+  locomotive that hauls its kind, the diesels taking tanks and coal in turn — 4 trains of the 11 looks.
+- **Stood, not sent** (`Trains.Stand`): put down braked mid-map at the first tick however the town is held; the timetable
+  never runs. Its own driver is the brake on, so a train let go stops where it was left instead of pulling on at the last
+  hand's throttle. The pace claim (`RailWatch`) is not laid where the trains stand: there is no driver to hold one.
+
+## 2026-10-23 — a diesel's fans cut off its picture and turned
+
+**The owner asked for the trains' vent props cut and turning, with the existing cutting tool.** The round radiator fans
+on the two diesels are what turns; a coach's roof vents are square and stay as drawn, and the electrics draw none.
+
+- **Cut with `qq props`, as a car's lamps are** (TRN-13): a `fan*` prop is traced from its hub as the dark round opening
+  (`--lens=disc`, an ellipse fitted through the rims along rays, so a spoke or a pale stretch of shroud does not bite
+  into it), drawn once, and `install` writes the vehicle's `fans` and keeps the props beside the picture's variant.
+- **The hub is where the rings round it are most alike all the way round**, out to a share of the reach: out to the
+  shroud, `diesel_green`'s ring drawn a texel off the hub pulled the centre onto itself, and turning the disc by a blade
+  read the blue fans' 8 blades as 7 or 9 off their speckled ground.
+- **A fan is made round, and sized by us, not by the art** (the owner: "they need to be circular to spin nicely"): the
+  four are drawn 7–10 % out of round, and the first cut — the largest disc about the hub inside the outline, the
+  picture's texels as drawn — turned a squashed fan's blades and wobbled. The file keeps the hub and the rim's fitted
+  ellipse (`DrawnFan`), and the opening is warped onto a circle about the hub as wide as the rim can reach from it, read
+  a texel and a half short of the rim, since the art's rim wanders off the ellipse and turned reads as nicks. So a fan
+  at rest is no longer the picture's texels exactly. How it is drawn is the render log's (2026-10-23).
+- **It turns at a drawn rate, not a real one** (`ViewFigures.FanTurnsPerS`): a radiator fan's fifteen or so turns a
+  second strobes at any frame rate.
+
 ## 2026-10-19 — a train long enough to pass over itself, slowed by a curve
 
 **The owner: "make trains longer for this"** — the loop over itself (`RAIL-11`), 450 m between its passes on a double
@@ -103,7 +138,7 @@ nowhere on a map and come in and go out now and then. **What a train is, is the 
   337 s of trains, the line passing over streets on its bridges. Read off the wagon's middle it still met 6 walkers,
   4 of them under a bridge's end a wagon reached over, so **any of a wagon over a bridge puts it on the bridge's
   channel**; the 2 left are beside the track at no crossing (`docs/tech-debt.md`).
-- **A train's art is the ground's grid and packed in rows** (`qq sprites`' `rows` layout): a 3×3 sheet draws a coach
+- **A train's art is the ground's grid and asked in rows**, two or three vehicles to a row: a 3×3 sheet draws a coach
   under 20 px/m.
 
 ## 2026-10-19 — every vehicle drawn, the freight diesel one way

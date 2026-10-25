@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import struct
 from pathlib import Path
 
 from common import cli, paths
@@ -142,9 +141,11 @@ def q(v):
     return "/".join(f"{v[int(len(v) * p)]:g}" for p in (0.25, 0.5, 0.75))
 
 
-#: `qq sprites template`'s frame and the magenta it keeps round each outline, and the art grid (`ArtPixelsPerMetre`).
+#: The frame remotegen returns, the room planned round each drawing in it, and the art grid (`ArtPixelsPerMetre`):
+#: what a frame of n roofs can draw each at.
 SHEET_PX, GAP_PX, GRID = (1536, 1024), 24, 31.5
-#: And the wider margin it keeps round a frame of fewer than nine (`BIG_ROOF_GAP_PX`).
+#: And the wider room round each in a frame of fewer than nine: the model paints nothing within some 25 px of the
+#: picture's edge (raw_assets/world/building/prompting.md).
 BIG_GAP_PX = 64
 #: A frame of big roofs is made as large as still draws each at this share of the grid, else two to a frame.
 BIG_SHARE = 0.8
@@ -268,23 +269,20 @@ def brief(base, frame, plan_path):
     cols, rows = grid_for(len(ids)) if len(ids) >= 9 else best_grid([(i, files[i]["footprintM"]) for i in ids])
     looks = list(dict.fromkeys(look_of(files[i]) for i in ids))
     text = [
-        f"Two images are attached. The first is a layout: {len(ids)} building outlines seen from above, in a {cols}×{rows} "
-        "grid on a flat magenta background. The second is finished art from the same game, to match in style only — not "
-        "its layout, shapes, colours or the size of its details.",
+        "One image is attached: finished art from the same game, to match in style only — not its contents, shapes, "
+        "colours or the size of its details.",
         "",
-        f"Make one image with exactly the same {cols}×{rows} layout as the first image. Inside each outline, draw the roof "
-        "of the building described for that cell below, as a top-down sprite for a 2D city game.",
+        f"Make one image of {len(ids)} building roofs seen from straight above, as top-down sprites for a 2D city game, "
+        f"laid in a {cols}×{rows} grid: {rows} rows, {cols} roofs to a row, read left to right and top to bottom in the "
+        "order listed below, each well apart from its neighbours and from the picture's edge.",
         "",
-        "Shape comes first. Before painting a cell, trace its outline exactly, then paint only inside the traced border:",
-        "- Trace each outline like paint on tracing paper laid over it: do not re-centre, move or resize it, and leave "
-        "the margins between outlines and around the picture's edge exactly as wide as they are, empty.",
-        "- Keep every outline's proportions: match each one's width and height. Each cell's proportion is given below; "
-        "check it. Never make an outline squarer, shorter or fatter.",
-        "- Every edge is straight and square to the others. Never slant, skew or taper an edge to show perspective. An "
-        "outline built of several rectangles (an L, a T, a stepped block) is followed corner by corner.",
-        "- Draw nothing outside the outline: no eaves, steps, porches, canopies, ramps or shadows past it. A porch or an "
-        "entrance canopy is drawn inside the outline at its bottom edge. A roof is solid paint right up to its outline: "
-        "no hole, no gap and no magenta inside it.",
+        "Shape comes first:",
+        "- Each roof has the size and proportion given below: check its width against its depth. Never make one squarer, "
+        "shorter or fatter.",
+        "- Every edge is straight and square to the others. Never slant, skew or taper an edge to show perspective. A roof "
+        "built of several rectangles (an L, a T, a stepped block) keeps each one square.",
+        "- Nothing stands past a roof's edge: no eaves, steps, porches, canopies, ramps or shadows. A porch or an entrance "
+        "canopy is part of the roof at its street front. A roof is solid paint right up to its edge: no hole, no gap.",
         "",
         "Scale is the second rule, and it is strict. Every size below is true metres, width × depth, and every detail is "
         "drawn at its true size against them. These buildings stand beside cars 4 m long and 1.8 m wide; keep that in "
@@ -297,55 +295,28 @@ def brief(base, frame, plan_path):
         "- Look straight down (orthographic). No perspective, no tilt, no ground, no plants, no cars, no people. No wall, "
         "door, window, garage door or shop front is ever seen: stairwells, lift rooms and dormers are flat-topped boxes "
         "seen only from above, a dome is a circle shaded as a dome, a light well is only its flat floor.",
-        "- The thick bottom edge of each outline is the street front, where the entrance is. The top edge is the back.",
+        "- Each roof's bottom edge in the picture is its street front, where the entrance is. Its top edge is the back.",
         "- A gabled roof shows its ridge as one line with the two slopes shaded differently; a lean-to roof is one slope "
         "with no ridge; a flat roof has a parapet round its edge.",
         "- Style: match the style image. Clean, flat-shaded cartoon game art, bold dark outlines, muted natural colours, "
         "simple readable details, soft light from the top-left.",
-        "- Outside the roofs the picture is fully transparent: no magenta, no background colour, no shadow, nothing "
+        "- Outside the roofs the picture is fully transparent: no background colour, no ground, no shadow, nothing "
         "half-transparent. No text, letters, numbers, labels, logos, grid lines or frames anywhere.",
         "",
-        "Cells, left to right, top to bottom:",
+        "Roofs, left to right, top to bottom:",
     ]
-    if (empty := cols * rows - len(ids)) > 0:
-        text.insert(-1, ("The grid's last place is" if empty == 1 else f"The grid's last {empty} places are")
-                        + " empty: fully transparent, with nothing drawn there.")
-        text.insert(-1, "")
-    spans = laid_spans(base / ".tmp/gen/templates" / f"{frame}.png", ids)
     for r in range(rows):
         cells = ids[r * cols:(r + 1) * cols]
         if not cells:
             break
         text += ["", f"Row {r + 1}"]
-        text += [f"{r * cols + k + 1}. {cell_line(files[i])}{spans.get(i, '')}" for k, i in enumerate(cells)]
+        text += [f"{r * cols + k + 1}. {cell_line(files[i])}" for k, i in enumerate(cells)]
     out = base / ".tmp/gen/briefs" / f"{frame}.txt"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(text) + "\n", encoding="utf-8")
-    print(f"{frame}: {len(ids)} cells, {cols}x{rows} -> {paths.display(out)}")
-    print(" ".join(ids))
+    out.with_suffix(".cells.json").write_text(json.dumps(ids) + "\n", encoding="utf-8")
+    print(f"{frame}: {len(ids)} roofs, {cols}x{rows} -> {paths.display(out)}, ids in {out.stem}.cells.json")
     return 0
-
-
-def laid_spans(template, ids):
-    """Per id, where `qq sprites template` laid its outline, as shares of the picture — the placement wording that held
-    big roofs where pixel boxes and plain fault lines did not (roofs_mixed_at, _j, _an). Empty without a template."""
-    if not template.is_file():
-        return {}
-    data, at, layout = template.read_bytes(), 8, None
-    while at < len(data):
-        size, kind = struct.unpack(">I4s", data[at:at + 8])
-        if kind == b"tEXt":
-            key, _, value = data[at + 8:at + 8 + size].partition(b"\0")
-            if key == b"cells":
-                layout = json.loads(value)
-        at += size + 12
-    if layout is None or [c["id"] for c in layout["cells"]] != ids:
-        cli.fail(f"{paths.display(template)} does not lay this frame's cells: run `qq sprites template` with its ids")
-    width, height = layout["size"]
-    return {c["id"]: f"; its outline spans {100 * c['shapeBox'][0] / width:.0f}–"
-                     f"{100 * (c['shapeBox'][0] + c['shapeBox'][2]) / width:.0f} % of the picture's width and "
-                     f"{100 * c['shapeBox'][1] / height:.0f}–{100 * (c['shapeBox'][1] + c['shapeBox'][3]) / height:.0f} % "
-                     "of its height" for c in layout["cells"]}
 
 
 def look_of(d):
@@ -369,7 +340,7 @@ def cell_line(d):
     if r > EAVES_MAX_M:
         ratio += ", corners widely rounded" if r < min(w, h) / 2 - 0.05 else ", round ends"
     if len(parts) > 1:
-        ratio += f", outline built of {len(parts)} rectangles"
+        ratio += f", built of {len(parts)} rectangles"
     return f"{round(w, 1):g} × {round(h, 1):g} m ({ratio}) — {d.get('describe', d['id'].replace('_', ' '))}"
 
 
@@ -379,7 +350,7 @@ def best_grid(roofs):
 
 
 def few_scale(roofs):
-    """A frame of fewer than nine, as `qq sprites template` lays it."""
+    """What a frame of fewer than nine draws each roof at, in the grid that draws them largest."""
     return scale_of(roofs, *best_grid(roofs), BIG_GAP_PX)
 
 

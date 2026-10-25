@@ -309,11 +309,10 @@ stands on it** — it is not the grass those take. The bank it follows is **the 
 from**, laid a shore's width wider, so the strip is one width everywhere rather than a band fitted round a
 curve.
 
-**Each of its two edges carries a line of its own** (`SimConfig.CityGen.ShoreEdgeWidthM`), **in the colour of
-the ground it meets and darker than that ground** — green against the grass, blue against the water — so an
-edge reads as the shore's own shadow rather than a highlight laid over it. **They are drawn and never
-classified**: the ground under a line is the shore either way, so the map carries the rings that leave them
-rather than a kind of cell nobody could stand on.
+**Neither of its two edges is a line**: the ground beside it fades out onto the shore
+(`SimConfig.View.ShoreFadeM`) — the grass from the shore's outer edge, the water from its own — so the pebbles
+run into the turf and under the water rather than stopping at a stroke. **The fades are drawn and never
+classified**: the ground under one is the shore either way, so the map carries no ring for them.
 
 **A bank is drawn through enough points that no chord of it stands off the curve**
 (`SimConfig.CityGen.ShoreChordToleranceM`). The rings are the bank the ground is answered off as well as the
@@ -410,12 +409,8 @@ junction's disc and its widest arm, which a junction's movements can reach past 
   so what spaces a verge is the step rather than the props' own girth against each other (GEN-6c). A kerb
   walked at a pitch inside a girth carries a continuous line of props and not a street; the town has to be
   visible through its own verges.
-- **A kind carries its own size band, because its set was authored in one.** The wild set reaches the great
-  trees (`SimConfig.CityGen.PropWildDiameterMaxM`) and the other two stop at the widest thing drawn for them
-  (`PropDiameterMaxM`). The catalogue answers a size nothing was authored near with the nearest look it has
-  and never resizes the prop, so a prop drawn outside its set's band is a planter stretched to the size of
-  an oak — and a wild look on a verge is as wide as it would be anywhere else, which is what a street tree
-  is.
+- **A wild look on a verge is as wide as it would be anywhere else**, which is what a street tree is: its size
+  is its look's (GEN-6e), and nothing about the verge shrinks it.
 - **A look that fits none of the three is not shipped.** The kinds are the whole of what a prop may be, so
   art that could only stand somewhere a prop is not laid — a grate, a hatch, a patch of paving — is deleted
   rather than filed under the kind it is least wrong in.
@@ -429,11 +424,60 @@ would come too near one is not a prop (GEN-8, GEN-10). The two passes lay on pat
 each other (GEN-6b), so the rule is answered off a grid of the scatter's own, its squares the widest prop's
 width and one clearance across, asking the nine round a candidate and nothing else.
 
-**GEN-6d** `P6` **A prop's picture fits inside the disc the plan kept for it**: the longest side of the sheet
-is the prop's own `diameterM` and the other follows the art's aspect. **What is drawn is what a car is held
-off** — a sheet drawn to its own height instead reaches past the girth the town gave it, into the prop beside
-it and into the road when it is laid along a kerb. The clearance in GEN-6c is grass between two pictures and
-not slack for one of them to spill into.
+**GEN-6d** `P6` **A prop's picture fits inside the disc the plan kept for it**: it is drawn at its look's own
+size (GEN-6e), and the girth holds that picture: a round look fills its disc, and a box's diagonal keeps it
+inside the disc whichever way it is turned. **No picture reaches past the ground the town cleared for it** — drawn to its own height
+instead, a sheet reaches into the prop beside it and into the road when it is laid along a kerb. The clearance
+in GEN-6c is grass between two pictures and not slack for one of them to spill into.
+
+**GEN-6e** `P6` **A prop is laid at the size of the look it will wear.** The plan draws a prop's kind as its
+pass says (GEN-6b), then one of that kind's looks from the art it was handed, each as often against the rest
+of its kind as its `share` says (one where the art states none), and the prop's girth is that look's; the renderer draws the look the plan chose, at the look's own size, and chooses nothing. **The art
+states every size and the plan none**: a look is round (`diameterM`, the picture's longest side, the other its
+aspect's, since a drawing is taken whole and is not always square) or a box (`footprintM`, width by depth,
+which the picture's aspect matches). Its girth — the disc the town clears ground for — is derived and never
+authored: a round look's is its diameter, since a crown fills its disc and the picture's corners are bare, and a
+box's is its diagonal, so it stays inside the disc turned any way.
+
+- **A body may be smaller than its picture** (`colliderM`, a diameter): a street tree stands as its trunk under
+  a crown far wider, and a look stating none stands as its girth. Only what stands bodies reads it
+  (`CityPlan.PropArrays.BodyRadiusM`); the ground a prop is cleared to (GEN-6a), the spacing between two
+  (GEN-6c) and the stand-off from driven ground (TER-4c.4) stay on the girth, so crowns do not pile up. A body
+  wider than its girth is refused as the look is read.
+- **The looks cross the seam as data** (`CityGen.PropSizes`, beside `BuildingSizes` in `CityGen.ArtSizes`),
+  in the catalogue's order, so a prop names its look by its place there and is drawn in the same place.
+- **A kind nothing was drawn for lays nothing**, along the kerbs, over the open ground or where the map sets
+  a prop down: a body nothing draws is the one outcome that reads as a renderer bug. A town handed no looks
+  lays no prop.
+- **The scatter's grid covers the widest look handed down** (GEN-6c), so the figure is the art's as well.
+- **How often a look is drawn is the art's too, and never how big it is**: a `share` says how common a thing is in
+  a town against the rest of its kind — a litter bin against a builder's skip — and a look's size says nothing of
+  it.
+
+**GEN-6f** `P6` **A tree-lined street's trees stand in a row at a pitch**
+(`SimConfig.CityGen.PropStreetTreePitchM`), laid along the walk's face before the rest of the verge, so the
+furniture and the planting fill between them rather than the trees between those. A row is a pitch and not a
+scatter — what reads as a planted street is the regularity — so it is not jittered, and **a tree that does not
+stand leaves its place in the row empty** and moves no other. **A street tree is a crowned look**, one standing as a
+body narrower than its picture (GEN-6e), which is what a trunk under a crown is, and that is the only sense in
+which the plan knows what a tree is. **A block is lined or not** (`PropTreeLinedShare`), one ring of the face at a
+time and one look a ring, so a block reads as planted at once and a street's two sides may differ.
+
+**GEN-6g** `P6` **What grows wild grows in clumps, and the clumps in thickets and clearings.** Each candidate the
+open ground's sweep lays is a clump's heart, and round it stand more of the wild set **no wider than the heart**
+(`PropClumpMost`, `PropClumpReachM`) — a thicket round a tree, a patch round a weed, and never a tree under a bush.
+**How thickly a place grows is its zone's share times a field over the map** (`PropThicketM`,
+`PropThicketContrast`), about one on the whole and from nought in a clearing to twice the share in a thicket, and a
+clump's size follows the same field. Grown evenly instead, open ground reads as noise at any distance: a lattice
+thinned at random has no gaps for the eye to find. **A member keeps the stand-off its heart kept** (GEN-6b), and
+**grows only as thickly as its own zone does** (GEN-58): one reaching into ground that grows thinner than its heart's
+is kept at the share the two stand in.
+
+**GEN-6h** `P6` **A verge sets things out in runs.** A share of the planted and furnished stations along a kerb
+(`PropRunShare`) lay their look again, up to `PropRunMost` in all, each a gap of grass (`PropRunGapM`) on from the
+last along the face and on its bearing there: a row of bollards, three planters, a pair of benches, the bins of a
+house. A run is of what a town sets out by hand, so **never a crowned look**, whose row is GEN-6f's, **nor the wild
+set**, which nobody set out; and each member stands or does not as any prop does (GEN-6a, GEN-6c).
 
 **GEN-9** `P4` A building **declares what it is for**: ordinary, or one of the uses a service is stood at — a
 hospital (AMB-1), a police station or a depot (SRV-1). It is a field of the record and therefore a fact
@@ -488,6 +532,8 @@ what a service's beat is kept to (`SRV-5`). A map not laid on a wheel is one dis
   in the next district, and a yard cut into one facing into the district is that district's.
 - **A district with no street stands nothing**, which is an outer sector the town never reached as often as
   a sector under the water.
+- **A yard is as wide as its building's frontage** (`GEN-55`), so a district none of whose kerbs runs straight
+  for that long stands no building of that service, and the census says so (`GEN-8`). No district stands two.
 
 **GEN-7** `P5` Initial state: cars start **stopped in parking spaces**, and **a person starts inside the
 building the map stood them at**, part way through a dwell (PER-11). A trip ends by walking through a door and

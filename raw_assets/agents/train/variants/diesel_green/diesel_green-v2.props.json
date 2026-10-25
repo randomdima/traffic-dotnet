@@ -1,0 +1,21 @@
+{
+  "car": "diesel_green",
+  "sprite": {"variant": "raw_assets/agents/train/variants/diesel_green/diesel_green-v2.png", "sizePx": [573, 107]},
+  "axisY": {"rear": 53.50, "front": 53.00},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [107.77, 42.34, 3.51],
+      [110.60, 64.55, 4.10],
+      [133.31, 73.32, 3.43],
+      [151.92, 58.48, 7.76],
+      [134.29, 31.30, 5.20]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [157.73, 51.56, 6.65],
+      [183.03, 74.49, 2.34],
+      [200.92, 65.50, 1.05],
+      [206.06, 51.95, 8.14],
+      [178.91, 30.32, 5.27]
+    ]}
+  ]
+}

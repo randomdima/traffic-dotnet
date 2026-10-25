@@ -1,0 +1,8 @@
+{
+  "id": "stump_fresh",
+  "sprite": "stump_fresh.webp",
+  "kind": 0,
+  "diameterM": 0.8,
+  "share": 0.6,
+  "describe": "freshly cut tree stump, pale wood face with growth rings, bark rim"
+}

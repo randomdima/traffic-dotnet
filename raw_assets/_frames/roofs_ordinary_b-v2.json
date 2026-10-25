@@ -1,0 +1,38 @@
+{
+ "id": "roofs_ordinary_b-v2",
+ "ts": "2026-10-20T13:52:37",
+ "op": "edit",
+ "name": "roofs_ordinary_b",
+ "file": ".tmp/gen/frames/roofs_ordinary_b-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031856,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 4 building outlines seen from above on flat magenta, in a 2×2 grid. Redraw only cells 1, 2 and 4 (the transparent areas). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe fault in these three cells: each showed walls seen from the side, as if viewed at an angle. Cell 1's two dormers showed their front walls with windows; cell 2's hose-drying tower showed a brick side wall below its top; cell 4's plant room showed a grey wall with a door. Seen straight down, no wall, window or door is visible at all: a dormer is only its own small gabled roof, about 2.5 m wide; the tower is only its square flat top with a thin parapet; the plant room is only its flat roof. In cell 1 the roof's ridge runs left to right, parallel to the thick bottom edge (the street), with the party wall between the two houses running from the street to the back in the middle, a chimney on it, and one dormer on the front slope of each house.\n\nFor each redrawn cell, trace the outline in image 2 exactly, corner by corner, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: a chimney about 0.6 m, an air conditioner unit about 1 m, against cars 4 m long. No text.\n\n1. 13.5 × 12.9 m (square) — two terraced houses, gabled roof of brown clay tiles, a dormer each, chimneys on the party wall\n2. 16.2 × 16.7 m (square, outline built of 2 rectangles) — two-storey fire station, hipped roof of red clay tiles over the engine hall, a square hose-drying tower at one back corner\n4. 18 × 18 m (square, outline built of 2 rectangles) — three-storey department store, flat olive-grey roof with a parapet, a plant room, air conditioner units and roof lights, a striped awning inside the street edge",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "6fa944b9360e1e78",
+   "ext": "png",
+   "frame": "roofs_ordinary_b-v1",
+   "was": ".tmp/gen/frames/roofs_ordinary_b-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "3637905f573c028c",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_ordinary_b.png"
+  },
+  {
+   "role": "mask",
+   "sha": "042eef9b2ffe9ef5",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_ordinary_b-v1/_mask_terrace_brown_firehouse_dep_store.png"
+  }
+ ]
+}

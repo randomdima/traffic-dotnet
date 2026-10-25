@@ -31,7 +31,7 @@ internal sealed partial class TownWorld
     {
         for (var prop = 0; prop < _plan.Props.Count; prop++)
         {
-            Statics.AddDisc(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop]);
+            Statics.AddDisc(_plan.Props.CentreM[prop], _plan.Props.BodyRadiusM[prop]);
         }
 
         for (var building = 0; building < _plan.Buildings.Count; building++)

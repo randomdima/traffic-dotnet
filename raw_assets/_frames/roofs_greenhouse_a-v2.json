@@ -1,0 +1,38 @@
+{
+ "id": "roofs_greenhouse_a-v2",
+ "ts": "2026-10-20T13:44:28",
+ "op": "edit",
+ "name": "roofs_greenhouse_a",
+ "file": ".tmp/gen/frames/roofs_greenhouse_a-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.030946,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 2×1 grid. Redraw only cell 2 (the transparent area). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe faults in cell 2: it was drawn about 14% too shallow — a magenta strip was left inside the outline along its top edge and a wider one along its bottom edge. The roof now fills the whole outline in image 2, its top edge on the outline's top edge and its bottom on the thick bottom edge. Its glass panes were also drawn about 1.6 × 2.5 m, far too big; panes are about 1 × 0.6 m, so many more, smaller panes in a fine metal grid. An 18 m deep greenhouse is several spans side by side: a ridge line every 3–4 m, about five ridges running left to right, each span's two slopes shaded slightly differently.\n\nTrace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. No text.\n\n2. 22.4 × 18.2 m (1.2× wider than deep) — long greenhouse, gabled roof of glass or polycarbonate panels on a light frame",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "4d1eb381bad2b3d7",
+   "ext": "png",
+   "frame": "roofs_greenhouse_a-v1",
+   "was": ".tmp/gen/frames/roofs_greenhouse_a-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "a9054faefbbf496b",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_greenhouse_a.png"
+  },
+  {
+   "role": "mask",
+   "sha": "1c83710ab1dff6bb",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_greenhouse_a-v1/_mask_greenhouse_02.png"
+  }
+ ]
+}

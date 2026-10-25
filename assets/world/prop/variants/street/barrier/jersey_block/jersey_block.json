@@ -1,0 +1,10 @@
+{
+  "id": "jersey_block",
+  "sprite": "jersey_block.webp",
+  "kind": 2,
+  "footprintM": [2.0, 0.664],
+  "cornerRadiusM": 0.05,
+  "share": 0.4,
+  "turns": true,
+  "describe": "precast concrete jersey barrier, a narrow flat top along its length, weathered grey"
+}

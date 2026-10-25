@@ -153,8 +153,8 @@ internal sealed class CarVariantFile
 
     /// <summary>
     /// The whole distance between the wheel centres on an axle, as <see cref="SimConfig.CarTrackM"/> is.
-    /// <b>It is the width of the bodywork over the axles</b> (CAR-12): the wheel centres stand on this car's
-    /// own flanks, as the nominal car's stand on the corners of its footprint, so half of each tyre is
+    /// <b>It is read off the width of the bodywork over the axles</b> (CAR-12): the wheel centres stand just
+    /// inside this car's own flanks, so <see cref="TyreFigures.ShowsPastTheBodyworkShare"/> of each tyre is
     /// outside the panels and can be seen. It is authored against the car's shape (<see cref="CollisionM"/>)
     /// with the mirrors ignored, which is why a police car — whose footprint is as wide as its mirrors —
     /// carries a narrower track than a van with the same footprint.
@@ -245,6 +245,12 @@ internal sealed class CarVariantFile
     /// onto bodywork only for a nose that draws no lamp at all (CAR-14b).
     /// </summary>
     public LampFile[] Lamps { get; init; } = [];
+
+    /// <summary>
+    /// Where its tailpipes end (CAR-54), in the body's own metres: placed on the rear bumper rather than measured off
+    /// the art, which draws none from above (<c>qq exhausts</c>). An electric car names none.
+    /// </summary>
+    public Vector2[] Exhausts { get; init; } = [];
 
     public HandlingFile? Handling { get; init; }
 }

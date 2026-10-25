@@ -1,0 +1,6 @@
+{
+ "variant": "raw_assets/agents/car/variants/ambulancelight_white/ambulancelight_white-v6.props.json",
+ "cutOn": "raw_assets/agents/car/variants/ambulancelight_white/ambulancelight_white-v6.png",
+ "pxPerM": 96.0,
+ "encoding": "png lossless"
+}

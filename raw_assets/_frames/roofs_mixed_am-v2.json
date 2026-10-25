@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_am-v2",
+ "ts": "2026-10-20T14:03:23",
+ "op": "edit",
+ "name": "roofs_mixed_am",
+ "file": ".tmp/gen/frames/roofs_mixed_am-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.030916,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 2×1 grid. Redraw only cell 2 (the transparent area, right). Keep every other cell exactly as it is, and match their style, colours and fine detail.\n\nThe fault in that cell: along its bottom edge it showed a strip of shop windows and wall about 1.5 m deep, as if seen from the side. From straight above no wall, door or window can be seen. The roof fills the whole outline edge to edge, its parapet running along all four edges including the thick bottom edge, with at most a flat sign strip about 0.6 m deep lying on the roof inside the bottom parapet. Keep the HVAC units and vent hoods at their true size, about 1–1.5 m.\n\nTrace the outline in image 2 exactly, keep its proportions (4.3× deeper than wide), straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. No text.\n\n2. 7.8 × 33.8 m (4.3× deeper than wide, a thin strip) — row of shops or a small market hall, flat light roof with several HVAC units and vent hoods, standing narrow end to the street with the entrance on that short front wall",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "1b1ce9d3814a4889",
+   "ext": "png",
+   "frame": "roofs_mixed_am-v1",
+   "was": ".tmp/gen/frames/roofs_mixed_am-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "263664bc3f9e4424",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_am.png"
+  },
+  {
+   "role": "mask",
+   "sha": "ee36d6e4199a0132",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_am-v1/_mask_retail_deep_05.png"
+  }
+ ]
+}

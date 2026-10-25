@@ -37,8 +37,8 @@ internal sealed class TownSprites
     /// <summary>The car head's strip and the pedestrian head's.</summary>
     const int HeadSheets = 2;
 
-    /// <summary>The two brushes a mark is stamped through, the two pictures every lamp is drawn through, a steered tyre's rubber, and a crossing's barrier, its housing and its X light dark and lit.</summary>
-    const int GroundworkSheets = 9;
+    /// <summary>The two brushes a mark is stamped through, the two pictures every lamp is drawn through, a steered tyre's rubber, a crossing's barrier, its housing and its X light dark and lit, and a puff of smoke.</summary>
+    const int GroundworkSheets = 10;
 
     TownSprites(
         PersonCatalog people, CarCatalog cars, BuildingCatalog buildings, PropCatalog props, SheetSource[] sheets,
@@ -108,8 +108,11 @@ internal sealed class TownSprites
 
     public int FirstPropSheet => FirstBuildingSheet + Buildings.Count;
 
+    /// <summary>Where the fans' looks start (OBJ-6, TRN-13): never an instance's, only read inside a fan (<see cref="FanTable.PutLooks"/>).</summary>
+    public int FirstFanLookSheet => FirstPropSheet + Props.Count;
+
     /// <summary>The two head strips, car then pedestrian. They are the town's only sheets that are not a catalogue.</summary>
-    public int FirstHeadSheet => FirstPropSheet + Props.Count;
+    public int FirstHeadSheet => FirstFanLookSheet + Buildings.FanLooks.Length;
 
     /// <summary>The two stamps a mark is drawn through: rubber's, which has no edge, and soil's, which is nearly all edge.</summary>
     public int RubberBrushSheet => FirstHeadSheet + HeadSheets;
@@ -134,22 +137,43 @@ internal sealed class TownSprites
 
     public int CrossingLitSheet => CrossingLightSheet + 1;
 
+    /// <summary>What every puff of a car's exhaust (CAR-54) and of a chimney's (OBJ-7) is drawn through (<see cref="SmokeSprites.Sheet"/>).</summary>
+    public int SmokeSheet => CrossingLitSheet + 1;
+
     /// <summary>Where the rolling stock starts (TRN-4): a sheet a vehicle of the catalogue, last of all so nothing before moves.</summary>
-    public int FirstTrainSheet => CrossingLitSheet + 1;
+    public int FirstTrainSheet => SmokeSheet + 1;
+
+    /// <summary>How the exhausts' smoke is drawn (CAR-54).</summary>
+    public SmokeLook Smoke { get; private init; }
+
+    /// <summary>The most tailpipes any one look of the catalogue ends in.</summary>
+    public int MostExhaustsOnALook { get; private init; }
+
+    /// <summary>How the chimneys' smoke is drawn (OBJ-7), through the exhausts' picture.</summary>
+    public ChimneyLook Chimney { get; private init; }
+
+    /// <summary>Every pot of the town's chimneys (OBJ-7), laid with its buildings and none until then.</summary>
+    public ChimneyRow[] Chimneys { get; private set; } = [];
 
     /// <summary>The rolling stock the trains are drawn in.</summary>
     public TrainCatalog Rolling { get; } = TrainCatalog.Shared;
 
     /// <summary>
+    /// The fans the roofs and the rolling stock draw (OBJ-6, TRN-13) as the sprite stages read them, each drawn over in a
+    /// look of <see cref="BuildingCatalog.FanLooks"/> as its body is drawn.
+    /// </summary>
+    public required uint[] Fans { get; init; }
+
+    /// <summary>
     /// The committed lamp sheet, or the one cut for a told fleet (<see cref="FleetList.LampAtlasFile"/>): the
     /// sheet's rows are a catalogue's looks, and the committed one's are the shipped catalogue's.
     /// </summary>
-    static SheetSource LampSheet()
+    static string LampSheetFile()
     {
-        if (!FleetList.IsTold) return SheetSource.File(ProjectPaths.LampAtlasFile());
+        if (!FleetList.IsTold) return ProjectPaths.LampAtlasFile();
 
-        return SheetSource.File(FleetList.LampAtlasFile
-                                ?? throw new InvalidOperationException("A told fleet is drawn with its own lamp sheet: cut it first."));
+        return FleetList.LampAtlasFile
+               ?? throw new InvalidOperationException("A told fleet is drawn with its own lamp sheet: cut it first.");
     }
 
     public static TownSprites Load(SimConfig config)
@@ -164,9 +188,9 @@ internal sealed class TownSprites
         // and nothing else.
         var beams = cars.BeamSpritePaths;
         var trains = TrainCatalog.Shared.Vehicles;
-        var sheets = new SheetSource[
-            (people.SheetCount * 2) + (cars.SheetCount * 2) + beams.Length + buildings.Count + props.Count
-            + HeadSheets + GroundworkSheets + trains.Length];
+        var firstTrain = (people.SheetCount * 2) + (cars.SheetCount * 2) + beams.Length + buildings.Count + props.Count
+                         + buildings.FanLooks.Length + HeadSheets + GroundworkSheets;
+        var sheets = new SheetSource[firstTrain + trains.Length];
         for (var variant = 0; variant < people.SheetCount; variant++)
         {
             sheets[variant] = SheetSource.File(people.Variants[variant].SheetPath);
@@ -179,6 +203,7 @@ internal sealed class TownSprites
         var widestGlowM = 0f;
         var carReachM = 0f;
         var mostLenses = 0;
+        var mostExhausts = 0;
         for (var variant = 0; variant < cars.SheetCount; variant++)
         {
             ref readonly var look = ref cars.Variants[variant];
@@ -186,6 +211,7 @@ internal sealed class TownSprites
             widestTyreM = MathF.Max(widestTyreM, build.WheelWidthM);
             carReachM = MathF.Max(carReachM, (look.FootprintM * look.WreckScale).Length());
             mostLenses = Math.Max(mostLenses, cars.LensesOf(variant).Length);
+            mostExhausts = Math.Max(mostExhausts, cars.ExhaustsOf(variant).Length);
             foreach (var lens in cars.LensesOf(variant)) widestGlowM = MathF.Max(widestGlowM, LampSprites.GlowM(lens, config));
 
             sheets[firstCar + variant] = CarSheets.WithTyres(
@@ -210,8 +236,11 @@ internal sealed class TownSprites
             sheets[firstBuilding + buildings.Count + variant] = SheetSource.File(props.Variants[variant].SpritePath);
         }
 
+        var firstFanLook = firstBuilding + buildings.Count + props.Count;
+        for (var look = 0; look < buildings.FanLooks.Length; look++) sheets[firstFanLook + look] = SheetSource.File(buildings.FanLooks[look]);
+
         var heads = ProjectPaths.SignalHeadFiles();
-        var firstHead = firstBuilding + buildings.Count + props.Count;
+        var firstHead = firstFanLook + buildings.FanLooks.Length;
         for (var strip = 0; strip < HeadSheets; strip++)
         {
             sheets[firstHead + strip] = SheetSource.File(heads[strip]);
@@ -219,15 +248,16 @@ internal sealed class TownSprites
 
         sheets[firstHead + HeadSheets] = MarkSprites.Brush(MarkSprites.RubberEdgeShare);
         sheets[firstHead + HeadSheets + 1] = MarkSprites.Brush(MarkSprites.SoilEdgeShare);
-        sheets[firstHead + HeadSheets + 2] = LampSheet();
-        sheets[firstHead + HeadSheets + 3] = LampSprites.Glow();
+        sheets[firstHead + HeadSheets + 2] = SheetSource.File(LampSheetFile());
+        sheets[firstHead + HeadSheets + 3] = LampSprites.Glow(LampSheetFile(), cars, config);
         sheets[firstHead + HeadSheets + 4] = CarSheets.RubberSheet();
         var rail = RailLooks.Shared;
         sheets[firstHead + HeadSheets + 5] = SheetSource.File(rail.Barrier.SpritePath);
         sheets[firstHead + HeadSheets + 6] = SheetSource.File(rail.Drive.SpritePath);
         sheets[firstHead + HeadSheets + 7] = SheetSource.File(rail.Light.SpritePath);
         sheets[firstHead + HeadSheets + 8] = SheetSource.File(rail.Light.LitSpritePath!);
-        for (var vehicle = 0; vehicle < trains.Length; vehicle++) sheets[firstHead + HeadSheets + GroundworkSheets + vehicle] = TrainSprites.Of(trains[vehicle]);
+        sheets[firstHead + HeadSheets + 9] = SmokeSprites.Sheet();
+        for (var vehicle = 0; vehicle < trains.Length; vehicle++) sheets[firstTrain + vehicle] = TrainSprites.Of(trains[vehicle]);
 
         return new TownSprites(people, cars, buildings, props, sheets, carScales)
         {
@@ -235,13 +265,17 @@ internal sealed class TownSprites
             WidestGlowM = widestGlowM,
             CarReachM = carReachM,
             MostLensesOnALook = mostLenses,
+            Smoke = SmokeSprites.Look(config),
+            Chimney = ChimneySprites.Look(config, buildings),
+            MostExhaustsOnALook = mostExhausts,
+            Fans = FanTable.Of(buildings, firstBuilding, TrainCatalog.Shared, firstTrain),
         };
     }
 
     /// <summary>
     /// One frame's aspect for the walk sheets, which are a grid, and the whole picture's for everything
     /// else — a body in the road included, since that is one frame and not a grid. Off the packing alone,
-    /// so a probe that draws nothing measures the same quads.
+    /// so a probe that draws nothing measures the same quads. And where the fans' looks were packed, into <see cref="Fans"/>.
     /// </summary>
     public void ReadAspects(SheetAtlas atlas)
     {
@@ -253,24 +287,26 @@ internal sealed class TownSprites
         }
 
         for (var slot = FirstDownSheet; slot < Aspects.Length; slot++) Aspects[slot] = places[slot].WidthPx / places[slot].HeightPx;
+
+        FanTable.PutLooks(Fans, places, FirstFanLookSheet, Buildings.FanLooks.Length);
     }
 
     /// <summary>
-    /// The town's buildings, props and scenery laid out as instances, once. Wants the aspects, so it is called
-    /// after the renderer for this town exists and its sheets have been measured.
+    /// The town's buildings, props and scenery laid out as instances, and its chimneys that smoke, once. A prop is drawn at
+    /// its look's own size (GEN-6e), so nothing here reads the sheets' aspects.
     /// </summary>
     public void Lay(CityPlan plan, BuildingUses uses, SimConfig config)
     {
-        Standing = StandingSprites.Lay(
-            plan, Buildings, uses, Props, FirstBuildingSheet, FirstPropSheet, Aspects, config.Grid.Main);
-        Scenery = ScenerySprites.Lay(
-            plan.Scenery, plan.WorldSizeM, Props, FirstPropSheet, Aspects, config.Grid.Main, config.View.SceneryMostDrawn);
+        Standing = StandingSprites.Lay(plan, Buildings, uses, Props, FirstBuildingSheet, FirstPropSheet, config.Grid.Main);
+        Scenery = ScenerySprites.Lay(plan.Scenery, plan.WorldSizeM, Props, FirstPropSheet, config.Grid.Main, config.View.SceneryMostDrawn);
+        Chimneys = ChimneySprites.Pots(plan, Buildings, uses, config.Chimneys);
     }
 
     public void Clear()
     {
         Standing = StandingSprites.Nothing;
         Scenery = ScenerySprites.Nothing;
+        Chimneys = [];
     }
 
     /// <summary>
@@ -301,8 +337,12 @@ internal sealed class TownSprites
     /// A body with its rear tyres painted on (<see cref="CarSheets"/>), the two it steers, a tow arm, and every lens with
     /// its glow — <b>the catalogue's most lenses on one look</b>, and not every lens any look may carry
     /// (<see cref="CarLamps.MostLenses"/>), which over a city's fleet is half the room again for lenses nothing draws.
+    /// The smoke's room is the device's emit's own (<see cref="PuffsEach"/>): no fill draws a puff.
     /// </summary>
     int CarSpritesEach => 1 + TyreModel.SteeredWheels + 1 + (2 * MostLensesOnALook);
+
+    /// <summary>The most puffs of smoke one car has out at once (CAR-54): its pipes', the catalogue's most on one look.</summary>
+    public int PuffsEach => MostExhaustsOnALook * Smoke.Tailpipe.PuffsEach;
 
     /// <summary>The most lenses any one look of the catalogue carries.</summary>
     public int MostLensesOnALook { get; private init; }
@@ -368,7 +408,7 @@ internal sealed class TownSprites
         var overCount = PersonSprites.Fill(
             world.People, people, People, Aspects, FirstDownSheet, viewCentreM, viewSpanM, over);
 
-        // <b>The cars parted by level once</b>, in the order they were listed, so each level's four passes walk its own
+        // <b>The cars parted by level once</b>, in the order they were listed, so each level's five passes walk its own
         // cars rather than every car eight times over asking each which it is on.
         var (ground, aboveCars) = world.Levelled ? ByLevel(world.Cars, cars) : (0, 0);
         var onTheGround = world.Levelled ? _carsOnTheGround.AsSpan(0, ground) : cars;
@@ -436,8 +476,9 @@ internal sealed class TownSprites
         CarFleet cars, TowHitches hitches, ReadOnlySpan<WagonView> wagons, ReadOnlySpan<int> drawn, SimConfig config, float elapsedS,
         Vector2 viewCentreM, Vector2 viewSpanM, float leastPartM, Span<SpriteInstance> into, int level)
     {
-        // The steered tyres before the bodies, so a car's own bodywork is drawn over them and what shows is
-        // the rubber standing proud of the arch — which is what a wheel looks like from above.
+        // The exhausts' smoke (CAR-54) is the device's alone (SmokeSprites): this fill draws none, and the device's
+        // emit draws it ahead of the steered tyres. The steered tyres before the bodies, so a car's own bodywork is drawn
+        // over them and what shows is the rubber standing proud of the arch — which is what a wheel looks like from above.
         var written = WidestTyreM < leastPartM
             ? 0
             : CarSprites.FillFrontTyres(cars, drawn, RubberSheet, leastPartM, viewCentreM, viewSpanM, into, level);

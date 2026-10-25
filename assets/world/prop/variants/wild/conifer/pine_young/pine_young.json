@@ -1,0 +1,9 @@
+{
+  "id": "pine_young",
+  "sprite": "pine_young.webp",
+  "kind": 0,
+  "diameterM": 2.0,
+  "colliderM": 0.5,
+  "share": 0.8,
+  "describe": "young pine, a small star of fresh green needle tufts"
+}

@@ -154,6 +154,10 @@ end**, and nothing turns a car round there: it stands at the end until its leg's
 - **A frontage with nothing free is not a leg that has failed.** The car drives on and asks again from wherever
   it gets to, because a body standing at a full car park waiting for a bay is an obstruction the street queues
   behind — and on a street whose bays are freed by the cars in that queue, a jam that cannot clear.
+- **A place a leg has to arrive at on one named lane is never reached by coming back down its stretch where it
+  stands within that reach of the lane's start** (`DrivingNetwork.GoalOnLane`): the car lands abeam of the bay it
+  turned in, past the place, and round the block it would turn in the same bay again. A closure's stand (SRV-9)
+  is the case.
 - **What the router knows is which lanes have a bay near their end at all**, and never which bay is free: the
   first is a fact about the town, laid with it; the second is a fact about this moment, and it is asked at the
   frontage by the leg that has got there.

@@ -1,1 +1,2 @@
-{"variant": "kombiold_red_broken-v1", "frame": "fleet100_w03-v1", "cell": 4, "pxPerM": 108.454, "score": 4, "status": "used", "ts": "2026-10-22T01:19:39"}
+{"variant": "kombiold_red_broken-v1", "frame": "fleet100_w03-v1", "cell": 4, "pxPerM": 108.454, "score": 4, "status": "candidate", "ts": "2026-10-22T01:19:39"}
+{"variant": "kombiold_red_broken-v2", "frame": "fleet100_rw03-v1", "cell": 5, "pxPerM": 106.522, "score": 4, "status": "used", "ts": "2026-10-22T18:34:01"}

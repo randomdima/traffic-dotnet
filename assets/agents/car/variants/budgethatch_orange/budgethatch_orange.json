@@ -4,12 +4,12 @@
   "zones": "budgethatch_orange_zones.png",
   "wreck": { "sprite": "budgethatch_orange_broken.webp" },
   "describe": "modern budget five-door hatchback, good condition, bright orange, rounded bonnet, tall roof with roof rails, upright hatch, black unpainted bumpers, tall headlamps, vertical tail lamps",
-  "footprintM": [4.070, 2.212],
-  "collisionM": { "sizeM": [4.070, 1.911], "cornerRadiusM": 0.664 },
+  "footprintM": [4.070, 2.062],
+  "collisionM": { "sizeM": [4.070, 1.769], "cornerRadiusM": 0.660 },
   "massKg": 1080,
   "frontAxleM": 1.235,
   "rearAxleM": -1.375,
-  "trackM": 1.998,
+  "trackM": 1.639,
   "drivetrain": 1,
   "maxSteeringDeg": 33,
   "tyreFriction": 0.82,
@@ -17,15 +17,16 @@
   "frontWeightShare": 0.62,
   "handling": { "maxSpeed": 0.86, "acceleration": 0.9, "braking": 0.95 },
   "lamps": [
-    { "fitting": "brake", "atM": [-1.806, -0.647], "sizeM": [0.219, 0.386] },
-    { "fitting": "brake", "atM": [-1.806, 0.647], "sizeM": [0.219, 0.386] },
-    { "fitting": "indicator", "atM": [-1.868, -0.563], "sizeM": [0.083, 0.177] },
-    { "fitting": "indicator", "atM": [-1.868, 0.584], "sizeM": [0.083, 0.177] },
-    { "fitting": "head", "atM": [1.702, -0.626], "sizeM": [0.312, 0.303] },
-    { "fitting": "head", "atM": [1.712, 0.636], "sizeM": [0.312, 0.313] },
-    { "fitting": "indicator", "atM": [1.671, -0.71], "sizeM": [0.25, 0.157] },
-    { "fitting": "indicator", "atM": [1.681, 0.71], "sizeM": [0.25, 0.157] },
-    { "fitting": "reverse", "atM": [-1.868, -0.522], "sizeM": [0.104, 0.136] },
-    { "fitting": "reverse", "atM": [-1.868, 0.522], "sizeM": [0.104, 0.136] }
-  ]
+    { "fitting": "brake", "atM": [-1.775, -0.573], "sizeM": [0.271, 0.364] },
+    { "fitting": "brake", "atM": [-1.775, 0.573], "sizeM": [0.271, 0.364] },
+    { "fitting": "indicator", "atM": [-1.848, -0.562], "sizeM": [0.062, 0.104] },
+    { "fitting": "indicator", "atM": [-1.848, 0.573], "sizeM": [0.062, 0.104] },
+    { "fitting": "head", "atM": [1.691, -0.594], "sizeM": [0.364, 0.344] },
+    { "fitting": "head", "atM": [1.691, 0.594], "sizeM": [0.364, 0.344] },
+    { "fitting": "indicator", "atM": [1.671, -0.677], "sizeM": [0.312, 0.177] },
+    { "fitting": "indicator", "atM": [1.671, 0.677], "sizeM": [0.312, 0.177] },
+    { "fitting": "reverse", "atM": [-1.837, -0.448], "sizeM": [0.146, 0.125] },
+    { "fitting": "reverse", "atM": [-1.837, 0.458], "sizeM": [0.146, 0.125] }
+  ],
+  "exhausts": [[-1.952, -0.619]]
 }

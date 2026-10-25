@@ -26,19 +26,14 @@ layout(push_constant) uniform Lay
 #include "agents/car/body/kernels/tyre_rows.glsl"
 #include "core/geometry/kernels/trig.glsl"
 
-// What a unit looks like, fixed when the town is laid: a car's variant and the jitter its flashers run at, a walker's.
-struct CarLookRow
-{
-    uint variant;
-    float fuseJitter;
-};
-
 layout(std430, binding = 0) writeonly buffer Cars { CarRow cars[]; };
 layout(std430, binding = 1) writeonly buffer People { PersonRow people[]; };
 layout(std430, binding = 2) readonly buffer WorldCars { WorldCar worldCars[]; };
 layout(std430, binding = 3) readonly buffer WorldWalkers { WorldWalker worldWalkers[]; };
 layout(std430, binding = 4) readonly buffer Commands { TyreCommand commands[]; };
-layout(std430, binding = 5) readonly buffer CarLooks { CarLookRow carLooks[]; };
+
+// What a unit looks like, fixed when the town is laid: its variant.
+layout(std430, binding = 5) readonly buffer CarVariants { uint carVariants[]; };
 layout(std430, binding = 6) readonly buffer PersonVariants { uint personVariants[]; };
 
 // The frame's words as sprites_buffers.glsl reads them, of which only the view's slot is read here.
@@ -66,10 +61,9 @@ void layTheCar(uint car)
     uint channels = seen.flags >> 16;
     uint level = channels == 0u ? 0u : uint(findMSB(channels));
     uint flags = ((row.flags & CarShowsBroken) != 0u ? CarBroken : 0u) | (level << CarLevelShift);
-    CarLookRow look = carLooks[car];
     cars[car] = CarRow(
-        seen.positionM, trigUnit(seen.headingRad), seen.headingRad, commands[car].steerRad, look.fuseJitter,
-        (row.flags >> CarShowsShift) & 0xffu, look.variant, flags, row.towing, row.forkAlongM);
+        seen.positionM, trigUnit(seen.headingRad), seen.headingRad, commands[car].steerRad,
+        (row.flags >> CarShowsShift) & 0xffu, carVariants[car], flags, row.towing, row.forkAlongM, 0u);
 }
 
 void layTheWalker(uint walker)

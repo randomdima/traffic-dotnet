@@ -1,0 +1,9 @@
+{
+  "id": "boxes_cardboard",
+  "sprite": "boxes_cardboard.webp",
+  "kind": 2,
+  "footprintM": [1.0, 0.801],
+  "share": 0.5,
+  "turns": true,
+  "describe": "pile of flattened and taped cardboard boxes"
+}

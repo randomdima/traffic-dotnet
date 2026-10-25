@@ -1,0 +1,7 @@
+{
+  "id": "fan_twelve_vane",
+  "sprite": "fan_twelve_vane.webp",
+  "footprintM": [3.4, 3.419],
+  "tags": ["fan", "twelve blades"],
+  "describe": "a rooftop extractor fan with twelve thin closely spaced grey vanes round a large pale hub, a thin steel rim"
+}

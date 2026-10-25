@@ -1,0 +1,2 @@
+{"variant": "kerb_bevelled-v1", "frame": "kerbs_a-v1", "cell": 5, "box": [536, 496, 464, 31], "pxPerM": 154.667, "score": 4, "status": "candidate", "ts": "2026-10-25T01:26:06"}
+{"variant": "kerb_bevelled-v2", "frame": "kerbs_b-v1", "cell": 5, "box": [536, 504, 464, 15], "pxPerM": 77.333, "score": 3, "status": "used", "ts": "2026-10-25T01:52:47"}

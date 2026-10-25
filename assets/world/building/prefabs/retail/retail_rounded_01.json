@@ -2,10 +2,10 @@
   "id": "retail_rounded_01",
   "sprite": "retail_rounded_01.webp",
   "footprintM": [
-    21.0,
-    13.0
+    27.3,
+    16.9
   ],
-  "cornerRadiusM": 3.25,
+  "cornerRadiusM": 4.23,
   "partsM": [],
   "look": "retail",
   "tags": [
@@ -16,5 +16,17 @@
     "shops",
     "rounded corners"
   ],
-  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods, its corners rounded in wide curves"
+  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods, its corners rounded in wide curves",
+  "fans": [
+    { "atM": [-7.4004, -4.9192], "rimAtM": [-7.3727, -4.8448], "rimM": [0.5755, 0.603] },
+    { "atM": [-8.8289, -4.9192], "rimAtM": [-8.8134, -4.8546], "rimM": [0.5953, 0.614] },
+    { "atM": [-8.8289, -3.4514], "rimAtM": [-8.83, -3.4159], "rimM": [0.5908, 0.6475] },
+    { "atM": [-7.4004, -3.4316], "rimAtM": [-7.395, -3.3804], "rimM": [0.6009, 0.6028] },
+    { "atM": [9.3645, 0.4761], "rimAtM": [9.3738, 0.5411], "rimM": [0.5885, 0.5898] },
+    { "atM": [7.9559, 0.4761], "rimAtM": [7.974, 0.5581], "rimM": [0.5857, 0.58] },
+    { "atM": [7.9559, 1.9241], "rimAtM": [7.9561, 1.9556], "rimM": [0.5859, 0.6382] },
+    { "atM": [9.3645, 1.9439], "rimAtM": [9.3853, 1.9836], "rimM": [0.5845, 0.6005] }
+  ],
+  "chimneys": [[2.0, 4.28]],
+  "potWidthM": 0.6
 }

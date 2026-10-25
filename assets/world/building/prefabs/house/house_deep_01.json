@@ -2,8 +2,8 @@
   "id": "house_deep_01",
   "sprite": "house_deep_01.webp",
   "footprintM": [
-    2.5,
-    3.0
+    3.5,
+    4.2
   ],
   "cornerRadiusM": 0.375,
   "partsM": [],
@@ -16,5 +16,5 @@
     "annex",
     "narrow front"
   ],
-  "describe": "small single-storey annex or porch built onto a house, lean-to roof of red clay tiles, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "small single-storey annex or porch built onto a house, lean-to roof of red clay tiles, standing narrow end to the street with the entrance on that short front wall, its one slope falling to a long side"
 }

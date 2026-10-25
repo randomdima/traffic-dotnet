@@ -1,0 +1,62 @@
+{
+ "id": "service_tow-v2",
+ "ts": "2026-10-23T03:18:33",
+ "op": "edit",
+ "name": "service_tow",
+ "file": ".tmp/gen/frames/service_tow-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.02133,
+ "usage": {
+  "prompt_tokens": 2400,
+  "completion_tokens": 158,
+  "total_tokens": 2558,
+  "cost": 0.02133,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.02133,
+   "upstream_inference_prompt_cost": 0.01659,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 tow trucks for a 2D top-down city game, made by rebuilding the vehicles of the first picture.\n\nThe first picture is nine finished vehicles in a 3×3 grid. Redraw it — the same nine in the same places, at the same size, with the same outlines, proportions, mirrors, lamps, shading and art style, straight down from above — and turn each into a tow truck of the town, painted like the tow truck in the second picture:\n- THE FRONT IS KEPT: each vehicle's nose, bonnet, windscreen, front lamps, mirrors and the front of its roof over the front seats stay exactly as the first picture draws them — that is the cab. The nine fronts stay as different as the first picture draws them: car 1 keeps its flat bonnetless loaf front with round lamps, car 2 its flat square bonnet.\n- EVERY CAB HAS A ROOF. The last drawing ended every cab right at the back of the windscreen, with no roof: wrong. Behind the windscreen each cab keeps a flat painted roof over the front seats about 1 m long — longer than the windscreen is deep, a quarter of the vehicle's length on the vans — and only then the deck begins. Car 6, the pickup, keeps its whole double cab, as the last drawing did well.\n- BEHIND THE CAB, an open flat steel tow deck fills the rest of the vehicle's outline, exactly as long and as wide as the body it replaces: a dark grey steel floor with a few faint cross ribs, a low dark rail along each side, and across the very tail a bar painted in red and white diagonal hazard stripes, as on the second picture. The tail lamps stay at the rear corners where the first picture draws them. Car 2's spare wheel on the tail is gone; its tail ends square.\n- The cab painted orange-yellow all over, as on the second picture — the four old worn vehicles, 1, 2, 4 and 8, a faded yellow with their wear kept. No panel left in the first picture's colour.\n- NOTHING ON THE CAB ROOF but paint: no light bar, beacon or lamp, whatever the second picture shows — the game fits its own bar later. No crane, boom or arm drawn anywhere: the game draws the tow arm itself.\n- The glass dark, every lamp switched off, no text, letters, numbers or logos anywhere.\n\nKEEP EVERY BODY EXACTLY AS WIDE AND AS LONG AS IN THE FIRST PICTURE — the first picture's sizes are true and differ on purpose; trace each outline from it. Each body's length against its width, without mirrors, is: car 1 2.03 times, car 2 2.54, car 3 2.49, car 4 2.54, car 5 2.32, car 6 2.57, car 7 2.45, car 8 2.43, car 9 2.91. The last drawing made car 1 13 % too narrow and car 9 13 % too wide: car 1 is a short wide body, car 9 the longest and slimmest on the sheet. Leave spare room in each place empty rather than draw a vehicle wider. Car 1 is a Soviet forward-control 4×4 with no bonnet at all: its cab is the front third of the body.\n\nBackground: fully transparent outside the vehicles — no colour, no glow or halo, no shadow. Each vehicle's edge ends sharply.\n\nThe vehicles, left to right and top to bottom: 1 a Soviet forward-control 4×4, 2 a 2000s Japanese off-road 4×4, 3 a 1990s van, 4 a 1990s panel van, 5 a modern mid-size van, 6 a modern double-cab pickup, 7 a modern high-roof van, 8 a 2000s Russian light van, 9 a large high-roof van.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "f61c552d15b4ee59",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_tow_style.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "f89a85da2366f26f",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_tow_ref.png"
+  }
+ ],
+ "cells": [
+  "evacuatorloaf_yellow",
+  "evacuatoroffroad_yellow",
+  "evacuatorpassvan90s_yellow",
+  "evacuatorvan90s_yellow",
+  "evacuatorbus_yellow",
+  "evacuatorpickup_yellow",
+  "evacuatorhightop_yellow",
+  "evacuator_yellow",
+  "evacuatorbig_yellow"
+ ]
+}

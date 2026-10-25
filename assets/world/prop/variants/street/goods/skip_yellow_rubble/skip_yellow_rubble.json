@@ -1,0 +1,10 @@
+{
+  "id": "skip_yellow_rubble",
+  "sprite": "skip_yellow_rubble.webp",
+  "kind": 2,
+  "footprintM": [3.6, 2.272],
+  "cornerRadiusM": 0.1,
+  "share": 0.2,
+  "turns": true,
+  "describe": "yellow builder's skip full of broken plaster, timber and rubble"
+}

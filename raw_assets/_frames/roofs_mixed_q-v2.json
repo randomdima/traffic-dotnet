@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_q-v2",
+ "ts": "2026-10-20T14:02:38",
+ "op": "edit",
+ "name": "roofs_mixed_q",
+ "file": ".tmp/gen/frames/roofs_mixed_q-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031361,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 1×2 grid. Redraw only cell 1 (the transparent area). Keep cell 2 exactly as it is, and match its style, colours and fine detail.\n\nThe faults in cell 1: its outline is a plain rectangle, 33.6 × 12.7 m (in this 1536×1024 picture x 289–1248, y 75–437), but the roof was drawn as a narrow cross shape, leaving 43% of the rectangle as magenta; and the domes were drawn from the side, with crosses standing up. Fill the whole rectangle with roof, edge to edge, no magenta inside it: a long green sheet-metal roof with its ridge along the long axis, and a cross-wing ridge crossing it at the middle so the cross shape shows only as ridge lines inside the rectangle. Looking straight down: the large central dome is a green circle about 6 m across (about 170 px) with ribs radiating from its centre and a highlight to the top-left; each small gilded dome is a gold circle about 2 m across (about 57 px); every cross is seen from above as a thin small cross shape lying flat at the centre of its dome, about 25 px long. No dome or cross stands up, and nothing is drawn outside the rectangle.\n\nKeep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. No text.\n\n1. 33.6 × 12.7 m (2.6× wider than deep, a thin strip) — Orthodox church, cross-shaped roof of green-painted sheet metal with a large central dome and smaller gilded domes",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "41f69a19a3d0ff77",
+   "ext": "png",
+   "frame": "roofs_mixed_q-v1",
+   "was": ".tmp/gen/frames/roofs_mixed_q-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "18252420089356ad",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_q.png"
+  },
+  {
+   "role": "mask",
+   "sha": "1f46bcf7aa71d20d",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_q-v1/_mask_religious_06.png"
+  }
+ ]
+}

@@ -9,7 +9,7 @@
   "massKg": 2000,
   "frontAxleM": 1.525,
   "rearAxleM": -1.375,
-  "trackM": 1.996,
+  "trackM": 1.827,
   "drivetrain": 2,
   "maxSteeringDeg": 33,
   "tyreFriction": 0.9,
@@ -24,7 +24,7 @@
     { "fitting": "head", "atM": [2.083, -0.631], "sizeM": [0.125, 0.198] },
     { "fitting": "head", "atM": [2.094, 0.621], "sizeM": [0.125, 0.198] },
     { "fitting": "indicator", "atM": [1.979, -0.777], "sizeM": [0.146, 0.073] },
-    { "fitting": "indicator", "atM": [1.969, 0.788], "sizeM": [0.146, 0.073] },
+    { "fitting": "indicator", "atM": [2.0, 0.767], "sizeM": [0.146, 0.073] },
     { "fitting": "reverse", "atM": [-2.167, -0.443], "sizeM": [0.125, 0.094] },
     { "fitting": "reverse", "atM": [-2.156, 0.433], "sizeM": [0.125, 0.094] }
   ]

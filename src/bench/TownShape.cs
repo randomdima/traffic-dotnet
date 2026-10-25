@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -35,7 +36,7 @@ internal static class TownShape
                           $"{"bldg",7}{"bays",7}{"props",7}{"spawn",7}");
         foreach (var map in Maps.Shipped())
         {
-            var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+            var plan = Maps.Plan(map, config, ShippedArt.Sizes);
             var roads = Figures(plan);
             Console.WriteLine(
                 $"{plan.Name,-10}{Extent(plan),12}{plan.Junctions.Count,7}{plan.Roads.Count,7}" +
@@ -72,7 +73,7 @@ internal static class TownShape
 
     public static void Run(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var roads = Figures(plan);
 
         Console.WriteLine($"{plan.Name}  seed {plan.Seed}  {Extent(plan)} m  pavement {plan.PavementWidthM:F1} m");
@@ -105,6 +106,31 @@ internal static class TownShape
     }
 
     /// <summary>
+    /// <b>Every building's roof</b>, where it stands, which way it is turned and which picture it wears — what a reader
+    /// needs to frame a picture of one look (<c>--at</c>, SHT-1) — how many fans that picture turns (OBJ-6), and how
+    /// many chimneys it draws, every one of which takes its turns burning (OBJ-7).
+    /// </summary>
+    public static void Roofs(string map, SimConfig config)
+    {
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
+        var catalogue = BuildingCatalog.Shared;
+        var uses = BuildingUses.Of(plan);
+        var pots = ChimneySprites.Pots(plan, catalogue, uses, config.Chimneys).Length;
+
+        Console.WriteLine($"{plan.Name}  {plan.Buildings.Count} buildings, {pots} chimney pots, {config.Chimneys.SmokingShare:P0} burning at once");
+        Console.WriteLine();
+        Console.WriteLine($"  {"x",9}{"y",9}{"heading°",10}{"fans",6}{"chimneys",10}  roof");
+        for (var building = 0; building < plan.Buildings.Count; building++)
+        {
+            var roof = BuildingRoofs.Of(plan, catalogue, uses, building);
+            var atM = plan.Buildings.CentreM[building];
+            ref readonly var look = ref catalogue.Variants[roof.Variant];
+            Console.WriteLine(
+                $"  {atM.X,9:F1}{atM.Y,9:F1}{roof.HeadingRad * 180f / MathF.PI,10:F0}{look.Fans.Length,6}{look.ChimneysM.Length,10}  {look.Id}");
+        }
+    }
+
+    /// <summary>
     /// <b>Every car park the town laid off a kerb</b> (GEN-53): where the middle of its rank stands, how many bays
     /// stand each side of its street — which is what a reader needs to frame a picture of one (<c>--at</c>,
     /// SHT-1) — which street that is and which way it runs, and how far the bays' mouths run back over it.
@@ -116,7 +142,7 @@ internal static class TownShape
     /// </remarks>
     public static void Parks(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var parks = plan.CarParks;
 
         Console.WriteLine(
@@ -194,7 +220,7 @@ internal static class TownShape
     /// </remarks>
     public static void Joints(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var arms = plan.Ground.ArmsPerJunction();
         Deflections(plan, out var deflectionAt);
 
@@ -246,7 +272,7 @@ internal static class TownShape
     {
         const int ClosestListed = 40;
 
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var arms = plan.Ground.ArmsPerJunction();
         var onARing = OnARing(plan);
         var withinM = config.CityGen.TracedJunctionsMergedM;
@@ -362,7 +388,7 @@ internal static class TownShape
     {
         const int Listed = 30;
 
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var roads = plan.Roads;
         var onward = Onward(plan, config);
 

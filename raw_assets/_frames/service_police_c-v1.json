@@ -1,0 +1,62 @@
+{
+ "id": "service_police_c-v1",
+ "ts": "2026-10-22T20:09:16",
+ "op": "edit",
+ "name": "service_police_c",
+ "file": ".tmp/gen/frames/service_police_c-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.020066,
+ "usage": {
+  "prompt_tokens": 2137,
+  "completion_tokens": 158,
+  "total_tokens": 2295,
+  "cost": 0.020066,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.020066,
+   "upstream_inference_prompt_cost": 0.015326,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image: a sprite sheet of 9 police cars for a 2D top-down city game, made by repainting the cars of the first picture.\n\nThe first picture is nine finished cars in a 3×3 grid. Redraw it exactly — the same nine cars in the same places, at the same size, with the same outlines, proportions, glass, mirrors, lamps, shading and art style, straight down from above — and turn each into a police car of the town, painted like the police car in the second picture.\n\nKEEP EVERY BODY EXACTLY AS WIDE AS IN THE FIRST PICTURE: do not widen, round out or enlarge any car — trace each outline from the first picture. Car 1 is a short boxy Soviet three-door small 4×4: flat bonnet, upright square cab, short flat roof, square tail, exactly as the first picture draws it, not an estate or a hatchback.\n\nNOTHING ON THE ROOF. Draw no light bar, no beacon, no dome and no roof rails on any car, whatever the second picture shows: the game fits its own light bar later. Every roof is plain smooth paint, white (car 8's black, as in the first picture).\n\nLivery:\n- The whole body painted white, every panel, bonnet to boot — the two old cars, 1 and 2, a slightly yellowed white; no panel left in the first picture's colour. A thin dark blue stripe runs the length of each flank just inside the outline, and a blue edge round the bonnet like the second picture's.\n- On the middle of the bonnet a police badge emblem: a dark blue shield shape with a gold-yellow outline and a small gold-yellow star in its centre, about a third of the bonnet's width. No text, letters, numbers or real crests anywhere.\n- The glass dark, the lamps exactly where and as the first picture draws them, switched off: the tail lamps clean lenses in their housings, no red smeared onto the bodywork round them.\nChange nothing else: not the shape, not the length or width, not the position. Car 6 (the van) keeps its van body.\n\nBackground: fully transparent outside the cars — no colour, no glow or halo, no shadow. Each car's edge ends sharply.\n\nThe cars, left to right and top to bottom: 1 a Soviet three-door small 4×4, 2 a 1980s Soviet saloon, 3 a modern hatchback, 4 a modern budget compact SUV, 5 a plain modern budget saloon, 6 a modern small panel van, 7 a modern hybrid liftback, 8 a modern compact crossover, 9 a modern compact saloon.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "87cadcc19e096c78",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_police_b_style.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "b10423b3737be54a",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/service_police_b_ref.png"
+  }
+ ],
+ "cells": [
+  "policeniva_white",
+  "policesaloon80s_white",
+  "policehatch_white",
+  "policesuv_white",
+  "police_white",
+  "policevan_white",
+  "policehybrid_white",
+  "policecrossover_white",
+  "policesaloon_white"
+ ]
+}

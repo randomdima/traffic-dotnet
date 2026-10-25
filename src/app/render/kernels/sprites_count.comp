@@ -2,8 +2,8 @@
 #extension GL_GOOGLE_include_directive : require
 
 // The emit's first pass: how many instances each part of each unit draws this frame, one thread a unit — a walker, a
-// car (its four parts, in whichever run its level is drawn in), a train's wagon, a signal head, a crossing's gear or its X
-// light — into the slot the scan turns into
+// car (its five parts, in whichever run its level is drawn in), a train's wagon, a signal head, a crossing's gear or its X
+// light, a chimney's smoke — into the slot the scan turns into
 // where they start. A cull and no more: nothing is built here. A car's lit lenses are kept for the second pass, which
 // would otherwise read its line again.
 
@@ -14,15 +14,17 @@ layout(local_size_x = 64) in;
 void countCar(uint car)
 {
     uint run = car < frame.carCount ? spritesRunOf(cars[car]) : RunNone;
-    uint counts[CarParts] = uint[](0u, 0u, 0u, 0u);
+    uint counts[CarParts] = uint[](0u, 0u, 0u, 0u, 0u);
     uvec2 shown = uvec2(0u);
     if (run != RunNone)
     {
+        counts[PartSmoke] = spritesPuffsShown(car);
         counts[PartTyres] = spritesTyresShown(car);
         counts[PartBody] = spritesBodyShown(car) ? 1u : 0u;
         counts[PartBeam] = spritesBeamShown(car) ? 1u : 0u;
         shown = spritesLamps(car);
-        counts[PartLamps] = uint(bitCount(shown.x)) + spritesGlowing(shown);
+        // A glow and a lens a lamp drawn.
+        counts[PartLamps] = 2u * uint(bitCount(shown.x));
     }
 
     lampsShown[car] = shown;
@@ -54,8 +56,16 @@ void main()
     {
         bool shown = spritesWagonShown(unit);
         bool above = figures.bridged != 0u && spritesWagonOnABridge(unit);
-        starts[spritesWagonsFrom() + unit] = shown && !above ? 1u : 0u;
-        if (figures.bridged != 0u) starts[spritesWagonsAboveFrom() + unit] = shown && above ? 1u : 0u;
+        uint drawn = shown ? 1u : 0u;
+        uint puffs = spritesWagonPuffsShown(unit);
+        starts[spritesWagonsFrom() + unit] = !above ? drawn : 0u;
+        starts[spritesWagonSmokeFrom() + unit] = !above ? puffs : 0u;
+        if (figures.bridged != 0u)
+        {
+            starts[spritesWagonsAboveFrom() + unit] = above ? drawn : 0u;
+            starts[spritesWagonSmokeAboveFrom() + unit] = above ? puffs : 0u;
+        }
+
         return;
     }
 
@@ -77,7 +87,14 @@ void main()
     }
 
     unit -= figures.gearCount;
-    if (unit >= figures.lightCount) return;
+    if (unit < figures.lightCount)
+    {
+        starts[spritesLightsFrom() + unit] = spritesLightShown(unit) ? 1u : 0u;
+        return;
+    }
 
-    starts[spritesLightsFrom() + unit] = spritesLightShown(unit) ? 1u : 0u;
+    unit -= figures.lightCount;
+    if (unit >= figures.chimneyCount) return;
+
+    starts[spritesChimneysFrom() + unit] = spritesChimneyPuffsShown(unit);
 }

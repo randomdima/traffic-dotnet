@@ -1,5 +1,15 @@
 # The ambulance — decision log
 
+## 2026-10-23 — nine ambulance looks, worn in turn
+
+**The owner asked for the ambulances to be made as the police cars were**: nine fleet bodies — a Soviet 4×4
+minibus, two panel vans, an estate, a passenger van, three high-roof vans and a light van — repainted in the old
+ambulance's livery, with the same roof bars fitted on top. The old hand-drawn `ambulance_white` left with them: its
+bars were clear glass, burned white, and carried six beacon lenses in two bars. `ambulance_white` is now the high-roof
+van, and stays the first look, which a map wanting one ambulance in view stands. The town's ambulances wear all nine in
+turn as they are stood (SRV-3b, widened from the police to both), so a hospital's apron is a mix of makes in one livery.
+CAR-14.4's second bar has no shipped look carrying one any more, so its test lays the two bars itself.
+
 ## 2026-10-15 — `AMB-4.3` said what `TER-5g` and `AMB-4.4` say, and is retired
 
 `AMB-4.3` held that a body on the paint refuses a call as any body does, and that a walker is granted nothing of

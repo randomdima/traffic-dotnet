@@ -1,0 +1,9 @@
+{
+  "id": "crates_wooden",
+  "sprite": "crates_wooden.webp",
+  "kind": 2,
+  "footprintM": [1.2, 1.051],
+  "share": 0.5,
+  "turns": true,
+  "describe": "four wooden fruit crates, two stacked, empty"
+}

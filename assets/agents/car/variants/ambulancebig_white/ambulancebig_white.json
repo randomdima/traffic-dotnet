@@ -1,0 +1,32 @@
+{
+  "id": "ambulancebig_white",
+  "sprite": "ambulancebig_white.webp",
+  "zones": "ambulancebig_white_zones.png",
+  "wreck": { "sprite": "ambulancebig_white_broken.webp" },
+  "describe": "large high-roof van ambulance in ambulance livery",
+  "footprintM": [5.910, 2.430],
+  "collisionM": { "sizeM": [5.910, 2.088], "cornerRadiusM": 0.616 },
+  "massKg": 2600,
+  "frontAxleM": 1.975,
+  "rearAxleM": -1.685,
+  "trackM": 2.006,
+  "drivetrain": 0,
+  "maxSteeringDeg": 32,
+  "tyreFriction": 0.8,
+  "cgHeightM": 0.91,
+  "frontWeightShare": 0.55,
+  "handling": { "maxSpeed": 0.78, "acceleration": 0.66, "braking": 0.82 },
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.747, -0.673], "sizeM": [0.25, 0.48] },
+    { "fitting": "rear", "atM": [-2.747, 0.714], "sizeM": [0.25, 0.48] },
+    { "fitting": "indicator", "atM": [-2.736, -0.798], "sizeM": [0.229, 0.24] },
+    { "fitting": "indicator", "atM": [-2.736, 0.829], "sizeM": [0.229, 0.24] },
+    { "fitting": "head", "atM": [2.726, -0.652], "sizeM": [0.292, 0.344] },
+    { "fitting": "head", "atM": [2.736, 0.683], "sizeM": [0.292, 0.344] },
+    { "fitting": "indicator", "atM": [2.548, -0.881], "sizeM": [0.219, 0.115] },
+    { "fitting": "indicator", "atM": [2.569, 0.913], "sizeM": [0.219, 0.115] },
+    { "fitting": "beaconBlue", "atM": [1.11, -0.318], "sizeM": [0.292, 0.417] },
+    { "fitting": "beaconBlue", "atM": [1.11, 0.329], "sizeM": [0.292, 0.407] }
+  ],
+  "exhausts": [[-2.903, -0.729]]
+}

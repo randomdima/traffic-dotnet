@@ -2,8 +2,8 @@
   "id": "house_deep_12",
   "sprite": "house_deep_12.webp",
   "footprintM": [
-    3.5,
-    7.0
+    4.9,
+    9.8
   ],
   "cornerRadiusM": 0.4,
   "partsM": [],
@@ -16,5 +16,6 @@
     "cottage",
     "narrow front"
   ],
-  "describe": "small single-storey cottage, gabled roof of dark grey bitumen shingles, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+  "describe": "small single-storey cottage, gabled roof of dark grey bitumen shingles, one brick chimney, a lean-to porch on the street side, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back",
+  "chimneys": [[1.27, -2.55, 1.62, -2.55]]
 }

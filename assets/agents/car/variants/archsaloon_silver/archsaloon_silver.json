@@ -9,7 +9,7 @@
   "massKg": 1300,
   "frontAxleM": 1.365,
   "rearAxleM": -1.235,
-  "trackM": 1.902,
+  "trackM": 1.733,
   "drivetrain": 1,
   "maxSteeringDeg": 33,
   "tyreFriction": 0.82,
@@ -27,5 +27,6 @@
     { "fitting": "indicator", "atM": [1.9, 0.745], "sizeM": [0.187, 0.104] },
     { "fitting": "reverse", "atM": [-2.118, -0.474], "sizeM": [0.052, 0.052] },
     { "fitting": "reverse", "atM": [-2.098, 0.443], "sizeM": [0.052, 0.052] }
-  ]
+  ],
+  "exhausts": [[-2.191, -0.659]]
 }

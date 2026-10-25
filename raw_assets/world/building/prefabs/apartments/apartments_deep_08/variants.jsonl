@@ -1,0 +1,2 @@
+{"variant": "apartments_deep_08-v1", "frame": "roofs_apartments_e-v1", "cell": 4, "box": [1052, 536, 199, 464], "pxPerM": 25.495, "score": 4, "status": "used", "ts": "2026-10-20T13:37:38"}
+{"variant": "apartments_deep_08-v2", "frame": "roofs_apartments_e-v1", "cell": 4, "box": [1052, 536, 199, 464], "pxPerM": 25.495, "score": 4, "status": "candidate", "ts": "2026-10-20T13:37:44"}

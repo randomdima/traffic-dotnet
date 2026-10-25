@@ -1,0 +1,8 @@
+{
+  "id": "glass_igloo",
+  "sprite": "glass_igloo.webp",
+  "kind": 2,
+  "diameterM": 1.4,
+  "share": 1.2,
+  "describe": "green glass recycling igloo, a dome with two round bottle holes"
+}

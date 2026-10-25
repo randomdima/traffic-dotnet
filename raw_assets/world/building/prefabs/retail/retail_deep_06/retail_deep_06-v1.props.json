@@ -1,0 +1,25 @@
+{
+  "car": "retail_deep_06",
+  "sprite": {"variant": "raw_assets/world/building/prefabs/retail/retail_deep_06/retail_deep_06-v1.png", "sizePx": [248, 464]},
+  "axisY": {"rear": 230.00, "front": 230.50},
+  "props": [
+    {"name": "fan1", "kind": "fan", "mirror": false, "points": [
+      [49.69, 72.56, 3.72],
+      [55.10, 88.53, 3.94],
+      [68.94, 79.38, 4.48],
+      [56.33, 67.10, 0.95]
+    ]},
+    {"name": "fan2", "kind": "fan", "mirror": false, "points": [
+      [71.03, 82.51, 0.98],
+      [76.52, 89.27, 4.83],
+      [91.08, 79.30, 3.27],
+      [81.32, 66.97, 4.81]
+    ]},
+    {"name": "fan3", "kind": "fan", "mirror": false, "points": [
+      [99.98, 286.66, 2.41],
+      [109.61, 296.68, 3.96],
+      [121.08, 283.94, 4.06],
+      [107.97, 273.16, 2.97]
+    ]}
+  ]
+}

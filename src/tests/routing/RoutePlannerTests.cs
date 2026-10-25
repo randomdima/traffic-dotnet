@@ -79,6 +79,25 @@ public class RoutePlannerTests
     }
 
     /// <summary>
+    /// <b>A goal is not reached by turning in from the link it refuses</b> (GEN-4l): a car coming back down a
+    /// stretch lands past a place near its start, so the route carries on through and comes at it round the block.
+    /// </summary>
+    [Fact]
+    public void AGoalIsNotReachedFromTheLinkItRefuses()
+    {
+        var block = Block(turnAroundM: 200f);
+        var planner = new RoutePlanner(block.Graph);
+        Span<int> route = stackalloc int[8];
+
+        var written = planner.Plan(
+            [new RouteEntry(block.Back, 0f, 100f)], [new RouteGoal(block.South, 20f, NotEnteredFrom: block.Back)], null,
+            route, out var costM, out _);
+
+        Assert.Equal([block.Back, block.South, block.East, block.North, block.West, block.South], route[..written].ToArray());
+        Assert.Equal(720f, costM, 3);
+    }
+
+    /// <summary>
     /// <b>And the link a body is already on is never refused</b>: a car inside a closure is routed out of it.
     /// </summary>
     [Fact]
@@ -258,7 +277,7 @@ public class RoutePlannerTests
     }
 
     /// <summary>A hundred-metre block, one way round, with the way back priced as a turn-around.</summary>
-    readonly record struct BlockTown(TravelGraph Graph, int South, int East, int North, int West);
+    readonly record struct BlockTown(TravelGraph Graph, int South, int Back, int East, int North, int West);
 
     static BlockTown Block(float turnAroundM)
     {
@@ -282,7 +301,7 @@ public class RoutePlannerTests
             [(back, south)] = turnAroundM,
         };
 
-        return new BlockTown(builder.Build(new PricedTurns(prices)), south, east, north, west);
+        return new BlockTown(builder.Build(new PricedTurns(prices)), south, back, east, north, west);
     }
 
     /// <summary>An approach that may go straight on or turn off and rejoin, with the straight-on priced.</summary>

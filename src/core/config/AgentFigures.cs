@@ -164,12 +164,13 @@ internal sealed class TyreFigures
     public float WheelWidthM { get; init; } = 0.22f;
 
     /// <summary>
-    /// How much of a tyre's width has to stand outside the bodywork drawn over it (CAR-12), which is what
-    /// every variant's track is authored against. <b>Less than this and the wheel is not there</b>: the art
-    /// is a car seen from above, its panels reach the edge of its sheet, and a tyre tucked under them is
-    /// four impulses acting on a body nothing on screen accounts for.
+    /// How much of a tyre's width stands outside the bodywork drawn over it (CAR-12), which is what every
+    /// variant's track is authored against. <b>Less than this and the wheel is not there</b>: the art is a
+    /// car seen from above, its panels reach the edge of its sheet, and a tyre tucked under them is four
+    /// impulses acting on a body nothing on screen accounts for. <b>More and the car stands on outriggers</b>,
+    /// which is how the fleet read at 0.64 (the owner, 2026-10-22).
     /// </summary>
-    public float ShowsPastTheBodyworkShare { get; init; } = 0.4f;
+    public float ShowsPastTheBodyworkShare { get; init; } = 0.25f;
 
     /// <summary>
     /// The nominal wheel's rotating inertia as the straight-line mass it behaves like (J/r²). It sets how
@@ -259,26 +260,30 @@ internal sealed class TyreFigures
 internal sealed class LampFigures
 {
     /// <summary>
-    /// How much wider than its lens the glow around a lit lamp is drawn. It is what carries a lamp at
-    /// the height a street is watched from, where the lens itself is a pixel or two.
-    /// </summary>
-    public float GlowSpread { get; init; } = 3f;
-
-    public float GlowStrength { get; init; } = 0.79f;
-
-    /// <summary>
-    /// The smallest lens the glow is sized as though it were. <b>A floor under the light and never under
-    /// the lens</b>: the lamp itself is a section of the car's own picture and is drawn at the size the
-    /// art draws it, but a lens of four texels would otherwise carry a glow too small to read from the
-    /// height a street is watched from.
+    /// How far the light of a lit lamp spills past its lens onto the bodywork: one standard deviation of the soft
+    /// copy of the lens's own shape its glow is (<c>LampSprites.Glow</c>), so the spill follows the lamp's outline.
     /// </summary>
     /// <remarks>
-    /// <b>It is the indicator's figure in all but name.</b> Nearly every indicator in the fleet is the
-    /// smallest lens its car draws and sits on this floor, where a rear cluster carries its own size and
-    /// is two or three times the light — so a turn was the quietest thing a car could say. Set here so
-    /// the smallest lens comes out just under a middling rear lamp.
+    /// Each glow's quad is its lens and <c>LampSprites.ReachSigmas</c> of this either side, so a longer reach is a
+    /// larger quad on every lit lamp: what the glow costs a frame is drawn texels, and this is most of them.
     /// </remarks>
-    public float LeastGlowM { get; init; } = 0.18f;
+    public float GlowReachM { get; init; } = 0.1f;
+
+    /// <summary>
+    /// How strong the spill is: a gain on the lens's own shape blurred, held at full. The glow is light, added onto
+    /// the body under it (<c>SheetSource.AddsLight</c>), so full is the lamp's whole colour summed on; past one the
+    /// bright part reaches further out on the same quad, so a stronger glow costs no more texels than a weaker one.
+    /// </summary>
+    public float GlowStrength { get; init; } = 2f;
+
+    /// <summary>
+    /// A beacon end's <see cref="GlowReachM"/> and <see cref="GlowStrength"/>: far and strong enough to spill off the roof
+    /// onto the glass and the road round the car. A glow is added light, and adds nothing to the white roof most bars
+    /// stand on (the owner, 2026-10-23).
+    /// </summary>
+    public float BeaconReachM { get; init; } = 0.3f;
+
+    public float BeaconGlowStrength { get; init; } = 2.5f;
 
     /// <summary>
     /// How much of the line ahead is read for the side the turn goes to, and how far that stretch has to
@@ -311,11 +316,147 @@ internal sealed class LampFigures
     public float FlashOnShare { get; init; } = 0.55f;
 
     /// <summary>
-    /// The beacon's, which is faster and never dark: the bar takes its two ends end for end — the
-    /// colours of a two-colour bar, the burn itself on an amber one — so a car carrying a priority is lit
-    /// in every frame it is in.
+    /// The beacon's loop, one end and then the other, and never dark: the bar takes its two ends end for end — the
+    /// colours of a two-colour bar, the burn itself on a bar of one — so a car carrying a priority is lit in every
+    /// frame it is in.
     /// </summary>
-    public float BeaconHz { get; init; } = 2.4f;
+    /// <remarks><b>Every bar runs it exactly</b> (the owner, 2026-10-23: "all sirens same interval").</remarks>
+    public float BeaconPeriodS { get; init; } = 0.5f;
+
+    /// <summary>How long the showroom holds each state of the picked-out car's lamps before the next (CAR-14.9).</summary>
+    public float ShowroomStepS { get; init; } = 2f;
+}
+
+/// <summary>
+/// What a running car's exhaust puts out (CAR-54), and a diesel's stack (TRN-15): how often a puff leaves each pipe, how
+/// fast and how long it lasts, how it spreads and how thick it is, and the track of its body's way it is laid along.
+/// <b>Nothing here is simulated</b>; a puff is drawn and stands nothing.
+/// </summary>
+/// <remarks>
+/// <b>An engine idling and one asked for full throttle</b> are the two ends of each figure that comes in a pair: a puff is
+/// laid at the share of the way between them its driver's throttle was when it left, so a car pulling away puts out more,
+/// wider and longer-lived smoke than one at a light, and a diesel pulling hard the most of anything. Where a pipe is is the
+/// vehicle's file (<see cref="Agents.Car.Body.CarVariant.ExhaustsM"/>, <c>TrainVehicle.ExhaustsM</c>).
+/// </remarks>
+internal sealed class SmokeFigures
+{
+    /// <summary>How long after one puff leaves a pipe the next does off a body standing or crawling. A puff is a quad, so this is most of what smoke costs a frame.</summary>
+    public float PuffEveryS { get; init; } = 0.06f;
+
+    /// <summary>
+    /// <b>The puffs drawn in between</b> off a car fast enough to string them out: the most one
+    /// <see cref="PuffEveryS"/> of exhaust is split into, a power of two, and the widest gap its puffs are left at before
+    /// it is split again. Nothing is kept for one: each is laid along the car's track as any puff is, its share of the
+    /// exhaust's thickness its share of the time.
+    /// </summary>
+    public int PuffSplits { get; init; } = 4;
+
+    public float PuffGapM { get; init; } = 0.2f;
+
+    /// <summary>
+    /// How long a car's puff is drawn for, idling and at full throttle: clear as it leaves the pipe, thickest
+    /// <see cref="ThickestAt"/> of the way through, and gone at the end. No longer than the track reaches back
+    /// (<see cref="TrackPoints"/> less one of <see cref="TrackEveryS"/>), which a look refuses.
+    /// </summary>
+    public float IdleLifeS { get; init; } = 0.4f;
+
+    public float FullLifeS { get; init; } = 0.45f;
+    /// <summary>How far through its life a car's puff is thickest, as a share of it: halfway, so the youngest, smallest puffs do not string out behind a car at speed as beads.</summary>
+    public float ThickestAt { get; init; } = 0.5f;
+
+    /// <summary>How fast the gas leaves a tailpipe, straight back off the car that blows it, idling and at full throttle.</summary>
+    public float IdleOutflowMps { get; init; } = 2f;
+
+    public float FullOutflowMps { get; init; } = 3.5f;
+
+    /// <summary>
+    /// <b>The inertia</b>: the time a puff gives up the speed it left the pipe with — the car's own and the outflow — to
+    /// the air over (<c>SmokeSprites</c>). By then it is a quarter of the way from that speed to the air's, and it never
+    /// runs further from where the air alone would take it than this times the difference: a puff off a car at speed runs
+    /// on after it a little and is left behind on the car's own way, which is what lays the trail, and then it goes with
+    /// the wind (<c>Wind</c>).
+    /// </summary>
+    public float DragS { get; init; } = 0.25f;
+
+    /// <summary>How fast a puff is blown across the pipe's line at the most, either way, by the eddies behind the car: what makes a trail a plume and not a string of beads.</summary>
+    public float ScatterMps { get; init; } = 0.6f;
+
+    /// <summary>How wide a car's puff is as it leaves the pipe, idling and at full throttle, and how fast it grows across as it mixes into the air.</summary>
+    public float IdleBirthWidthM { get; init; } = 0.2f;
+
+    public float FullBirthWidthM { get; init; } = 0.45f;
+
+    public float SpreadMps { get; init; } = 1f;
+
+    /// <summary>How opaque a car's puff is at its thickest off an engine idling, and off one asked for <see cref="FullThrottleMps2"/> or more.</summary>
+    public float IdleOpacity { get; init; } = 0.3f;
+
+    public float FullOpacity { get; init; } = 0.45f;
+
+    /// <summary>The throttle a driver asks for at which the exhaust is thickest, a car's and a locomotive's (TRN-15).</summary>
+    public float FullThrottleMps2 { get; init; } = 3f;
+
+    public float FullRailThrottleMps2 { get; init; } = 0.5f;
+
+    /// <summary>
+    /// <b>A diesel's stack</b> (TRN-15), its pairs idling and at full throttle as a car's: how opaque its puff is at its
+    /// thickest, how wide it leaves the stack, how fast it grows and how long it is drawn for — a diesel's engine is a
+    /// lorry's six times over, and its soot shows on a pale roof and hangs over the line behind it. It blows straight up, so
+    /// it has no outflow along the ground, and is thickest early, rolling dark off the stack: soon enough that a train under
+    /// way has not run off its own smoke's root before it shows.
+    /// </summary>
+    public float StackIdleOpacity { get; init; } = 0.5f;
+
+    public float StackFullOpacity { get; init; } = 0.9f;
+
+    public float StackIdleBirthWidthM { get; init; } = 0.6f;
+
+    public float StackFullBirthWidthM { get; init; } = 1.4f;
+
+    public float StackSpreadMps { get; init; } = 1.2f;
+
+    public float StackIdleLifeS { get; init; } = 1.5f;
+
+    public float StackFullLifeS { get; init; } = 3.5f;
+
+    public float StackThickestAt { get; init; } = 0.05f;
+
+    /// <summary>The grey smoke is drawn, as a share of white: a car's, and a locomotive's stack's (TRN-15), which is a diesel's soot.</summary>
+    public float Shade { get; init; } = 0.7f;
+
+    public float StackShade { get; init; } = 0.3f;
+
+    /// <summary>
+    /// The points of its way each car keeps for its smoke to be laid along (<c>smoke_track.comp</c>), and how often the
+    /// step lays one: the last second at eight a second. A puff's place is in a straight line between two of them, so a
+    /// car on a 20 m circle is off its arc by a few centimetres.
+    /// </summary>
+    public int TrackPoints { get; init; } = 8;
+
+    public float TrackEveryS { get; init; } = 0.125f;
+
+    /// <summary>
+    /// And each rail vehicle (TRN-15), for its stack's longer-lived smoke: nearly four seconds at four a second. A train's
+    /// curves are wide, so a chord of a quarter second at a train's speed is off its arc by a few centimetres too.
+    /// </summary>
+    public int StackTrackPoints { get; init; } = 16;
+
+    public float StackTrackEveryS { get; init; } = 0.25f;
+
+    /// <summary>
+    /// The speed past which a car is taken to have been put somewhere rather than driven there: its track is begun again
+    /// and no smoke is laid along the jump. Well past anything a car in this town drives at.
+    /// </summary>
+    public float ResetMps { get; init; } = 80f;
+
+    /// <summary>
+    /// How far from its car's middle a puff may be and still be drawn: a car further off the view than this has its
+    /// smoke left out with it. Past it the trail of a car at town speed is a fading wisp.
+    /// </summary>
+    public float ReachM { get; init; } = 12f;
+
+    /// <summary>And from a rail vehicle's (TRN-15): a diesel pulling hard at a train's speed lays its soot this far back.</summary>
+    public float StackReachM { get; init; } = 120f;
 }
 
 /// <summary>How a car drives itself: where it aims, what it plans against, and what it gives way to.</summary>

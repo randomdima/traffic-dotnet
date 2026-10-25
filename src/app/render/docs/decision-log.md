@@ -3,6 +3,347 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-24 — the ground is generated, worn in two looks the patches choose between
+
+**The owner: "improve [ground and water] to look better, more matching our new car and building models. More
+diverse. Generate new assets."** A first pass — one mosaic per surface, its tiles evened onto one tone, a faint tint
+over 45 m, the walk paved in square slabs — was judged worse: **"dont use 'tiled' textures - they dont rotate nicely",
+"grass feels less quality than it was before", "i see no variations"**. Of the ways then offered, the owner chose
+**textures blended by noise**, **painted like before**, **quality low**.
+
+- **Two looks a surface, blended by a field that does not repeat** (`GroundPatches`): a kept lawn and a worn one, fresh
+  asphalt and worn, clean concrete and weathered. Where one gives way to the other is the field's, a couple of dozen
+  metres to a lump, so the town shows patches at every zoom and no period anywhere. **One texture a surface, its looks
+  its layers**: no binding is added on either head, and the five surfaces still differ in size.
+- **No look has a direction or a grid.** A texture is anchored to the world's axes, so slab joints, ripples running one
+  way or a rust drip are square to the world and not to the street they lie under; the walk is poured concrete.
+- **A look keeps half its tone against the first** (`_surfaces.LOOK_TONE_KEPT`): left whole, the worn lawn read as a
+  camouflage blotch and the weathered walk as smudges along every street. Within a look every tile is evened onto one
+  tone, or its quarters show as a chequerboard (`ground_a-v1`).
+- **Painted, not photographic.** At quality low the model draws fine detail as speckle mush; a calm base with sparse,
+  crisp details a few decimetres across reads as quality (`raw_assets/world/terrain/ground/surfaces/prompting.md`).
+- **The tint stays, and moves with the looks**: the same field pales and warms a surface where it is worn.
+- **The walk is footway asphalt**, the owner's pick of three city-style trials after rustic ones (flags, cobbles,
+  aggregate) were "not fitting": a surface's tried looks stay in its file's `trial` and are kept, never joined.
+- **The shore is a surface of its own** (`Surface.Shore`): the owner picked a pebble trial meant for the walk "for
+  river/sea connections". It was the walk's texture before; its binding is appended after the last, as the track's was,
+  so no binding moved.
+- **The shore's edges fade and are not lined** (GEN-2c): the owner, "instead of solid line we can blur it to each
+  connection". The grass fades out onto the pebbles from the shore's outer edge and the water from its own
+  (`View.ShoreFadeM`), both on the shore so neither reaches a walk. **Blended, because a fade is cover and the ground's
+  corner has no room for a second surface**: a fading corner files its cover where a tint goes, and the ground pass
+  blends — opaque everywhere else, so nothing else changed. The two rings that left the lines went from the plan.
+- **Both kerbs are laid as their stones** (TER-3d, TER-7b, 2026-10-25): the owner, on the walk faded into the grass,
+  "sidewalk is weird. Lets bring back solid separator … with some texture … add car-sidewalk kerb texture as well. So
+  its not just a line" — which put the walk's kerb back in the `P0` layer list. Each kerb is a strip of generated art
+  laid along its line, as the track is (`Surface.Kerb`, `Surface.Edging`, `World.Terrain.KerbLooks`), its corners
+  filing how many pictures along they stand, the picture's low side — the riser — on the road's side of the town's
+  kerb and the grass's of the walk's. **Generated, not drawn by the stage**: the owner, on stones the shader drew,
+  "did you draw it yourself? generate some texture instead". Laid at the cars' grid (96 px/m), a kerb being a fifth
+  of a metre across and read up close. The town's kerb is no longer the road's white edge line. **Each edge its own
+  stone, and each casting a shadow** (the owner: "use different one for road-sidewalk and sidewalk-grass … make it
+  nicer, it looks just as a line"): granite kerbstones on the road and a row of granite setts on the grass, and a
+  band darkening the ground beyond each low face (`Surface.Shadow`, `View.KerbShadowM`), laid from the face and never
+  under the stones so the part's filing cannot draw it over them. **Then softer and less alike** ("Dont do contrast
+  black border separation. Make some variations, and 'real' feel"): the strips drawn again six metres long with
+  hairline joints and no two stones alike, cut joint to joint so four or five metres of stones pass before one
+  repeats; each kerb wears the walk's patches on a field of its own; the shadow a fifth of the light, not half.
+- **No look is drawn as its repeat** (2026-10-25): the owner, on the review that found each look's 16 m period plain
+  wherever one look stood alone, and a two-tile look's quarters mirrored copies of each other, "fix repeats, add
+  improvements … water, pavement, grass, sidewalk all must have its own". The ground is cut into hexes five metres
+  apart (`View.GroundScatterAcrossM`), each reading its look from a place of its own and blended into its neighbours
+  — **offset and never turned**, because the looks are lit from one side and a turned hex is a stone lit from the
+  wrong one. **A field per surface** (the lattice hashed with the surface's number, each its own width): read off one,
+  lawn, walk and road wore at the same places. The tint was raised, the grass's most; a fade's cover is ragged at its
+  middle (`View.GroundFadeRagged*`) so turf meets the shore in tufts; and the water's two looks drift with the
+  prevailing wind at their own shares of it (`GroundPatches.DriftAt`), so they slide over each other.
+- **The owner then allowed quality high for the ground** ("try again with better quality setting"): the land is
+  painted at high; the water stays as drawn at low, high drawing it in rows of waves.
+
+## 2026-10-24 — clouds are a field over the frame, not puffs
+
+**The owner: "review smoke mechanics — lets add clouds now — only showing as shadows"** (`OBJ-8`).
+
+- **Not the smoke's machinery.** A puff is a sprite laid off a track the device keeps, because it leaves a moving
+  body; a cloud leaves nothing, so it needs no track, no emit and no room: a field read off the clock and the seed, one
+  triangle over the frame, and a frame's whole cost is the two vectors it writes into the camera's block.
+- **Drawn on every Vulkan head and in a picture**, where the smoke is the device-stepped world's alone: nothing of it
+  is stepped, so a `--shot` shows the sky the window does.
+- **Carried the wind's prevailing way, not the wind of the moment** (`Wind.PrevailingRad`): the air a kilometre up is
+  steadier than at the ground, and following the swing would need the wind's carry integrated from the start of the
+  clock — the one thing that would have to be kept.
+- **The edge is derived, not authored** (`SimConfig.CloudPenumbraM`): the clouds' height and the sun's width are the
+  figures; the blur they make is read off them.
+- **The owner: "make them less dark and more cloud like".** Four octaves of blots taking 30 % of the light read as ink
+  stains: the field is now six octaves bent by two coarse ones (billows, and lumps down to 16 m), and a shadow deepens
+  over `CloudFigures.ThickensOverM` in from its edge to 22 %, so a fringe is thin. At 80 m in from the edge the whole sky
+  read as a haze over the ground; at 30 m the clouds are patches with clear sky between.
+- **The owner: "make them 5% lighter and less dense".** Taken as five points off the light a shadow takes
+  (`ShadeShare` 0.22 → 0.17) and a quarter of the sky covered rather than 35 % (`CoverShare`).
+
+## 2026-10-24 — a plume's root is its pot, and a diesel's its stack
+
+**The owner: "review where smoke originates — it seems to be off centre of the chimney sometimes, especially on
+trains"** (`OBJ-7`, `TRN-15`).
+
+- **Where a puff leaves was right**: a pot's mark is on its picture's flue, a stack's on its picture's, and the youngest
+  puff the emit draws stands on either (0.00 m off a diesel's stack at 70 km/h). **What showed off centre was where the
+  smoke turned visible**: a puff is born clear and thickens, and while it did it was being carried off.
+- **A chimney's puff rises before the wind takes it** (`ChimneyFigures.RiseS`, which was the fade-in, `FadeInS`): it
+  stands on the pot as it thickens, since straight up is no way at all from above, and only then is carried. It had been
+  carried all of its 0.4 s fade-in — 0.6 m downwind at the breeze, more in a gust, so the root stood beside the pot and
+  moved with the wind. Shortening the fade-in alone left the root on the gaps between the young puffs, a third of a metre
+  apart; halving the time between puffs closed them but doubled the plume's thickness, and was not taken.
+- **A diesel's smoke is thickest a twentieth of the way through its life** (`SmokeFigures.StackThickestAt`, from 0.15):
+  pulling hard, a puff thickened over half a second while the train ran on from it, and its smoke turned dark two and a
+  half metres behind the stack.
+
+## 2026-10-24 — smoke goes where the air of every moment since took it
+
+**The owner: "review wind logic — make sure it's changing direction smoothly and slowly; direction and strength are two
+independent params changed independently"** (`CAR-54`, `OBJ-7`).
+
+- **The wind itself held**: its bearing swings 60° either side over five minutes, under 1.3° a second at its fastest,
+  and its speed gusts on a sine of its own phase and period. Both are now terms of their own (`Wind.BearingRad`,
+  `SpeedMps`), neither reading the other's figures.
+- **What was wrong was the smoke**: every puff was placed at the frame's wind times its age, so each change of wind was
+  laid on the whole plume at once — a chimney's plume stretched and shrank by two fifths every gust, nine seconds a
+  beat, and a turn swung it rigid about the pot. Now a frame carries the air of 32 moments back over the longest any
+  puff lives (`Wind.Back`: how far the air has carried since each, Simpson's rule a step, and its velocity then), and a
+  puff is read between them: carried by the air it was out in, closing on the air it left in. A turn bends a plume from
+  the pot out, and a gust is a stretch of it carried further.
+- **The emit was not given the wind's formula** to integrate a puff at a time — that would be a second copy of `Wind`;
+  the host's 63 evaluations a frame are the whole cost.
+
+## 2026-10-24 — every chimney takes its turn, and a roof vent is not one
+
+**The owner, shown a closed box and a domed cowl smoking: "fix a few mislabeled chimneys — they are not, and instead
+focus on finding real chimneys: they look exactly as the working ones and don't smoke"**; then "all of them must be
+marked and be able to smoke, but you can periodically disable some of them and enable other, ideally without extra
+properties — just by id" (`OBJ-7`).
+
+- **Two looks are not chimneys**, and the owner drew the line at them: a closed box with a grey inner square
+  (`apartments_deep_20`, `tower_06`) and a domed cowl on a square plate (`apartments_deep_16`, `_19`, `garages_13`,
+  `tower_02`, `condo_pool`, `hospital_02`, `office_01`, `school_01`, `school_deep_02`'s second, `warehouse_saw`), with
+  the round drains (`garages_deep_07`, `tower_deep_06`). Open pipes, capped pipes on a round collar and open-topped boxes
+  stay chimneys.
+- **No real chimney was unmarked**: every brick stack on every roof was counted against its marks, and the unmarked
+  roofs hold none. The stacks seen cold were the three in five the seed had never lit.
+- **A fire takes turns, off its key alone** (`ChimneyFigures.FirePeriodS`, `SmokingShare`): every pot is laid, its row's
+  key the stack's fire above `ChimneySprites.PotBits` and the pot below, and the emit relights or lets out each fire every
+  period off a hash of the fire and the turn, each fire's turns staggered off its own key. It is asked at the moment a
+  puff left the pot, so a plume grows out of a pot and the last one off a fire let out drifts away whole. A per-row
+  flag or phase was the other way, and was not wanted.
+
+## 2026-10-24 — a car's smoke is short, drawn over the cars, and shows idling
+
+**The owner: "make car smoke a bit shorter and more dependent on thrust"**, then **"a bit shorter and starting closer to
+car center (a bit)"**, then **"active car — when driver is on or when in manual control — should do idle smoke as well.
+right now its only on throttle"** (`CAR-54`).
+
+- **A car pulling away puts out a short, thick trail** (`SmokeFigures.FullLifeS` 0.45 s): a car at speed lays it
+  along its way, a quarter shorter than it was. The stack's is untouched.
+- **A car idling puts out a wisp that shows**: two-thirds as opaque as at full throttle, under half as wide, and blown
+  out of the pipe hard enough (`IdleOutflowMps`) to clear the bumper before it thickens. At a third as opaque and blown
+  out at under a metre a second, an idling puff thickened under the body or too faintly to see, so a car smoked only on
+  the throttle. What smokes is unchanged: a car its headlamps burn on, driven or under a hand (`CarLamps.Showing`).
+- **The share between the pairs is the throttle's, laid linearly**; a curve on it was the other way, and was not needed.
+- **A car's smoke is drawn over every car** (`PartSmoke` last of a car's parts in `sprites.glsl`), its own and any
+  driving through its trail, asked for over the bodies hiding it (**"seems like smoke is drawn under cars"**, then
+  "1"). A car through the trail ahead is hazed by it. Over its own body only was the other way: it needs a level's slots
+  laid car by car rather than part by part, which interleaves every car's tyres, body and lamps with the next's.
+- **A puff leaves the pipe's end**, where `qq exhausts` put it on the bumper. Under the bodies it was born a little in
+  from it, to grow out from beneath the bumper; over them, born clear, its root needs no hiding.
+
+## 2026-10-24 — a flat roof's flue pipes and open stacks are chimneys too
+
+**The owner: "Review chimneys on buildings - we have a lot of unmapped assets. Scan all buildings and map chimneys"**,
+and, asked where the line is, chose stacks and capped pipes (`OBJ-7`).
+
+- **A chimney is anything on a roof that a flue comes out of**: a brick or rendered stack with its pots, an open-topped
+  box or pipe, and a round pipe under a rain cap, the flat roofs' mushroom cowls among them. 75 more roofs smoke —
+  the panel blocks' and towers' rows of flues, the schools', hospitals', shops' and offices' cowls, the town hall's two
+  stacks, the fire station's flue — 198 of the 376 in all; `tower_08`'s five open boxes are twin stacks.
+- **Still left as drawn**: louvred and grilled boxes, pyramid-capped vents, condenser and fan units, spherical turbine
+  vents, skylights, and the round grates and drains at a roof's corners. Each roof has one pot width (`potWidthM`), so
+  a roof with both broad cowls and narrow pots (`tower_08`) takes one between them.
+
+## 2026-10-23 — a twin stack smokes from both its pots
+
+**The owner: "There are some twin pipes on assets. Use double thinner smoke there"** (`OBJ-7`).
+
+- **A chimney in a roof's file is its stack's pots**, `X, Y` a pot (`chimneys`), so a single `[x, y]` reads as it did. The
+  stack is drawn once for whether it smokes, and every pot of one that does is a row of its own, a pot wide — two thin
+  plumes off a twin where there was one wide one. A width per roof and a spacing per stack was the other shape, and could
+  not say a roof whose stacks differ, which most apartment roofs are.
+- **Nearly every stack the art draws is a twin**, pots wall to wall across the picture; of 215 stacks, 28 carry one pot
+  and five three, read off `qq chimneys pots` close-ups and laid with `split`. A house's pot is 0.35 m
+  (`ChimneyFigures.PotWidthM`), and 87 roofs whose art is drawn larger say their own, 0.4–1.6 m.
+- **The pots were not found by a finder**: one looking for the dark inside a stack's pale cap was tried and given up — a
+  cap breaks into pieces under any one threshold, and a pot's glint splits it. It is the same reason the stacks
+  themselves are read by eye.
+
+## 2026-10-23 — smoke varies with the throttle and the pot
+
+**The owner: "Lets do smoke variations. More dense on large chimneys, trains. Larger, smaller, longer, shorter.
+Depending on throttle. Minimal on cars, max on rushing diesel train"** (`CAR-54`, `TRN-15`, `OBJ-7`).
+
+- **An exhaust's every figure is a pair, idling and at full throttle** (`ExhaustLook`): opacity, the width a puff leaves
+  at, how long it lives and how hard it is blown out. A track point keeps whether the body ran and its throttle share
+  apart rather than one opacity, so the emit reads all four off the moment a puff left. A car idling is the least
+  smoke drawn; a diesel at full throttle the most — over twice as wide as it leaves, 3.5 s of life, 0.9 opaque.
+- **A stack's track is longer than a car's** (`StackTrackPoints`, `StackTrackEveryS`): 16 points four a second, so a puff
+  lives 3.5 s where a car's lives under one; a car's track was not lengthened, since there are thousands of them and a
+  dozen rail vehicles. A puff's life is still bounded by its track — laying it from where a standing stack is, as a
+  chimney's is, was the other way, and would have left a moving diesel's trail short.
+- **A stack is thickest early** (`StackThickestAt`), a car's halfway: a life warped so that share is its middle keeps the
+  car's parabola exactly and lets soot roll dark off the stack.
+- **A pot's width is read off its picture** (`potWidthM`, `qq chimneys set … --pot`), authored as the geometry it is; a
+  roof that says none has a house's (`ChimneyFigures.PotWidthM`). What a wider pot puts out is derived, not tuned: a puff
+  leaves as wide as the pot; it is as opaque as `k` house puffs laid over each other, the depth of smoke a look down
+  crosses; and it lives `√k` times as long.
+- **`qq drive --live SECONDS`**: the frames `qq drive` took are filled on the host, which draws no smoke, so a live drive
+  in a window — closed after the seconds, since one follows its script for more — is how the smoke is looked at; and a
+  live `shot` now honours `look`, which it ignored.
+
+## 2026-10-23 — every picture read for a chimney, and a diesel's stack smokes
+
+**The owner: "Check all assets for chimneys. And trains"** (`OBJ-7`, `TRN-15`).
+
+- **Every roof and every rail vehicle was looked at**, not only those whose description names a chimney: `qq chimneys`
+  takes all 387 pictures, `--unmarked --grid 6` lays the 276 unread small on triage sheets, and each candidate was read
+  ruled and ringed. 16 more roofs smoke — the common houses' and the corner shop's stacks, eleven industrial roofs' brick
+  stacks, a garage block's three stove flues — and the two diesels' exhaust stacks. Left as drawn: louvred extractor
+  boxes, condenser fan units with their hubs showing, the domes, and the electrics' pantographs.
+- **A rail vehicle's track is laid as a car's** (`smoke_track.comp`, one dispatch over the cars and then the vehicles,
+  past every car's track): it runs while it is in the world (TRN-7), and its throttle is its rail command's. Its
+  puffs go in whichever run the vehicle is drawn in, over it.
+- **A stack is not a tailpipe**: it blows straight up, so a puff leaves it with the vehicle's velocity and no outflow,
+  wider, thicker (`StackIdleOpacity`, `StackFullOpacity`) and dark (`StackShade`). Drawn with a car's figures it was there and could not be seen: pale grey on a pale grey roof, and a
+  plume a puff's life long is under a metre off a standing stack.
+
+**The owner let the host go** ("WE dont care about cpu matching gpu. That can be gpu only logic and we can focus working
+only there and fix its issues. Lets add more intermediate draws of smoke. ( dont store, just inbetween ). And add smoke
+to building chimneys"), `CAR-54`, `OBJ-7`.
+
+- **A puff is split by halving** (`SmokeFigures.PuffSplits`, `PuffGapM`): the puffs are laid on a grid four times as
+  fine as an idling car's, and a puff is drawn where its car's speed off the air would leave the next one coarser grid's
+  puff further off than the gap — so a car speeding up draws more between those it drew and none of them goes, and each
+  is the share of a whole puff's thickness its time is. Nothing is kept for one; each is laid along the track as before.
+  From about 45 km/h every one is drawn, a fifth of a metre apart and further the faster the car. Stretching a puff
+  along its velocity was the other way to close the beads, and was not asked for.
+- **The smoke is aged off the moment of the view the host shows** (`SmokeHead.shownS`, the live end's time before the
+  step that laid the newest): the newest puff had left a step's travel behind the drawn pipe.
+- **A chimney's pots were read off its picture by eye** (`qq chimneys`): a stack is a pale box with dark pots in it, and
+  a roof's tiles, seams and hatches are as much that to any measure tried — dark compact blots and pale boxes holding
+  them alike found hundreds a roof — so each of the 111 roofs whose description names a chimney was read off a sheet
+  ruled in metres and its pots ringed on a second to check.
+- **A chimney's puff is where the wind has carried it since** and the eddy it left on, given up as a car's puff gives
+  up its speed. It is drawn last of the over run, over the roofs and the cars, and its room is a figure (`MostPuffsDrawn`) rather than
+  every chimney's whole plume — a frame that would draw more cuts its own furthest chimneys and nothing else.
+- **What it costs, measured** (`qq prof --gpu --no-cpu`, the default framing, RX 9070 XT): OdesaOsm 16.6 % busy at 60 fps
+  with its 35 648 smoking chimneys, against the 16–19 % taken before any smoke (2026-10-23, below); Odesa 5.9 %. A
+  chimney out of view costs its thread a cull.
+- **`--bench deviceworld` stays**, holding everything but the smoke to the host's fill; the smoke is counted apart.
+
+## 2026-10-23 — a car's smoke is laid along the last second of its way, on the device alone, and the wind carries it
+
+**The owner asked for the exhausts marked and smoked** ("Find and mark exhaust pipes. and render some simple smoke
+animation on them. with 'inertion' so moving objects leave a trail"), `CAR-54`.
+
+- **The art draws no tailpipe**, seen from above, so a pipe is placed and not found: `qq exhausts` puts one on the
+  rear silhouette at three tenths of the width out on the left — the side away from the kerb in a town that drives on
+  the right — two for the sporting and the luxury looks, none for the four electric ones.
+- **A puff is where the car was when it left** — between two points of the car's way, the last second of it kept at
+  eight a second (`DeviceSmoke`, `smoke_track.comp`) — and the run it has made since off the velocity it left with,
+  which it gives up to the air. That is the inertia, and a trail round a corner is the corner. **Two cuts were turned
+  down on the way.** The first kept nothing and ran the car's present motion back along its yaw rate: "that limitation
+  is not acceptable. they must follow real path. try to keep it optimal - keep a small track behind". The second laid a
+  track wherever the moving rows were — the device's lay pass, the host's fill, and a tick at a time by a run that
+  ticks without drawing — to keep the host's fill and the device's emit one to the bit: "You can do that on gpu only.
+  Since its doing physics ticks. We need to store const last N points. ( lets for last second, 8 points ) And render
+  between them."
+- **So the track is the step's**: a pass behind every step of the device's world (`DeviceWorld.Begin`), from the moment
+  anything draws off that world (`DeviceWorld.LayTheSmoke`), each point stamped with the step's own clock — and the
+  smoke is drawn by the device's emit and nothing else. **A world stepped in managed code draws none**: the page's, a
+  `--shot`'s, a scripted drive's and the suite's; a live drive (`--drive --live`) is where a frame of it is taken.
+  `--bench deviceworld` holds everything else the emit draws to the host's fill, and counts the puffs apart.
+- **A puff is clear as it leaves the pipe and thickest halfway**: faded only towards the end, the young small puffs
+  behind a car at speed strung out as beads.
+- **The wind is the town's** ("lets add wind to the map. As a small force vector that is moving light air objects a
+  bit. And slowly chaning its direction over time"): a function of the clock off the plan's seed (`Wind`), a breeze of
+  1.5 m/s that swings 60° either side of a seeded bearing over five minutes and gusts. A puff closes on the air's
+  velocity rather than on standing still, so it goes with the wind once it has given up what it left with. It reaches
+  the emit as a word of each frame; nothing that stands reads it.
+
+## 2026-10-24 — a fan is drawn in one of ten looks, fitted to the rim its body's picture draws
+
+**The owner asked for every fan drawn in a look of its own** ("Lets try using predefined 10 vents for all of them. Size
+them to fit. Dont cut them. Generate 10 good images" — the rotating coolers, `OBJ-6`, `TRN-13`). The fans the art draws
+are small, blurred and drawn differently on every roof, and turned out of the picture they stay so.
+
+- **Ten looks, each asked as a frame of its own** (`assets/world/building/fans/`, `fan_*`): one round fan seen from
+  above, whole, taken off its frame by its drawn extent and never fitted or clipped (`qq sprites cut`). The art's fans
+  were the style picture. $0.12, one attempt each; four drew a blade count other than the one asked
+  (raw_assets/world/building/prompting.md).
+- **Still a fan's geometry and nothing else, and its ID**: a body's look is a hash of its ID beside its share of a turn
+  (`fans.glsl`'s `fansShare`), so every fan of one roof wears one look, as a unit's twin fans are one make. The looks'
+  places are the fan table's last rows (`FanTable.PutLooks`), written when the atlas is packed, since the fragment stage
+  reads that block and not the sheets'. No instance and no field a fan.
+- **Sized to fit: the look's middle on the hub and its edge on the rim**, each way out of the hub the share of the way
+  to the rim the share of the way to the look's edge, the rim taken a texel and a half wide of the ellipse fitted
+  through it. So the look covers the drawn fan, squashed or off its hub, and turns round; past the rim the roof shows.
+  A sliver of the art's opening still shows where it wanders wider than that ([tech-debt](../../../../docs/tech-debt.md)).
+- **Laid over the body's own texel by the look's alpha**, so a look drawn with a soft edge blends into the roof.
+
+## 2026-10-23 — a fan is its geometry, read off its body's ID, a roof's and a train's alike
+
+**The owner asked for the roofs' fans turned** ("good do it", offered after a survey of what else the art draws that
+turns): the round condenser fans on the office, hospital and shop roofs (`OBJ-6`). Tried on three roofs first —
+`office_01`, `office_deep_01`, `hospital_04`, nine fans — before the catalogue.
+
+**The first cut was the trains'** — a disc sheet a fan and an instance a fan a building, turned in the vertex stage —
+and **the owner turned it down**: "lets do this without new textures and per item props / it should store only its
+geometry and cut it in runtime / no per item fields - their animation should be based on its ID + frameID / so its
+ticking and they have some random offset". It cost a sheet slot a fan and, laid for the busiest roof on every
+building, some 13 MB of instances on OdesaOsm.
+
+- **A fan is its geometry and nothing else** (`FanTable`): a run a sheet slot, then each fan's circle and its rim's
+  ellipse in its sheet's units, one uniform block both heads read, and the body's own fragment stage draws it
+  (`fans.glsl`, `town.wgsl`), so a fan is under nothing its body is not.
+- **The trains' fans went the same way** — the owner, offered it as a simplification: "yes do it consistant - why is it
+  even separate code path". Gone with it: a disc sheet a fan, an instance a fan a wagon and the room laid for them, and
+  the device emit's fan pass. The disc's outer band drawn as each ring's mean colour went too, since a ring's mean is a
+  loop a fragment; the shots show no facets on the rim without it.
+- **Each fan from its own start** — the owner's, and the one place an animation here is staggered (the sirens and the
+  indicators run in step, the car log's 2026-10-23): a body's share of a turn is a hash of its ID (`SpriteInstance.Id`
+  — a building's or a wagon's index, the sheet word's spare half, so an instance stays 28 bytes), the same every frame
+  on both heads, and each further fan of it a golden section on. Not its place in a run: a wagon's moves with whatever
+  is drawn before it. How far every fan has turned is the tick's (`FanTable.TurnsAt`), so a fan ticks with the town and
+  stands with it paused.
+- **A body whose widest fan is under `FanLeastPx` across cuts none that frame** (`CameraView.Turning`): the vertex
+  stage hands the fragment stage no run, so a whole town's framing pays nothing for its fans. The bar was first a car
+  part's, a pixel and a half; with the catalogue's fans cut, the owner asked for the animation dropped past some zoom,
+  and it is now a figure of its own at four pixels — a blade's width, the default framing still turning every fan,
+  and a town's framing none (`EngineFigures.cs`, `ViewFigures`). Measured the same day
+  (`qq prof --gpu --no-cpu`), animation does not show in a frame at all: Odesa 0.23 ms of CPU and the GPU 4–5 % busy at
+  120 fps at a street's framing and the whole town's alike; OdesaOsm held to 60 fps by its 4.5 ms tick, the GPU 16–19 %
+  busy with the town's tick on it. So the lamps stay instances (folding them into the body was weighed: 5× less room
+  laid, every car's quad grown by its glow) until a figure says otherwise.
+- **The fan's figures moved down to `core/geometry`** (`DrawnFan`), since a train and a roof both read one.
+- **The catalogue's fans were cut by a finder and a look** (the owner: "continue adding animation props to assets"):
+  276 fans on 74 roofs more, the hospitals, offices, shops, schools, kiosks and a few towers. `qq props seed` finds them
+  (`_props_trace.fan_hubs`); each roof was looked at and what is no fan taken out. Left standing: the corner drains and
+  flues it took for fans; the apartments' vent pipes and chimney pots; the garages' and canopies' boxes and bolts; and
+  the fans [tech-debt](../../../../docs/tech-debt.md) names.
+
+## 2026-10-20 — the atlas is five pages, the roofs at their art grid
+
+**The owner took a fifth 64 MB page over drawing the roofs coarser.** Every building roof was drawn again at its
+grown footprint (CityGen's log of the day) and installed at the art grid where its frame held it: the prefabs are
+55 Mpx, three and a third pages of texels, and the shipped art packs into five (`SheetAtlasTests`, 320 MB). A
+building grid of 24 px/m, three pages, was offered and refused.
+
 ## 2026-10-12 — a frame writes only what changed: marks, scenery and the ground drawn off rows laid once
 
 The engine review's draw items (`.tmp/engine-review.md` §3.2–3.4, 3.9, 4.20–4.25). Whole-town framing, RX 9070 XT,
@@ -47,7 +388,7 @@ moving grid laid for the picture alone (`PhysicsWorld.IndexMoving`, 3.1 ms).
   line, pass or junction ahead crosses to be drawn. Packed as arcs, the lines had been the emit's room — about 0.74 GB on
   the device and as much mapped at 40 000 cars.
 - **Every row is laid on the device off the world's own state** (root `decision-log.md`, 2026-10-11): where each body
-  is and points, its wheel, what it shows, its tow and its level; a look and a flasher's jitter are laid once. Nothing of
+  is and points, its wheel, what it shows, its tow and its level; a look is laid once. Nothing of
   an agent is sent for a frame.
 
 In the window (OdesaOsm, 40 000 of each, RX 9070 XT, `qq prof --device-tick --frame`, the whole town then ticked on the
@@ -224,20 +565,6 @@ the fill** (`TakeImage`) — per image rather than per frame in flight, because 
 is written once per image. **The frame is still five crossings**; what it costs is memory, about 22 MB of
 overlay quads where it was 7.5 MB, and the sprites again per image. Holding an image across a frame is what
 the rebuild on a resize had to learn (`DrainAcquire`).
-
-## 2026-09-18 — each kerb wears the ground it bounds
-
-The town's kerb was the pavement's grain in a shade of its own, and against the tarmac it read as a flat
-pale band — a third white beside the dashes and the zebras. The walk's own kerb was `Edge`, the deck's rim
-shade, and at 0.58 it read as a shadow across the pavement rather than as the stone at the back of it.
-
-**The town's kerb now wears `Paint` on tarmac**, the white every dash, bar and stripe is drawn in, so the
-edge of the road reads as the line down the middle of it; **the walk's own wears `Stone` on the
-pavement**, the slab standing on its side, told from the walk by the light on it alone. `Edge` is a deck's
-rim and nothing else. Neither stroke moved.
-
-**One white means a kerb is told from a mark by where it stands in the mesh and never by its tint** — it
-is welded ground laid before `FirstMarkVertex` — so the suite's `Tinted` stops at the first mark.
 
 ## 2026-09-16 — a mark between two ribbons is struck off the line they were offset from
 

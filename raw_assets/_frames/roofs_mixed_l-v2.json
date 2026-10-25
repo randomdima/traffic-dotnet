@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_l-v2",
+ "ts": "2026-10-20T14:01:05",
+ "op": "edit",
+ "name": "roofs_mixed_l",
+ "file": ".tmp/gen/frames/roofs_mixed_l-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031256,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 1×2 grid. Redraw only cell 2 (the transparent area). Keep cell 1 exactly as it is, and match its style, colours and fine detail.\n\nThe fault in cell 2: its outline is a square block with one small rectangular bay sticking out below its bottom edge, on the LEFT-of-centre part of the street front only — in this 1536×1024 picture the main block spans x 543–993, y 539–968, and the bay spans x 605–806, y 968–997. The previous drawing extended the bay right across to the block's right edge and put the entrance canopy beside the bay instead of on it. Follow the outline corner by corner: the main block's bottom edge runs straight at y=968 from x=543 to x=605 and from x=806 to x=993, and only the bay between x=605 and x=806 reaches down to y=997. The entrance canopy is drawn on that bay, inside it.\n\nTrace the outline in image 2 exactly, keep its proportions, straight square edges, top-down with no perspective, and keep the magenta background flat pure #FF00FF outside it. Details at true size: an air conditioner unit is about 1 m (24 px); a roof light about 2 × 1.2 m. No text.\n\n2. 19 × 19.4 m (square, outline built of 2 rectangles) — single-storey supermarket, flat light grey roof with a parapet, rows of air conditioner units and roof lights, an entrance canopy inside the street edge",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "4c03fb0c69507019",
+   "ext": "png",
+   "frame": "roofs_mixed_l-v1",
+   "was": ".tmp/gen/frames/roofs_mixed_l-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "aa80d3998a2c1022",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_l.png"
+  },
+  {
+   "role": "mask",
+   "sha": "45eb80ae76985446",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_l-v1/_mask_supermarket.png"
+  }
+ ]
+}

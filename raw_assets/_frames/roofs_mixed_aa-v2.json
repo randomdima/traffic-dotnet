@@ -1,0 +1,38 @@
+{
+ "id": "roofs_mixed_aa-v2",
+ "ts": "2026-10-20T14:06:01",
+ "op": "edit",
+ "name": "roofs_mixed_aa",
+ "file": ".tmp/gen/frames/roofs_mixed_aa-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low"
+ },
+ "costUsd": 0.031041,
+ "prompt": "Image 1 is the finished sheet; image 2 is its layout: 2 building outlines seen from above on flat magenta, in a 1×2 grid. Redraw only cell 1 (the transparent area). Keep cell 2 exactly as it is.\n\nCell 1's tower-block roof in image 1 is right in its material, parapet, vents and antenna, but it was drawn about 12% too shallow: from y=85 to y=495, while its outline in image 2 runs from y=25 to y=487 (x 449–1088). Draw the same roof again stretched to fill that outline exactly: its top edge on y=25, its bottom edge on the thick bottom edge at y=487, its left and right edges on x=449 and x=1088, with no magenta left inside it and nothing outside it. One fix besides: the lift machine room showed a door on its top and a strip of wall below it; seen straight down it is only a flat box roof about 3 × 5 m (55 × 90 px) with its own thin parapet, no door and no wall.\n\nTop-down with no perspective, straight square edges, flat pure #FF00FF outside the outline. No text.\n\n1. 35.1 × 25.4 m (1.4× wider than deep) — tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "4f098165a9b0ffbb",
+   "ext": "png",
+   "frame": "roofs_mixed_aa-v1",
+   "was": ".tmp/gen/frames/roofs_mixed_aa-v1.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "b9e51c750beed2ae",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/roofs_mixed_aa.png"
+  },
+  {
+   "role": "mask",
+   "sha": "0e8790713077d8e4",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/cuts/roofs_mixed_aa-v1/_mask_tower_11.png"
+  }
+ ]
+}

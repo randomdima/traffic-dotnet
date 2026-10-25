@@ -1,0 +1,49 @@
+{
+ "variant": "raw_assets/world/terrain/ground/surfaces/shore_a1/shore_a1-v1.png",
+ "variants": [
+  "raw_assets/world/terrain/ground/surfaces/shore_a1/shore_a1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/shore_a2/shore_a2-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/shore_b1/shore_b1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/shore_b2/shore_b2-v1.png"
+ ],
+ "looks": [
+  [
+   [
+    "shore_a1",
+    false
+   ],
+   [
+    "shore_a2",
+    false
+   ],
+   [
+    "shore_a2",
+    true
+   ],
+   [
+    "shore_a1",
+    true
+   ]
+  ],
+  [
+   [
+    "shore_b1",
+    false
+   ],
+   [
+    "shore_b2",
+    false
+   ],
+   [
+    "shore_b2",
+    true
+   ],
+   [
+    "shore_b1",
+    true
+   ]
+  ]
+ ],
+ "pxPerM": 31.5,
+ "encoding": "webp q90"
+}

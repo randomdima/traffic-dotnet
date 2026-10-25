@@ -1105,7 +1105,7 @@ public class TracedPlanTests
     [Fact]
     public void ARoadRunningOffTheMapEndsOnItsEdge()
     {
-        var plan = TownPlan.Lay(RunningOff(), Config, BuildingSizes.None);
+        var plan = TownPlan.Lay(RunningOff(), Config, ArtSizes.None);
 
         var edge =Array.FindIndex(plan.Junctions.CentreM, centreM => centreM == EdgeM);
         var line = plan.Roads.SegmentsOf(0);
@@ -1121,7 +1121,7 @@ public class TracedPlanTests
     [Fact]
     public void TheGroundOfARoadRunningOffTheMapTurnsRoundPastItsEdge()
     {
-        var plan = TownPlan.Lay(RunningOff(), Config, BuildingSizes.None);
+        var plan = TownPlan.Lay(RunningOff(), Config, ArtSizes.None);
 
         var furthestM = float.MinValue;
         foreach (var ring in plan.Paving(Config).Perimeter(Config).Chains)
@@ -1269,7 +1269,7 @@ public class TracedPlanTests
     /// traced map is (<see cref="TracedStreets.Mended(Survey, SimConfig)"/>) and laid.
     /// </summary>
     static CityPlan Laid(float[] pointsM, params SurveyWay[] ways) =>
-        TownPlan.Lay(TracedStreets.Mended(Surveyed(pointsM, ways), Config), Config, BuildingSizes.None);
+        TownPlan.Lay(TracedStreets.Mended(Surveyed(pointsM, ways), Config), Config, ArtSizes.None);
 
     /// <summary>
     /// <b>A street carried over another on a bridge</b>: west to east along y = 500, on a bridge way from x = 400 to
@@ -1309,7 +1309,7 @@ public class TracedPlanTests
     /// </summary>
     internal static CityPlan OnTheCoast() => TownPlan.Lay(
         TracedStreets.Mended(Surveyed([[0, 300, 900, 250, 1000, 250, 1000, 400, 0, 400]], [100, 100, 900, 100], Way(0, 1)), Config),
-        Config, BuildingSizes.None);
+        Config, ArtSizes.None);
 
     /// <summary>The survey those are.</summary>
     static Survey Surveyed(float[] pointsM, params SurveyWay[] ways) => Surveyed([], pointsM, ways);

@@ -1,0 +1,8 @@
+{
+  "id": "topiary_ball_large",
+  "sprite": "topiary_ball_large.webp",
+  "kind": 1,
+  "diameterM": 1.4,
+  "share": 0.8,
+  "describe": "large clipped box ball, perfectly round, dense tiny dark green leaves"
+}

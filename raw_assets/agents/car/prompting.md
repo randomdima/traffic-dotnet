@@ -8,16 +8,15 @@ Every car is drawn with its roof on: the game has no driver to sit in a seat see
 2026-10-18).
 
 **The background comes back transparent** (the owner, 2026-10-20; remotegen sends `background: transparent`): the
-layout stays on magenta, and the brief says "outside the cars the picture is fully transparent: no magenta, no
-background colour, no shadow, nothing half-transparent" in place of the magenta line. Every frame before
-`cars_fleet_b` is magenta and chroma-keyed.
+brief says "outside the cars the picture is fully transparent: no background colour, no shadow, nothing
+half-transparent". Every frame before `cars_fleet_b` is magenta and chroma-keyed.
 
 **A front lamp is one unit at each corner**: the headlamp's frame on the inboard part of the corner (half-width
 share 0.56) with the indicator's touching it at the flank end (0.84), as CAR-14b reads a cluster. A headlamp
 frame out in the middle of the nose is drawn as bare bonnet (`cars_civil_b-v1`).
 
 **A wreck is asked from the finished cars**, described like a body: the installed cars in order as the only image
-(`qq sprites template … --style=<the car ids>` makes it), the `_broken` ids as `--cells`, and a brief listing each
+(`qq sprites style <the car ids>` makes it), the `_broken` ids as `--cells`, and a brief listing each
 wreck by its car (`.tmp/gen/briefs/fleet100_w01-v2.txt` is the pattern). `use` shrinks a wreck to its car's
 footprint and never writes its car's geometry.
 
@@ -25,12 +24,57 @@ footprint and never writes its car's geometry.
 `qq props install` paints the zone map from the outlines. No zone map is asked of the model any more; the sections
 below on zone maps and lit frames are what led there.
 
+## service_tow (2026-10-23) — nine fleet bodies rebuilt as tow trucks, v1 + one re-roll + a masked redo, $0.061
+
+Unlike a repaint, a rebuild (cab kept, open deck drawn behind it) loses the bodies' character: v1 drew nine alike
+modern van fronts and ended every cab at the back of its windscreen, leaving no roof for the bar. v2, asking for
+"a flat cab roof about 1 m long, longer than the windscreen is deep" and naming each front kept, gave the vans their
+roofs; the off-road 4×4 kept only 0.3 m and needed a masked redo (v3), which gave a roof but drew it about 10 %
+wider. The fronts stay more alike than the bodies they came from. The windscreens came out neutral dark, which
+`qq beacons fit` reads only with `--glass=neutral`; a dark amber bar's glass traces with `--lens colour`.
+
+**`service_tow_b` (v1 + a masked redo, $0.042): the detail pass the owner asked for** ("less details than before").
+Image 1 the finished `service_tow-v3` frame itself — the nine trucks at their places and sizes, no bar yet — image 2
+the old hand-drawn truck, and each missing part named: a headboard with four work lamps behind the cab, hazard
+stripes down both deck sides, a framed diamond-plate deck, crisp outlines. Every shape and size held (all nine within
+the cut's 8 %). The two trucks with the shortest cab roofs, the 4×4s, had the work lamps put on the roof; a masked
+redo naming "the work lamps belong on the headboard behind the cab" moved them. Toolboxes and a front guard were
+asked and not drawn. A frame as image 1 is the cheapest way to add detail to a set already cut: the cut lands every
+drawing back on its file.
+
+## service_arms (2026-10-23) — the tow trucks' 18 arm pictures, v1, $0.030
+
+A layout of the arms' boxes (`<truck>_beam_extended` / `_collapsed`, sized from `beam.sizeM`), three trucks as the
+style picture and the old arm as a third for the mechanism: one roll drew all 18 in style, the hinge left and the
+striped crossbar right as asked, folded ones compact. Each was drawn bigger than its box and stubbier (crossbar
+taller than the box by a third), so no fit to the box would hold; `cut` takes an arm whole as the island nearest its
+box and scales it by its crossbar (the fork's authored width), and `use` writes the quad and hinge it measured.
+
+## service_ambulance_b (2026-10-23) — nine fleet bodies repainted as ambulances, v1 + one re-roll, $0.059
+
+The police recipe (`service_police_c`): the installed fleet bodies as image 1 (`qq fleet brief --plan=… --style=<the
+bodies>` lays them), the service's old in-game picture as image 2 for the livery, "nothing on the roof but paint" —
+the bar is `qq beacons fit`'s — and the livery in a few lines. The free-drawn set before it (`service_ambulance`)
+came back nine generic vans; repainted, every body kept its shape.
+
+- v1 drew the vans all about one size, the long ones 16–20 % too wide against their bodies. v2, giving each body's
+  length-to-width ratio and saying the sizes differ on purpose, landed all nine within 5 % of the installed bodies.
+  **The flag `cut` prints compares against the plan's width**, and a fleet body is wider than its plan row: read a
+  repaint against the body's installed `collisionM`, or copy that width into the service plan.
+- Roof rails asked away survived twice as faint ridges on the estate (`ambulanceestate90s_white`); harmless under a
+  bar that clears them, worth a masked redo where the bar lands on them.
+- The roof cross asked "in the rear half" was drawn in the middle every time; it cleared the bar anyway.
+- A `podbig` bar on a body over 2.2 m wide traces each end past the 56-texel lamp cell; `podlong` fits.
+
 ## fleet100 (2026-10-21) — the hundred-car fleet, batch by batch
 
 Sheets `fleet100_bNN` (bodies) and `fleet100_wNN` (their wrecks), both from `qq fleet brief` (`--wrecks`): one base
 for every car sheet — style, view, layout, shape, background — then what new cars or wrecks add, then the cars
-(2026-10-21, the owner: simpler, one base; batch 1's briefs were the longer form). Style picture from batch 2: the
-same three cars taken whole from their frame (`--style-whole`), mirrors not clipped.
+(2026-10-21, the owner: simpler, one base; batch 1's briefs were the longer form). Style picture for batches 2–11:
+the same three mid-size cars taken whole from their frame (`crossover_pearl`, `estate_steel`, `kombi_sage` as
+`cars_fleet_a-v3` drew them). From 2026-10-22 (the owner: more variety in lamps and sizes, fitted to each batch)
+`qq fleet brief` picks six installed fleet cars a sheet, spanning the batch's lengths at one scale, of differing lamp
+designs — not yet tried on a sheet.
 
 - **The ten smallest in a 4×3 came back chubby** (`fleet100_b01-v1`): 8 of 10 bodies 10–20 % wider than their class.
   A whole re-roll opening with each car's measured width fault and "leave the extra room empty rather than filling it
@@ -88,6 +132,49 @@ same three cars taken whole from their frame (`--style-whole`), mirrors not clip
   minivan with a ribbed roof and a short bonnet; v2, told "no bonnet at all … one smooth dome … like a loaf of bread",
   drew the loaf, but tilted with a row of side windows showing and 13 % wide; a mask redo of its cell (v3) drew only a
   sliver of nose. None kept: the car waits for a later sheet (docs/tech-debt.md).
+- **Overhead at last, from the style picture and an opening line** (`fleet100_r01`, 2026-10-22, $0.018, one roll):
+  nine cars of batches 1–5 the owner marked for showing their side, asked again (`qq fleet brief --cars=…`). The
+  picker's six style cars all drew their lower flank too — doors along the bottom, the roof sitting high — so the style
+  picture was six chosen by hand from those scoring best on a mirror-difference measure across the long axis
+  (`minihatch_green`, `samara_silver`, `hatch_white`, `crossover_pearl`, `compactsaloon_grey`, `premsuv00s_black`),
+  then looked at for a centred roof. The measure is a proxy and only that: **a car has to be overhead, not symmetric**
+  (the owner, 2026-10-22) — an old rusty car's paint differs side to side and is right to. The brief opened on "THE
+  VIEW MUST BE EXACTLY OVERHEAD … the roof exactly centred across the body's width", and `qq fleet`'s base now asks for
+  the roof centred and neither flank seen more than the other, wear free to differ. All nine came back with the roof centred and both flanks alike, and narrower than
+  the pictures they replaced (the side was the width); against the plan three were 8–13 % wide, kept at score 3.
+  `classic_white` lost its 1970s chrome and round lamps. The wrecks (`fleet100_rw01`) came in one roll from the new
+  cars with the view line saying "exactly as the picture's cars are drawn". The lamps of all nine mirrored cleanly,
+  `citycar_lime` and `cityhatch_silver` included, whose old pictures had not.
+- **The seven weakest, `vanbus_white` and `loafvan_grey` overhead too, the widths in two rolls** (`fleet100_r02`,
+  2026-10-22, $0.038 for two frames, wrecks `fleet100_rw02` in one more). The owner asked the seven lowest-quality
+  pictures be drawn again with the two waiting: from the score-3 cells, the chubby, side-on and miscast ones (the
+  `citymini`s, `rearengine_sky`, `saloon70s_teal`, `niva_olive`, `oka_red`, `wedgesaloon_cherry`). The same style
+  picture and opening as `r01`, plus "car 9 (4.90 m) is drawn half as long again as car 1 (3.20 m)": v1 all overhead
+  and the lengths kept apart, but five 12–19 % wide. v2, "THE BODIES MUST BE SLIMMER" with each fault and the fault
+  again in the car's line, as `b05`/`b09`: `rearengine_sky` −1 %, `saloon70s_teal` +19 → +12 %, the vans +10–11 %.
+  Each car kept from whichever attempt drew it narrower. `loafvan_grey`'s earlier wording asked "a short row of small
+  side windows", which is the side view: without it, and with "seen from above it has no bonnet … the windscreen
+  starts right at the front edge", it came overhead — a grey loaf, though with diagonal headlamps on a sloped nose.
+  Tail lamps asked "split into red, amber and white sections" came back one orange strip on both saloons.
+- **A blunt van front is had by saying what is not there** (`fleet100_r03`, 2026-10-22, $0.063 for three frames,
+  wrecks `fleet100_rw03` in one). Four the owner named (`panelvan_white`, `loafvan_grey`, `samara_silver`,
+  `boxsaloon_beige`) and five score-3 side-on cars of the same 4.0–4.4 m, the style picture of overhead cars only (two
+  of them `r01`'s). v1: all nine overhead, seven within 0–10 % — and `loafvan_grey`, told "NO BONNET AND NO NOSE …
+  the front edge runs straight across … the windscreen starts right at that edge … small round headlamps, one at each
+  front corner, not angled, not swept back", drew the blunt loaf at last, but 24 % wide; `panelvan_white` 16 %. v2,
+  "THE TWO VANS MUST BE SLIMMER" with each fault: the loaf +11 %, the panel van +16 % again, and the seven saloons
+  wider than v1's. v3, a masked redo of the panel van's cell alone, drew only a nose, as `b05`'s mask redo of the loaf
+  did: **a mask over one whole car draws a fragment**, twice now. Seven kept from v1, the loaf from v2; the panel van
+  not used.
+- **4.1 to 5.4 m on one sheet, overhead, with the lengths said** (`fleet100_r04`, 2026-10-22, $0.039 for two frames,
+  wrecks `fleet100_rw04` in one). Nine the owner named, `coupe_yellow` because "the stripes go over the intake". The
+  style picture swapped its shortest car for `vanbus_white` so it reached 4.9 m, and the brief said "car 9 (5.41 m) is
+  drawn a third longer than car 1 (4.07 m) … a long vehicle is long, not wide". v1: all overhead, the lengths kept
+  apart, most +4–11 %, `panelvan_white` +21 % (its third wide roll). The coupe's line, "the stripes run either side of
+  the intake and never across it, the intake itself body yellow with a dark opening", drew exactly that. v2 naming four
+  faults: the panel van +21 → +8 %, the coupe −1 %, but the off-roader and pickup wider (+14–15 %) and `classic_red`
+  a hatchback in both, though told "a three-box saloon … a separate flat boot … a quarter of the car's length". Each
+  kept from its narrower attempt; the classic from v1 at score 3, overhead but bootless.
 - **The bumper indicator does not carry over to a whole car** (`fleet100_b04-v2`, 2026-10-22, $0.018): the wording
   that split every tail of the halves trial (H, below) — "the rear indicator is not part of it at all: a small yellow
   lens of its own set into the rear bumper near the corner, apart from the red lamp" — in the general lines and each
@@ -375,6 +462,8 @@ no fire.
 Kept: `citybox_sky-v3`, `saloon_beige-v2` (v1); `suv_graphite-v3`, `panelvan_forest-v3` (4), `minivan_wine-v2`,
 `hatch_coral-v2` (3) (v2); `micro_mint-v2`, `retro_cream-v2` (3) (v3). Installed: `saloon_beige`, `suv_graphite`,
 `minivan_wine`, `micro_mint`, `retro_cream`; the other four keep their `cars_civil_b-v3` art, which is as good.
+All nine and their kept variants were deleted on 2026-10-22, the hundred-car plan asking none of them again; the
+lessons below stand.
 
 - **The width in the cell line itself fixed both misfits**: "very short but as wide as a normal small car, its
   flanks straight and full width" (`micro_mint`, 13 % narrow in every `cars_civil_b` attempt) and "long and slim,

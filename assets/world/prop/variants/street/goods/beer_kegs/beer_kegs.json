@@ -1,0 +1,8 @@
+{
+  "id": "beer_kegs",
+  "sprite": "beer_kegs.webp",
+  "kind": 2,
+  "diameterM": 1.0,
+  "share": 0.5,
+  "describe": "four steel beer kegs standing together, round tops with valves"
+}

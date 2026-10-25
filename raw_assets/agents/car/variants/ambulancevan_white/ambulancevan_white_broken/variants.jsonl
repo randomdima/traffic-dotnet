@@ -1,0 +1,2 @@
+{"variant": "ambulancevan_white_broken-v1", "frame": "service_ambulance_wrecks-v1", "cell": 2, "pxPerM": 90.023, "score": 4, "status": "candidate", "ts": "2026-10-23T02:59:49"}
+{"variant": "ambulancevan_white_broken-v2", "frame": "service_ambulance_wrecks-v1", "cell": 2, "pxPerM": 90.023, "score": 4, "barRecolouredFrom": "ambulancevan_white_broken-v1", "status": "used", "ts": "2026-10-23T14:27:11"}
