@@ -369,8 +369,8 @@ public class ArcOutsetTests
     /// the ring closes by less than the arithmetic can tell, neither moved piece is cut and the second
     /// starts a few centimetres behind where the first stopped — and the rounding, asked to fill a corner
     /// of half a degree across a gap of five, <b>can only get from one to the other by going all the way
-    /// round</b>. A shipped city's boundary came back with twenty-five metres of arc at a radius of four
-    /// sitting in the middle of a straight, drawn as a ring with nothing under it.
+    /// round</b> — on a city's boundary, twenty-five metres of arc at a radius of four sitting in the middle
+    /// of a straight, drawn as a ring with nothing under it.
     /// </remarks>
     [Theory]
     [InlineData(MovedM * 0.2f)]

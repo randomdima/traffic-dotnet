@@ -20,7 +20,7 @@ namespace TrafficSimulation.Tests.Gates;
 /// gate — recovery is a handful of ticks and being stuck is every tick until something moves.
 /// </para>
 /// <para>
-/// It is worth having as a test rather than as a soak somebody remembers to run: every later milestone
+/// It is worth having as a test rather than as a soak somebody remembers to run: every feature
 /// adds bodies and reasons for them to be pressed together, and the tick a car is allowed to sink into
 /// a queue and stay there is the tick this stops being a town.
 /// </para>
@@ -28,7 +28,7 @@ namespace TrafficSimulation.Tests.Gates;
 /// <b>What it asserts is the claim the town itself keeps</b> (<see cref="TownWatch"/>) — the same one
 /// <c>--bench soak</c> prints and the panel draws on every map — so the gate and the instrument cannot
 /// disagree about what being stuck is. What is this gate's own is the length of the run and the fact that
-/// it is taken on every shipped map.
+/// it is taken on each of the suite's own towns (<see cref="Towns.EveryMapWorthAGate"/>).
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Perf)]

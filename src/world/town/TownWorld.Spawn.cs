@@ -174,7 +174,7 @@ internal sealed partial class TownWorld
     /// and dwelling (PER-11), so a body that begins there begins in the state every later trip returns it
     /// to, and everything after the first dwell is the ordinary round — out of the building, a walk to the
     /// destination, in (PER-11). Started on the pavement instead, everybody's first
-    /// leg was a leg no rule of theirs had drawn.
+    /// leg is a leg no rule of theirs drew.
     /// </para>
     /// <para>
     /// <b>What is left of the dwell is drawn per person, a dwell and a point somewhere inside it</b>: the first tick
@@ -246,7 +246,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Every building's ways in, filed by cell</b> (SIM-8) for the spawn's one question of each person the plan stood:
-    /// asked of every door in the town, it was a traced city's forty thousand people times its doors.
+    /// asked of every door in the town, it would be a traced city's forty thousand people times its doors.
     /// </summary>
     sealed class Doors
     {
@@ -453,7 +453,7 @@ internal sealed partial class TownWorld
     /// <b>The body is this variant's own</b> (CAR-11): its footprint, its weight, its axles and what its tyres
     /// are worth. The town's geometry is still the nominal car's — the junctions, the lanes and the bays were
     /// sized against it and the road is the same road whoever turns up — but nothing a car decides for itself is
-    /// taken from it any more.
+    /// taken from it.
     /// </summary>
     int AddCar(Vector2 positionM, float headingRad, byte variant, bool backsIn, Rng draw) =>
         Cars.Add(positionM, headingRad, variant, backsIn, draw);

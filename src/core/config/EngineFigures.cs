@@ -30,7 +30,7 @@ internal sealed class SolverFigures
     /// <remarks>
     /// <b>Unmodelled, and the driver leans on it</b>: about 1.4 m/s² at 14 m/s, which no stopping figure, committed ground
     /// or top speed is derived with, so every car stops shorter than it planned by it. At 0 the hazards and the reds
-    /// rose severalfold (physics log, 2026-10-12).
+    /// rise severalfold (physics log, 2026-10-12).
     /// </remarks>
     public float LinearDamping { get; init; } = 0.1f;
 

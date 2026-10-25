@@ -87,7 +87,7 @@ internal readonly record struct CarLens(CarLampFitting Fitting, Vector2 AtBodyM,
 /// <summary>
 /// One lens at one instant: the colour it is carrying and whether it is lit or dull. <b>Every lens is
 /// drawn in every frame</b> — a lamp that is off is an unlit lens on the bodywork and not an absence,
-/// which is the whole of why a parked ambulance no longer looks like one on a call.
+/// which is the whole of why a parked ambulance does not look like one on a call.
 /// </summary>
 internal readonly record struct ShownLamp(CarLens Lens, CarLamp Colour, bool Lit);
 
@@ -139,8 +139,8 @@ internal static class CarLamps
     /// </summary>
     /// <remarks>
     /// <b>It is also the device's ceiling</b>: the sprite emit packs a car's lens colours three bits a lens into
-    /// one word (<c>spritesLamps</c>), so a car of rear, indicators and headlamps is six and the ambulance, which
-    /// is ten without them, cannot take a headlamp pair until that word is two.
+    /// one word (<c>spritesLamps</c>), so ten is thirty bits, and the ambulance, which is ten without headlamps,
+    /// cannot take a pair until that word is two.
     /// </remarks>
     public const int MostLenses = 10;
 
@@ -269,9 +269,8 @@ internal static class CarLamps
     /// glow that appears from nowhere.
     /// </summary>
     /// <remarks>
-    /// <b>Every car flashes at the one rate</b>, off no jitter of its own (the owner, 2026-10-23: no jitter in an
-    /// animation), so indicators and beacons in a queue blink in step. Nothing is stored: the phase is the town's
-    /// clock, so a frame drawn twice draws the same lamps.
+    /// <b>Every car flashes at the one rate</b>, off no jitter of its own, so indicators and beacons in a queue blink
+    /// in step. Nothing is stored: the phase is the town's clock, so a frame drawn twice draws the same lamps.
     /// </remarks>
     public static int Shown(
         ReadOnlySpan<CarLens> lenses, CarLampSet showing, SimConfig config, float elapsedS, Span<ShownLamp> into)
@@ -307,7 +306,7 @@ internal static class CarLamps
                 CarLampFitting.Indicator => (
                     CarLamp.Indicator,
                     flashOn && (indicating & (onTheRight ? CarLampSet.TurnRight : CarLampSet.TurnLeft)) != 0),
-                // A lamp keeps the colour its glass is (the owner, 2026-10-22): red burns first, blue second. A bar
+                // A lamp keeps the colour its glass is (CAR-14.4): red burns first, blue second. A bar
                 // of blue alone takes its sides in turn, as an amber one does.
                 CarLampFitting.BeaconRed => (CarLamp.BeaconRed, beaconOn && firstHalf),
                 CarLampFitting.BeaconBlue => (CarLamp.BeaconBlue, beaconOn && (redGlass ? !firstHalf : firstHalf != onTheRight)),

@@ -1694,7 +1694,7 @@ INSTALL_CELL_PX, INSTALL_MOST_LENSES = 56, 10
 def cell_overrun(xs, ys):
     """Why the lamp sheet's cell cannot hold a lens of these texels, or None. The bake finds a lens's texels only
     within a cell centred on it, and a lens the cell's whole width long is written past the cell, which
-    `LampAtlasTests.EveryLensFitsTheCellItIsCutInto` refuses (`hatch90s_black`, `budgetsuv_brown` at the old 40)."""
+    `LampAtlasTests.EveryLensFitsTheCellItIsCutInto` refuses."""
     x0, x1, y0, y1 = int(xs.min()), int(xs.max()) + 1, int(ys.min()), int(ys.max()) + 1
     cx, cy = round((x0 + x1) / 2), round((y0 + y1) / 2)
     reach = max(cx - x0, x1 - cx, cy - y0, y1 - cy)

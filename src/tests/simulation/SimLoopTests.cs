@@ -105,8 +105,8 @@ public class SimLoopTests
 
     /// <summary>
     /// The equivalence that proves the clock changed no behaviour it should not have: at an interval
-    /// of 0 every agent thinks every tick, which is the un-clocked town. Once there are agents with
-    /// state, the two runs are compared tick for tick; at M0 what can be compared is who was asked.
+    /// of 0 every agent thinks every tick, which is the un-clocked town. What is compared is who was asked,
+    /// tick for tick.
     /// </summary>
     [Fact]
     public void AtIntervalZeroTheTownIsTheUnClockedTown()

@@ -13,7 +13,7 @@ namespace TrafficSimulation.Tests.World;
 /// <summary>
 /// The zebras the town is painted with: which road ends carry one, and where the band lies. What one
 /// <em>looks</em> like — the stripes and their pitch — is the mesh's (<c>GroundMeshTests</c>), and where the
-/// pedestrian nodes it is laid between stand is <see cref="PedestrianNodesTests"/>'.
+/// pedestrian nodes it is laid between stand is <see cref="Foot.PedestrianNodesTests"/>'.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P6)]

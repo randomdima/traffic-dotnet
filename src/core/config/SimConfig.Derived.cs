@@ -280,18 +280,18 @@ internal sealed partial class SimConfig
     /// <summary>
     /// <b>How much deeper into the verge the walk reaches at a corner than down a straight</b>: half a
     /// walk, which covers the 0.41 of one a right angle grown on the full width actually stands proud by
-    /// (TER-3c.3). It is what something laid near a kerb is asked to stand clear of (GEN-6a).
+    /// (TER-3c.3). A prop clears the drawn ground itself and no collar over it (GEN-6a), so nothing laid reads this.
     /// </summary>
     public float PavementCornerReachM => PavementWidthM * 0.5f;
 
     /// <summary>
     /// The clear ground between one walker's claimed stretch and the next one's, which is what a queue on
-    /// a pavement stands at — half a metre at the shipped figures.
+    /// a pavement stands at — a metre at the shipped figures.
     /// </summary>
     public float PersonStandstillGapM => PersonDiameterM * Person.StandstillGapInDiameters;
 
     /// <summary>
-    /// How far along the way in front of it a walker looks — a metre at the shipped figures. It is what the
+    /// How far along the way in front of it a walker looks — 2 m at the shipped figures. It is what the
     /// follower is aimed at (PER-25), the ground ahead being the way's own line rather than a straight
     /// anybody laid, and the window its place on that way is searched in.
     /// </summary>
@@ -475,11 +475,6 @@ internal sealed partial class SimConfig
     public float CarParkKerbOverlapM => RibbonTouchM * 0.5f;
 
     /// <summary><b>How long a bay is</b> (GEN-53, <see cref="CityGenFigures.BayLengthM"/>).</summary>
-    /// <remarks>
-    /// <b>What it has to clear is the longest vehicle the town draws and not the nominal car</b>
-    /// (<see cref="CarFigures.LongestLengthM"/>): every bay is one anything in the town can stand in, so
-    /// the one that sizes them is the one nothing else is longer than.
-    /// </remarks>
     public float CarParkBayLengthM => CityGen.BayLengthM;
 
     /// <summary>
@@ -590,7 +585,7 @@ internal sealed partial class SimConfig
     /// <summary>How far from its hospital an ambulance waits, which is the walk-worth distance said of a bay.</summary>
     public float AmbulanceHomeM => CityGen.BlockSpacingAlongMinM * Ambulance.HomeWithinBlockSpacings;
 
-    /// <summary>How long a call runs before the casualty is written off as unreachable, 120 s at the shipped figures.</summary>
+    /// <summary>How long a call runs before the casualty is written off as unreachable, 300 s at the shipped figures.</summary>
     public float AmbulanceGiveUpS => CarPatienceS * Ambulance.GiveUpInBlockedClocks;
 
     /// <summary>And how far from its own building a police car or an evacuator stands waiting (SRV-2).</summary>

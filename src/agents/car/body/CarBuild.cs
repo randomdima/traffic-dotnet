@@ -216,8 +216,8 @@ internal readonly record struct CarBuild
     /// what catches the difference is the hazard (<c>CarFollower.IsAHazard</c>).
     /// </para>
     /// <para>
-    /// This and the three figures below are derived when the build is resolved, each the very expression its readers
-    /// wrote before, so they round as they did — and, like the tyre constants, a <c>with</c> carries the old figure.
+    /// This and the three figures below are derived once when the build is resolved, so every reader has the same
+    /// rounding — and, like the tyre constants, a <c>with</c> carries the old figure.
     /// </para>
     /// </remarks>
     public required float PlannedBrakingMps2 { get; init; }
@@ -399,7 +399,7 @@ internal readonly record struct CarBuild
 
 /// <summary>
 /// The builds of every look in the catalogue, made once for a town and read by variant. <b>A build is a
-/// fact about a look and not about a car</b>: nineteen of them cover any number of cars, and a car is its
+/// fact about a look and not about a car</b>: one per look covers any number of cars, and a car is its
 /// variant's index like it is for the sprite it is drawn with.
 /// </summary>
 internal sealed class CarBuilds

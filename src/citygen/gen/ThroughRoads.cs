@@ -235,7 +235,7 @@ internal static class ThroughRoads
     /// <para>
     /// <b>It is laid the way most of its length was</b> (<see cref="LayoutEdge.Straight"/>), each piece
     /// weighed by the chord between its own two nodes. Straight only where every piece was, a run the length
-    /// of a district's edge came out wandering however straight its district, the chance of it being the
+    /// of a district's edge comes out wandering however straight its district, the chance of it being the
     /// share raised to the number of its pieces.
     /// </para>
     /// </remarks>

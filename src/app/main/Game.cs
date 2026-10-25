@@ -588,7 +588,7 @@ internal sealed partial class Game : IDisposable
         // The menu's own pointer, offered every frame: a figure being dragged follows it and takes effect
         // as it goes — <b>on the town that is standing</b>, which is the whole point of that page: the
         // marks stay on the road, the cars stay where they are, and what changed is the only thing that
-        // changed. Standing the fleet up again is sixteen builds and a ground catalogue, so it is cheap
+        // changed. Standing the fleet up again is its builds resolved and a ground catalogue, so it is cheap
         // enough to spend on the frames a hand is actually moving something. The map list scrolls under it
         // and gives back the row a press that never travelled had landed on (CTL-1b).
         var lifted = _ui.Menu.Pointer(
@@ -849,8 +849,7 @@ internal sealed partial class Game : IDisposable
     /// <remarks>
     /// <b>The town the start menu stands over is framed the same way as any other</b> (GEN-1b). The panel
     /// is in the middle of the screen and the middle of the ring is the field inside it, so the menu sits
-    /// in the hole and the road is on screen all the way round; a town shoved aside to clear a panel that
-    /// is no longer in a corner would be half off the window instead.
+    /// in the hole and the road is on screen all the way round.
     /// </remarks>
     void FrameTheTown(TownWorld world, Vector2 worldSizeM)
     {

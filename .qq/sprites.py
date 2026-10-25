@@ -17,13 +17,9 @@ are raw_assets/index.md.
     qq sprites compare house_03                  every kept variant of one asset beside the sprite
     qq sprites check                             every image under assets/ traces, or is on the legacy list
 
-A car's wreck is asked, kept and used as `<car id>_broken` (`hatch_coral_broken`), installed as the file's
-`wreck.sprite`. Its zone map is `<car id>_zones`: the sheet its sprite was cut from, repainted by the generator in flat
-zone colours (ZONE_COLOURS), installed as the file's `zones` and read by the lamp bake (CAR-14a):
-
-    remotegen edit --image cars_civil_b-v3 -p "<zone brief>" --name cars_civil_b_zones
-    qq sprites cut cars_civil_b_zones-v1          laid onto its car's drawing, quantised to the zones
-    qq sprites keep cars_civil_b_zones-v1 hatch_coral_zones && qq sprites use hatch_coral_zones-v1
+A car's wreck is asked, kept and used as `<car id>_broken` (`hatch_blue_broken`), installed as the file's
+`wreck.sprite`. Its zone map, `<car id>_zones`, is `qq props install`'s, painted from the lamps cut on its sprite
+(CAR-14a); `use` refuses a generated one, and `check` holds the installed one to the picture its lamps were cut on.
 
 A ground surface is asked as its looks' tiles, `<surface>_<look letter><n>` (`_surfaces.py`); once every look has one
 used, using any tile joins them all into the surface's picture, its looks stacked:
@@ -31,8 +27,9 @@ used, using any tile joins them all into the surface's picture, its looks stacke
     qq sprites keep ground_b-v1 grass_a1 grass_b1 && qq sprites use grass_a1-v1 && qq sprites use grass_b1-v1
 
 remotegen keeps the ids a frame draws in its record (`--cells`) and every picture it sends by content hash, so `cut`
-needs nothing but the frame's id. A frame asked from a layout before 2026-10-25 carries its cells in that layout's PNG
-(a `cells` text chunk) and is still cut by it, fitted and clipped, so a kept variant can be cut again.
+needs nothing but the frame's id. A kept frame asked from a layout carries its cells in that layout's PNG (a `cells`
+text chunk) and is cut by it, fitted and clipped, so a variant kept from one can be cut again (raw_assets/index.md,
+rule 6).
 """
 
 from __future__ import annotations
@@ -70,10 +67,10 @@ SHEET_PX = (1536, 1024)
 #: Where the roofs' variant files are: a roof's whole drawing writes the rectangles it is built of (`write_parts`).
 BUILDINGS = "assets/world/building/"
 
-#: What follows down to THIN_ASPECT is the cut of a frame asked from a layout, before 2026-10-25: kept so a variant
-#: kept from one can be cut again (raw_assets/index.md, rule 6). No layout is laid any more.
+#: What follows down to THIN_ASPECT is the cut of a kept frame asked from a layout, so a variant kept from one can be
+#: cut again (raw_assets/index.md, rule 6); `style` lays no layout.
 BORDER_PX = 3
-#: The magenta an old layout kept between an outline and its cell's edge; also the margin `looked_at` lays.
+#: The magenta a layout keeps between an outline and its cell's edge; also the margin `looked_at` lays.
 GAP_PX = 24
 #: How far past its cell a ground square is looked for: where a square of texture lands says nothing about it, and the
 #: model packs a sheet's rows of them up to 50 px towards the top (ground_a-v1).
@@ -115,7 +112,7 @@ DUST_PX = 8
 WEBP_ERROR = 6.0
 
 #: Per family, by its path under assets/: the art grid it is drawn at (a figure `qq art` reads off the engine), the
-#: edge its front is on, and how an old layout laid its cells (`rows` for a train's vehicles, TRN-4). A car's sheet
+#: edge its front is on, and how a layout lays its cells (`rows` for a train's vehicles, TRN-4). A car's sheet
 #: has its nose along +x (CarCatalog); a building's street front is at the bottom.
 FAMILIES = {"agents/car/": ("CarSpritePixelsPerMetre", "right", "grid"), "agents/train/": ("ArtPixelsPerMetre", "right", "rows"),
             "world/rail/": ("ArtPixelsPerMetre", "right", "grid"),
@@ -129,7 +126,7 @@ TRACK = "Track"
 KERBS = ("Kerb", "Edging")
 #: What an asset switches, by the key its variant file lists the parts under — each a `fitting`, `atM` from the
 #: footprint's centre in the sprite's axes (x right, y down) and `sizeM`, the area it is drawn inside in whatever
-#: shape the art gives it — and per fitting the colour an old layout framed its area in and the words a brief
+#: shape the art gives it — and per fitting the colour a layout frames its area in and the words a brief
 #: asks for it in. The picture draws every part off; its zone map (ZONES) says which of its texels each part is, and
 #: the lit state is those texels burning (CAR-14a, raw_assets/index.md).
 PARTS = {"lamps": {
@@ -145,21 +142,15 @@ PARTS = {"lamps": {
 #: A car's wreck is an asset of its own, `<car id>` + this: the car's outline and footprint with no part framed, since
 #: a wreck burns nothing (CAR-14), installed as its file's `wreck.sprite` beside the car's own sprite.
 WRECK = "_broken"
-#: A car's zone map is an asset of its own too, `<car id>` + this: the sheet its sprite was cut from, repainted by
-#: the generator with every part of each car one flat colour, and cut with its own fit — it is drawn to the outline
-#: as the sheet was, so both land on the shape. A frame is a zone map by its name: `--name <sheet>_zones`.
+#: A car's zone map is an asset of its own too, `<car id>` + this, installed as its file's `zones` by `qq props
+#: install` and never by `use`.
 ZONES = "_zones"
 #: A tow truck's arm (EVA-5) is two assets of its own, `<car id>` + a suffix here: each a picture the renderer turns
 #: about the beam's hinge, installed as the file's `beam.<state>.sprite` at its `sizeM`. Its hinge is at the picture's
 #: left, its fork's crossbar at the right.
 BEAMS = {"_beam_extended": "extended", "_beam_collapsed": "collapsed"}
-#: The colours a zone map is painted in, the brief's and `LampAtlas.Zone`'s: a lamp lens by its fitting, and the rest
-#: of the car. A cut is quantised to the nearest; the bake reads only the lamps'.
-ZONE_PARTS = {"rear": (255, 0, 0), "brake": (255, 0, 0), "reverse": (0, 255, 0), "indicator": (255, 255, 0),
-              "head": (0, 0, 255)}
-ZONE_COLOURS = {**ZONE_PARTS, "body": (255, 255, 255), "glass": (0, 0, 0), "trim": (128, 128, 128)}
-#: How far past a part's framed area `cut` looks for its zone: the generator draws a lens a few centimetres off it.
-ZONE_REACH_M = 0.1
+#: How far past a part's framed area `mask` reaches: the generator draws a lens a few centimetres off it.
+LENS_REACH_M = 0.1
 #: How far past its frames towards the other end `mask id:nose`/`id:tail` reaches: a corner lamp is drawn wrapped
 #: onto the flank.
 END_WRAP_M = 0.25
@@ -241,7 +232,7 @@ def style_picture(base, a):
 
 
 def grid_of(cells):
-    """(columns, rows) an old layout laid this many cells in, for a frame whose cells carry no bounds of their own."""
+    """(columns, rows) a layout lays this many cells in, for a frame whose cells carry no bounds of their own."""
     rows = max(3, math.ceil(math.sqrt(cells * SHEET_PX[1] / SHEET_PX[0])))
     return max(3, math.ceil(cells / rows)), rows
 
@@ -258,13 +249,13 @@ def cell_bounds(layout, c):
 
 def style(base, found, ids, asked, out, columns=3, widest_px=0, whole=False):
     """The style picture: the in-game sprites of other assets, laid on a clear background at one scale, as a frame is
-    now asked to come back. It holds none of the assets asked for, so it shows the look and not the answer. `whole`
+    asked to come back. It holds none of the assets asked for, so it shows the look and not the answer. `whole`
     takes each from the frame it was drawn on instead, keyed and not clipped at its outline, so a mirror or a bumper
     drawn past the footprint is shown as drawn."""
     from PIL import Image
 
     if not ids:
-        cli.fail("--style names no asset")
+        cli.fail("style names no asset")
     if overlap := sorted(asked.intersection(ids)):
         cli.fail(f"the style picture would hand the model its answer: {', '.join(overlap)} also asked for")
     sprites = []
@@ -435,7 +426,7 @@ def cut(base, a):
     rec = frame_record(base, fid)
     layout = cells_of(base, rec)
     if "described" in layout:
-        return cut_described(base, fid, rec, layout["described"])
+        return cut_described(base, fid, layout["described"])
     frame, rgb, key, flat = opened(base / rec["file"])
     if list(frame.size) != layout["size"]:
         cli.fail(f"{fid} is {frame.size[0]}x{frame.size[1]}, its template {layout['size'][0]}x{layout['size'][1]}: "
@@ -443,11 +434,8 @@ def cut(base, a):
 
     out = base / CUTS / fid
     out.mkdir(parents=True, exist_ok=True)
-    zoning = zoned_sheet(base, fid, rec) is not None
-    suffix = ZONES if zoning else ""
     keyed_by = "its alpha" if key is None else f"rgb{key}"
-    print(f"{fid}: {len(layout['cells'])} cells at {layout['pxPerM']} px/m, keyed by {keyed_by} -> {_sim.rel(base, out)}"
-          + (", a zone map" if zoning else ""))
+    print(f"{fid}: {len(layout['cells'])} cells at {layout['pxPerM']} px/m, keyed by {keyed_by} -> {_sim.rel(base, out)}")
     if key is not None and flat < KEY_FLAT_MIN:
         print(f"warning: only {flat:.0%} of the frame's border is the key's colour: the background is not flat")
     overlay = on_key(rgb).copy()
@@ -486,25 +474,18 @@ def cut(base, a):
 
         pixels = np.asarray(keyed).copy()
         pixels[..., 3] = (pixels[..., 3].astype(np.uint16) * np.asarray(mask) // 255).astype(np.uint8)
-        if zoning:
-            pixels = quantised(pixels)
         pixels[pixels[..., 3] == 0] = 0
         variant = Image.fromarray(pixels, "RGBA").crop((x - x0, y - y0, x - x0 + w, y - y0 + h))
         info = PngImagePlugin.PngInfo()
         info.add_text("cut", json.dumps({"frame": fid, "cell": c["n"], "box": c["box"], "pxPerM": layout["pxPerM"],
                                          "fit": fit if moved else None}))
-        variant.save(out / f"{c['id']}{suffix}.png", pnginfo=info)
+        variant.save(out / f"{c['id']}.png", pnginfo=info)
 
         paint = np.asarray(keyed)[..., :3].astype(np.int16)
-        if zoning:
-            reach = round(ZONE_REACH_M * layout["pxPerM"])
-            missing = [p["fitting"] for p in c.get("parts", [])
-                       if not zoned(pixels, p, (x0, y0), reach)]
-        else:
-            bodywork = np.median(paint[solid & inside], axis=0) if (solid & inside).any() else None
-            missing = [p["fitting"] for p in c.get("parts", []) if not drawn(paint, solid, bodywork, p["box"], x0, y0)]
+        bodywork = np.median(paint[solid & inside], axis=0) if (solid & inside).any() else None
+        missing = [p["fitting"] for p in c.get("parts", []) if not drawn(paint, solid, bodywork, p["box"], x0, y0)]
         flags = [f for f, bad in (("holes", holes > HOLES_MAX), ("spill", spill > SPILL_MAX)) if bad]
-        flags += [f"{'unzoned' if zoning else 'no'} {missing.count(f)}x {f}" for f in dict.fromkeys(missing)]
+        flags += [f"no {missing.count(f)}x {f}" for f in dict.fromkeys(missing)]
         flags += [] if moved else [f"not fitted: {fit['refused']}"]
         shown = (f"fit {fit['shiftPx'][0]:+3d},{fit['shiftPx'][1]:+3d} px x{fit['scale'][0]:.3f} y{fit['scale'][1]:.3f}"
                  if "shiftPx" in fit else f"{'unfitted':<30}")
@@ -520,7 +501,7 @@ def cut(base, a):
             draw.rectangle([px, py, px + pw - 1, py + ph - 1], outline=(255, 255, 255))
     marked.save(out / "_overlay.png")
     print(f"{_sim.rel(base, out / '_overlay.png')}: holes red, spill and the kept box cyan, part areas white")
-    if parts_sheet(out, layout["cells"], suffix):
+    if parts_sheet(out, layout["cells"]):
         print(f"{_sim.rel(base, out / '_parts.png')}: every part area magnified in its own colour, a row a cell — "
               "`drawn` only says paint differs there, this says whether it is the part")
     return 0
@@ -599,8 +580,6 @@ ARM_HINGE_SHARE = {"extended": 0.10, "collapsed": 0.10}
 #: How far a drawing's proportion may stray from its file's before `cut` says so: the drawing is the car either way
 #: (the owner, 2026-10-20), this only tells the eye which cells to look at first.
 PROPORTION_FLAG = 0.08
-#: The lamp zones a car's zone map is read for, by fitting.
-LENS_ZONES = {f: ZONE_PARTS[f] for f in ("head", "indicator", "brake", "reverse")}
 
 
 def frame_pixels(base, fid):
@@ -611,34 +590,27 @@ def frame_pixels(base, fid):
     return keyed, keyed[..., 3] > 128
 
 
-def cut_described(base, fid, rec, ids):
+def cut_described(base, fid, ids):
     """Cut a frame asked without a layout: each drawing found and named by the brief's order, measured (`_outline`),
-    and cut to the footprint it measures; a zone map's drawing laid onto its car's, quantised."""
+    and cut to the footprint it measures."""
     import numpy as np
     from PIL import Image, ImageDraw, PngImagePlugin
 
     import _outline
 
     found = assets(base)
-    car_frame = zoned_sheet(base, fid, rec)
-    zoning = car_frame is not None
-    wanted_ids = [i.removesuffix(ZONES) for i in ids] if zoning else ids
-    if unknown := [i for i in wanted_ids if i not in found]:
+    if unknown := [i for i in ids if i not in found]:
         cli.fail(f"{fid} draws {', '.join(unknown)}, which no variant file under assets/ names")
     pixels, solid = frame_pixels(base, fid)
-    boxes = _outline.drawings(solid, wanted_ids, lambda m: cli.fail(f"{fid}: {m}"))
-    if zoning:
-        car_pixels, car_solid = frame_pixels(base, car_frame)
-        car_boxes = _outline.drawings(car_solid, wanted_ids, lambda m: cli.fail(f"{car_frame}: {m}"))
+    boxes = _outline.drawings(solid, ids, lambda m: cli.fail(f"{fid}: {m}"))
     out = base / CUTS / fid
     out.mkdir(parents=True, exist_ok=True)
-    print(f"{fid}: {len(ids)} drawings, asked without a layout" + (f", a zone map of {car_frame}" if zoning else "")
-          + f" -> {_sim.rel(base, out)}")
+    print(f"{fid}: {len(ids)} drawings, asked without a layout -> {_sim.rel(base, out)}")
     overlay = Image.fromarray(on_key(pixels.astype(np.int16)).astype(np.uint8), "RGB")
     draw = ImageDraw.Draw(overlay)
-    for n, i in enumerate(wanted_ids, 1):
+    for n, i in enumerate(ids, 1):
         d = json.loads(found[i].read_text(encoding="utf-8"))
-        if "collisionM" not in d and not zoning:
+        if "collisionM" not in d:
             # Not a car: the drawing is taken whole, never fitted to an outline or clipped (the owner, 2026-10-24,
             # 2026-10-25), and sized by the one figure its file authors — a footprint's width, a round asset's diameter
             # across the drawing's longer side, a ground tile's side; `use` writes a footprint's depth off the picture.
@@ -673,49 +645,30 @@ def cut_described(base, fid, rec, ids):
         box = boxes[i]
         body = _outline.body_in(solid, box)
         m = _outline.measure(body, length, axles)
-        if zoning:
-            car_box = car_boxes[i]
-            car_body = _outline.body_in(car_solid, car_box)
-            car_m = _outline.measure(car_body, length, axles)
-            car_m["bodyFramePx"] = [v + o for v, o in zip(car_m["bodyPx"], (car_box[0], car_box[1]) * 2)]
-            _, origin = _outline.footprint_crop(car_pixels, car_box, car_body, car_m)
-            size = (round(car_m["footprintM"][0] * car_m["pxPerM"]), round(car_m["footprintM"][1] * car_m["pxPerM"]))
-            moved, (kx, ky) = _outline.aligned(pixels, box, body, m, car_m, origin, size)
-            cut_pixels = quantised(moved.copy())
-            missing = []
-            _outline.lenses(cut_pixels, car_m["pxPerM"], LENS_ZONES, missing.append)
-            info = {"frame": fid, "cell": n, "pxPerM": car_m["pxPerM"], "zoneScale": [round(kx, 4), round(ky, 4)]}
-            flags = [m.removeprefix("the zone map paints ") for m in missing]
-            shown = f"laid onto {car_frame} x{1 / kx:.3f} y{1 / ky:.3f}"
-            name = f"{i}{ZONES}"
-        else:
-            cut_pixels, origin = _outline.footprint_crop(pixels, box, body, m)
-            info = {"frame": fid, "cell": n, "pxPerM": m["pxPerM"], "measured": m}
-            filed = float(d["collisionM"]["sizeM"][1])
-            off = m["widthM"] / filed - 1
-            flags = [f"{off:+.0%} wider than its file" if off > 0 else f"{-off:.0%} narrower than its file"] \
-                if abs(off) > PROPORTION_FLAG else []
-            shown = (f"{m['lengthM']:.2f} x {m['widthM']:.2f} m r{m['cornerRadiusM']:.2f}  footprint "
-                     f"{m['footprintM'][0]:.2f} x {m['footprintM'][1]:.2f}  over axles "
-                     f"{m['axleWidthsM'][0]:.2f}/{m['axleWidthsM'][1]:.2f}  at {m['pxPerM']:.1f} px/m")
-            name = i
+        cut_pixels, origin = _outline.footprint_crop(pixels, box, body, m)
+        info = {"frame": fid, "cell": n, "pxPerM": m["pxPerM"], "measured": m}
+        filed = float(d["collisionM"]["sizeM"][1])
+        off = m["widthM"] / filed - 1
+        flags = [f"{off:+.0%} wider than its file" if off > 0 else f"{-off:.0%} narrower than its file"] \
+            if abs(off) > PROPORTION_FLAG else []
+        shown = (f"{m['lengthM']:.2f} x {m['widthM']:.2f} m r{m['cornerRadiusM']:.2f}  footprint "
+                 f"{m['footprintM'][0]:.2f} x {m['footprintM'][1]:.2f}  over axles "
+                 f"{m['axleWidthsM'][0]:.2f}/{m['axleWidthsM'][1]:.2f}  at {m['pxPerM']:.1f} px/m")
         png = PngImagePlugin.PngInfo()
         png.add_text("cut", json.dumps(info))
-        Image.fromarray(cut_pixels, "RGBA").save(out / f"{name}.png", pnginfo=png)
+        Image.fromarray(cut_pixels, "RGBA").save(out / f"{i}.png", pnginfo=png)
         x0, y0, x1, y1 = box
         bl, bt, br, bb = m["bodyPx"]
         draw.rectangle([x0 + bl, y0 + bt, x0 + br - 1, y0 + bb - 1], outline=OVERLAY_SPILL)
-        if not zoning:
-            draw.rectangle([origin[0], origin[1], origin[0] + cut_pixels.shape[1] - 1, origin[1] + cut_pixels.shape[0] - 1],
-                           outline=(255, 255, 255))
-        print(f"{n:>2} {name:<26} {shown}  {', '.join(flags) or 'ok'}")
+        draw.rectangle([origin[0], origin[1], origin[0] + cut_pixels.shape[1] - 1, origin[1] + cut_pixels.shape[0] - 1],
+                       outline=(255, 255, 255))
+        print(f"{n:>2} {i:<26} {shown}  {', '.join(flags) or 'ok'}")
     overlay.save(out / "_overlay.png")
     print(f"{_sim.rel(base, out / '_overlay.png')}: each body's measured box cyan, its footprint white")
-    if not zoning:
-        cuts = [Image.open(out / f"{i}.png").convert("RGBA") for i in wanted_ids]
-        looked_at(cuts, out)
-        print(f"{_sim.rel(base, out / '_cuts.png')}, {_sim.rel(base, out / '_ends.png')}: the cuts in the brief's order, "
-              "and each one's tail and nose magnified, three to a row")
+    cuts = [Image.open(out / f"{i}.png").convert("RGBA") for i in ids]
+    looked_at(cuts, out)
+    print(f"{_sim.rel(base, out / '_cuts.png')}, {_sim.rel(base, out / '_ends.png')}: the cuts in the brief's order, "
+          "and each one's tail and nose magnified, three to a row")
     return 0
 
 
@@ -803,7 +756,7 @@ def drop_lamps(base, described: Path, zones_name, then="`qq props seed` it again
     print(f"{_sim.rel(base, described)}: lamps and zone map dropped with the old picture; {then}")
 
 
-def parts_sheet(out, cells, suffix=""):
+def parts_sheet(out, cells):
     """Each cell's part areas cut from its keyed cut and magnified, framed in their template colour, a row a
     cell. A lamp drawn beside its area rather than in it still reads as `drawn` when the area takes in the
     body's dark edge; at this size the eye sees which."""
@@ -813,7 +766,7 @@ def parts_sheet(out, cells, suffix=""):
     for c in cells:
         if not c.get("parts"):
             continue
-        cutting = Image.open(out / f"{c['id']}{suffix}.png").convert("RGBA")
+        cutting = Image.open(out / f"{c['id']}.png").convert("RGBA")
         x, y = c["box"][:2]
         tiles = []
         for p in c["parts"]:
@@ -938,7 +891,7 @@ def mask_described(base, fid, rec, ids, specs):
 
 def end_parts_drawn(frame, rgb, key, layout, c, fid, nose):
     """One frame box a side over the cell's part areas at one end — ahead of its middle for the nose (the right edge),
-    behind it for the tail — where the cut's fit puts them on the drawing: padded by ZONE_REACH_M, since the generator
+    behind it for the tail — where the cut's fit puts them on the drawing: padded by LENS_REACH_M, since the generator
     draws a lens a few centimetres off, and by END_WRAP_M towards the other end, since it wraps a corner lamp round
     onto the flank."""
     _, fit = register(frame, rgb, key, c, cell_bounds(layout, c), False)
@@ -947,7 +900,7 @@ def end_parts_drawn(frame, rgb, key, layout, c, fid, nose):
     sx, sy, sw, _ = c["shapeBox"]
     bx, by = sx - fit["shiftPx"][0], sy - fit["shiftPx"][1]
     kx, ky = 1 / fit["scale"][0], 1 / fit["scale"][1]
-    pad, wrap = round(ZONE_REACH_M * layout["pxPerM"]), round(END_WRAP_M * layout["pxPerM"])
+    pad, wrap = round(LENS_REACH_M * layout["pxPerM"]), round(END_WRAP_M * layout["pxPerM"])
     sides = {}
     for p in c.get("parts", []):
         px, py, pw, ph = p["box"]
@@ -973,31 +926,6 @@ def drawn(paint, solid, bodywork, box, x0, y0):
     area = (slice(py - y0, py - y0 + ph), slice(px - x0, px - x0 + pw))
     distinct = solid[area] & (abs(paint[area] - bodywork).max(axis=-1) >= PART_CONTRAST)
     return distinct.mean() >= PART_SHARE
-
-
-def quantised(pixels):
-    """A zone map's cut with every texel the nearest zone colour and either solid or clear: a zone is a set of
-    texels, and an edge blended between two of them is in neither."""
-    import numpy as np
-
-    palette = np.array(list(ZONE_COLOURS.values()), np.int32)
-    rgb = pixels[..., :3].astype(np.int32)
-    nearest = ((rgb[..., None, :] - palette) ** 2).sum(-1).argmin(-1)
-    out = np.zeros_like(pixels)
-    out[..., :3] = palette[nearest]
-    out[..., 3] = np.where(pixels[..., 3] >= 128, 255, 0)
-    return out
-
-
-def zoned(pixels, part, origin, reach):
-    """Whether a zone map paints its part's zone anywhere within `reach` of the area the part is framed in."""
-    colour = ZONE_PARTS.get(part["fitting"])
-    if colour is None:
-        return False
-    px, py, pw, ph = part["box"]
-    x0, y0 = max(0, px - reach - origin[0]), max(0, py - reach - origin[1])
-    area = pixels[y0:py + ph + reach - origin[1], x0:px + pw + reach - origin[0]]
-    return bool(((area[..., :3] == colour).all(-1) & (area[..., 3] > 0)).any())
 
 
 def register(frame, rgb, key, c, cell, track=False, reach=GAP_PX, kerb=False):
@@ -1091,18 +1019,6 @@ def cells_of(base, rec):
         if inp.get("frame"):
             return cells_of(base, frame_record(base, inp["frame"]))
     cli.fail(f"{rec['id']} names no ids it draws: ask it with remotegen `--cells`")
-
-
-def zoned_sheet(base, fid, rec):
-    """The sheet a zone map maps (its image 1, or for a redo of a zone map that map's own sheet), or None for a frame
-    that is not a zone map."""
-    named = VERSIONED.fullmatch(fid)
-    if not named or not named.group(1).endswith(ZONES):
-        return None
-    first = next((inp for inp in rec.get("inputs", []) if inp["role"] == "image 1"), None)
-    if not first or not first.get("frame"):
-        cli.fail(f"{fid} is named as a zone map, and its image 1 is no frame: zone a sheet with `edit --image <frame>`")
-    return zoned_sheet(base, first["frame"], frame_record(base, first["frame"])) or first["frame"]
 
 
 def opened(path):
@@ -1247,7 +1163,7 @@ def drop(base, a):
     (raw_assets/index.md, rule 3)."""
     if not a.refs or not all(VERSIONED.fullmatch(r) for r in a.refs):
         cli.fail("drop takes variants, as <id>-v<N>")
-    found = assets(base)
+    found, named = assets(base), named_pictures(base)
     for name in a.refs:
         i = VERSIONED.fullmatch(name).group(1)
         if i not in found:
@@ -1257,7 +1173,7 @@ def drop(base, a):
         record = next((r for r in records if r["variant"] == name), None)
         if record is None:
             cli.fail(f"{name} is not kept ({_sim.rel(base, folder / VARIANTS)})")
-        if record["status"] == "used":
+        if _sim.rel(base, folder / f"{name}.png") in named:
             cli.fail(f"{name} is the sprite's variant: `use` another before dropping it")
         for r in records:
             # A re-cut of what is dropped re-cuts nothing kept.
@@ -1268,10 +1184,26 @@ def drop(base, a):
         # The lamps cut on the picture (`qq props install`) go with it.
         (folder / f"{name}.props.json").unlink(missing_ok=True)
         print(f"dropped {_sim.rel(base, folder / (name + '.png'))}")
+        if not (folder / VARIANTS).read_text(encoding="utf-8").strip():
+            (folder / VARIANTS).unlink()
+            if not any(folder.iterdir()):
+                folder.rmdir()
     for gone in unkept_lineage(base):
         gone.unlink()
         print(f"  lineage no variant traces to: {_sim.rel(base, gone)}")
     return 0
+
+
+def named_pictures(base) -> set[str]:
+    """Every kept picture a sprite is made from, as its `.src.json` names it — what rule 3 never deletes. A record's
+    `status` is a convenience `use` keeps and is not the authority."""
+    named = set()
+    for source in (base / "assets").rglob(f"*{SOURCE}"):
+        traced = json.loads(source.read_text(encoding="utf-8"))
+        named.update(traced.get("variants", [traced["variant"]]))
+        if "cutOn" in traced:
+            named.add(traced["cutOn"])
+    return named
 
 
 def unkept_lineage(base):
@@ -1373,37 +1305,19 @@ def use(base, a):
         # drawing came back coarser.
         density = grid(art.read_figures(base), b["asset"])
     wanted = (max(1, round(size_m[0] * density)), max(1, round(size_m[1] * density)))
-    zones = is_zones(d, i)
-    if zones:
+    if is_zones(d, i):
         # The bake reads a zone texel's channels as glass colours (LampAtlasBake.Holds), which a generated palette map
         # misreads: yellow is red and amber glass, green amber.
         cli.fail(f"{name}: a car's lamps are cut with `qq props` and installed by `qq props install {d['id']}`, "
                  "not from a generated zone map")
-        zone_frame =next(r["frame"] for r in read_jsonl(folder / VARIANTS) if r["variant"] == name)
-        if (maps := zoned_sheet(base, zone_frame, frame_record(base, zone_frame))) != (car := sheet_of(base, described, d["id"])):
-            cli.fail(f"{name} maps {maps}, and {d['id']}'s sprite is cut from {car}: a zone map is of the sheet its "
-                     f"car's sprite came from")
-        # A palette, so a PNG: lossy colour would make every texel a zone it is not.
-        shrunk_zones = zones_shrunk(variant, wanted)
-        data, how, fmt = art.encode(shrunk_zones, "png", 0.0)[0], "lossless", "png"
-        if "described" in cells_of(base, frame_record(base, zone_frame)):
-            import numpy as np
-
-            import _outline
-
-            # Its lamps are where its zone map paints them (the owner, 2026-10-20): nothing authored them first.
-            rows = _outline.lenses(np.asarray(shrunk_zones), wanted[0] / b["w"], LENS_ZONES,
-                                   lambda m: cli.fail(f"{name}: {m}"))
-            write_lamps(base, described, rows)
-    else:
-        shrunk = without_dust(art.shrink(variant, wanted))
-        if b["kerb"]:
-            shrunk = at_joints(shrunk, density)
-            write_picture_m(base, described, round(shrunk.width / density, 4))
-        elif b["track"]:
-            shrunk = seamless(shrunk, density)
-        data, how = art.encode(shrunk, "webp", WEBP_ERROR)
-        fmt = "webp"
+    shrunk = without_dust(art.shrink(variant, wanted))
+    if b["kerb"]:
+        shrunk = at_joints(shrunk, density)
+        write_picture_m(base, described, round(shrunk.width / density, 4))
+    elif b["track"]:
+        shrunk = seamless(shrunk, density)
+    data, how = art.encode(shrunk, "webp", WEBP_ERROR)
+    fmt = "webp"
 
     now = f"{i}.{fmt}"
     was = sprite_of(described, i)
@@ -1413,8 +1327,6 @@ def use(base, a):
         name_beam(base, described, arm, now)
         # An arm named from another look's folder is that look's picture, still drawn by it: never removed from here.
         was = None if was is not None and "/" in was else was
-    elif zones:
-        name_zones(base, described, now)
     elif was is None:
         text, n = re.subn(rf'(\n([ \t]*)"id":\s*"{re.escape(i)}",)', rf'\1\n\2"sprite": "{now}",',
                           described.read_text(encoding="utf-8"), count=1)
@@ -1425,7 +1337,7 @@ def use(base, a):
         art.name(base, described.parent / was, now)
         (described.parent / was).unlink(missing_ok=True)
     (described.parent / now).write_bytes(data)
-    own_look = not is_wreck(d, i) and not zones and arm is None
+    own_look = not is_wreck(d, i) and arm is None
     if measured and own_look:
         # CAR-12: the track the cut measured on the frame, measured again on the sprite as the game lays it.
         import _outline
@@ -1637,8 +1549,8 @@ def cut_out(rgba):
 
 
 def name_wreck(base, described: Path, now: str):
-    """The variant file told its wreck is `now`. Any `scale` it carried goes: that was legacy art's own debris
-    reaching past the footprint, and art cut to the footprint is drawn at the car's size."""
+    """The variant file told its wreck is `now`, its `wreck` object written whole: art cut to the footprint is drawn
+    at the car's size, so it carries nothing else."""
     text = described.read_text(encoding="utf-8")
     line = f'"wreck": {{ "sprite": "{now}" }}'
     text, n = re.subn(r'"wreck":\s*\{[^{}]*\}', line, text, count=1)
@@ -1667,47 +1579,6 @@ def name_beam(base, described: Path, arm: str, now: str):
     if not n:
         cli.fail(f"{_sim.rel(base, described)} has no beam.{arm}.sprite line to name {now} in")
     described.write_text(text, encoding="utf-8")
-
-
-def zones_shrunk(path: Path, wanted: tuple[int, int]):
-    """A zone map brought to its sprite's size the way the sprite was, by area: each texel takes the zone (or the
-    clear) that covers most of it. The sprite is the same cell shrunk to the same size, so the two land texel on
-    texel; picking the nearest source texel instead would put a zone's edge wherever the sampling grid fell."""
-    import numpy as np
-    from PIL import Image
-
-    pixels = np.asarray(Image.open(path).convert("RGBA"))
-    colours = list(ZONE_COLOURS.values())
-    solid = pixels[..., 3] > 0
-    planes = [~solid] + [solid & (pixels[..., :3] == c).all(-1) for c in colours]
-    votes = np.stack([np.asarray(Image.fromarray(p.astype(np.float32), "F").resize(wanted, Image.BOX)) for p in planes])
-    winner = votes.argmax(0)
-    out = np.zeros((wanted[1], wanted[0], 4), np.uint8)
-    for n, c in enumerate(colours, 1):
-        out[winner == n] = (*c, 255)
-    return Image.fromarray(out, "RGBA")
-
-
-def name_zones(base, described: Path, now: str):
-    """The variant file told its zone map is `now`, on the line after its sprite."""
-    text = described.read_text(encoding="utf-8")
-    line = f'"zones": "{now}"'
-    text, n = re.subn(r'"zones":\s*"[^"]*"', line, text, count=1)
-    if not n:
-        text, n = re.subn(r'(\n([ \t]*)"sprite":\s*"[^"]*",)', rf'\1\n\2{line},', text, count=1)
-    if not n:
-        cli.fail(f"cannot place a zones line after the sprite in {_sim.rel(base, described)}: `use` the car first")
-    described.write_text(text, encoding="utf-8")
-
-
-def sheet_of(base, described: Path, i: str):
-    """The frame the id's installed picture was cut from, or None for one that traces to nothing."""
-    source = described.parent / f"{i}{SOURCE}"
-    if not source.is_file():
-        return None
-    variant = Path(json.loads(source.read_text(encoding="utf-8"))["variant"])
-    return next((r["frame"] for r in read_jsonl(base / variant.parent / VARIANTS) if r["variant"] == variant.stem),
-                None)
 
 
 def without_dust(image):
@@ -1756,6 +1627,10 @@ def trace(base, a):
     src = json.loads(source.read_text(encoding="utf-8"))
     variants = src.get("variants", [src["variant"]])
     print(f"{i}: {_sim.rel(base, source)} -> {', '.join(variants)} ({src['encoding']}, {src['pxPerM']} px/m)")
+    if "cutOn" in src:
+        # A zone map `qq props install` painted: its lamp cut traces through the picture it was cut on.
+        print(f"  lamps cut on {src['cutOn']}")
+        variants = [src["cutOn"]]
     todo, seen = [], set()
     for variant in variants:
         name = Path(variant).stem
@@ -1855,17 +1730,13 @@ def audit(base) -> list[str]:
     for rel in sorted(legacy_set):
         if not (base / rel).is_file():
             problems.append(f"{LEGACY}: {rel} is gone")
-    for i, path in assets(base).items():
-        d = json.loads(path.read_text(encoding="utf-8"))
-        if not is_zones(d, i) or not d.get("zones") or not (zone_frame := sheet_of(base, path, i)):
-            continue
-        maps, car = zoned_sheet(base, zone_frame, frame_record(base, zone_frame)), sheet_of(base, path, d["id"])
-        if maps != car:
-            problems.append(f"{_sim.rel(base, path)}: its zone map is of {maps}, its sprite is cut from {car}")
+    named = named_pictures(base)
     for listing in sorted((base / RAW).rglob(VARIANTS)):
         for r in read_jsonl(listing):
             if not (listing.parent / f"{r['variant']}.png").is_file():
                 problems.append(f"{_sim.rel(base, listing)}: {r['variant']}.png is gone")
+            if r.get("status") == "used" and _sim.rel(base, listing.parent / f"{r['variant']}.png") not in named:
+                problems.append(f"{_sim.rel(base, listing)}: {r['variant']} is marked used and no sprite is made from it")
             problems += lineage_holes(base, r["frame"])
     return sorted(set(problems))
 

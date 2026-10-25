@@ -9,10 +9,8 @@ namespace TrafficSimulation.Core.Geometry;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>They are facts about the arithmetic and not about any shape.</b> They lived on the town's kerb band
-/// while that was the largest thing being cut and joined, which made every reader of them look like a
-/// reader of kerbs; the band is gone and the tolerances are not, because what they measure is what
-/// offsetting, projecting and bisecting a line cost in the last bits of a float.
+/// <b>They are facts about the arithmetic and not about any shape</b>: what they measure is what
+/// offsetting, projecting and bisecting a line cost in the last bits of a float, whatever is being cut.
 /// </para>
 /// <para>
 /// <b>Not on <c>SimConfig</c>, because none of them is a figure about the town.</b> A number somebody could
@@ -31,7 +29,7 @@ internal static class LineTolerance
     /// <remarks>
     /// <b>It holds only while a coordinate is under 8 192 m</b>, and a test comparing places further out asks
     /// <see cref="At"/> instead. Past 2¹³ a float's own step is a millimetre, so two computations of one
-    /// place disagree by more than this: Odesa's brief tripled each way (9 km across) lost its carriageway
+    /// place disagree by more than this: Odesa's brief tripled each way (9 km across) loses its carriageway
     /// past that line, the boundary's outset (<see cref="ArcOutset"/>) leaving every ring there open.
     /// </remarks>
     public const float RoundingM = 0.001f;
@@ -41,7 +39,7 @@ internal static class LineTolerance
     /// the millimetre itself at 8 191 m — the furthest a town was measured to close at unchanged.
     /// </summary>
     /// <remarks>
-    /// Four was tried on a town thirty kilometres long and left half as many rings open again: a wider
+    /// Four leaves half as many rings open again on a town thirty kilometres long: a wider
     /// figure keeps a fold as shallow as itself, and a sliver of fold is a run with two ends.
     /// </remarks>
     const float StepsApart = 2f;

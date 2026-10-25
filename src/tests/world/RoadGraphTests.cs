@@ -10,7 +10,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
-/// The lane graph asked of every shipped map: <b>a lane is a line a car may actually drive</b>. Every
+/// The lane graph asked of every town the suite lays (<see cref="Towns.EveryTown"/>): <b>a lane is a line a car may actually drive</b>. Every
 /// assertion here is the plan's own ground put to the graph's own geometry — never one derived figure
 /// compared with another, which would only prove the derivation consistent with itself.
 /// </summary>

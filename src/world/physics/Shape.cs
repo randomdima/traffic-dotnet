@@ -85,8 +85,7 @@ internal static partial class Shape
     /// A rounded box is given the inertia of the box it was rounded out of — its outermost half-extents
     /// and not its core's. Rounding a corner takes a few per cent of the area off the place that
     /// contributes most to the second moment, and answering that honestly would move every car's yaw
-    /// response the day the radius arrived; the shape a car's handling was tuned against is the one this
-    /// keeps. <b>The coreless shape is the one body kind this is wrong for</b> — a disc's own figure is
+    /// response off the shape its handling was tuned against, which is the one this keeps. <b>The coreless shape is the one body kind this is wrong for</b> — a disc's own figure is
     /// <c>r²/2</c> and this says <c>2r²/3</c> — and it is unreachable: every coreless body in this town is
     /// a walker or a prop, and both are rotation-locked.
     /// </remarks>
@@ -215,8 +214,8 @@ internal static partial class Shape
     /// <remarks>
     /// <para>
     /// The reference face is simply the deeper of the two axes, with ties going to the first box. A bias
-    /// towards the first box was tried first, on the reasoning that two nearly equal separations would
-    /// alternate tick to tick and read as a queue that shivers; it is wrong — a margin wide enough to
+    /// towards the first box, on the reasoning that two nearly equal separations would alternate tick to
+    /// tick and read as a queue that shivers, is wrong — a margin wide enough to
     /// settle a tie keeps the <em>wrong</em> face whenever the right one wins by less than it. What keeps
     /// a resting pair still is that the positional correction never becomes motion.
     /// </para>

@@ -32,7 +32,7 @@ in its way, or park against; no line between its two ways, because it divides no
 arm traffic comes to the junction on**. **The paint goes between every two lanes that touch** (TER-6), and
 **a lane's reverse is the lane the other way across that line from it**, which on a road of more than one
 lane a way is only the innermost of each. Everything else — the crossing on it, the kerb beside it, the
-claims over it — is what it always was, read off the road's own width.
+claims over it — is read off the road's own width.
 
 **Which way a road runs is the road's own and is never read off its shape.** A road is drawn from one
 intersection to the other and may be driven either way along that (`RoadFlow`); nothing infers it from the
@@ -160,8 +160,8 @@ the line for the far, and the kerb for straight on — so a turn onto a road of 
 alone, never from the second lane onto the first, and **no two movements off one arm onto one road cross**. **A
 fork shares its lanes as two turns would**: the branch whose lanes set off nearer the kerb takes the kerb half,
 numbered from the kerb, and the other the rest, numbered from the line, so no lane carried onto one branch crosses
-the next one carried onto the other — and the ground between the branches is paved as it was when every lane
-was carried onto both. **A U-turn is made from the lane beside the line onto the lane beside the line**, and from
+the next one carried onto the other — and the ground between the branches is paved as though every lane
+were carried onto both. **A U-turn is made from the lane beside the line onto the lane beside the line**, and from
 no other. **A lane joins one lane, and one with no lane of its number there joins nothing**: of
 more lanes onto fewer the ones over end at the node, and of fewer onto more the ones over are reached by none.
 Nothing is merged or fanned at a node; a car gets off a lane that ends and onto one nothing reaches by

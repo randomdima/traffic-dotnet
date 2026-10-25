@@ -264,8 +264,8 @@ internal static class InterfaceScenarios
             ],
             Expected: "debug-car-leave-bay.png",
             ExpectedNote: "The reference is one car driving the way out of its bay at a lot; this frame "
-                          + "is the same layer over moving traffic, and the reference still carries the "
-                          + "label this build no longer draws. Compare the rear-axle line and the pose it "
+                          + "is the same layer over moving traffic, and the reference carries a "
+                          + "label this build does not draw. Compare the rear-axle line and the pose it "
                           + "ends on — not the place, and not the label."),
 
         new(

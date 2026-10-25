@@ -97,8 +97,8 @@
 
   <ItemGroup>
     <!-- The figures are applied over SimConfig by name at run time, and a trimmer takes a setter
-         nothing calls. Release links the SDK alone and leaves this assembly whole, so it costs nothing
-         as things stand and is the one thing that would break silently if that ever changed. -->
+         nothing calls. Release links the SDK alone and leaves this assembly whole, so this costs nothing;
+         were that to change, the descriptor would need an entry under this head's assembly name. -->
     <TrimmerRootDescriptor Include="src/core/config/figures.trim.xml" />
   </ItemGroup>
 
@@ -146,7 +146,7 @@
        alternative was qualifying those names in Vk.cs, Swapchain.cs and the targets — which is the
        desktop's own code learning that a handset exists, for nothing.
 
-       So this head's own four files say which namespaces they are written against, exactly as every
+       So this head's own files say which namespaces they are written against, exactly as every
        other file in the project does. **After the SDK's targets rather than before**: implicit usings
        are items the workload adds above, and a Remove in the body would run before the Add. -->
   <ItemGroup>

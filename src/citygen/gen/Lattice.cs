@@ -73,8 +73,8 @@ internal static class Lattice
     /// <summary>
     /// <b>Which of one district's streets are laid straight</b> (GEN-47, <see cref="LayoutEdge.Straight"/>):
     /// its share of them, rounded, and <b>never all and never none</b> where it lays two, so every district
-    /// lays streets of both kinds. Drawn street by street instead, a district at nineteen in twenty laid
-    /// seventy streets straight and none that wandered.
+    /// lays streets of both kinds. Drawn street by street instead, a district at nineteen in twenty can lay
+    /// seventy streets straight and none that wander.
     /// </summary>
     /// <remarks>
     /// <b>Which ones is each street's own draw, keyed on the link and not on the walk over the lattice</b>

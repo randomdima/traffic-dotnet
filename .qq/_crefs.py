@@ -18,7 +18,7 @@ on.
 
 The one thing weighed about a qualifier is whether this project has it at all: a cref ending in a
 type of ours, written with a segment that is neither a namespace of ours nor an enclosing type,
-names where that type used to live. Nothing else about a qualifier is checked — a cref may name as
+names somewhere that type does not live. Nothing else about a qualifier is checked — a cref may name as
 much or as little of the path as it likes, which is what `_strayed` is careful to allow. And the
 converse: a cref qualified by a namespace of ours whose last word is no type of ours names a type
 that was deleted (`_gone`), since nothing but this project's types lives in its namespaces.
@@ -125,9 +125,8 @@ def _asks(cref: str, mine: set[str], body: dict[str, str], segments: set[str]) -
 def _strayed(cref: str, body: dict[str, str], segments: set[str]) -> bool:
     """
     Whether a cref naming one of this project's types is spelled with a qualifier the project does
-    not have. `Core.Geometry.BucketGrid` is that type where it lives and `Shared.Spatial.BucketGrid`
-    is where it lived once — the same citation, and one of them stops resolving the day the type is
-    moved. Weighed only where the last word is a type of ours, so a member and anything somebody else
+    not have. `Core.Geometry.BucketGrid` names that type where it lives; `Shared.Spatial.BucketGrid`,
+    a qualifier the project lacks, names it nowhere — what a citation becomes when its type moves. Weighed only where the last word is a type of ours, so a member and anything somebody else
     declares are left where `_asks` left them; and a segment is allowed to be an enclosing type as
     well as part of a namespace, since that is how a nested type is written.
     """
@@ -150,7 +149,7 @@ def _words(files: list[tuple[Path, str]]) -> set[str]:
 def _unheard(cref: str, heard: set[str], body: dict[str, str]) -> bool:
     """
     Whether a cref names something no line of code says at all: a type or member that was deleted or
-    renamed, `RightOfWay.Emergency` once the enum went. A qualifier is a namespace or a type, and the
+    renamed, `RightOfWay.Emergency` where no `RightOfWay` is declared. A qualifier is a namespace or a type, and the
     code that uses either says its name. The last word is weighed only where its owner is one of this
     project's types, since a library's member may be cited without this code ever calling it
     (`Environment.TickCount64`).

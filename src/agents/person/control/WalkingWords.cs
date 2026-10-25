@@ -56,7 +56,7 @@ internal static class WalkingWords
         // (PER-25) and is worth naming apart from a walk down a lane. <b>Asked of the route and not of
         // <see cref="PersonFleet.OnWay"/></b>: that one is where the town agreed the body is standing, and
         // it is empty for the stretch at the start of a leg spent crossing to the far lane of a pavement —
-        // which is a walk down a way like any other and was being read out as a walk to the kerb.
+        // which is a walk down a way like any other and would read out as a walk to the kerb.
         return people.CurrentRouteWay(person) == PersonFleet.NoWay ? "walking to the pavement" : "walking";
     }
 

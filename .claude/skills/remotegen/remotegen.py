@@ -4,7 +4,7 @@
 Frames, their records and every picture they were asked from go to .tmp/gen/; `qq sprites` cuts a
 frame and keeps what is used, with its lineage, under raw_assets/. Stdlib, and PIL for --mask.
 
-  edit --image layout.png --image style.png -p "paint the outlines of image 1 in the style of image 2"
+  edit --image style.png --cells roofs_a.cells.json -p "$(cat roofs_a.txt)" --aspect 3:2 --name roofs_a
   gen  "a red hatchback, top-down" --name sedan_red
   credit
   list -n 10 | show sedan_red-v2
@@ -32,7 +32,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 GEN_DIR = os.path.join(ROOT, ".tmp", "gen")
 FRAMES_DIR = os.path.join(GEN_DIR, "frames")
 INDEX = os.path.join(GEN_DIR, "index.jsonl")
-# Every picture a frame was asked from, by content, as it was when sent: a layout redrawn under the same
+# Every picture a frame was asked from, by content, as it was when sent: a style picture redrawn under the same
 # path afterwards must not rewrite what an older frame's record says it was given.
 INPUTS_DIR = os.path.join(GEN_DIR, "inputs")
 

@@ -15,7 +15,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// and that a list longer than the window scrolls rather than growing off the bottom of it.
 /// </summary>
 /// <remarks>
-/// <b>Each of these was wrong at some point and none of them could fail loudly.</b> A layout that is
+/// <b>None of these can fail loudly.</b> A layout that is
 /// plainly wrong in a picture produces no error anywhere.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
@@ -144,16 +144,16 @@ public class MenuLayoutTests
 
     /// <summary>
     /// <b>And the popup reaches no further than half way down the window however much is open in it.</b>
-    /// It is furniture beside a town, and one running from the gear to the bottom edge is the full-screen
-    /// panel it replaced — over the very town its rows are questions about.
+    /// It is furniture beside a town, and one running from the gear to the bottom edge is a full-screen
+    /// panel — over the very town its rows are questions about.
     /// </summary>
     /// <remarks>
     /// <b>Asked of a window with room for the switch page above the ceiling</b>, because the rule the
     /// popup keeps has the switches ahead of the ceiling: those rows are laid at a pitch rather than
     /// scrolled, so a ceiling cutting into them would draw them outside the panel, and the popup is allowed
     /// its own fixed page whatever that comes to. On a short window that page is the taller of the two and
-    /// what this would be measuring is the page's length — which is a count of layers, and was: the ceiling
-    /// held until an eleventh switch was added and then the arithmetic said 543 of 1000. <b>What bounds the
+    /// what this would be measuring is the page's length — which is a count of layers, and not a bound.
+    /// <b>What bounds the
     /// panel on such a window is the window itself</b>, which is
     /// <see cref="TheStartMenuIsOneSizeWhateverIsOpenInIt"/>'s last line and this one's.
     /// </remarks>
@@ -313,12 +313,12 @@ public class MenuLayoutTests
 
     /// <summary>
     /// A page with more rows than the window has room for is every map at once on a short display, and
-    /// it was the panel drawn past the bottom edge of the screen with the last of them under it.
+    /// one that is not bounded is the panel drawn past the bottom edge of the screen with the last of them under it.
     /// </summary>
     /// <remarks>
     /// <b>The rows a page has are the maps this build ships</b>, and it ships few enough that a short
     /// window still holds them: what is asked here is the bound and the hit test, and the wheel moves
-    /// nothing while the page fits. The scrolled case comes back with the maps.
+    /// nothing while the page fits. The scrolled case is asked once the maps outgrow a short window.
     /// </remarks>
     [Fact]
     public void APageTallerThanTheWindowScrollsInsteadOfGrowingPastIt()

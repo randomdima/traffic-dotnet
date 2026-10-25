@@ -41,7 +41,7 @@ public class LegEndsInATownTests
     /// <summary>
     /// <b>A car that comes onto the street of the bay it was sent to turns into it before it leaves that street</b>
     /// (GEN-4f). A route ends at the first lane of that street it reaches, so a car driving on off it has passed a
-    /// bay it was aimed at — and went round the block, to pass it again.
+    /// bay it was aimed at — and goes round the block, to pass it again.
     /// </summary>
     [Fact]
     public void ACarTurnsIntoItsBayTheFirstTimeItComesOntoItsStreet() => Assert.Empty(Watched.DroveByTheBay);

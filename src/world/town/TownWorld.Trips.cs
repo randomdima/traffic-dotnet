@@ -176,8 +176,8 @@ internal sealed partial class TownWorld
         People.Manual[person] = false;
 
         // <b>Standing by is not walking</b>, and the draw below may well find nowhere to go. Left true from
-        // the leg that just failed, a body stood here holding no route at all — which is neither of PER-25's
-        // two walks — and every clock in the town went on treating it as a walker under way. Somebody at a
+        // the leg that just failed, a body stands here holding no route at all — which is neither of PER-25's
+        // two walks — and every clock in the town goes on treating it as a walker under way. Somebody at a
         // wheel is inside, which is already neither.
         var aboard = IsAtTheWheel(person);
         if (!aboard)

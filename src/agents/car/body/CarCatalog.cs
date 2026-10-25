@@ -4,8 +4,8 @@ using TrafficSimulation.Core.Config;
 namespace TrafficSimulation.Agents.Car.Body;
 
 /// <summary>
-/// What a variant is worth against the nominal car, as the four multipliers its file may state: how fast
-/// it will go, how hard it pulls, how hard it stops and what it holds through a corner.
+/// What a variant is worth against the nominal car, as the three multipliers its file may state: how fast
+/// it will go, how hard it pulls and how hard it stops.
 /// </summary>
 /// <remarks>
 /// A variant that states none of them is the nominal car's engine in its own body, which is why every one
@@ -200,8 +200,8 @@ internal sealed class CarCatalog
 
     /// <summary>
     /// <b>How many looks a town's traffic is drawn from</b>, which is the fleet and not everything here
-    /// (AMB-3). A service vehicle is a car somebody stood on purpose; handing its picture out to the
-    /// seventeenth ordinary car would put an ambulance on the school run.
+    /// (AMB-3). A service vehicle is a car somebody stood on purpose; handing its picture out to an
+    /// ordinary car would put an ambulance on the school run.
     /// </summary>
     public int Count { get; }
 

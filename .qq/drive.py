@@ -20,8 +20,6 @@ import re
 import _sim
 from common import cli, paths, proc
 
-NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
-
 #: Standing a city up is most of a minute and a script may drive for several of them.
 TIMEOUT_S = 900
 
@@ -89,7 +87,7 @@ def parse_args():
     )
     parser.add_argument("--script", default=".tmp/drive/script.txt",
                         help="the script of steps to drive, written with the file tools")
-    parser.add_argument("--map", default="Test", type=map_name,
+    parser.add_argument("--map", default="Test", type=_sim.map_name,
                         help="the map to stand the town up from")
     parser.add_argument("--frames", default=".tmp/drive",
                         help="where a shot step leaves its captioned frames")
@@ -120,12 +118,6 @@ def scratch(base, candidate: str):
     if not full.is_relative_to(base / ".tmp"):
         cli.fail(f"a drive writes into .tmp/ and {_sim.rel(base, full)} is not under it")
     return full
-
-
-def map_name(value: str) -> str:
-    if not NAME.match(value):
-        raise argparse.ArgumentTypeError(f"{value!r} is not a map name")
-    return value
 
 
 def ui_words(value: str) -> str:

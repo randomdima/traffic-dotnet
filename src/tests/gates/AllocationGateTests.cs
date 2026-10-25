@@ -16,10 +16,9 @@ namespace TrafficSimulation.Tests.Gates;
 /// <remarks>
 /// A GC pause is a measurement destroyed — the project's performance doctrine insists on CPU time,
 /// a priced instrument and a warm-up counted in ticks, and a collection landing inside the sample is
-/// a figure nobody can quote. The gate is re-taken on the largest town each milestone can open; at
-/// M0 the largest town was no town, so what it held was the loop itself. At M1 the town is open as
-/// data and nothing is stood up from it, so what is added is the query the tick will lean on
-/// hardest — the classifier, asked across a whole city.
+/// a figure nobody can quote. The gate is taken on the loop alone, on the query the tick leans on
+/// hardest — the classifier, asked across a whole city — and on the suite's own towns standing
+/// (<see cref="Towns.EveryMapWorthAGate"/>).
 /// </remarks>
 [Trait(Tier.Key, Tier.Perf)]
 [Trait(Priority.Key, Priority.P0)]
@@ -53,9 +52,9 @@ public class AllocationGateTests
         var step = plan.WorldSizeM / 1_000f;
 
         // <b>Warmed on the walk that is measured and not on a diagonal of it.</b> The locator's own lazy
-        // work is per part of the town, so a warm-up that crossed the map once left whole squares of it
-        // cold and the figure came back a hundred and fifty bytes short of zero — which is the ground being
-        // reached for the first time, not the query allocating.
+        // work is per part of the town, so a warm-up that crosses the map once leaves whole squares of it
+        // cold and the figure short of zero by the ground being reached for the first time, not by the
+        // query allocating.
         var walked = Sweep();
 
         var before = GC.GetAllocatedBytesForCurrentThread();
@@ -143,16 +142,13 @@ public class AllocationGateTests
     }
 
     /// <summary>
-    /// The rule, asked of the thing it is actually about: a standing town, on every map this engine
-    /// ships. <b>Zero, and not nearly zero</b> — the phases this engine wrote touch no allocator at
-    /// all, on five walkers and on five hundred and twenty.
+    /// The rule, asked of the thing it is actually about: a standing town, on each of the suite's own.
+    /// <b>Zero, and not nearly zero</b> — the phases this engine wrote touch no allocator at all.
     /// </summary>
     /// <remarks>
-    /// This gate runs phases 1–3 by hand and steps nothing, so it cannot reach the solver. That used to
-    /// be the point — what phase 4 allocated was a package's and was not flat in the size of the town —
-    /// and it is now only a narrower question than
-    /// <see cref="AWholeTickOfAWholeTownAllocatesNothing"/> below, which asks the whole rule of the whole
-    /// tick. Both are kept: a gate that fails should name which half it was.
+    /// This gate runs phases 1–3 by hand and steps nothing, so it cannot reach the solver: a narrower
+    /// question than <see cref="AWholeTickOfAWholeTownAllocatesNothing"/> below, which asks the whole rule
+    /// of the whole tick. Both are kept: a gate that fails should name which half it was.
     /// </remarks>
     [Theory]
     [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
@@ -166,10 +162,8 @@ public class AllocationGateTests
     }
 
     /// <summary>
-    /// Rule 2 asked of the whole tick — the five phases and the solver's step together, on every map this
-    /// engine ships. <b>It is the claim that became true when the solver became this engine's own</b>: the
-    /// figure was several hundred bytes a step for four milestones, and it was the one part of the rule
-    /// nobody here could fix.
+    /// Rule 2 asked of the whole tick — the five phases and the solver's step together, on each of the
+    /// suite's own towns.
     /// </summary>
     [Theory]
     [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
@@ -183,8 +177,8 @@ public class AllocationGateTests
         // still growing its capacities is not the steady state the rule is about, and the size the contact
         // arrays settle at is the most contacts the solver has ever had at once. <b>How long that takes is
         // a fact about the map</b> and is the map's to state (<see cref="Towns.SettleTicks"/>), because a
-        // lap with bodies reeling into the carriageway does not have its worst pile-up in the first ten
-        // seconds and a town whose traffic disperses reaches its in a minute.
+        // town whose traffic piles up does not have its worst pile-up in the first ten seconds and a town
+        // whose traffic disperses reaches its in a minute.
         //
         // **A failure here of a few hundred bytes is that and not a leak** — a leak allocates every tick and
         // grows with the window, so the two are told apart by lengthening the warm-up rather than by reading
@@ -241,16 +235,10 @@ public class AllocationGateTests
     /// </summary>
     /// <remarks>
     /// <b>Asked of the city with enough traffic on it to crowd, which is a fact about the town rather than
-    /// about the arbiter.</b> The lap the bodies reeled on was parked with the rest of the laboratories, so
-    /// what answers this is a town whose own traffic queues into itself — and <b>how many cars that takes is a
-    /// reading of the town and moves when the town does</b>: the shared town's sixty touch nothing over five
-    /// minutes, two hundred and forty touched several times until the one-way streets stopped taking the last
-    /// choice away from the junctions they arrive at (GEN-18), and every lane's worth touched within half a
-    /// minute until the lights came back to hold most of its junctions (TLT-3), within a minute until a plan
-    /// reached no further than a plan may (TER-4c.1), at a minute and a half until a car was read onto an all
-    /// but straight bend from its start rather than its centre (<c>Spline.NearestOnArc</c>), and at three minutes
-    /// and a bit until two cars turning across each other's way turned in front of each other (TER-5d.2) — the
-    /// first touch is between the fourth minute and the fifth now.
+    /// about the arbiter.</b> What answers this is a town whose own traffic queues into itself, and <b>how many
+    /// cars that takes is a reading of the town and moves when the town does</b>: the shared town's sixty touch
+    /// nothing over five minutes, and at <see cref="CrowdedCars"/> the first touch is between the fourth minute
+    /// and the fifth.
     /// </remarks>
     [Fact]
     public void ATownWithTrafficInItActuallyProducesContacts()

@@ -355,7 +355,7 @@ def run(base, tier, take, name, upto, log):
     # `dotnet test` exits 0 when the filter matched nothing at all, which reads as a tier that passed
     # and is the one outcome this tool must never report as green. The caller decides what it means:
     # one take of a tier missing a name is ordinary, every take missing it is a name that names
-    # nothing. Unnarrowed it is a tier nobody is running any more, and that is a failure here.
+    # nothing. Unnarrowed it is a tier no test class carries, and that is a failure here.
     if "No test matches" in tested.stdout:
         return MISSED if name else 1
     return 0 if tested.code == 0 else 1
@@ -406,7 +406,7 @@ def parse_args():
     )
     parser.add_argument("tiers", nargs="*", default=["unit"],
                         choices=[*TIERS, "all"],
-                        help="which tiers to run (src/tests/Tier.cs); 'all' is every tier but e2e")
+                        help="which tiers to run (src/tests/Tier.cs); 'all' is " + ", ".join(ALL))
     parser.add_argument("--changed", action="store_true",
                         help="add the tiers the working tree's own changes can have moved")
     parser.add_argument("--judge", action="store_true",

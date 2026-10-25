@@ -48,7 +48,7 @@ internal static class Maps
 
     /// <summary>
     /// Every map the probes and sweeps ask questions of, in name order — the map files in <c>towns/</c> and the
-    /// laboratories laid in code. <b>A map is a file or code</b> (GEN-58): every town is its map's file, whatever
+    /// exam laid in code. <b>A map is a file or code</b> (GEN-58): every town is its map's file, whatever
     /// authored it.
     /// </summary>
     /// <remarks>

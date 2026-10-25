@@ -15,7 +15,7 @@ namespace TrafficSimulation.CityGen;
 ///
 /// <b>Which road's carriageway a point is on is not among them.</b> It is the lanes that say that
 /// (<see cref="GroundShapes.At"/>): a road's own band runs on to the junctions at its ends while its lanes
-/// stop short of them, so the road answered carriageway over a sliver at every mouth in the town.
+/// stop short of them, so the road would answer carriageway over a sliver at every mouth in the town.
 ///
 /// <b>So a road with neither a deck nor a stretch of paint on it answers nothing</b>, and
 /// <see cref="GroundShapes.Answers"/> is what keeps it out of the index altogether: both figures here are

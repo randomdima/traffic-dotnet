@@ -692,8 +692,8 @@ const held = new Map();
 ///
 /// **This is what puts the town beside the engine on the wire.** The art and the runtime are about
 /// three megabytes each and neither needs the other, so asked for in turn a page waits for the sum of
-/// them — and the art was not asked for until the runtime had started and a map had been picked.
-/// Started here, the two come down together.
+/// them, and without this the art is not asked for until the runtime has started and a map has been
+/// picked. Started here, the two come down together.
 ///
 /// **Nothing above it changes**: `grab` reads a prefetched file where it would have fetched one, and
 /// **a prefetch that fails costs an ordinary fetch and nothing else** — a name that is wrong here is
@@ -867,7 +867,7 @@ async function decode(list, saying) {
 ///
 /// **Both options are load-bearing.** Left to itself the browser premultiplies alpha and may put the
 /// display's colour profile through the texels, and this town's art is alpha-cut sprites drawn at
-/// their own texel grid: either one is a sheet that no longer matches what the desktop draws.
+/// their own texel grid: either one is a sheet that does not match what the desktop draws.
 function made(file) {
     return createImageBitmap(new Blob([file]), {
         premultiplyAlpha: 'none',

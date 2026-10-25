@@ -23,9 +23,6 @@ namespace TrafficSimulation.Bench;
 /// </remarks>
 internal sealed class RailWatch : ScenarioWatch
 {
-    /// <summary>TRN-12 as this town keeps it.</summary>
-    public const int HoldsItsPace = 0;
-
     const int WhatRan = 0;
     const int OnTheRails = 1;
     const int RoundTheCurves = 2;
@@ -67,11 +64,6 @@ internal sealed class RailWatch : ScenarioWatch
         _headingWasRad = new float[world.Trains.Count];
         Array.Fill(_headingWasRad, float.NaN);
     }
-
-    /// <summary>The longest any train has run off its pace and not closing on it, in ticks, and the most it was off by.</summary>
-    public int LongestOffTicks => _longestOffTicks;
-
-    public float WorstOffItsLineM => _worstOffM;
 
     public override ClaimVerdict Verdict(int claim) => _readings == 0
         ? ClaimVerdict.Waiting

@@ -14,8 +14,8 @@ internal sealed class CarFigures
     public float MassKg { get; init; } = 1400f;
 
     /// <summary>
-    /// <b>The longest body any variant in the catalogue wears</b> — <b>what
-    /// the town lays a bay to</b> (<see cref="SimConfig.CarParkBayLengthM"/>), because a bay too short for
+    /// <b>The longest body any variant in the catalogue wears</b> — <b>what every bay is longer
+    /// than</b> (<see cref="SimConfig.CarParkBayLengthM"/>), because a bay too short for
     /// one vehicle in the town is a bay that vehicle parks across.
     /// </summary>
     /// <remarks>
@@ -85,7 +85,7 @@ internal sealed class CarFigures
     /// it: the driven axle can put down what it is carrying and no more, and the lighter end lets go
     /// first. <b>It belongs to the car and not to the tyre</b>, and it is a variant's to state
     /// (<c>frontWeightShare</c>) — no dial moves the fleet's, because a distribution is not one figure
-    /// nineteen bodies share.
+    /// a fleet of bodies shares.
     /// </remarks>
     public float StaticFrontShare { get; init; } = 0.5f;
 
@@ -167,8 +167,8 @@ internal sealed class TyreFigures
     /// How much of a tyre's width stands outside the bodywork drawn over it (CAR-12), which is what every
     /// variant's track is authored against. <b>Less than this and the wheel is not there</b>: the art is a
     /// car seen from above, its panels reach the edge of its sheet, and a tyre tucked under them is four
-    /// impulses acting on a body nothing on screen accounts for. <b>More and the car stands on outriggers</b>,
-    /// which is how the fleet read at 0.64 (the owner, 2026-10-22).
+    /// impulses acting on a body nothing on screen accounts for. <b>More and the car stands on outriggers</b>
+    /// (the owner, 2026-10-22).
     /// </summary>
     public float ShowsPastTheBodyworkShare { get; init; } = 0.25f;
 
@@ -578,7 +578,7 @@ internal sealed class DrivingFigures
     /// <b>How long a car nothing else drives stands in a bay before it leaves for another</b> (CAR-8), drawn
     /// between the two each time it parks. The spread is what keeps a car park stood full before the first
     /// tick from emptying in one, and the scale is what keeps a town's cars mostly parked, as a town's are:
-    /// at a minute or less every car in Odesa was on the road at once and its arterial junctions locked.
+    /// at a minute or less every car in Odesa is on the road at once and its arterial junctions lock.
     /// </summary>
     public float ParkedMinS { get; init; } = 30f;
 
@@ -586,7 +586,7 @@ internal sealed class DrivingFigures
 
     /// <summary>
     /// <b>How far from where it stands a car's next bay is looked for</b> (CAR-8) — a radius, the place drawn
-    /// inside it. Most of a town's trips are local; drawn anywhere in the town, every one of them crossed it
+    /// inside it. Most of a town's trips are local; drawn anywhere in the town, every one of them crosses it
     /// down the same few arterials.
     /// </summary>
     public float RoundReachM { get; init; } = 600f;
@@ -762,7 +762,7 @@ internal sealed class PersonFigures
     /// <summary>
     /// <b>How much faster than life a walker moves</b> — the figure every other pace here is a real one
     /// multiplied by (<see cref="SimConfig.PersonWalkSpeedMps"/>, <see cref="SimConfig.PersonTurnRateDegPerS"/>).
-    /// Two: a brisk jog beside traffic driven at life's pace, where five was a sprint as fast as the cars. A town
+    /// Two: a brisk jog beside traffic driven at life's pace, where five is a sprint as fast as the cars. A town
     /// watched faster is watched on the clock (<see cref="SimFigures.SoakMaxTimeScale"/>), which scales both.
     /// </summary>
     /// <remarks>
@@ -860,7 +860,7 @@ internal sealed class PersonFigures
     /// <summary>
     /// <b>How far from where a person stands their next destination is drawn, in block spacings</b> (PER-9) — a
     /// radius, the place drawn inside it. Most of a town's trips are local: drawn anywhere in the town, every
-    /// one of them is driven across it down the same few arterials, the way the cars' own round once was
+    /// one of them is driven across it down the same few arterials, as a car's would be without its own reach
     /// (<see cref="DrivingFigures.RoundReachM"/>).
     /// </summary>
     public float TripReachInBlockSpacings { get; init; } = 6f;
@@ -1183,8 +1183,8 @@ internal sealed class EvacuatorFigures
     /// <summary>
     /// <b>How much wider of its line a vehicle with a car on the bar may run</b> before the road calls that
     /// line lost (CAR-10a), as a multiple of what a car is allowed. The town's corners are laid for the
-    /// nominal car and an articulated pair cannot take them as tightly; held to a car's allowance, a tow was
-    /// declared lost halfway round every second corner and stopped where it stood.
+    /// nominal car and an articulated pair cannot take them as tightly; held to a car's allowance, a tow is
+    /// declared lost halfway round every second corner and stopped where it stands.
     /// </summary>
     public float TowedLineAllowance { get; init; } = 2.5f;
 }

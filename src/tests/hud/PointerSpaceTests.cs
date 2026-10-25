@@ -13,10 +13,10 @@ namespace TrafficSimulation.Tests.Hud;
 /// them is the space the other arrives in.
 /// </summary>
 /// <remarks>
-/// <b>This is a regression, and the symptom was that nothing on the menu could be clicked.</b> A 2×
+/// <b>The symptom is that nothing on the menu can be clicked.</b> A 2×
 /// display hands back an 1800 × 1400 framebuffer for a 900 × 700 window; an interface laid out in the
 /// framebuffer's pixels is therefore clicked in the top-left quarter of itself — and one centred on
-/// the screen can never be hit at all. The interface now lays itself out in interface pixels, which
+/// the screen can never be hit at all. The interface lays itself out in interface pixels, which
 /// is what <see cref="InterfaceScale.InUiPx"/> puts the pointer into. Nothing downstream can detect a
 /// mistake here: every coordinate is a plausible one.
 /// </remarks>

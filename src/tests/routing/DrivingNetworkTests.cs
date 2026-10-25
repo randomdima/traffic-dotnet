@@ -10,7 +10,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Routing;
 
 /// <summary>
-/// The driving network asked of every shipped map. <b>What a contraction can quietly lose is the whole
+/// The driving network asked of every town the suite lays. <b>What a contraction can quietly lose is the whole
 /// subject</b>: a run that dropped a lane, a station that disagrees with its own weight, or a junction
 /// with a choice at it that no route can ever plan through are all invisible from outside — the town
 /// still drives, it merely drives somewhere nobody chose.

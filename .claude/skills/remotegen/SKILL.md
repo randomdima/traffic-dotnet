@@ -18,8 +18,8 @@ this index or the attempt cap.
 
 ```bash
 R=.claude/skills/remotegen/remotegen.py
-$R edit --image REF [--image REF ...] -p "PROMPT" [--mask M.png] [--name STEM] [--aspect 3:2]
-$R gen "PROMPT" [--name STEM] [--aspect 1:1]
+$R edit --image REF [--image REF ...] -p "PROMPT" [--cells IDS.json] [--mask M.png] [--name STEM] [--aspect 3:2]
+$R gen "PROMPT" [--cells IDS.json] [--name STEM] [--aspect 1:1]
 $R credit            # spent / left on the key
 $R list | show ID
 ```
@@ -45,8 +45,8 @@ copies the frame is the parent's image kept under another name.
   with better quality setting") — at low their fine detail came back as speckle mush. The brief's wording and a `--mask` redo are not settings.
 - **At least nine assets to a frame**, 3×3. Smaller assets go more to a sheet (4×4, 5×4); never fewer than
   nine, never a frame of one. A set short of nine is merged with a like one. **The owner's allowances**: building
-  roofs a 3×3 cell holds under the art grid go as few as two to a frame, in whichever grid draws them largest (2026-10-20;
-  `qq sprites` `BIG_ROOF_MIN_CELLS`); `qq prefabs sheets` plans the whole catalogue that way and `qq prefabs brief`
+  roofs a 3×3 cell holds under the art grid go as few as two to a frame, in whichever grid draws them largest (2026-10-20);
+  `qq prefabs sheets` plans the whole catalogue that way and `qq prefabs brief`
   writes each frame's prompt. The fans' looks (`assets/world/building/fans/`) went one to a frame (2026-10-24: "Generate
   10 good images", "Dont cut them"), asked with `--cells` and taken whole by `cut` — a picture that is no car is never
   fitted or clipped.
@@ -128,14 +128,14 @@ dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet ID,ID,... -
   asset asked for — `style` refuses an id that is also asked.
 - **The frame comes back transparent**, the setting every frame is asked with, and the brief says so: everything
   outside the drawings fully transparent, no ground, no backdrop, no frame. `cut` keys by alpha; a frame the model
-  painted opaque anyway, as every frame before 2026-10-20, is chroma-keyed off the colour its border measures.
+  painted opaque anyway is chroma-keyed off the colour its border measures.
 - **Every switchable part is drawn, off** (rule 7 of raw_assets/index.md): lamps, beacons, whatever the game
   lights is named in its cell's line with where on the asset it is (`off: 2x rear lamp, dark red glass; ...`) —
   never its shape, which is the art's. The base picture holds them at rest so their lit state can be cut from it; a
   frame that skips one or draws it glowing fails that cell.
 - A family's last brief is in its frames' records (`qq sprites trace <id> --full`); briefs go in
-  `.tmp/gen/briefs/`. imgbench's prompts and the briefs of frames before 2026-10-25 describe a layout that is no
-  longer sent: take their wording about the assets, never their lines about outlines, tracing or magenta.
+  `.tmp/gen/briefs/`. imgbench's prompts and a brief whose frame was asked from a layout describe what is not sent:
+  take their wording about the assets, never their lines about outlines, tracing or magenta.
 - `use` clears islands under 8 px the shrink leaves off the body (CAR-12's pixel-dust gate).
 - **A ground surface is asked tile by tile** (`kind: "Surface"` under `assets/world/terrain/ground/surfaces/`): its
   file's `looks` (a kept lawn, a worn one) each name a count of tiles, ids `<surface>_<look letter><n>`, each a square

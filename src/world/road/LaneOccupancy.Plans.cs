@@ -96,7 +96,7 @@ internal sealed partial class LaneOccupancy
     /// </summary>
     /// <remarks>
     /// <b>Eight bytes, apart from <see cref="HoldRow"/></b>, so an answer's holds stay in cache while their pieces are
-    /// taken: read off the 28-byte row, the hold was a fifth of <see cref="Take"/>'s time.
+    /// taken: read off the 28-byte row, the hold is a fifth of <see cref="Take"/>'s time.
     /// </remarks>
     struct HoldState
     {

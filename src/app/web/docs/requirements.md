@@ -90,7 +90,7 @@ not.
 
 **WEB-9** `P7` **Nothing waits for something it does not need.** A file is asked for at the first moment it
 is *known about* rather than the first moment it is wanted
-([`WebGpu.Prefetch`](../../../runtime/web/WebGpu.cs)), and above it nothing changed — `grab` reads a
+([`WebGpu.Prefetch`](../../../runtime/web/WebGpu.cs)), and nothing above it knows — `grab` reads a
 prefetched file exactly where it would have fetched one, and **a prefetch that fails costs an ordinary
 fetch and nothing else**. Each is a different pairing:
 

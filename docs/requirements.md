@@ -56,8 +56,8 @@ A duplicate gate does not make the town safer; it makes the first mechanism usel
 check that refuses a movement, name what has already refused it.** The measured symptom is in
 [decision-log.md](decision-log.md).
 
-Units, the two seeds, the tick and the decision clock are [core](../src/core/docs/requirements.md) —
-`SIM-3`, `SIM-4` and `AGT-6` live there.
+Units, the two seeds, the one grid, the tick and real time, and the decision clock are
+[core](../src/core/docs/requirements.md) — `SIM-3`, `SIM-4`, `SIM-8`, `SIM-9` and `AGT-6` live there.
 
 ## The object catalogue
 
@@ -76,7 +76,7 @@ solver holds one shape and one narrow phase for all four (`SOL-1`). **A traffic 
 heads are drawn and never collided (`SignalHeads`).
 
 **A car collides as its authored shape**, a rounded box inside the footprint its picture is drawn in, and
-not as the footprint (`CAR-12b`). A per-variant shape is still not what the town is laid against.
+not as the footprint (`CAR-12b`). A per-variant shape is not what the town is laid against.
 
 **OBJ-4** `P5` A building exposes at least one point on walkable terrain through which persons enter and exit
 ([world/containment](../src/world/containment/docs/requirements.md)).

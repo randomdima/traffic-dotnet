@@ -26,15 +26,13 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `qq tests --changed` run, "Expected: 0, Actual: 1" (2026-10-22), and passed twice on its own after: one allocation
   in the measured window that the solver's own code did not make, or did only when the run was loaded. A run of the
   perf tier that catches it again, with the allocation's stack, closes it.
-- **`SheetAtlasTests.TheShippedArtPacksIntoAHandfulOfPages`** (unit) fails: 7 pages against 5 (2026-10-23). Fleet
-  batch 5's eight cars, their wrecks and zone maps tipped it to six (without them in `Fleet.json` it packs into five),
-  and batches 6 to 11 still fit the sixth (the lamp sheet laid four looks a row, `LampAtlas.LooksARow`); dropping the
-  sixteen legacy looks freed none, and `loafvan_grey`, the hundredth, still fits the sixth, as did the eight new
-  ambulance looks. The eight new evacuator looks tipped it to seven; the 203 props that replaced the 60 legacy ones
-  (2026-10-25) still fit it. Each page is 64 MB of sprite memory. _owner_:
-  paying for the pages, or holding the fleet and the service looks at what five or six take, closes it.
+- **`SheetAtlasTests.TheShippedArtPacksIntoAHandfulOfPages`** (unit) fails: 7 pages against 5 (2026-10-23). The
+  civilian fleet's cars, wrecks and zone maps fill six (the lamp sheet laid four looks a row, `LampAtlas.LooksARow`),
+  and the evacuator looks the seventh, which the props' 203 looks still fit (2026-10-25). Each page is 64 MB of sprite
+  memory. _owner_: paying for the pages, or holding the fleet and the service looks at what five or six take, closes it.
 - **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
-  the leg it had before the hand" (2026-10-19, the hand's change in hand). Closed by that change.
+  the leg it had before the hand" (2026-10-19; still on 2026-10-25's working tree). Not traced; what the leg reads
+  once the hand lets go, and why it is the one from before the hand, closes it.
 - **Four tests fail since the town's arithmetic left libm** (2026-10-20, core log); all four pass on 79dddfaf:
   - `PedestrianWaysTests.ALaneWeldedToOnePointIsTheOnlyOneNothingIsLaidDown` and
     `PedestrianNodesTests.APointStandingOnThePointItsLaneArrivesAtIsOnePointMidwayBetweenThem` (unit, WLK-12): "the
@@ -511,7 +509,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   - the room kept to step out behind a body going nowhere (S-2a, CAR-50's "says it is going nowhere") — the zebra
     cards above;
   - a light's hold lying over a body only standing on its way: it now ends at the first body of any kind (TLT-1's
-    second bullet);
+    third bullet);
   - TER-5e's tier "ground its holder already stands on".
 
   A reading of the bodies ahead off the world view, by place — at rest or not, travelling which way — handed to the
@@ -613,7 +611,7 @@ a layout or changes behaviour.
   (`TownShape`, `ConnectorShape`, `ZoneFidelity`), which print differently, so one copy moves probe output.
 - **Kept for nothing a run reaches**: `ArcSubtract` (295 lines) and its tests, kept "as tooling" by the render log of
   2026-09-16 though no tool calls it _owner_; `CityPlan.ZebraAtEveryStation` is false only in `CrossingsTests`, so no
-  map lays the `Crosswalks` path; `ParkingRegistry.Takes`, named by CAR-11b as answerable and asked by nothing.
+  map lays the `Crosswalks` path.
 - **Read by the tests alone, and not plainly a seam** (the 2026-10-16 sweep of what `qq unused` lists as test-only):
   `ConnectionPoints`' `ConnectionPoint`, both `At`s, `Point`, `ArmOf(GroundPieces…)` and `MostPerArm` work out where
   lanes end a second time, beside `RoadLines`, as `ConnectionPointTests`' yardstick — whether that may live in `src/`
@@ -623,12 +621,22 @@ a layout or changes behaviour.
   `Halves`' cast.
 - **`WorldLayer.StepsAhead` is a second name for `SimFigures.WorldStepsAhead`**, read only by crefs, while the car's
   follower reads the figure itself. One name in the docs closes it.
-- **`figures.trim.xml` says only the browser head reads it**, and the handset's project file includes it too — where it
-  names the web assembly and so keeps nothing. Naming both assemblies, or the handset not including it, closes it.
+- **The handset's project file includes `figures.trim.xml`, which names the web assembly alone** and so keeps nothing
+  there; harmless while the handset links the SDK alone, as both files now say. Naming both assemblies, or the handset
+  not including it, closes it. Nothing checks the list against the `*Figures` groups either, so a new group is
+  trimmed from the page until someone adds it by hand; a unit test comparing the two closes that.
 - **The instruments miss two kinds of stale name**: `qq unused` counts by spelling, so an overload sharing a live name
-  and a chain of members only calling each other read as used (the junction corner reach, removed 2026-10-16, was
-  one); `qq doclint` resolves crefs and IDs but not a backticked `Type.Member` in prose, which is how
-  `CutJunctions.SitesOn` outlived its rename in the citygen requirements.
+  and a chain of members only calling each other read as used; `qq doclint` resolves crefs and IDs but not a
+  backticked `Type.Member` in prose, so a renamed member's old name lives on in a requirement until someone reads it.
+- **More read by the tests alone** (the 2026-10-25 sweep): `LaneOccupancy.CanKeep`, `PhysicsWorld.AddStaticDisc`,
+  `ChimneySprites.FireOf`, `GroundPatches.ShoreRow`, `DrawnFan.RimReachM`, `SimConfig.CarAccelerationMps2` and
+  `SimConfig.PavementCornerReachM` — the last written out a second time inline at `CrossingWays.cs:616`, as
+  `KerbEnds.PaintedAcross` is at `bench/ZebraShape.cs:41-43`. Production reading the one copy, or the test asking the
+  production path, closes each. The device readbacks (`DeviceSolver`'s `LeftOver`, `Contacts`, `ContactNormals`,
+  `Woke`, `Froze`; `DeviceTyres`' `CarsAfter`, `WheelsAfter`, `Impulses`, `MarksLaid`) and `Menu`'s `*MiddlePx` are
+  seams and stay.
+- **`prefabs.py` keeps second copies of figures** (`.qq/prefabs.py`): `GRID = 31.5` is `ArtPixelsPerMetre`, and
+  `SHEET_PX`/`GAP_PX` are `sprites.py`'s. Reading them through `art.read_figures` and `sprites` closes it.
 
 ### The suite's own runs
 
@@ -646,8 +654,43 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **Three allocation tests warm their draw two passes before measuring** (`InspectorTests`, `UnitPanelTests`,
   `StatusPanelClaimsTests`), the count `StatusPanelTests` records as failing now and then when the draw tiers up inside
   the measured window; none has failed in five consecutive unit runs.
+- **Assertions that are not tests (VER-12)** (2026-10-25): `ATownThatMovesTests.cs:82` asserts only `moved > 0` after a
+  minute; `RoadGraphTests.cs:42-50` asserts indices in range; `GroundLocatorTests.cs` (~360) an enum value below
+  `Kinds`; `SimConfigTests.cs:40-47` writes the pace-scale derivation out twice, which its own remarks call no test
+  (`P0` class: _owner_); standalone `> 0` counts over a run in `OwnCarsInATownTests:104,112`,
+  `JunctionClaimTests:222` and `WalkingTests:149,205,258,361,767`. Each restated as the behaviour it stands for, or
+  deleted, closes it.
+- **`tests/` does not mirror `src/` folder for folder** _owner_: `tests/physics/` and `tests/routing/` stand at the top
+  while `tests/world/{foot,parking,rail,statics}` are nested; `tests/world/` holds road, terrain and town tests flat;
+  `routing/DrivingNetworkTests` tests `world/road/`; `citygen/TownAuthorTests` and `ExamPlanTests` belong under `gen/`
+  and `exam/`; `hud/InterfaceScaleTests` tests `runtime/` (beside `PointerSpaceTests` on purpose, its remarks say).
+  A layout chosen and moved to closes it.
+- **Test helpers written several times**: `Advance(PhysicsWorld, n)` four times, a bit-exact `Same` four times (the
+  kernel tests), `Cross` five, `Straight` and `Square` in geometry and again in `ZoneTreeTests`/`TownMapTests`, the
+  status panel's `Fill` twice, and `new TownWorld(Towns.Of(Towns.Fixture), Config)` twenty-nine times; and two classes
+  named `Claims` (`tests/bench/`, `tests/world/`). One shared helper each closes it.
+- **`Towns.EveryLaidMap` leaves the fixture out**: `Test.map` is a file, so `Maps.IsCity(Fixture)` is true; and
+  `Towns.EveryShippedMap` is read by nothing, though `verification.md` describes it. Testing for the fixture by name,
+  and deleting the unused member or its description, closes it.
+- **No test asserts a scenario map's watch keeps its claims** _owner_: `Claims.AssertKept` was read by nothing and is
+  gone, while CLAUDE.md says the tier reads a new claim from the map's own watch. `qq tests exam` asserts the exam's
+  cards; whether the tier should assert the watch too is the question.
 
 ## Inconsistencies
+
+- **A page weighs three times what WEB-6 allows** _owner_ (2026-10-25): WEB-6 promises 6–8 MB before the first frame
+  with "2.8 MB of art", and WEB-9's table and `town.js` say about three megabytes, but `assets.tar.gz` is 21.0 MB in a
+  Release publish. WEB-6 also counts the art before the first frame where WEB-4 fetches it after. Re-measuring a
+  publish and restating the budget, or holding the art to it, closes it.
+- **`CarFigures.MaxSteeringDeg = 35.42` carries no doc, and its precision reads as back-solved from a turning circle**
+  _owner_ — which "figures flow one way" forbids. An authored road-wheel angle, its source named, closes it.
+- **Most rail looks are in no list** (`assets/world/rail/looks/`): 29 look files, four named by `Railway.json`, thirteen
+  pictures between them — the `_b`/`_c` alternatives never chosen or dropped _owner_. Choosing, and deleting what is
+  not chosen, closes it.
+- **A building's `tags` repeats its `describe` and nothing reads it** _owner_ (`BuildingVariantFile.Tags`, 365 files):
+  dropping the field from the type and the files, or naming what it is kept for, closes it.
+- **`Program.cs` cites "`traffic-native`" and "all four engines"**, projects outside this tree, as facts nothing here can
+  check; restating each as this engine's own figure, or dropping it, closes it.
 
 - **The town kept is kept by its name and figures and not by the art it was laid with** (`Maps._kept`, 2026-10-25):
   a caller handing other `ArtSizes` for the same map under the same `SimConfig` is handed the town laid with the
@@ -666,8 +709,8 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   looked over roof by roof, and these were left out. A roof that draws one fan and not its twin looks half-built only
   where both are cut, so each is all or nothing.
   - The bladeless brown twin units on `industrial_*`, `retail_03`, `retail_05`, `retail_06`, `retail_09`,
-    `retail_deep_02` and `school_deep_02`: left out while a fan turned its own picture, where a dark disc turned shows
-    nothing; a fan is now drawn in a look of its own (2026-10-24), so each is worth cutting.
+    `retail_deep_02` and `school_deep_02`: each worth cutting, a fan being drawn in a look of its own and not turned
+    off its picture.
   - Fans drawn too small to separate: `warehouse_saw`'s pair, and `hospital_deep_04`'s four upright units.
   - `retail_deep_06`'s second unit, whose right fan is drawn grey as a dome is.
   - `retail_deep_07`'s smaller second fan on four of its seven units, which now stands beside its twin's look.
@@ -687,15 +730,12 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   `assets/agents/car/variants/common/lamp_atlas.webp`): it is cut only by `dotnet run -- --lamps`, which `qq props
   install` does not run, so lenses reinstalled under another fitting keep burning their old colours in the game. The
   ambulances' bars, repainted blue, burned red until the sheet was cut again. `qq proof --looks` bakes a sheet of its own
-  and cannot show it, and no test compares the shipped sheet with a fresh bake. `qq beacons swap` now cuts it again; a
-  unit test baking the sheet and comparing it, or `qq props install` cutting it, closes it.
+  and cannot show it, and no test compares the shipped sheet with a fresh bake. `qq beacons swap` cuts it; a unit test
+  baking the sheet and comparing it, or `qq props install` cutting it, closes it.
 - **A district may stand no depot** (2026-10-20, GEN-55, GEN-56; accepted by the owner): a yard is as wide as its
   building's frontage (`CarParks.YardBays`), eight bays for the 23.4 m civic roofs, and one district of `Odesa` finds no
   kerb straight for that long (depots 7 of 8 in `--bench census`). A site search that holds a long yard on a curving
   kerb, or a shallower yard, closes it.
-- **`qq doclint` finds `FNV-1a` cited by code and stated nowhere** (found 2026-10-20, `src/citygen/CityPlan.cs:152` and
-  one more): an ID-shaped name in a doc comment, not a rule. Rewording it so it does not read as a citation, or the
-  lint knowing an algorithm's name, closes it.
 - **`TurnAtALotWithinM` is read off the widest lot and not the widest yard** (2026-10-20, `SimConfig.Derived`): it takes
   `BaysPerLotMost`, six bays, and a service's yard is now up to eight, so a bay at a yard's far end may stand past where
   a leg may turn at it. Nothing has been seen to fail by it; the figure taking the widest rank a town lays closes it.
@@ -731,7 +771,7 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   `crossing_countdown` and `crossing_countdown_b` have kept variants and no sprite; `relay_cabinet_b`, `crossing_cross`,
   `crossing_warning` and `crossing_warning_b` have none (`railway_gear_a`, `railway_signs_a` drew them past `cut`'s fit).
   The upright heads `crossing_head`, `_b` and `_c`, and the X lights `crossing_light_b` to `_e` with their lit twins, are
-  installed and unlisted since the X light replaced the head. Placing a cabinet at each crossing and its signs on its
+  installed and worn by no crossing, which wears `crossing_light`. Placing a cabinet at each crossing and its signs on its
   approaches, or deleting what no crossing will wear, closes it.
 - **A car meeting a crossing's arm allocates** (2026-10-19, `RAIL-10`): with arms that met cars inside its window,
   `AWholeTickWithATrainCrossingTheTownAllocatesNothing` read some 40 KB over 600 ticks, and none with the arms on a layer
@@ -777,9 +817,6 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   machine rooms", fourteen ask for hatches "evenly along the ridge line" of a flat roof (`apartments_*`, `tower_*`), and
   "stairwell exit hatches" are meant as boxes. The art is drawn and kept; the next brief of any of them repeats the
   slip until the describe is reworded.
-- **`qq sprites mask` cannot mend a cell drawn the wrong size** (2026-10-20): the mask is the outline's box, so paint
-  past it or short of it comes back byte for byte and a redo of a size fault is a whole re-roll. A mask padded to the
-  cut's drawn extent closes it.
 - **The lamp sheet is decoded twice when the town loads** (2026-10-22, `LampSprites.Glow`): once to blur the glow
   sheet out of it and again when its page is filled, about 17 MB held for the first. Load time only — 50 ms on the
   host for the 111-look fleet, not measured on the web head; blurring from the page's own decode closes it.
@@ -838,10 +875,6 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   moves a texel by at most 125 of 255 and reversing by 74; only the headlamp reads lit. The glow is what says it in
   the game. A ramp whose floor stands clear of the dull glass, or a check of the lit lens against the dull one,
   closes it.
-- **`qq sprites` still carries the generated zone-map path** (2026-10-21, `.qq/sprites.py`): `ZONE_PARTS`,
-  `ZONE_COLOURS`, `LENS_ZONES`, `ZONE_REACH_M`, `zoned_sheet`, `cut_described`'s zoning branch and `use`'s, which now
-  refuses to install one (lamps are `qq props install`'s, CAR-14a). Dead code that misleads a reader; deleting it, and
-  the blob trial `.tmp/zone_tool.py`, closes it.
 - **What the batch 1 lamp cuts found wrong in `qq props`** (2026-10-21, ten agents, `.tmp/fleet/props_notes.md`): seed
   takes paint for lenses (a chrome bumper or pale bumper strip as a reverse, the orange fringe between a red lens and
   lime paint as an indicator, a one-sided highlight of the brake's own hue as a lens); `axis --prop` stops at the
@@ -898,17 +931,10 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **A car may cut five lamps, its tail one housing** (2026-10-21, `cityhatch_silver`): `install` writes a lens a side
   of every prop and part, and `CarLamps.MostLenses` is ten, so the red arm the art draws along the tailgate beside the
   corner lamp stays unlit. Widening the emit's word (below) closes it.
-- **The eight trial cars' polygon cuts predate seed's tracing and two misread a lens** (2026-10-21, `.tmp/props/`):
-  they were placed by hand before seed traced lenses off the art, before it named every lamp and before a part left
-  out the sections over its lamp; turned into texels for the pixel trials they read `supermini_red`'s brake 32 % red
-  and `hatch_coral`'s front indicator 0 % amber. Seed alone, on those eight and the isolated trial's three, is drawn
-  beside the agents' cuts in `.tmp/trace_dev/sheet*.png`. Their pixel cuts are kept apart (`.tmp/props_px/`, `qq
-  props-px`), as are the trials' (`.tmp/props_text/`, `.tmp/props_vis/`, `.tmp/iso/`, `.tmp/iso2/`). Recutting the
-  eight by the loop closes it.
 - **What the polygon loop still gets wrong** (2026-10-21, `.qq/props.py`, `.qq/_props_fit.py`): `axis --prop`
   searches only near the copy it has, and called one three texels off "already where it fits best"; snap never turns
   a bow concave that was not, so a hand-placed crescent keeps its inner arc bowed out (a traced one is bowed right);
-  the framed figure cannot tell a frame from dark paint (`estate_navy`) and flags a lens framed on part of its rim;
+  the framed figure cannot tell a frame from dark paint and flags a lens framed on part of its rim;
   snap stops short where it is run once and goes further run again; `axis --prop` reports the copy's gain and not the
   authored side's loss; the edge table gives one rim figure an edge for both sides once they are under
   `LOPSIDED_PX` apart, so a copy-only miss has no edge named; a lamp on the centreline (a high-mounted brake) cannot
@@ -936,25 +962,11 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   `.claude/skills/remotegen/remotegen.py`): added for the lamp trials, which the owner set aside (no clip lit a lamp).
   Whether it stays is the owner's. If it stays, a SKILL.md section and one `--last-image` run close it; if not,
   deleting `cmd_video` and `openrouter.video_request` does.
-- **The bigger civilian cars' noses are rounder than their collision boxes** (2026-10-18): `cars_civil_c`'s five largest
-  bodies and all nine wrecks leave 1–3 % of their outline bare at the corners (`qq sprites cut`, holes), so a car
-  is struck a few centimetres outside its paint there. Barely visible; a brief naming the corner radius in words,
-  or `collisionM.cornerRadiusM` authored rounder for those bodies, closes it.
 - **The ambulance cannot take a pair of headlamps** (2026-10-18): its ten lenses are the most a car may draw
   (`CarLamps.MostLenses`, three bits a lens in one word of the sprite emit). Widening the word to two closes it.
 - **A generated car's mirrors are clipped flat at its footprint** (2026-10-18): the model draws them about 0.05 m past
-  the 0.1 m a side the nine civilian cars' footprints allow (`qq sprites cut`'s overlay, cyan), and the cut keeps the
-  footprint; `cars_fleet_a` drew them about twice the size asked even when told "no longer than the headlamp".
+  the 0.1 m a side a footprint allows (`qq sprites cut`'s overlay), and the cut keeps the footprint; `cars_fleet_a` drew them about twice the size asked even when told "no longer than the headlamp".
   Barely visible at game zoom; footprints authored to the mirrors a body has closes it.
-- **The three service looks author lenses past their own shape** (2026-10-18): the `lamps` were measured off the
-  old art, whose bodywork overhung `collisionM`, so rear lamps sit on the rounded corners and indicators past the nose;
-  four on each. Asking the set again in words (raw_assets/index.md, rule 4) and cutting its lamps off the new drawing
-  with `qq props` closes it; a lens moved before then misses the lamp on the sprite in the game now.
-- **The three service looks still light their lamps by rectangle** (`LampAtlasBake.Paste`, 2026-10-18): with no zone
-  map, a lens burns its whole `sizeM` area of sprite by luminance, so a round or strip lens lights the paint in its
-  corners and a lens drawn off its rectangle lights paint only. Two ways of finding a lamp stand in the bake until
-  then. Generating each set again with its zone map (CAR-14a) closes it and deletes `Paste`; a beacon needs a zone
-  colour of its own first (`LampAtlasBake.ZoneOf`, `ZONE_PARTS`).
 - **`qq proof --looks=all` peaks at 1.2 GB** (`LampProof`, 2026-10-18): ImageSharp holds every distinct frame as full
   RGBA until the GIF is written — 39 frames of 1728×3874 for the 28 looks; nine looks are a fifth of it. Writing
   frames to the encoder as they are made, or a frame a tile row, closes it.
@@ -986,7 +998,7 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   no ring — which hides the lock rather than closing it. Tracing one ring to the claim that should have been yielded closes it.
 - **The fleet steers wider than the town lays its turns** (the same run: 38 cars driven off their line, 24 of them in
   a box, 48 legs given up; 7 off their line with the cars parked at the kerbs, a third as many on the road): the turn room (`SimConfig.JunctionTurnRoomM`) is the config car's 3.94 m circle, and most variants' is wider,
-  4.0 to 5.4 m (a pickup 4.9, the APC 5.4); `--bench connectors` lists 681 near-side and 161 far-side movements tighter
+  4.0 to 5.4 m (a pickup 4.9); `--bench connectors` lists 681 near-side and 161 far-side movements tighter
   even than 3.94 m, kept above the 2.4 m cornering floor. Sizing the turn room for the fleet's widest common circle — a
   figure the catalog would hand down to the town — closes it.
 - **105 of OdesaOsm's 250 car parks have no room for a ladder and 42 no street in reach** (`qq osm --parking`,
@@ -1007,8 +1019,8 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   at the 0.5 m step): a car whose wheels stand within that of the next way is read on it. A car parked at a kerb is laid
   over its place instead (GEN-4n), but one standing a hair off its place, and a car on a lane's edge, are read across
   the line. Reading a wheel against the bands rather than off the nearest lattice point closes it.
-- **A vehicle wider than a roadside never parks at a kerb** (GEN-4n): the pickups and the APC run the round to car parks
-  only, and a traced map's spawn stands none of them at a kerb, so its car count falls short by their share.
+- **A vehicle wider than a roadside never parks at a kerb** (GEN-4n): it runs the round to car parks only, and a traced
+  map's spawn stands none at a kerb, so its car count falls short by their share.
 - **One car was wrecked in the 120 s run with no other car wrecked beside it** (OdesaOsm 4032.9,13934.5, car 9, tick
   2 999, coming off a box onto lane 896 at 8 m/s, 2026-10-17): what it struck is not said — a parked car laid over its
   kerb place and swept by a turn out of the box, a prop, or a wall. A shot at that tick did not stand the car there;
@@ -1045,8 +1057,8 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   draws 3 instances of 2 034 otherwise than the host's fill (`--bench deviceworld`, 2026-10-12).
 - **A crossing's barrier arm is turned by two arctangents**: `MathF.Atan2` on the host (`CrossingSprites.Fill`) and
   GLSL's own `atan` on the device (`spritesBarrier`), a few ulps apart — 18 of the 21 instances of 1 997 the town frame
-  of Odesa drew otherwise than the host (`--bench deviceworld`, 2026-10-23). The probe now frames the town 1.1 s later,
-  having let the smoke's tracks fill first, and counts 26 of 2 028, split between this and the gait unread. `Trig.Atan2` and
+  of Odesa drew otherwise than the host (`--bench deviceworld`, 2026-10-23). Framed once the smoke's tracks have filled,
+  the probe counts 26 of 2 028, split between this and the gait unread. `Trig.Atan2` and
   `trigAtan2` on the two sides close it.
 - **A body put down is laid where it stood** until its own next turn, and then off covers a view reads two steps behind
   (`WorldLayer.StepsAhead`): a placement reaches a view only with the step that took its signal. The fleet keeps the
@@ -1104,15 +1116,13 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   `TownWorld.Marks` — a page's fill, `--bench sprites` — sees none there, and a tick's marks land in the order its
   threads claimed places rather than the host's (car, wheel) order. Nothing decides on a mark; a reader that needs them
   on the device's host would read the ring back.
-- **The metre↔pixel conversion has no one site** (CLAUDE.md, SIM-3): `WorldScale` claimed it and nothing called it, so
-  it went with the cleanup of 2026-10-15; the screen's factor is `Camera2D`'s and the art grid is `qq art`'s. Naming
-  `Camera2D` as the site, or routing both through one, closes it _owner_ (the wording is the working agreement's).
-- **`Road.CrossingSetbackM` is an owner's figure nothing applies**: its only reader was `IntersectionReachM`, read by one
-  test and removed with it. Whether a zebra stands that margin off the junction's movements in the code (WLK-10) or the
-  figure goes is the owner's _owner_.
+- **The metre↔pixel conversion has no one site** (CLAUDE.md, SIM-3): the screen's factor is `Camera2D`'s and the art
+  grid is `qq art`'s. Naming `Camera2D` as the site, or routing both through one, closes it _owner_ (the wording is the
+  working agreement's).
+- **`Road.CrossingSetbackM` is an owner's figure nothing reads.** Whether a zebra stands that margin off the junction's
+  movements in the code (WLK-10) or the figure goes is the owner's _owner_.
 - **The self-driver's throttle ceiling is the nominal car's** (`TyrePass.DriveCeilingMps2`) where CAR-11 has a car
-  decide on its own figures; the reason it was nominal (`CrossingOnTheTemplate`) went on 2026-09-28. Moving it moves
-  behaviour; measure first.
+  decide on its own figures, and nothing needs it nominal. Moving it moves behaviour; measure first.
 - **osmscan has two answers for a metres tag**: `Roads.Metres` refuses 0 and `Buildings.Metres` takes it. One answer
   changes what a trace keeps _owner_.
 - **The claims say two things about held ground**: `claims.md` ("nothing taken is freed") and the road log of
@@ -1174,5 +1184,5 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   wheels' ground is read on every world step (`WorldLayer.Step`). The code meets the rule more often than it says; the
   wording is the owner's.
 - **`TER-5j` was retired and its number given to another rule** _owner_ (road log, 2026-09-14), against "a retired
-  number is never reused". The log no longer cites the old one; renumbering the new one is the owner's.
+  number is never reused". The log cites only the new one; renumbering it is the owner's.
 

@@ -156,9 +156,9 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     /// <remarks>
     /// <b>Every walk in the town begins and ends with two of these</b> (the entry and the goal), so it is
     /// asked from the tick and not only when a body is stood up. Over a town whose pavement runs to
-    /// thousands of stretches a scan of all of them was the largest single cost on the walking side, and
-    /// what answers now is <see cref="ChainIndex"/> — the same arithmetic over the handful of stretches
-    /// that could possibly win.
+    /// thousands of stretches a scan of all of them would be the largest single cost on the walking side, so
+    /// <see cref="ChainIndex"/> answers — the same arithmetic over the handful of stretches that could
+    /// possibly win.
     /// </remarks>
     public int NearestEdge(Vector2 pointM, out float alongM) => _nearest.Nearest(pointM, out alongM);
 

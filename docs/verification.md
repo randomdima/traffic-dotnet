@@ -83,8 +83,8 @@ bridges, districts, an orbital and traffic, at a fraction of what a shipped city
 
 **Both of them have their streets generated, and that is a loss the build is carrying.** A fixture is a file
 because it may not move when the generator does. `towns/Test.map` fixes the fixture's water and wheel but not its
-streets, which its wheel lays when it is opened (GEN-58), so the two towns differ only in size and seed, and the
-distinction this section rests on is thinner than it was — [the known gaps](index.md#known-gaps) names it.
+streets, which its wheel lays when it is opened (GEN-58), so the two towns differ only in size and seed —
+[the known gaps](index.md#known-gaps) names it.
 
 **Three things between them leave nothing for a city to say.** What the generator owes whatever seed it is
 given is `GeneratorTests`', over four unrelated seeds and both kinds of water. What a map laid to measure
@@ -287,8 +287,7 @@ own run left waiting — a test chooses how long it watches.
 only by luck, so the map's own watch may order the bodies on the first tick. **What is claimed is what the
 town did with that order** and never that it was given one — and the staging is the watch's, so a run of
 that map in the game stages it exactly as the probe does. **The scenario map is the one such map this build
-ships** (`ExamWatch`); the ones laid against the lane layer that has been replaced are named in
-[the known gaps](index.md#known-gaps).
+ships** (`ExamWatch`, [the known gaps](index.md#known-gaps)).
 
 ## The verification intentions
 
@@ -404,8 +403,7 @@ person reads and the last line is what a script does.
 [agents/evacuator](../src/agents/evacuator/docs/requirements.md)). Each stages one casualty or one wreck a
 town — through the damage roster, so what it does to the town is what a car hitting something does — and
 prints raised against collected against delivered, with the times beside them. **Both are quoted and gate
-nothing**, and no tier reads their rows: the end-to-end tests that did went with the lane layer they were
-staged on.
+nothing**, and no tier reads their rows.
 
 **The documents have instruments of their own**, read the same way. `qq doclint` asks whether every rule
 is stated exactly once and every ID the code cites resolves — a citation to a renumbered or retired rule

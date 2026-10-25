@@ -72,7 +72,7 @@ public class CrossingGateTests
     /// them, and the frame's five calls do not know whether a panel is open.
     /// </summary>
     /// <remarks>
-    /// This is the half of the M9 exit condition that can be held without a device in the room. The
+    /// This is the half of the claim that can be held without a device in the room. The
     /// other half — that the count is still five with the interface open — is the run's own read-out,
     /// and the offscreen path prints it beside every shot.
     /// </remarks>

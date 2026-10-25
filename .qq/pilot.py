@@ -47,8 +47,6 @@ ENGINE = "traffic-dotnet.csproj"
 #: Where this tool keeps a run: the steps it appends, the frames the eye writes, and the transcript.
 WORK = ".tmp/pilot"
 
-MAP_NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
-
 #: The dashboard's own body line, which is the whole of what this tool reads off a reading.
 AT = re.compile(r"at (-?[\d.]+),(-?[\d.]+), ([\d.]+) km/h")
 
@@ -424,7 +422,7 @@ def parse_args():
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--map", default="Odesa", type=map_name,
+    parser.add_argument("--map", default="Odesa", type=_sim.map_name,
                         help="the map to stand the town up from")
     parser.add_argument("--car", default=0, type=cli.counting, metavar="INT",
                         help="which car of the fleet the model drives")
@@ -461,12 +459,6 @@ def parse_args():
     parser.add_argument("--no-build", action="store_true",
                         help="drive with the engine already built")
     return parser.parse_args()
-
-
-def map_name(value: str) -> str:
-    if not MAP_NAME.match(value):
-        raise argparse.ArgumentTypeError(f"{value!r} is not a map name")
-    return value
 
 
 if __name__ == "__main__":

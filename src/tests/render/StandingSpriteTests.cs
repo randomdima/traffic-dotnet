@@ -10,7 +10,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Render;
 
 /// <summary>
-/// The town's standing geometry as instances: that every building and every prop of every shipped map
+/// The town's standing geometry as instances: that every building and every prop of every town the suite lays
 /// is drawn exactly once, that the cull is a superset and never a subset, and that a prop is drawn in the
 /// look the plan laid it in, at that look's own size.
 /// </summary>

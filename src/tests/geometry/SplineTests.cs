@@ -454,11 +454,10 @@ public class SplineTests
     /// kilometres: the distance along the bend must put the point back where the two lines actually meet.
     /// </summary>
     /// <remarks>
-    /// <b>It is a precision test and it is written as one.</b> The same geometry at the origin was right to
-    /// a micron while a kilometre and a half out it came back metres away — the distance along being read as
-    /// the turn over the curvature, which multiplies whatever the last bits of a town-sized coordinate left
-    /// by the radius. At the shallowest bend here the answer landed off the piece altogether and a plain
-    /// crossing of two lines came back as no crossing at all.
+    /// <b>It is a precision test and it is written as one.</b> A distance along read as the turn over the
+    /// curvature multiplies whatever the last bits of a town-sized coordinate leave by the radius: right to a
+    /// micron at the origin, metres away a kilometre and a half out, and at the shallowest bend here off the
+    /// piece altogether, so a plain crossing of two lines reads as no crossing at all.
     /// </remarks>
     [Theory]
     [InlineData(1e-6f)]

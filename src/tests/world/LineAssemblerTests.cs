@@ -8,7 +8,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
-/// The assembled line asked of every shipped map. A lane's own line is the graph's
+/// The assembled line asked of every town the suite lays. A lane's own line is the graph's
 /// (<see cref="RoadGraphTests"/>); what is asked here is the part the assembler <em>draws</em> — the
 /// join through each junction, which is the only geometry in the town that no plan carries.
 /// </summary>

@@ -47,8 +47,8 @@ RETIRED = re.compile(r"\bretir(?:e|ed|es|ement)\b|\bnumbering has gaps\b", re.IG
 #: and never for definitions — otherwise every logged decision looks like a second copy of the rule.
 HISTORY = "decision-log.md"
 
-#: Shapes that read as an ID and are not one: a date, a version, an enum with a number in it.
-NOT_AN_ID = re.compile(r"^(?:[A-Z]{1,4}-\d{4,}|RGB-\d|UTF-\d)$")
+#: Shapes that read as an ID and are not one: a date, a version, an enum with a number in it, a hash.
+NOT_AN_ID = re.compile(r"^(?:[A-Z]{1,4}-\d{4,}|RGB-\d|UTF-\d|FNV-1a?)$")
 
 #: The rung a rule carries, immediately after its ID: ``**TER-3d** `P0` Render geometry …``. Whose
 #: the rule is and what bending it costs (docs/priority.md). Read off the definition's own line and

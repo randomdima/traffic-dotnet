@@ -6,6 +6,9 @@ themselves, not a factor kept beside them. `sizes` is read-only: each look's cou
 3.95 m car. `scale LOOK --by=F` rewrites every prefab of that look (or the three civic roofs, `civic`): footprint and
 parts by F, rounded to 0.1 m; a rounded corner (over EAVES_MAX_M) scales with it and an eave's radius stays.
 It is not idempotent — run once per look and check the table; git holds the undo.
+
+`sheets` plans the frames the roofs are asked in (`--out`), and `brief --frame=NAME` writes one planned frame's prompt
+to `.tmp/gen/briefs/`.
 """
 
 from __future__ import annotations
@@ -153,7 +156,7 @@ BIG_SHARE = 0.8
 
 def sheets(base, out, left):
     """Each look's roofs, smallest first, in frames of sixteen or nine while those hold the grid, then the big ones as
-    many to a frame as still draw them near it (`qq sprites` BIG_ROOF_MIN_CELLS). A look's tail too few for a frame
+    many to a frame as still draw them near it (BIG_SHARE). A look's tail too few for a frame
     is pooled with the other looks' tails, by size. `left`: only the roofs whose sprite traces to nothing yet, in
     frames named `redo_…`, so no name is asked a fourth time."""
     groups = {}

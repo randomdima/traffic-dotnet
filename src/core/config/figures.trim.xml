@@ -7,9 +7,10 @@
   "car.parkedHandbrake is not a figure this engine holds" against a file that is perfectly correct — the
   figure is there, and its setter is not.
 
-  Only the browser head is trimmed, so only that project file reads this. It is the whole of what the
-  reflection in this slice costs, and it is here rather than in the project file because what must be
-  kept is a fact about these types.
+  Only the browser head's own assembly is trimmed, and only it is named below. The phone's project file
+  reads this too, but links the SDK alone; were it to link its own assembly, it would need an entry here
+  under its own name. This is the whole of what the reflection in this slice costs, and it is here rather
+  than in the project file because what must be kept is a fact about these types.
 -->
 <linker>
   <assembly fullname="traffic-dotnet-web">
@@ -33,9 +34,16 @@
     <type fullname="TrafficSimulation.Core.Config.DamageFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.DrivingFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.EvacuatorFigures" preserve="all" />
-    <type fullname="TrafficSimulation.Core.Config.LadderFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.LampFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.NetworkFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.ServiceFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.ChimneyFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.CloudFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.DrivePatienceFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.RailFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.SmokeFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.TrainFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.WindFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.ZoneFigures" preserve="all" />
   </assembly>
 </linker>

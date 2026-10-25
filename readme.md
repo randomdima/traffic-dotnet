@@ -59,7 +59,12 @@ entries: `--check` prints the dependency read-out, `--shot` takes a picture with
 `--bench all` runs the lot, an unknown name prints the list, and the list itself is
 [`CheckCatalogue`](src/bench/CheckCatalogue.cs). `--bench stuck --map NAME --seconds N` runs the stuck probe on that
 town for N seconds rather than five minutes. The map list the menu reads is the map list the command line
-reads; the probes are the command line's alone.
+reads; the probes are the command line's alone. The framing is `--at X Y`, `--view METRES` and `--turn DEGREES`,
+the window or picture `--size W H` at `--ui-scale N`; a picture's caption takes `--title` and `--note`, and `--rule
+X1 Y1 X2 Y2`, `--point X Y` and `--pick X Y` stand the ruler, the pointer and the picked cell where no hand is.
+`--validate` turns the Vulkan validation layers on, `--present fifo|mailbox|immediate` picks the swapchain's mode,
+`--headless` is `--check`, and `--mend MAP` and `--park MAP` are the in-place map edits `qq osm --mend` and `--parking`
+run. An unknown argument prints the whole list.
 
 **The art is looked at in the showroom**: `--map Showroom` is one big car park with every car look parked in it
 once — the fleet's and the service vehicles' — and every building look stood once in rows round it, on the menu's
@@ -72,8 +77,8 @@ dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet citycar_lim
 ```
 
 **The menu's `Debug` page is cut into sections, one a thing a session is opened to look at** (`OBS-2y`):
-`Cars`, `Walkers`, `Junctions`, `Physics`, `Road shape`, `Ground mesh` and `Tools`, and `--ui menu-cars`,
-`menu-junctions`, `menu-road`, `menu-ground` and the rest open one. Each switch says what it draws and what
+`Agents`, `Cars`, `Walkers`, `Junctions`, `Physics`, `Road shape`, `Ground mesh`, `Map` and `Tools`, and
+`--ui menu-cars`, `menu-junctions`, `menu-road`, `menu-ground` and the rest open one. Each switch says what it draws and what
 its colours mean, a section says how many of its layers are on, and one row turns them all off.
 
 **A figure can be turned while the town runs.** The `Cars` section carries a track for each raw term the
@@ -89,12 +94,13 @@ metres, its corners are rounded at. It is drawn in violet under its own switch (
 slider), and changes what is *drawn* rather than what the town does.
 
 **And the ground can be taken apart while the town runs.** The `Ground mesh` section (`--ui menu-ground`)
-carries a row a layer of the town's standing ground — the grass, the walk and its kerb, the water, the
-decks, the carriageway, the slabs, the town's kerb, the paint, and the bridges over roads, drawn over all of
-it and over the cars on the ground — each saying what it came to in triangles and in the milliseconds it took to cut.
-**A box unticked takes that layer out of the picture** and out of the wireframe over it; the switch only
-shortens the draw, so no figure moves. A picture wants it by name: `--ui hide-carriageway`, and `grass`,
-`walk`, `walk-kerb`, `water`, `decks`, `slabs`, `kerb`, `paint` and `overpasses` for the rest. The same table is printed headless by `--bench census`.
+carries a row a layer of the town's standing ground — the grass, the track's ballast, the walk and its kerb, the
+water, the decks, the carriageway, the slabs, the town's kerb, the paint, the rails, and the bridges over roads,
+drawn over all of it and over the cars on the ground — each saying what it came to in triangles and in the
+milliseconds it took to cut. **A box unticked takes that layer out of the picture** and out of the wireframe over
+it; the switch only shortens the draw, so no figure moves. A picture wants it by name: `--ui hide-carriageway`, and
+`grass`, `track`, `walk`, `walk-kerb`, `water`, `decks`, `slabs`, `kerb`, `paint`, `rails` and `overpasses` for the
+rest. The same table is printed headless by `--bench census`.
 
 **Every map says what it claims about itself and whether it is keeping it.** Every headless run prints the
 table — a row a claim, the figures behind each verdict, and a last line a script can read — and a windowed
@@ -210,8 +216,8 @@ cuts that boundary into the triangles the ground is drawn out of and reads the c
 say whether it is the right one: **how long it takes, how many triangles it comes to, how near those
 triangles are to equilateral, and how much of the shell it lost** against the area the arcs themselves
 enclose. It prints the shell's open joints beside them, since the straights a fill draws across them are
-ground nothing else accounts for. `qq town` runs `shapes`, `shape`, `joints`, `parks` and `outset` from
-the shell.
+ground nothing else accounts for. `qq town` runs `shapes`, `shape`, `joints`, `parks`, `outset`, `close`,
+`connectors` and `roofs` from the shell.
 
 **`--bench load --map NAME` says what opening that map cost**, stage by stage: the plan, the ground — the
 merge, the boundary struck off it and the layers cut from those — and the town stood up, with its three
@@ -219,22 +225,22 @@ graphs. It is a cold open in a fresh process and never
 a benchmark loop: every stage here keeps its answer, so a second run of any of it measures the cache.
 
 `--lamps` cuts the town's lamp sheet out of the fleet's own pictures — every lens a variant draws, in
-each colour it can burn, the texels its zone map paints as the lens or, for a look with none, the lens's
+each colour it can burn, the texels its zone map paints as the lens or, where it paints none, the lens's
 rectangle, driven emissive (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.webp`.
-It is a **workshop step and never a build one**: run it when a variant's art or its lens rectangles
-change, and commit the picture. `--proof FILE.gif` (or `qq proof`) is the look at what came of it: the
-fleet's looks — the told ones under `--fleet`, cut afresh — side by side through every lamp state and
-then wrecked, drawn from the very instances a town's frame is built from. The line it prints per lens is the instrument for the one thing the
-arithmetic cannot answer — a rectangle over bodywork nobody painted a lamp on cuts the paint around it
-and comes back undistinguished.
+It is a **workshop step and never a build one**: run it when a variant's art or its lenses change, and commit
+the picture. The line it prints per lens is the instrument for the one thing the arithmetic cannot answer — a
+rectangle over bodywork nobody painted a lamp on cuts the paint around it and comes back undistinguished.
+`--proof FILE.gif` (or `qq proof`) is the look at what came of it: the fleet's looks — the told ones under
+`--fleet`, cut afresh — side by side through every lamp state and then wrecked, drawn from the very instances a
+town's frame is built from; `--no-glow` draws the lit lenses alone, without the light round them.
 
 **Two maps are laid in code. What each is is [citygen](src/citygen/docs/requirements.md#the-maps)**; what
 follows is only which command reads it.
 
 | Map | Is | Read by |
 |---|---|---|
-| `Idle` | one loop of road and nothing else — a square with rounded corners, an armoured car between two police running it one way and a sports car the other — the picture the game idles on, and what a run that names no map opens over | `--map Idle` |
-| `Exam` | the scenario map, above — the one laboratory map that ships; the others went with the lane layer they were laid against ([known gaps](docs/index.md#known-gaps)) | `--map Exam`, `--bench exam`, `qq tests exam` |
+| `Idle` | one loop of road and nothing else — a square with rounded corners, the fleet's heaviest look between two police running it one way and a sports car the other — the picture the game idles on, and what a run that names no map opens over | `--map Idle` |
+| `Exam` | the scenario map, above — the one laboratory map that ships ([known gaps](docs/index.md#known-gaps)) | `--map Exam`, `--bench exam`, `qq tests exam` |
 
 **Every other map is its own file, `towns/<Map>.map`, and a town is laid off it when it is opened**
 ([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from), `GEN-58`): what the map fixes — its water, its
@@ -269,7 +275,7 @@ metre over 10 × 24 km, its roads running off at the map's edge — with its bui
 measure there. The prefabs are `assets/world/building/prefabs/`, each with its look, corner radius, tags and a line of
 what its roof shows, drawn as plain blocks of their look's colour until their art is; `--bench fit` says how the walk
 was built, look by look, and `--bench zones` how close the zones build the town to the place's own buildings, kind by
-kind and square by square. **It is laid from `towns/OdesaOsm.map` and nothing else**: one binary file of 0.4 MB,
+kind and square by square. **It is laid from `towns/OdesaOsm.map` and nothing else**: one binary file of 0.3 MB,
 read and surveyed in some 40 ms, holding only what lays the place — each road's line, class, level, OSM's lane counts
 and its width as measured, the coast, and its zones — so a road's lanes are all one width, what it was measured wider than them is a roadside
 of parked cars' width behind a solid line, it has as many lanes as its width holds where OSM only assumes a count, a
@@ -286,7 +292,7 @@ other parted — and wrote each street back as a road laid exactly as it says, s
 `qq osm --zones` lays its zones again off the layers — every car park on the ground a zone of its own, as OSM
 outlines it — and writes the place's buildings beside them for `--bench zones`, `qq osm --parking` lays every car
 park's aisles into the map as a mall's are, joined to the streets round it, for the town to rank bays down both kerbs
-of (GEN-53a), and `qq osm --upgrade` rewrites a map of the previous version;
+of (GEN-53a);
 a second import replaces it and every edit made since, and is refused unless `--force`. What was crawled is kept as
 it came and never edited: `towns/traced/OdesaOsm/source/` holds every source's answer, `towns/traced/OdesaOsm.json`
 is the survey the scanner (`src/tools/osmscan/`, run by `qq osm`) writes off OSM with each way's lanes and where a
@@ -393,8 +399,8 @@ src/        every line of C#, and nothing else — the nine slices below
   core/     the kernel: config, geometry, simulation — and nothing that knows about a town
   citygen/  the city plan as pure data: its structure, its cell vocabulary, map/ — the file a town is
             laid off — zones/ — what lays it — gen/ — a brief's wheel — and traced/ — a real place's roads
-  world/    terrain, road, foot, routing, physics, containment, statics, parking, town
-  agents/   car, person, ambulance, service, evacuator, trafficlight — body / control, and the errands
+  world/    terrain, road, foot, routing, physics, containment, statics, parking, rail, town
+  agents/   car, person, ambulance, service, evacuator, trafficlight, train — body / control, and the errands
             the legs of a trip are run for
   runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders — and web/ and android/, the
             other heads' halves

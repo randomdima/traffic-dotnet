@@ -6,7 +6,7 @@ using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Foot;
 using Xunit;
 
-namespace TrafficSimulation.Tests.World;
+namespace TrafficSimulation.Tests.World.Foot;
 
 /// <summary>
 /// The junction each end of a town's zebras is cut into the walk as, and the paint between them (WLK-15,

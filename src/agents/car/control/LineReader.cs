@@ -26,7 +26,7 @@ internal static class LineReader
     /// <remarks>
     /// <b>Never onto a lane the line lays none of</b>: a leg that stops at the very first metre of its last lane — a
     /// place drawn at a node, a turn-in that begins where the lane does — ends where that lane begins, and a car handed
-    /// over onto it there was a line laid again at its own stop, past it by its own nose, and sent round.
+    /// over onto it there would be a line laid again at its own stop, past it by its own nose, and sent round.
     /// </remarks>
     /// <param name="readM">
     /// Where the world read the car along this very line (<c>LineFollowed</c>), which is the projection's own answer to the

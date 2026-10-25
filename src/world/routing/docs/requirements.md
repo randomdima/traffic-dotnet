@@ -36,7 +36,7 @@ the map, shared by every agent of its kind, laid with the town and never touched
   route may move across, and the car does it wherever it gets the room before the junction its own lane does not
   go the route's way at.
 
-The price of the first rule is real and accepted: **a route can no longer turn round at a bend.** A
+The price of the first rule is real and accepted: **a route cannot turn round at a bend.** A
 two-road junction ends no link, so the way back is taken at a junction with a choice at it, or at a dead
 end.
 
@@ -94,7 +94,7 @@ cells the link search may enter — never which link a route takes.
 **A route is found a section at a time.** The cells the trip crosses are searched first, over the cells'
 own graph; then the links of the first few of them in detail, inside a window of those cells and every cell
 one way on from them. The route is handed over as far as the first link into the cell past the section, and
-the rest is asked for again from there — exactly as a route that ran out of room always was. What one plan
+the rest is asked for again from there — exactly as a route that runs out of room is. What one plan
 costs is then the window, whatever the length of the trip; a flood over the whole graph costs every link
 cheaper than its answer, which is half a town.
 

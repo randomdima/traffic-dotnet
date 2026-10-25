@@ -179,7 +179,7 @@ public class TownMapTests
     [Fact]
     public void ARoadPastTheCropKeepsOnePointBeyondIt()
     {
-        // The crop's frame runs 200..700 m east of the old corner.
+        // The crop's frame runs 200..700 m east of the uncropped map's corner.
         var map = Map(
             [new(20, 400), new(100, 400), new(300, 400), new(500, 400), new(800, 400), new(950, 400), new(900, 700), new(950, 700)],
             Road(1, 0, 1, 2, 3, 4, 5), Road(2, 6, 7));

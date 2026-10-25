@@ -53,8 +53,8 @@ internal readonly record struct CarPose
 
     /// <summary>
     /// The way the car is pointing, taken once when the pose is read off the body. Five places in a
-    /// driver's tick want it and each used to work it out again, which is a sine and a cosine apiece on
-    /// the hottest path this engine has.
+    /// driver's tick want it, and working it out in each is a sine and a cosine apiece on the hottest
+    /// path this engine has.
     /// </summary>
     /// <remarks>
     /// Derived at construction, so a <c>with</c> expression that changed the heading would carry the old

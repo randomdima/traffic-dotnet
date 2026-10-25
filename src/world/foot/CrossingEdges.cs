@@ -36,7 +36,7 @@ internal sealed class CrossingEdges
     /// The foot graph does not carry the plan's crossing index: a crossing there is a kind of edge and
     /// nothing else, which is what makes crossing at a crossing structural rather than looked-up.
     /// </remarks>
-    /// <param name="level">The level of the grid the crossings are filed at to be found (SIM-8): asked of every crossing, each edge was the town's crossings times its crossing edges.</param>
+    /// <param name="level">The level of the grid the crossings are filed at to be found (SIM-8): asked of every crossing, each edge would be the town's crossings times its crossing edges.</param>
     public static CrossingEdges Of(Crossings crossings, FootGraph foot, GridLevel level)
     {
         var of = new int[foot.EdgeCount];

@@ -47,7 +47,7 @@ internal static class ShowroomPlan
 
     /// <summary>
     /// How many bays a rank holds, end to end from the node at the middle of its side to the corner: the hundred-car
-    /// fleet plan with the legacy and service looks beside it fits.
+    /// fleet plan with the service looks beside it fits.
     /// </summary>
     const int BaysARank = 16;
 

@@ -9,8 +9,8 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// </summary>
 /// <remarks>
 /// <b>Nothing reads a car's doing off its line, its pass or its manoeuvre</b>: those are what its action holds, and
-/// the action is what says which of them is in force. Two readings of one car were how a car waiting for its
-/// manoeuvre was once answered as a plan down its line and drove it.
+/// the action is what says which of them is in force. Two readings of one car would answer a car waiting for its
+/// manoeuvre as a plan down its line, and it would drive it.
 /// </remarks>
 internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
 {

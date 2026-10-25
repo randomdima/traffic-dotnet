@@ -58,8 +58,8 @@ internal sealed class LegProgress(int actors)
         }
 
         // <b>Nearer by less than that leaves the mark where it is</b>, so what a body closes a little at a time adds
-        // up to a new mark. Moved to every small gain, the mark was a decision behind the body, and at a decision a
-        // tenth of a second a body had to cover its own width in one to be getting anywhere at all.
+        // up to a new mark. Moved to every small gain, the mark would be a decision behind the body, and at a decision a
+        // tenth of a second a body would have to cover its own width in one to be getting anywhere at all.
         _sinceS[actor] += sinceLastDecisionS;
     }
 

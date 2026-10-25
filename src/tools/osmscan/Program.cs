@@ -20,7 +20,6 @@ internal static class Program
                osm-scan stumps [--map OdesaOsm] [--dry]
                osm-scan zone-ways [--map OdesaOsm] [--dry]
                osm-scan zones [--map OdesaOsm]
-               osm-scan upgrade [--map OdesaOsm]
                osm-scan rails --run-off M [--map OdesaOsm]
                osm-scan population [--people N] [--cars N] [--map OdesaOsm]
                osm-scan meta-draw OUT.png --at LAT,LON [--span 400] [--map OdesaOsm]
@@ -43,7 +42,6 @@ internal static class Program
                 "stumps" => Stumps.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--dry")),
                 "zone-ways" => ZoneWays.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--dry")),
                 "zones" => Zoning.Run(root, Option(args, "--map") ?? "OdesaOsm"),
-                "upgrade" => Upgrade.Run(root, Option(args, "--map") ?? "OdesaOsm"),
                 "rails" when Option(args, "--run-off") is { } runOff => Rails.Run(
                     root, Option(args, "--map") ?? "OdesaOsm", float.Parse(runOff, System.Globalization.CultureInfo.InvariantCulture)),
                 "population" => Population.Run(root, Option(args, "--map") ?? "OdesaOsm", Count(args, "--people"), Count(args, "--cars")),

@@ -9,8 +9,8 @@ namespace TrafficSimulation.CityGen;
 /// <remarks>
 /// <para>
 /// <b>A building is sized by the roof it will wear</b>, so the sizes are the art's and the placement is the
-/// plan's. Authored as a band of its own instead, the plan would state a size the catalogue then answered
-/// with the nearest thing it had — two answers about one rectangle, kept in step by hand.
+/// plan's. Authored as a band of its own instead, the plan would state a size the catalogue then answers
+/// with the nearest thing it has — two answers about one rectangle, kept in step by hand.
 /// </para>
 /// <para>
 /// <b>It is data crossing a seam and not a type</b> ([the slice map](../../docs/slice-map.md)). The

@@ -63,7 +63,7 @@ public class WalkerFollowerTests
     }
 
     /// <summary>
-    /// <b>The walk that used to circle its aim</b>: a body facing away from a point beside it, which at its pace
+    /// <b>A walk that could circle its aim</b>: a body facing away from a point beside it, which at its pace
     /// and turn rate cannot be reached by turning while walking. It turns, walks, and stands on it.
     /// </summary>
     /// <remarks>

@@ -5,9 +5,9 @@ Rewrite the relative links between documents that a move has broken.
 their whole implementation (`_relink.py`), so the report is exactly this run without the write.
 It edits .md files in place across the tree; the way back is git.
 
-Named off the reporting tool's prefix on purpose. An allowlist rule is a prefix match, so a
-`qq relink-docs-apply` would have been pre-approved by any rule covering `qq relink-docs` — the
-writing half of a split pair must not be reachable through the reading half's permission.
+Named off the reporting tool's prefix on purpose. An allowlist rule is a prefix match, so a name
+that extended `relink-docs` would be pre-approved by any rule covering it — the writing half of a
+split pair must not be reachable through the reading half's permission.
 
 It only ever replaces a link it resolved to a single file, by longest unique path suffix. A link
 that already resolves is left alone, so this is safe to re-run, and anything ambiguous or

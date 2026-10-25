@@ -61,7 +61,7 @@ internal sealed class PersonCatalog
 
     /// <summary>
     /// <b>How many looks a town's walkers are drawn from</b>, which is the ordinary ones and not
-    /// everything here: handing the seventeenth pedestrian a paramedic's jacket would put a crew on the
+    /// everything here: handing an ordinary pedestrian a paramedic's jacket would put a crew on the
     /// pavement (SRV-3a).
     /// </summary>
     public int Count { get; }

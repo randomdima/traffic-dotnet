@@ -432,8 +432,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>
     /// <b>The stack below the caller written over before a collection</b>: a page's runtime reads its stack conservatively,
     /// so a table a returned call last pointed at is kept for as long as nothing writes over the slot — and the
-    /// collector's own frames leave most of them as they were. On a traced city that was the gigabyte of atlas a device
-    /// world had just been laid off (root decision-log.md, 2026-10-15).
+    /// collector's own frames leave most of them as they were. On a traced city that is the gigabyte of atlas a device
+    /// world has just been laid off (root decision-log.md, 2026-10-15).
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     static int ClearTheStack()

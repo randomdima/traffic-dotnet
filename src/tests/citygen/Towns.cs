@@ -257,18 +257,10 @@ internal static class Towns
         return maps;
     }
 
-    /// <summary>The city alone, without the fixture: what a question about a whole town is asked of.</summary>
-    public static TheoryData<string> EveryCity()
-    {
-        var maps = new TheoryData<string>();
-        maps.Add(City);
-        return maps;
-    }
-
     /// <summary>
-    /// <b>Every town the suite owns</b> — the fixture, the crossings map, the seven laboratories and the
-    /// city this class lays — which is the set the shallow bar is a question about. A generated city is left
-    /// out: it is content, and its bar is <see cref="Tier.Maps"/>'.
+    /// <b>The city this class lays and every shipped map laid in code</b> (<see cref="TrafficSimulation.CityGen.Exam.ExamPlan"/>), which is the
+    /// set the shallow bar is a question about. A map file is left out, the fixture's included: it is content,
+    /// and its bar is <see cref="Tier.Maps"/>'.
     /// </summary>
     public static TheoryData<string> EveryLaidMap()
     {
@@ -336,7 +328,7 @@ internal static class Towns
     /// <summary>
     /// <b>The towns a gate is re-taken on</b>: the suite's own two. A gate is a question about the engine
     /// and a town is only the load it is put under, so what it wants is the worst load this build can stand
-    /// up — which, with the laboratories parked, is the city this class lays.
+    /// up — which is the city this class lays.
     /// </summary>
     public static TheoryData<string> EveryMapWorthAGate()
     {
@@ -383,33 +375,6 @@ internal static class Towns
     [
         ("outline", water.Outline), ("shore", water.Shore),
     ];
-
-    /// <summary>
-    /// <b>The walker standing nearest a carriageway</b>, or −1 — who a staged casualty is made of.
-    /// <see cref="Bench.RescueProbe"/>'s own choice, for its own reason: a service vehicle arrives along the
-    /// road, so somebody knocked down in the middle of a park is a call nothing can be got to (AMB-9).
-    /// </summary>
-    public static int NearestWalkerToARoad(TownWorld world)
-    {
-        var best = -1;
-        var bestM = float.PositiveInfinity;
-        for (var person = 0; person < world.People.Count; person++)
-        {
-            if (world.People.Inside[person].Any || world.People.Wounded[person]) continue;
-
-            var positionM = world.People.PositionM[person];
-            var lane = world.Roads.NearestLane(positionM, out var alongM);
-            if (lane < 0) continue;
-
-            var offM = (Spline.SampleAt(world.Roads.ArcsOf(lane), alongM).PositionM - positionM).Length();
-            if (offM >= bestM) continue;
-
-            best = person;
-            bestM = offM;
-        }
-
-        return best;
-    }
 
     /// <summary>
     /// The fixture map with a different number of buildings on it, for the questions a roster drawn over

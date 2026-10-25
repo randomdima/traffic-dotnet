@@ -630,74 +630,7 @@ public class GroundMeshTests
         Assert.Equal(owed, laid);
     }
 
-    /// <summary>
-    /// Whether the ground at a place was painted rather than drawn as itself — the ground alone, since
-    /// the marks laid over it are paint by definition. The last piece laid over a place is the one that
-    /// shows, so it is the last that answers.
-    /// </summary>
-    static bool PaintedGround(GroundMesh mesh, Vector2 pointM)
-    {
-        var vertices = mesh.Vertices;
-        var painted = false;
-        for (var index = 0; index + 2 < mesh.Indices.Length; index += 3)
-        {
-            var first = (int)mesh.Indices[index];
-            if (first >= mesh.FirstMarkVertex) break;
-
-            Vector2[] triangle =
-            [
-                vertices[first].PositionM, vertices[(int)mesh.Indices[index + 1]].PositionM,
-                vertices[(int)mesh.Indices[index + 2]].PositionM,
-            ];
-
-            if (Covered([triangle], pointM)) painted = vertices[first].Tint.X > 1f;
-        }
-
-        return painted;
-    }
-
     /// <summary>Every triangle of one surface, as three corners each.</summary>
-    /// <summary>
-    /// <b>The surface the last triangle covering a point wears</b>, which is the one that shows (TER-7b) —
-    /// and <c>null</c> where nothing covers it. A layer drawn over another still holds the triangles of the
-    /// one beneath, so asking whether <em>any</em> triangle of a surface covers a place answers a question
-    /// about the mesh rather than about the picture.
-    /// </summary>
-    static Surface? Topmost(GroundMesh mesh, Vector2 pointM)
-    {
-        var vertices = mesh.Vertices;
-        Surface? showing = null;
-        for (var index = 0; index + 2 < mesh.Indices.Length; index += 3)
-        {
-            var first = (int)mesh.Indices[index];
-            if (Covers(
-                    vertices[first].PositionM, vertices[(int)mesh.Indices[index + 1]].PositionM,
-                    vertices[(int)mesh.Indices[index + 2]].PositionM, pointM))
-            {
-                showing = vertices[first].Surface;
-            }
-        }
-
-        return showing;
-    }
-
-    static bool Covers(Vector2 aM, Vector2 bM, Vector2 cM, Vector2 pointM)
-    {
-        var left = true;
-        var right = true;
-        Span<Vector2> corners = [aM, bM, cM];
-        for (var corner = 0; corner < 3; corner++)
-        {
-            var edge = corners[(corner + 1) % 3] - corners[corner];
-            var reach = pointM - corners[corner];
-            var turn = (edge.X * reach.Y) - (edge.Y * reach.X);
-            left &= turn >= 0f;
-            right &= turn <= 0f;
-        }
-
-        return left || right;
-    }
-
     static List<Vector2[]> Triangles(GroundMesh mesh, Surface surface)
     {
         var vertices = mesh.Vertices;
@@ -748,7 +681,7 @@ public class GroundMeshTests
 
     /// <summary>
     /// Where each painted mark stands: one point per quad of four corners, from the vertex the mesh
-    /// says its marks begin at — the kerb line is paint too, so brightness alone no longer says what
+    /// says its marks begin at — the kerb line is paint too, so brightness alone does not say what
     /// was painted <em>on</em> the carriageway rather than <em>at the edge of</em> it.
     /// </summary>
     /// <remarks>

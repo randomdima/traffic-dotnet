@@ -78,8 +78,7 @@ from common import cli, paths, proc
 #: Build, a city's lay (most of a minute), warmup, the sample window at its ceiling, and the fold.
 TIMEOUT_S = 900
 
-NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
-RUN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+RUN =re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 FOCUS = re.compile(r"^[A-Za-z0-9_.:+`<>]{2,80}$")
 METHOD = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_+]*::)?[A-Za-z_][A-Za-z0-9_]*$")
 ENGINE = "traffic-dotnet.csproj"
@@ -150,7 +149,7 @@ def parse_args():
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--map", type=map_name, default="Odesa", help="the map to open")
+    parser.add_argument("--map", type=_sim.map_name, default="Odesa", help="the map to open")
     parser.add_argument("--seconds", type=window, default=60, metavar="INT",
                         help=f"sampled seconds after the loop starts (1..{MAX_SECONDS})")
     parser.add_argument("--warmup", type=cli.counting, default=3, metavar="INT",
@@ -200,7 +199,7 @@ def parse_args():
                              "(cycles,instructions,L1-dcache-load-misses,cache-misses), and report the second per the "
                              "first and every further one per thousand of the second, by method")
     parser.add_argument("--no-build", action="store_true", help="run the Release binary as it stands")
-    parser.add_argument("--bench", type=map_name, default=None, metavar="NAME",
+    parser.add_argument("--bench", type=_sim.map_name, default=None, metavar="NAME",
                         help="profile this headless probe for the map, launch to exit (age: the tick of a "
                              "town to its sixth minute; load: its opening) rather than a window's running "
                              "loop; --seconds, --warmup and --fullscreen are not read")
@@ -230,12 +229,6 @@ def parse_args():
     if a.bench and (a.managed_world or a.frame or a.counters):
         parser.error("--managed-world, --frame and --counters are a window's: --bench deviceworld is the device world's probe")
     return a
-
-
-def map_name(value: str) -> str:
-    if not NAME.match(value):
-        raise argparse.ArgumentTypeError(f"{value!r} is not a map name")
-    return value
 
 
 def focus_name(value: str) -> str:

@@ -101,8 +101,8 @@ a shape cut wrong therefore draws exactly like one cut right, until something el
 with it.
 
 **OBS-2v** `P8` **The ground is a stack of layers, and each layer is a switch and a reading.** Every layer
-the mesh is laid in — the grass, the walk and its kerb, the water, the decks, the carriageway, the slabs,
-the town's kerb and the paint — can be taken out of the picture on its own, and each says what it came to:
+the mesh is laid in (`GroundPart`) — the grass, the railway's track, the walk and its kerb, the water, the decks,
+the carriageway, the slabs, the town's kerb, the paint, the rails and the bridges over other roads — can be taken out of the picture on its own, and each says what it came to:
 the triangles it is, the corners it brought that no earlier layer had already stood at, and how long it took
 to cut. Under them the same for the whole mesh, and how much of that time went on the boundary every layer
 is struck off rather than on any layer of it.

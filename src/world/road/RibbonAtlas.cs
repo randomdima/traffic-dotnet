@@ -67,8 +67,8 @@ internal interface IRibbonLines
 /// holds one entry per way over each of its covered points, in row order, then column, then way, with where
 /// each point's entries begin. A body's shape is a cell or two of a few rows each, so a lookup reads the
 /// entries of the points inside it and no others, <b>all in memory the cell holds together</b> — the town's
-/// rows run kilometres, and a body read off a row at a time was a search of each of them and a fetch from
-/// wherever it landed. An entry is eight bytes — how far outside its band it stands, the metre along the way
+/// rows run kilometres, and a body read off a row at a time is a search of each of them and a fetch from
+/// wherever it lands. An entry is eight bytes — how far outside its band it stands, the metre along the way
 /// to a tenth, and the way — and every point of a kept cell has a start of two more, which is what the
 /// town's memory is quoted at.
 /// </para>
@@ -670,11 +670,11 @@ internal sealed partial class RibbonAtlas
     /// <remarks>
     /// <para>
     /// <b>A method of its own so that what filing works in is gone when it returns</b>: held through the marks' own
-    /// working set (<see cref="RibbonMarks"/>), it was the whole of an open's peak on a traced city.
+    /// working set (<see cref="RibbonMarks"/>), it is the whole of an open's peak on a traced city.
     /// </para>
     /// <para>
     /// <b>Every way's points are found once to count each cell's and again to file them</b>: kept from the one to the
-    /// other, they were the entries' size over again at the open's peak — a gigabyte on a traced city.
+    /// other, they are the entries' size over again at the open's peak — a gigabyte on a traced city.
     /// </para>
     /// </remarks>
     static RibbonAtlas Filed(
@@ -914,7 +914,7 @@ internal sealed partial class RibbonAtlas
         if (inOrder) return sorted;
 
         // Sorted by place alone, a key a sample, and of a place's readings the one that keeps is chosen below: through a
-        // comparison of the whole reading the sort was a twentieth of a page's open.
+        // comparison of the whole reading the sort is a twentieth of a page's open.
         places.Clear();
         foreach (var sample in sorted) places.Add(PlaceOf(sample));
         var keys = CollectionsMarshal.AsSpan(places);

@@ -83,8 +83,8 @@ public class ATownThatMovesTests(ATownThatMovesTests.AMinuteOn run) : IClassFixt
     }
 
     /// <summary>
-    /// <b>And what stands over nothing is inert rather than broken.</b> The bays and the people are coming
-    /// back, and a brief that plans no buildings has no car park either — so their slices are kept standing
+    /// <b>And what stands over nothing is inert rather than broken.</b> A brief that plans no buildings has
+    /// no car park and nobody living in it — so the bays' and the people's slices are kept standing
     /// over a town with none of their subject on it, which is a state nothing exercises unless it is
     /// exercised on purpose.
     /// </summary>

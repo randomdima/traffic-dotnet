@@ -50,8 +50,8 @@ public class InterfaceClickTests
         ui.Click(atPx, Window, primary: true, hasTown, NorthUp(), out _);
 
     /// <summary>
-    /// <b>The button that opens a popup shuts it.</b> A gear that only ever opened was a gear somebody
-    /// pressed twice and then went looking for a close button.
+    /// <b>The button that opens a popup shuts it.</b> A gear that only ever opens is one somebody presses
+    /// twice and then goes looking for a close button.
     /// </summary>
     [Fact]
     public void TheGearOpensAndShutsTheMenu()
@@ -146,8 +146,8 @@ public class InterfaceClickTests
 
     /// <summary>
     /// <b>And the map it opens is laid out of it.</b> Picking a map moves nothing the layout was keyed on —
-    /// same window, same button — so the panel kept the narrow centred rectangles it was laid with and the
-    /// gear's popup was the start menu for the rest of the run.
+    /// same window, same button — so a panel keyed on those alone keeps the narrow centred rectangles it was
+    /// laid with, and the gear's popup is the start menu for the rest of the run.
     /// </summary>
     [Fact]
     public void AMapPickedLeavesThePopupAndNotTheStartMenu()

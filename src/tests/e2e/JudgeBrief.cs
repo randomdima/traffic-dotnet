@@ -11,7 +11,7 @@ namespace TrafficSimulation.Tests.E2E;
 /// <para>
 /// <b>The traps are the load-bearing half.</b> A reviewer who assumes the road conventions of
 /// somewhere else reports a stop bar that covers one lane as a fault, and a corner that carries no
-/// lights as a missing signal. Each line below was a wrong verdict before it was a rule.
+/// lights as a missing signal. Each line below answers a wrong verdict a reviewer reaches without it.
 /// </para>
 /// <para>
 /// The reference frame is handed over as a reference and never as a gate: it is the same scenario as
@@ -108,8 +108,8 @@ internal static class JudgeBrief
         return brief.ToString();
     }
 
-    /// <summary>How to judge, and the doctrine a reviewer would otherwise invent. Each trap was a wrong
-    /// verdict somebody reached before it was written down.</summary>
+    /// <summary>How to judge, and the doctrine a reviewer would otherwise invent. Each trap is a wrong
+    /// verdict a reviewer reaches without it.</summary>
     const string Rules = """
         ## How to judge
 

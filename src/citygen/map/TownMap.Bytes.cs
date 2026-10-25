@@ -17,12 +17,12 @@ internal sealed partial record TownMap
         {
             var bytes = new Bytes(file);
             if (bytes.UInt32() != Magic) throw new InvalidDataException($"{what}: not a map.");
-            if (bytes.UInt16() is var version && version is < OldestRead or > Version)
+            if (bytes.UInt16() is var version && version != Version)
             {
-                throw new InvalidDataException($"{what}: a map of version {version}, and this build reads {OldestRead} to {Version} — `qq osm --upgrade` rewrites a traced one.");
+                throw new InvalidDataException($"{what}: a map of version {version}, and this build reads {Version}.");
             }
 
-            map = ReadBody(ref bytes, version);
+            map = ReadBody(ref bytes);
             if (bytes.Left != 0) throw new InvalidDataException($"{what}: {bytes.Left} bytes past the end of the map.");
         }
         catch (Exception cut) when (cut is ArgumentOutOfRangeException or IndexOutOfRangeException)
@@ -43,9 +43,9 @@ internal sealed partial record TownMap
         try
         {
             var bytes = new Bytes(head);
-            if (bytes.UInt32() != Magic || bytes.UInt16() is < OldestRead or > Version)
+            if (bytes.UInt32() != Magic || bytes.UInt16() != Version)
             {
-                throw new InvalidDataException($"{what}: not a map of versions {OldestRead} to {Version}.");
+                throw new InvalidDataException($"{what}: not a map of version {Version}.");
             }
 
             return (bytes.String(), bytes.String());
@@ -64,7 +64,7 @@ internal sealed partial record TownMap
         return Read(bytes.ToArray(), Name);
     }
 
-    static TownMap ReadBody(ref Bytes bytes, ushort version)
+    static TownMap ReadBody(ref Bytes bytes)
     {
         var (name, description, licence, osmBase) = (bytes.String(), bytes.String(), bytes.String(), bytes.String());
         var seed = bytes.Varint();
@@ -91,7 +91,7 @@ internal sealed partial record TownMap
         for (var road = 0; road < roads.Length; road++)
         {
             id += bytes.Signed64();
-            roads[road] = ReadRoad(ref bytes, id, classes, version > OldestRead, ref last);
+            roads[road] = ReadRoad(ref bytes, id, classes, ref last);
         }
 
         var coast = new int[bytes.Count()][];
@@ -102,15 +102,15 @@ internal sealed partial record TownMap
             Name = name, Description = description, Licence = licence, OsmBase = osmBase, Seed = seed, Frame = frame,
             PointM = pointM, Roads = roads, Coast = coast, Waters = ReadWaters(ref bytes), Courses = ReadCourses(ref bytes), Buildings = ReadStood(ref bytes),
             Props = ReadProps(ref bytes), Lots = ReadLots(ref bytes), Zones = ReadZones(ref bytes),
-            Rails = version >= RailsFrom ? ReadRails(ref bytes) : RailArrays.None,
+            Rails = ReadRails(ref bytes),
         };
     }
 
-    static TracedRoad ReadRoad(ref Bytes bytes, long id, string[] classes, bool moreFlags, ref int last)
+    static TracedRoad ReadRoad(ref Bytes bytes, long id, string[] classes, ref int last)
     {
         var highway = classes[bytes.Count()];
         var flags = bytes.Byte();
-        var more = moreFlags ? bytes.Byte() : 0;
+        var more = bytes.Byte();
         var lanes = bytes.Byte();
         var offsetShare = (flags & RoadFlags.Offset) != 0 ? bytes.Signed() / (float)OffsetSteps : 0f;
         float? widthM = (flags & RoadFlags.Width) != 0 ? bytes.Count() / (float)StepsPerM : null;
@@ -560,14 +560,14 @@ internal sealed partial record TownMap
         public const int SharedShift = 6;
     }
 
-    /// <summary>A road's second byte, from version 8 (<see cref="TracedRoad.Mended"/>).</summary>
+    /// <summary>A road's second flags byte (<see cref="TracedRoad.Mended"/>).</summary>
     static class RoadMoreFlags
     {
         public const int Mended = 1;
         public const int RoadsideAlong = 2;
         public const int RoadsideAgainst = 4;
 
-        /// <summary><see cref="TracedRoad.Aisle"/>: a bit no map before it sets, so a map of the same version reads it.</summary>
+        /// <summary><see cref="TracedRoad.Aisle"/>.</summary>
         public const int Aisle = 8;
     }
 

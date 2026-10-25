@@ -252,7 +252,7 @@ internal sealed class AppWindow : IDisposable
 
     /// <summary>
     /// Waits out a change of window state, which the desktop answers with an event rather than on the
-    /// spot: the size read before that answer arrives is still the size the window used to be.
+    /// spot: the size read before that answer arrives is the size from before the change.
     /// </summary>
     static void Settle(IWindow window, Vector2D<int> was)
     {

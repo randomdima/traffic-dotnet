@@ -37,9 +37,9 @@ internal enum WayKind : byte
 /// <para>
 /// <b>There is no second network.</b> A footway is not carriageway, but that is a difference in the ground
 /// and not in the arrangement: they are all runs of arclength somebody travels down, told apart by
-/// <see cref="KindOf"/>. Held as two tables instead, one piece of the world had two records that nothing
-/// could compare — and a walker was granted ground a car was standing on because the two claims were counted
-/// in different metres.
+/// <see cref="KindOf"/>. Held as two tables instead, one piece of the world has two records that nothing
+/// can compare — and a walker is granted ground a car is standing on because the two claims are counted in
+/// different metres.
 /// </para>
 /// <para>
 /// <b>The blocks are in this order and the order is load-bearing</b>: the carriageway's lanes are numbered
@@ -133,9 +133,6 @@ internal sealed class TownWays
 
     /// <summary>Whether this way is walked: a footway or a mitre.</summary>
     public bool IsWalked(int way) => way >= _firstFootway && way < _firstRail;
-
-    /// <summary>How many rail lanes there are, the last block.</summary>
-    public int RailCount => _lengthM.Length - _firstRail;
 
     /// <summary>A carriageway lane's own way number. The lanes are numbered first, so the two are one integer.</summary>
     public int OfRoadLane(int lane) => lane;

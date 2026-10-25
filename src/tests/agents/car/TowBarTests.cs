@@ -3,7 +3,7 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using Xunit;
 
-namespace TrafficSimulation.Tests.Agents.Evacuator;
+namespace TrafficSimulation.Tests.Agents.Car;
 
 /// <summary>
 /// <b>EVA-5's arithmetic, judged without a body</b>: where the coupling is anchored, and

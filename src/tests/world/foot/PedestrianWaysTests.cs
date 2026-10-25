@@ -5,7 +5,7 @@ using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Foot;
 using Xunit;
 
-namespace TrafficSimulation.Tests.World;
+namespace TrafficSimulation.Tests.World.Foot;
 
 /// <summary>
 /// The lines laid between the points the pedestrian nodes hand their ways over at (WLK-11). Where those

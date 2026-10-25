@@ -6,7 +6,7 @@ using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 using Xunit;
 
-namespace TrafficSimulation.Tests.World;
+namespace TrafficSimulation.Tests.World.Foot;
 
 /// <summary>
 /// Where the pedestrian nodes stand, which of them are one place, and the six points each of them hands its

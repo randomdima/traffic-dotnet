@@ -251,9 +251,9 @@ internal static class Spline
     }
 
     /// <summary>
-    /// The same line walked the other way: the pieces come out back to front, each starting where it used
-    /// to end and pointing the way it used to come from, and <b>bending the other way</b> — a bend that
-    /// was a right-hander is a left-hander to whoever meets it.
+    /// The same line walked the other way: the pieces come out back to front, each starting where its source
+    /// ends and pointing the way that one comes from, and <b>bending the other way</b> — a right-hander one
+    /// way is a left-hander to whoever meets it from the other.
     /// </summary>
     public static void ReverseInto(ReadOnlySpan<ArcSeg> arcs, Span<ArcSeg> into)
     {

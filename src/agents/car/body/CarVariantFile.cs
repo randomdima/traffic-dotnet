@@ -87,9 +87,9 @@ internal sealed class HandlingFile
 /// it covers, in the body's own metres. <see cref="CarLens"/> is what the model reads.
 /// </summary>
 /// <remarks>
-/// <c>fitting</c> is one of <c>rear</c>, <c>indicator</c>, <c>beaconRed</c> and <c>beaconBlue</c>; a
-/// beacon end names the colour its art draws at rest, because that is the colour it goes back to when
-/// the priority is given up.
+/// <c>fitting</c> is one of <c>head</c>, <c>brake</c>, <c>reverse</c>, <c>rear</c> (a one-lens cluster burning
+/// both), <c>indicator</c>, <c>beaconRed</c>, <c>beaconBlue</c> and <c>beaconAmber</c>; a beacon end names the
+/// colour its glass is, which is the colour it burns (CAR-14.4).
 /// </remarks>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed class LampFile

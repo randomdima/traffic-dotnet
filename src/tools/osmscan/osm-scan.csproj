@@ -32,6 +32,7 @@
     <Compile Include="../../citygen/map/TownMap.Zones.cs" Link="Shared/TownMap.Zones.cs" />
     <Compile Include="../../citygen/zones/ZoneKind.cs" Link="Shared/ZoneKind.cs" />
     <Compile Include="../../citygen/zones/ZoneParam.cs" Link="Shared/ZoneParam.cs" />
+    <Compile Include="../../core/geometry/Blend.cs" Link="Shared/Blend.cs" />
   </ItemGroup>
 
   <ItemGroup>

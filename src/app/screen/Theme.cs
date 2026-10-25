@@ -98,13 +98,9 @@ internal static class Theme
         new(0.95f, 0.50f, 0.42f, 0.95f),
     ];
 
-    public static readonly Vector4 DrivingNodes = new(1f, 0.55f, 0.15f, 0.95f);
-
     /// <summary>
-    /// Ground of the driving network a car covers <em>backwards</em> — at present the way out of a bay,
-    /// which is the town's one reversing movement (GEN-4f). <b>A shade of the driving colour and not a
-    /// colour of its own</b>: it is a way like any other, and all the shade adds is which end of the car
-    /// leads down it.
+    /// A piece of a bay manoeuvre a car drives <em>backwards</em> (GEN-4f), drawn in place of the car's own
+    /// <see cref="AgentLine"/>: which end of the car leads down it is all the colour adds.
     /// </summary>
     public static readonly Vector4 DrivingReverse = new(1f, 0.83f, 0.45f, 0.95f);
 

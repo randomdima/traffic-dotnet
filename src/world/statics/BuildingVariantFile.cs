@@ -46,7 +46,7 @@ internal sealed class BuildingVariantFile
     /// <summary>
     /// <b>The rectangles this roof is actually built of</b> (OBJ-5a) — one for a plain block, several for
     /// anything with a wing, a courtyard or a cut corner. A variant that names none is collided as the
-    /// whole of its footprint, which is what every building was before the parts existed.
+    /// whole of its footprint.
     /// </summary>
     public BuildingPartFile[] PartsM { get; init; } = [];
 

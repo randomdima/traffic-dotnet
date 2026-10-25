@@ -240,7 +240,7 @@ internal sealed partial class TownWorld
     /// <b>Two stages and one method</b>, because the difference between them is one question asked of the
     /// pose — standing where the arm can be worked, or not yet — and every guard above that question is the
     /// same on either side of it. Split in two, the bound, the wreck's own validity and the re-lay would
-    /// each have had to be written twice and would have drifted apart.
+    /// each be written twice and drift apart.
     /// </remarks>
     void RunToTheWreck(int car, float sinceLastDecisionS)
     {

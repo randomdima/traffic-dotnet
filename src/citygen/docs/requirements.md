@@ -110,8 +110,7 @@ cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a s
   park's aisles, a yard's, a market's), `qq osm --parking` lays every car park its zones outline again as the engine
   lays one (GEN-53a) — run after `--mend` and again after `--zones`, since a car park's outline is a zone —
   `qq osm --zones` lays its zones again off the layers, each car park on the ground its own zone as OSM outlines it, a
-  crop's frame and who it stands kept, and
-  `qq osm --upgrade` rewrites a map of the previous version as this one — and never to what was crawled: every source's
+  crop's frame and who it stands kept — and never to what was crawled: every source's
   answer stays in `towns/traced/<Map>/source/` exactly as it came, and the survey and the enrichment's layers beside
   it. An import over a map that is there replaces it and every edit made since, so it is refused unless forced.
 - **What OSM had wrong about the place when it was imported is put right in the survey** (`Corrections`,

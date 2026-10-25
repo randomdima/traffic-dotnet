@@ -7,7 +7,7 @@ namespace TrafficSimulation.World.Road;
 /// </summary>
 /// <remarks>
 /// It exists so that a caller walks <em>connectors</em> and never a lane paired with an index into it. The
-/// pair was two numbers that had to be carried together to mean anything, and every reader of one held the
+/// pair is two numbers that must be carried together to mean anything, and every reader of one holds the
 /// other; the id alone answers which lane it leaves, which it arrives on, what turn it is and what ground it
 /// takes off the rest.
 /// </remarks>

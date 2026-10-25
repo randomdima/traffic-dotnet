@@ -11,8 +11,8 @@ namespace TrafficSimulation.Tests.CityGen;
 /// (<see cref="Core.Geometry.ChainIndex"/>). A town is laid once and handed to every case that asks for it
 /// (<see cref="Towns.Of"/>), and the scratch a query uses is the index's own — so two classes are two xUnit
 /// collections, they run at once, and the two of them read each other's candidate sets. <b>What comes back
-/// then is a perfectly well-formed wrong answer</b>: the boundary of a city came back with two hundred runs
-/// open in one run out of several, and closed in the next.
+/// then is a perfectly well-formed wrong answer</b>: the boundary of a city with two hundred runs open in
+/// one run out of several, and closed in the next.
 /// </para>
 /// <para>
 /// <b>The membership test is whether the class asks a town for a geometry index</b> — the merge of the

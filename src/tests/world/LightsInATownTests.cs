@@ -25,8 +25,8 @@ public class LightsInATownTests
     /// </summary>
     /// <remarks>
     /// <b>What it guards is a plan answered at the bar and laid a hair past it.</b> A metre carried to the line and
-    /// back came home past where it was refused, and the hair it took off the light was the whole of the light's
-    /// hold: the plan was then answered again against a road with no light on it, and drove the red at speed.
+    /// back that comes home past where it was refused takes a hair off the light, and that hair is the whole of the
+    /// light's hold: the plan is answered again against a road with no light on it, and drives the red at speed.
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]

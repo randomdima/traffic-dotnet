@@ -54,10 +54,7 @@ internal readonly record struct RailVehicleSeen(Vector2 PositionM, Vector2 Forwa
 /// −1 for the branch to the left of the one the next switch ahead is set for, +1 for the one to its right, nought for
 /// neither: a step taken once as it is first asked, and not again until it has been let go (TRN-11).
 /// </param>
-internal readonly record struct TrainControls(float Pull, bool Reverse, bool Brake, int Branch = 0)
-{
-    public static TrainControls Coasting => default;
-}
+internal readonly record struct TrainControls(float Pull, bool Reverse, bool Brake, int Branch = 0);
 
 /// <summary>
 /// <b>The town's trains</b> (TRN-3…12): each one's pool of vehicles, its wait off the map, the leg it runs across it, and

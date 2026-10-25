@@ -29,7 +29,7 @@ namespace TrafficSimulation.CityGen.Map;
 /// <para>
 /// <b>Read in one pass over bytes already in memory</b> (<see cref="Read(ReadOnlySpan{byte}, string)"/>). A road's,
 /// the coast's and the water's places are whole millimetres — <b>not centimetres</b>: rounded to them, OdesaOsm's walk
-/// no longer closes round two of its junctions — what is set down whole centimetres, and a zone's outline whole metres,
+/// does not close round two of its junctions — what is set down whole centimetres, and a zone's outline whole metres,
 /// x east and y south off the frame's north-west corner, each written as its step from the place before. Counts,
 /// indices and ids are 7-bit varints, a signed one zigzagged; a zone's setting is a whole number of its own step
 /// (<see cref="ZoneParams.StepOf"/>); anything else little-endian, as <see cref="BinaryWriter"/> writes. The name and
@@ -41,19 +41,11 @@ internal sealed partial record TownMap
     /// <summary>"TMAP", first in the file.</summary>
     const uint Magic = 0x50414D54;
 
-    /// <summary>Bumped whenever what is written changes, so a file of the old shape is refused rather than misread.</summary>
-    /// <remarks>
-    /// <b>8 adds a road's second flags byte</b> (whether it is mended, and its roadsides, <see cref="TracedRoad.Mended"/>);
-    /// a file of <see cref="OldestRead"/> is read as one whose roads hold none, which is what it is. <b>9 adds the
-    /// tracks</b> (<see cref="Rails"/>), after the zones; a file older than that holds none.
-    /// </remarks>
+    /// <summary>
+    /// Bumped whenever what is written changes, so a file of another shape is refused rather than misread. Only this
+    /// version is read.
+    /// </summary>
     public const ushort Version = 9;
-
-    /// <summary>The first version that holds the tracks.</summary>
-    const ushort RailsFrom = 9;
-
-    /// <summary>The oldest version read: 7, whose roads carry no second flags byte.</summary>
-    const ushort OldestRead = 7;
 
     /// <summary>A line's places, in steps a metre: millimetres.</summary>
     const double StepsPerM = 1000.0;

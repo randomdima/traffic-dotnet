@@ -404,8 +404,7 @@ internal sealed class FootMovements
 
         // <b>The biarc and not the turn on a named circle</b> (<see cref="Spline.StraightArcStraightInto"/>),
         // which lays its straights along the two pose lines and so runs out to wherever those lines happen to
-        // cross: tried here, the turns at nearly parallel poses reached 1 782 m and the pivots it was meant
-        // to remove stayed at every one of the 81 it started with.
+        // cross, which at nearly parallel poses is over a kilometre out, and it removes none of the pivots.
         var drawn = new ArcSeg[MostArcsInACorner];
         var laid = Spline.CorneredInto(fromM, leavesRad, ontoM, arrivesRad, tightestM, drawn);
         if (laid == 0) return Step(fromM, ontoM);

@@ -20,7 +20,7 @@ internal static partial class ShellFill
     /// <b>The ear test is asked of the corners near the ear and not of all of them</b>
     /// (<see cref="IsEarNear"/>). Whether a corner is an ear is whether any reflex corner stands inside it,
     /// which is a question about the ring's own neighbourhood; asked of every corner of a town's boundary it
-    /// is the square of forty thousand, and a city's ground went from a load to a lunch break. The corners
+    /// is the square of forty thousand, and a city's ground a lunch break rather than a load. The corners
     /// are strung a second time along a Z-order curve, which brings a place's neighbours within reach of it
     /// in one dimension, and the scan stops at the ear's own bounding box.
     /// </para>

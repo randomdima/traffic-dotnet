@@ -14,29 +14,28 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// a row</b>, and the grid is fixed rather than packed: a lens's cell is <see cref="CellOf"/>, which both the renderer
 /// and the bake work out from what they already hold. Nothing is written down beside the picture, so nothing beside
 /// the picture can disagree with it. Only a one-lens rear cluster burns two lights, and a look has at most
-/// <see cref="SecondLights"/> of them: a second column for every lens left two thirds of every sheet clear, which is
-/// the room the cell grew into.
+/// <see cref="SecondLights"/> of them: a second column for every lens would leave two thirds of every sheet clear,
+/// and that room goes to a larger cell instead.
 /// </para>
 /// <para>
 /// <b>Only the lit states are here.</b> An unlit lens is the section of bodywork the artist drew, already
-/// in the car's own sprite and already on screen — drawing a second copy of it over the first is what
-/// made the old shared strip read as a sticker, since the two pictures agreed about neither the pixel
-/// grid nor the bezel.
+/// in the car's own sprite and already on screen — a second copy of it drawn over the first reads as a
+/// sticker, since the two pictures agree about neither the pixel grid nor the bezel.
 /// </para>
 /// </remarks>
 internal static class LampAtlas
 {
     /// <summary>
     /// What every car sprite in the fleet is drawn at, and the resolution a lamp is therefore cut and
-    /// drawn at. It is the fleet's own figure rather than a choice made here — <c>CarArtTests</c> holds
+    /// drawn at. It is the fleet's own figure rather than a choice made here — <c>LampAtlasTests</c> holds
     /// the sprites to it — and it is why a cut lamp lands on the texel grid the body is drawn on.
     /// </summary>
     public const float ArtPxPerM = 96f;
 
     /// <summary>
     /// The side of one cell, in texels of that art. Wide enough for the longest lens the fleet draws — the police
-    /// van's big bar's ends, 54 texels, and rear clusters of 41 to 44 that a 40-texel cell cut short — since a cell
-    /// is square and every lamp quad is one cell.
+    /// van's big bar's ends, 54 texels, and rear clusters of 41 to 44 — since a cell is square and every lamp quad is
+    /// one cell.
     /// </summary>
     public const int CellPx = 56;
 
@@ -139,7 +138,7 @@ internal static class LampAtlas
 
     /// <summary>
     /// How many cells a fitting owns. Only a one-lens rear cluster burns two lights, red braking and pale reversing;
-    /// every other lamp burns the colour its glass is, and leaves its second column empty.
+    /// every other lamp burns the colour its glass is, in one cell.
     /// </summary>
     public static int StatesOf(CarLampFitting fitting) => fitting is CarLampFitting.Rear ? StatesPerLens : 1;
 

@@ -500,8 +500,8 @@ internal sealed partial class TownWorld
     /// or, for somebody on the pavement, the street beside the pavement it is on, or last stood on.
     /// </summary>
     /// <remarks>
-    /// <b>A box is road</b>: read as nowhere, a car stood down in the middle of a junction was never sent anywhere again,
-    /// and stood in it for the rest of the run with the junction queued round it.
+    /// <b>A box is road</b>: read as nowhere, a car stood down in the middle of a junction would never be sent anywhere
+    /// again, and would stand in it for the rest of the run with the junction queued round it.
     /// </remarks>
     RoadPlace RoadPlaceOf(ReadOnlySpan<WayCover> under, Vector2 atM, in FootPlace footPlace)
     {

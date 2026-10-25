@@ -9,7 +9,7 @@ namespace TrafficSimulation.Core.Simulation;
 /// <remarks>
 /// <para>
 /// <b>Because a page's runtime interprets the framework's</b>: the framework makes its sort helper over a pair of value
-/// types by reflection, so the ahead-of-time compiler never sees it, and on a traced city the interpreter running it was
+/// types by reflection, so the ahead-of-time compiler never sees it, and on a traced city the interpreter running it would be
 /// a seventh of a page's open (web log, 2026-10-15). A method of this assembly called with the caller's own types is
 /// compiled for them.
 /// </para>

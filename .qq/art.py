@@ -281,7 +281,7 @@ def dimensions(path: Path) -> tuple[int, int]:
 
 def rewrite(base: Path, sheets: list[Sheet], a) -> int:
     """
-    Every sheet down to its grid, down by `--scale` on top of that, and stored in `--format`. One
+    Every sheet down to its grid, and stored in `--format`. One
     pass: a sheet is decoded once and written once, and its old file is only unlinked after the new
     one is on disk.
     """

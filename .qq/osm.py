@@ -44,9 +44,7 @@ carriageway) and two carriageways drawn over each other are parted; and each str
 says, run on through the junctions it carries straight on through and thinned of points that add nothing to its line. A
 town laid off a mended map reads its lanes as they are; mending it again changes nothing. `--zones` is a third: every zone laid and measured again off the layers, inside the map's frame, so the crop, the dropped stumps and who the town stands stay — and the place's buildings written beside the
 layers for `--bench zones`, every car park on the ground a zone of its own as OSM outlines it. `--people N` and `--cars N` are a fourth: who the town stands when it is opened, one a door
-and one a lane, as many as fit (a count left out keeps the map's own; an import stands nobody). `--upgrade` rewrites a
-map of the previous version (`towns/traced/<Map>.map`, version 6) as this one at `towns/<Map>.map`, every edit kept and
-its zones laid off the layers. `--rails` is a fifth: the map's railway laid off the tracks layer's main lines (RAIL-2) —
+and one a lane, as many as fit (a count left out keeps the map's own; an import stands nobody). `--rails` is a fifth: the map's railway laid off the tracks layer's main lines (RAIL-2) —
 every route a train could run through the map from where it comes on to where it goes off, run on past both ends by the
 engine's own run-off (`RailFigures.RunOffM`), routes sharing a track one line — replacing whatever railway it held.
 
@@ -141,8 +139,6 @@ def main():
         argv += ["zone-ways", "--map", a.map] + (["--dry"] if a.dry else [])
     elif a.zones:
         argv += ["zones", "--map", a.map]
-    elif a.upgrade:
-        argv += ["upgrade", "--map", a.map]
     elif a.rails:
         argv += ["rails", "--map", a.map, "--run-off", str(run_off_m(base))]
     elif a.people is not None or a.cars is not None:
@@ -172,7 +168,7 @@ def parse_args():
         prog="qq osm",
         description="Take a city's roads and lanes off OpenStreetMap into a traced map's survey, enrich that survey "
                     "with every other layer known of the place (--meta), import the map the engine reads (--import), "
-                    "edit it (--crop, --drop-stumps, --drop-zone-ways, --mend, --parking, --zones, --people/--cars, --upgrade), "
+                    "edit it (--crop, --drop-stumps, --drop-zone-ways, --mend, --parking, --zones, --people/--cars), "
                     "or draw OSM's lanes over a shot of it.",
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -207,8 +203,6 @@ def parse_args():
                         help="lay every car park the zones outline as a mall's, its aisles joined to the streets, in place")
     parser.add_argument("--zones", action="store_true",
                         help="lay and measure the map's zones again off the layers, in place, and write the place's buildings for --bench zones")
-    parser.add_argument("--upgrade", action="store_true",
-                        help="rewrite a map of the previous version as this one, in place, every edit kept")
     parser.add_argument("--rails", action="store_true",
                         help="lay the map's railway off the tracks layer's main lines, in place, replacing what it held")
     parser.add_argument("--people", type=int, metavar="N",

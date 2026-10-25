@@ -174,8 +174,8 @@ public class CarCatalogTests
 
     /// <summary>
     /// SRV-4: <b>every shipped vehicle breaks, the evacuator included</b>. PHY-4b is a state the file format
-    /// still offers and nothing in this town wears — the recovery truck used to, and a truck that could not
-    /// be wrecked was the one vehicle in the town nothing could ever happen to.
+    /// offers and nothing in this town wears: a vehicle that cannot be wrecked is the one in the town nothing
+    /// could ever happen to.
     /// </summary>
     [Fact]
     public void NoShippedVariantIsUnbreakable()

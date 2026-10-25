@@ -155,17 +155,18 @@ drives to a free bay near a place drawn within reach of it and parks there. **On
 reach** there is no round to run, and every such car takes the lane it stands on and tours the lanes with no
 destination at all (`TownWorld.DriveTheEmptyMap`, `LaneTour`); **so does a car nobody owns that the town stood on a
 lane and not in a bay** — a traced map's own on a map with no roadside to park along (GEN-7) — which has no stand to run
-a round from. **The showroom's cars run none** (`ShowroomPlan`): it is where the art is looked at, so each stands where
-it was parked until a hand or an order drives it. **A bay here is a painted one or a gap at a kerb** (GEN-4n), whichever stands nearer the place drawn. Never onto a lane every way off which ends at a dead
-end, the map's edge or a turn no car makes (`RoadGraph.DrivesOn`), so a tour is never absorbed into one. Three things
-follow of the round:
+a round from. A tour never turns onto a lane every way off which ends at a dead end, the map's edge or a turn no car
+makes (`RoadGraph.DrivesOn`), so it is never absorbed into one. **The showroom's cars run none** (`ShowroomPlan`): it
+is where the art is looked at, so each stands where it was parked until a hand or an order drives it. **A bay here is
+a painted one or a gap at a kerb** (GEN-4n), whichever stands nearer the place drawn. Three things follow of the
+round:
 
 - **A car stood down anywhere but a bay sets off for one at once** — a leg given up in the street leaves a body
   standing in a lane, which is an obstruction and not a stand.
 - **The while is drawn each time the car parks** (`SimConfig.Driving.ParkedMinS`, `…MaxS`), so a car park stood
   full before the first tick does not empty in one, and most of a town's cars are parked at any moment.
 - **The place is drawn near the car** (`SimConfig.Driving.RoundReachM`): drawn anywhere in the town, every trip
-  crossed it down the same few arterials and locked their junctions.
+  would cross it down the same few arterials and lock their junctions.
 
 **CAR-3** `P4` Actions: set steering angle; select gear, forward or reverse; set longitudinal acceleration
 between the braking and drive bounds; handbrake.
@@ -258,8 +259,7 @@ up. **No town stands that car**: the one fleet laid on its figures is the crash 
 (`CarBuilds.OfTheNominalCar`), whose cars differ in drive layout and in nothing else.
 
 **CAR-11b** `P5` A space is painted for the nominal car with a margin either side, and a body longer or wider
-than that is one parked across the aisle behind it. **Whether a body fits is answerable and nothing asks
-it** (`ParkingRegistry.Takes`): no bay is refused a car for its size.
+than that is one parked across the aisle behind it. **No bay is refused a car for its size.**
 
 **CAR-12** `P4` A car's **tyres show past its bodywork, and only by a sliver**. Its track is read off the width
 of the panels over its axles — measured off its own picture, mirrors ignored, at the wider axle — with each wheel
@@ -278,8 +278,7 @@ picture is what says where the panels end, so a body stretched to another car's 
 mirrors and overhangs are all in the wrong place.
 
 **CAR-12b** `P3` A car is **collided as its bodywork's shape** — a rounded box (`collisionM`) centred in its
-footprint — and never as the footprint itself. **The picture comes first and the shape is read off it** (the
-owner, 2026-10-20): the generator draws the car from a description, and its length is the one figure the file
+footprint — and never as the footprint itself. **The picture comes first and the shape is read off it**: the generator draws the car from a description, and its length is the one figure the file
 gives the picture; the body's width, its corner radius, the footprint holding everything drawn and the track over
 its axles are measured off the drawing at that scale (`qq sprites cut`). A footprint is the rectangle the art is
 drawn into, and what stands off the panels — mirrors, tyres — may reach past the shape into it; collided at the
@@ -435,7 +434,7 @@ disagree with the car it is bolted to.
 draws every lens unlit where that kind of car has it, and the file's lens is read off the zone map — its centre
 and its box — so a lamp lights the panel the art drew a lens on and nothing arithmetic put somewhere near it.
 **Which texels a lens is, is its outline's to say**: each lens is cut off the sprite as a polygon on the rim the art
-drew (the owner, 2026-10-21), and the zone map is painted from those outlines, a texel carrying every glass that lies
+drew, and the zone map is painted from those outlines, a texel carrying every glass that lies
 over it, so a lens is the sprite's texels its zone covers — the shape and the place the art drew it, not the
 rectangle the file frames. **A lit lamp is those texels driven emissive**, at the resolution the sprite is drawn at, so
 it wears the bezel and the pixel grid the artist gave it; a look with no zone map lights its lens's whole rectangle.
@@ -478,7 +477,7 @@ ambulance not on a call and a police car on its beat (SRV-5) show nothing, and a
 road shows it for as long as it holds it. **A hand at the wheel runs it too** (CTL-5c), and that one is
 the picture alone. **The bar is never dark while it is on**, so a car everybody owes the road to is lit in
 every frame it is in: its two ends burn in turn, each blinking against its own dull glass, and **each burns
-the colour its glass is** — a red end red and a blue end blue, never the other's (the owner, 2026-10-22). A
+the colour its glass is** — a red end red and a blue end blue, never the other's. A
 bar of two colours burns red then blue — a police car's; a bar of one — an ambulance's blue, the amber a works
 vehicle carries (CAR-14.6) — burns one side then the other. **Every bar runs the one loop**, in step with every
 other (`LampFigures`). **A vehicle whose art draws a second bar enters it crossed**, so the colour burning
@@ -513,11 +512,10 @@ and nothing once it is on it.
 **CAR-14.8** `P6` The **headlamps are the car being driven**: they burn for as long as anything drives it (CAR-1,
 CTL-5c) — under way, held at a light, waiting at a bay — and are dark on a car parked or wrecked (CAR-14.5). **They
 are how a car that is going somewhere is told from one that is not** at a glance, so they say nothing else: not the
-hour, not the speed, and no main beam apart from the dipped one. **A lit headlamp glows as every lit lamp does** (the
-owner, 2026-10-22): the soft spill of its own lens's shape onto the body, and no beam on the road.
+hour, not the speed, and no main beam apart from the dipped one. **A lit headlamp glows as every lit lamp does**: the soft spill of its own lens's shape onto the body, and no beam on the road.
 
 **CAR-14.9** `P6` **The car picked out in the showroom puts its lamps through their states in turn** while nothing
-drives it (the owner, 2026-10-22): headlamps, reversing lamps, brake lamps, the left indicator, the right, then both
+drives it: headlamps, reversing lamps, brake lamps, the left indicator, the right, then both
 together as hazard lamps, each held `SimConfig.Lamps.ShowroomStepS`, and round again. It is where a look's lamps are
 reviewed without driving it, so it is the one exception to CAR-14.5, and the states are read off the town's clock —
 still nothing to set or clear. Driven by hand or by an order, it says what CAR-14.1–14.8 say.
@@ -539,7 +537,7 @@ out hanging until it is gone. **A trail is as unbroken as the car is fast**: a f
 time, so they lie no further apart along its way than a gap, each as thick as its share of the time — drawn between the
 points the track keeps, and none of them kept. **Like a lamp, the smoke stands nothing**: every puff is a fact of the
 car's way, its throttle, the wind and the clock. **It is drawn where the world is stepped on the device and nowhere
-else** (the owner, 2026-10-23), at the moment of the view the host shows, so its newest puff leaves the pipe where the
+else**, at the moment of the view the host shows, so its newest puff leaves the pipe where the
 car is drawn: the way it is laid along is the device's step's. Where a pipe is is the variant's file (`exhausts`, placed
 on the rear bumper by `qq exhausts`, since the art draws none from above); what it looks like is `SimConfig.Smoke`,
 the air `SimConfig.Wind`.

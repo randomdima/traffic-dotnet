@@ -23,12 +23,14 @@ namespace TrafficSimulation.App.Main;
 
 /// <summary>
 /// The way in, and nothing more: it parses the words, reads the figures once, and hands them to
-/// whichever of the four things was asked for.
+/// whichever thing was asked for.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The game itself is <see cref="Game"/></b>, which is the composition root — this only chooses
-/// between it, the offscreen shot, the dependency read-out and the checks. With no map named the game
+/// between it, the offscreen shot and sheet, a scripted drive, the checks, the dependency read-out and the
+/// workshop steps that write a file and exit (<c>--lamps</c>, <c>--proof</c>, <c>--author</c>, <c>--mend</c>,
+/// <c>--park</c>). With no map named the game
 /// opens on its start menu, over the idle ring and no city (GEN-1b).
 /// </para>
 /// <para>
@@ -578,8 +580,7 @@ internal static class Program
 
     /// <summary>
     /// "The steady state allocates nothing" as a number, because it is the claim that could quietly
-    /// break. No package is behind the figure any more — the solver is this project's own — which is
-    /// exactly why it is still printed: a rule nobody else maintains has to be measured by its own build.
+    /// break. The solver is this project's own, so a rule nobody else maintains has to be measured by its own build.
     /// </summary>
     /// <remarks>
     /// Two rows of src/bench/SolverProbe.cs's table, and the second is the one that matters: a world whose
@@ -636,14 +637,14 @@ internal static class Program
         return 0;
     }
 
+    /// <summary>How many of the largest car parks <see cref="Park"/> names, each a place to look at.</summary>
+    const int ParkedListed = 12;
+
     /// <summary>
     /// <b>A traced map's car parks laid out, in place</b> (GEN-53a, <c>--park NAME</c>, <c>qq osm --parking</c>): the aisles
     /// of every car park its zones outline laid into <c>towns/NAME.map</c> as roads of its own, joined to the streets
     /// round them (<see cref="CityGen.Traced.TracedCarParks"/>). Laying them again replaces them.
     /// </summary>
-    /// <summary>How many of the largest car parks <see cref="Park"/> names, each a place to look at.</summary>
-    const int ParkedListed = 12;
-
     static int Park(string name, SimConfig config)
     {
         var path = ProjectPaths.MapFile(name);
@@ -942,10 +943,15 @@ internal static class Program
                                                     "--turn DEGREES, " +
                                                     "--at X Y, --shot PATH, --sheet FILE.json|-, --caption, " +
                                                     "--title TEXT, --note TEXT, --ui LAYERS, --rule X1 Y1 X2 Y2, " +
+                                                    "--point X Y, --pick X Y, " +
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
-                                                    "--windowed, --display NAME|N, --managed-world,--seconds N, --validate, --check, " +
+                                                    "--windowed, --display NAME|N, --managed-world, --seconds N, --validate, " +
+                                                    "--check, --headless, " +
                                                     "--bench NAME|all, --lamps, --drive FILE|-, --live, " +
                                                     "--frames DIR, --frame-width PX, --out FILE.md, --author BRIEF|all, " +
+                                                    "--mend MAP, --park MAP, " +
+                                                    "--bot FILE, --bot-car N, --bot-eye PX, --bot-view METRES, " +
+                                                    "--bot-frames DIR, --bot-out FILE, --bot-waits, " +
                                                     "--fleet ID,ID,..., --proof FILE.gif, --no-glow");
                 }
             }

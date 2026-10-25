@@ -86,7 +86,7 @@ internal static partial class RibbonMarks
     /// <summary>Every piece of every way's line, swept to half that way's width.</summary>
     /// <remarks>
     /// Counted before they are laid, so the table is laid once at its size: a list grown to a traced city's million pieces
-    /// and copied out was three times the table at once.
+    /// and copied out is three times the table at once.
     /// </remarks>
     static RibbonPiece[] PiecesOf(IRibbonLines lines)
     {
@@ -435,7 +435,7 @@ internal static partial class RibbonMarks
     /// <summary>What every thread found, merged, and filed under both ways of every pair.</summary>
     /// <remarks>
     /// <b>Merged into the first thread's pairs rather than a fresh set, and filed into one table counted first</b>: a
-    /// set of every pair copied, and a list a way, were a traced city's marks twice over at once.
+    /// set of every pair copied, and a list a way, are a traced city's marks twice over at once.
     /// </remarks>
     static WayCrossings Filed(IRibbonLines lines, List<Pairing> pairings, float[] lengthM)
     {

@@ -8,7 +8,7 @@ namespace TrafficSimulation.Tools.OsmScan;
 /// road whose way the roads layer reads as a <c>zone_way</c> — a car park's aisle, a service way inside a yard, a garage
 /// block, a market or a cemetery — is dropped whole, but for one on a level above the ground. Such a way is how one place is got about, not a route through the
 /// town: drawn to the car park's own shape, it doubles back on itself tighter than a car steers, and a tour drawn down
-/// it is a car lost off its line. The ground of a car park is a zone of its own, which the engine does not lay yet.
+/// it is a car lost off its line. The ground of a car park is a zone of its own, and its aisles are the engine's (GEN-53a).
 /// Run by <c>qq osm --drop-zone-ways</c>; <c>--dry</c> says what it would drop and drops nothing. A street left ending
 /// where one was dropped is a stump for <see cref="Stumps"/>.
 /// </summary>

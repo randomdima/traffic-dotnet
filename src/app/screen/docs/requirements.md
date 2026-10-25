@@ -3,8 +3,8 @@
 The vocabulary a frame's overlay is written in: one quad, the glyphs, the colours and spacings, and the
 buffer text is built in. **It is the bottom of the shell and knows nothing** — not the town, not an
 agent, not the renderer that uploads what it produces. It is a slice of its own because the interface and
-the debug layers both write the same quads, and while the kit lived inside one of them the other had to
-reach across ([docs/slice-map.md](../../../../docs/slice-map.md)).
+the debug layers both write the same quads, and a kit inside one of them would have the other reach across
+([docs/slice-map.md](../../../../docs/slice-map.md)).
 
 ## What it is
 

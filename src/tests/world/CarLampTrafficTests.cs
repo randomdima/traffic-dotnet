@@ -13,10 +13,8 @@ namespace TrafficSimulation.Tests.World;
 /// only a standing world has — a car nobody has driven yet, and one a player has taken the wheel of.
 /// </summary>
 /// <remarks>
-/// <b>A minute of a city counting brake lamps used to be here and is not</b> (VER-12): what it asserted
-/// was <c>count &gt; 0</c> over driven traffic, which goes red the day a fixture is given room and says
-/// nothing about a rule. That both lamps follow the pedal and the line ahead is <c>CarLampTests</c>', from
-/// a command and a line, in microseconds.
+/// That both lamps follow the pedal and the line ahead is <c>CarLampTests</c>', from a command and a line,
+/// in microseconds.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P6)]

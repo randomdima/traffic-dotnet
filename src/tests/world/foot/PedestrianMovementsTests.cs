@@ -5,7 +5,7 @@ using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Foot;
 using Xunit;
 
-namespace TrafficSimulation.Tests.World;
+namespace TrafficSimulation.Tests.World.Foot;
 
 /// <summary>
 /// The turns a walk is taken through a place on (WLK-13). The lines between two places are

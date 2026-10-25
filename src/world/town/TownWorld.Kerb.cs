@@ -26,19 +26,13 @@ internal sealed partial class TownWorld
             _config.Road.KerbParkingLaneRunM, _config.KerbCurvatureMax);
 
     /// <summary>
-    /// <b>The nearest gap at a kerb within <paramref name="withinM"/> of a place, opened for a car</b> — or −1. Looked
-    /// for along the roadsides beside the place's lane and beside the lane back the other way, and where in a gap the car
-    /// would stand is as near the place as the gap lets it.
+    /// <b>The nearest gap at a kerb within <paramref name="withinM"/> of a place</b>, found and not opened
+    /// (<see cref="OpenTheKerb"/> opens it): its stretch, where along its roadside the car's middle would stand, and how
+    /// far that is from the place — the stretch −1 where there is none. Looked for along the roadsides beside the place's
+    /// lane and beside the lane back the other way, and where in a gap the car would stand is as near the place as the
+    /// gap lets it.
     /// </summary>
     /// <param name="car">The car that would stand there, whose length the gap must hold and whose own body is no objection.</param>
-    int KerbPlaceNear(in RoadPlace near, Vector2 ofM, float withinM, int car) =>
-        NearestKerbGap(near, ofM, withinM, car) is var gap && gap.Stretch >= 0 ? OpenTheKerb(gap.Stretch, gap.AtM, Cars.BuildOf(car)) : -1;
-
-    /// <summary>
-    /// <b>The nearest gap at a kerb within <paramref name="withinM"/> of a place</b> (<see cref="KerbPlaceNear"/>), found
-    /// and not opened: its stretch, where along its roadside the car's middle would stand, and how far that is from the
-    /// place — the stretch −1 where there is none.
-    /// </summary>
     (int Stretch, float AtM, float FarM) NearestKerbGap(in RoadPlace near, Vector2 ofM, float withinM, int car)
     {
         var best = (Stretch: -1, AtM: 0f, FarM: withinM);

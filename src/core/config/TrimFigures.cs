@@ -16,7 +16,7 @@ namespace TrafficSimulation.Core.Config;
 /// is the road: the coefficient between rubber and tarmac, and what each ground costs a wheel simply going
 /// round. Both are properties of a <em>surface</em>, true of every body standing on it. A steering lock, a
 /// centre of gravity, a mass, an engine — those belong to one car and are stated in that car's own file
-/// (<see cref="Agents.Car.Body.CarVariantFile"/>), where a fleet of nineteen bodies keeps nineteen answers.
+/// (<see cref="Agents.Car.Body.CarVariantFile"/>), where every body keeps its own answer.
 /// A dial over them is one figure pretending to speak for all of them.
 /// </para>
 /// <para>
@@ -55,8 +55,7 @@ internal sealed class TrimFigures
 
     /// <summary>
     /// One trim by its place in the panel. <b>Read and written in one place each</b>, so the row that is
-    /// drawn, the row that is dragged and the figure that moves cannot come apart — which is the mistake
-    /// the debug switches were written to stop making a second time.
+    /// drawn, the row that is dragged and the figure that moves cannot come apart.
     /// </summary>
     public float Of(int trim) => trim == 0 ? Friction : RollingResistance;
 

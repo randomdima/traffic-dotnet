@@ -27,7 +27,7 @@ namespace TrafficSimulation.World.Parking;
 /// <para>
 /// <b>The bays are indexed by where they stand</b> (<see cref="BaysNear"/>), because the question asked of
 /// them is a question about a place: the free bays near it, nearest first. Walked over every bay in the town
-/// it was a scan per ask.
+/// it would be a scan per ask.
 /// </para>
 /// <para>
 /// <b>The way in is the bay's, not the car's</b> (GEN-4e): an owner walking to their car (PER-29) is aimed at
@@ -261,13 +261,6 @@ internal sealed class ParkingRegistry
 
     /// <summary>Whether any street runs past this bay, which is the one question there is: the manoeuvre is the car's.</summary>
     public bool CanBeReached(int bay) => _streets.CanBeReached(bay);
-
-    /// <summary>
-    /// <b>Whether a body this size stands inside a bay at all</b> (CAR-11b). The spaces are one size,
-    /// painted for the nominal car with a margin either side, and a car longer than that is one parked
-    /// across the aisle behind it. <b>Nothing asks it</b>: no bay is refused a car for its size.
-    /// </summary>
-    public bool Takes(float lengthM, float widthM) => lengthM <= _spaceLengthM && widthM <= _spaceWidthM;
 
     /// <summary>
     /// <b>Whether a body standing here is in this bay</b> — the bay's own space, on the bay's own axes,

@@ -12,6 +12,7 @@ to read when the summary is not enough.
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import time
@@ -58,6 +59,17 @@ def root() -> Path:
     if not (ROOT / MARKER).is_file():
         fail(f"not the traffic-dotnet project: no {MARKER} in {paths.display(ROOT)}")
     return ROOT
+
+
+#: A map's or a probe's name as the engine is handed one: a word, so it cannot carry an argument of its own.
+MAP_NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+
+
+def map_name(value: str) -> str:
+    """An argparse `type` for a map or probe name (MAP_NAME)."""
+    if not MAP_NAME.match(value):
+        raise argparse.ArgumentTypeError(f"{value!r} is not a map name")
+    return value
 
 
 def rel(base: Path, path: Path) -> str:

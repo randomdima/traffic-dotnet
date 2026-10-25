@@ -11,21 +11,16 @@ generator just laid (`--bench shape`, `--bench joints`, `--bench close`, `--benc
 `--bench connectors`, src/bench/ConnectorShape.cs;
 `--bench outset`, src/bench/BoundaryProbe.cs), so there is one reader of a town and it is the one that
 made it. `--outset` is the one of them that *gates*: the boundary of a shape moved off itself is closed,
-so a run left open exits non-zero and prints the boundary and the candidates either side of the hole. This tool used to parse a baked `.town`
-file — a second reader of a format, kept in step with the first by hand — and no town is carried as a
-file any more.
+so a run left open exits non-zero and prints the boundary and the candidates either side of the hole.
 
 What a town *holds* rather than what shape it came out is `--bench census`, which stands the graphs up
 as well and costs seconds rather than the lay.
 """
 
 import argparse
-import re
 
 import _sim
 from common import cli
-
-NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 
 #: A city is most of a minute to lay, and `qq town` with no map lays every one of them.
 TIMEOUT_S = 600
@@ -90,7 +85,7 @@ def parse_args():
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("map", nargs="?", type=map_name,
+    parser.add_argument("map", nargs="?", type=_sim.map_name,
                         help="the map to report on, by name; every shipped map as one row each if omitted")
     parser.add_argument("--joints", action="store_true",
                         help="list every junction only two roads meet at, where it stands and what kept it")
@@ -108,12 +103,6 @@ def parse_args():
                         help="read every connector for winding, swinging out, running past its corner, bowing, "
                              "tightness and leaving its junction, and list the worst")
     return parser.parse_args()
-
-
-def map_name(value: str) -> str:
-    if not NAME.match(value):
-        raise argparse.ArgumentTypeError(f"{value!r} is not a map name")
-    return value
 
 
 if __name__ == "__main__":

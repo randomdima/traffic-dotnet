@@ -139,8 +139,7 @@ internal sealed class RoadFigures
     /// round rather than running off down the arm's centreline.
     /// </summary>
     /// <remarks>
-    /// <b>Its own figure and not <see cref="FootNodeBackM"/>.</b> The two were one while they happened to
-    /// agree, and they answer different questions: that one says where the corner of a street stands, and
+    /// <b>Its own figure and not <see cref="FootNodeBackM"/></b>, because they answer different questions: that one says where the corner of a street stands, and
     /// this says how far out of it a way is reached. Moving the node does not move the reach.
     /// </remarks>
     public float FootConnectorAlongM { get; init; } = 2.5f;
@@ -196,10 +195,9 @@ internal sealed class RoadFigures
     /// <b>Under half a lane, which is what keeps it a rounding rather than a rubbing out.</b> A feature
     /// narrower than twice the radius does not survive the roll: at this figure that is 2.8 m against a
     /// lane's <see cref="LaneWidthInCarWidths"/> of car (3.6 m), so no mouth a car is driven through is ever
-    /// closed over and no ribbon of tarmac is ever swallowed. <b>Raising it to 1.8 m was tried and is not
-    /// here</b>: twice that is a lane exactly, and what it cost Odesa was the tarmac — the kerb's own ring
-    /// closed over every carriageway in the town, and a quarter of the kerb ends the walk is cut at went
-    /// with it (510 crossings to 376). <b>And it is a radius and not a share of any distance</b>, so the
+    /// closed over and no ribbon of tarmac is ever swallowed. <b>1.8 m is too far</b>: twice that is a lane
+    /// exactly, and what it costs Odesa is the tarmac — the kerb's own ring closes over every carriageway in
+    /// the town, and a quarter of the kerb ends the walk is cut at go with it (510 crossings to 376). <b>And it is a radius and not a share of any distance</b>, so the
     /// boundary itself is rounded by it as much as the pavement's outer face is.
     /// </remarks>
     public float LineRoundedM { get; init; } = 1.4f;
@@ -334,12 +332,12 @@ internal sealed class RoadFigures
     /// is wider than the car in it.
     /// </summary>
     /// <remarks>
-    /// <b>It is the side and never the end</b>, and the two were one figure. A parallel bay is entered by
+    /// <b>It is the side and never the end.</b> A parallel bay is entered by
     /// reversing into it, so what sizes its length is a manoeuvre; nothing manoeuvres sideways, so read at
-    /// the same figure a space came out wider than the traffic lane its way is driven out of — and a way
+    /// the same figure a space comes out wider than the traffic lane its way is driven out of — and a way
     /// lays the ground its space is wide the whole distance the two run together, so every bay in the town
-    /// stood a lip of tarmac past the kerb it hangs off. Odesa drew four hundred and sixty-one steps of
-    /// perimeter onto that lip and a hundred and forty of them were shorter than a hand.
+    /// stands a lip of tarmac past the kerb it hangs off. Odesa draws four hundred and sixty-one steps of
+    /// perimeter onto that lip and a hundred and forty of them are shorter than a hand.
     /// </remarks>
     public float ParkingSpaceSideMarginInCarWidths { get; init; } = 0.25f;
 

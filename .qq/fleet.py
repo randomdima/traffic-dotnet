@@ -7,7 +7,7 @@ planned from (length and width without mirrors, overhangs from bumper to wheel c
 `scaffold` turns one batch's rows into `assets/agents/car/variants/<id>/<id>.json`. Its footprint, collision box and
 track are the plan's, and stand only until the car's picture is installed: what the generator drew is the car's
 geometry (the owner, 2026-10-20), and `qq sprites use` writes the measured figures over these. It lays no lamps:
-installing the car's zone map writes them. A car already on disk keeps its picture, what was measured off it and its
+`qq props install` writes them. A car already on disk keeps its picture, what was measured off it and its
 lamps; only what the plan authors (AUTHORED) is written over, so the plan stays the one source of those figures.
 
 `brief` writes the sheet's prompt, `.tmp/gen/briefs/<frame>.txt`, and the ids it draws in order,

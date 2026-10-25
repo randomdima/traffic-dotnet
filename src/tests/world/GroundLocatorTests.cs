@@ -10,10 +10,10 @@ using Xunit;
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
-/// TER-7's claim, asked of every shipped map: <b>the ground drawn and the ground answered for are one
-/// geometry</b>. Every assertion here is a shape read off the plan and asked of the locator — and asked
-/// <em>exactly</em>, with no allowance anywhere, because there is no longer a second representation for
-/// the answer to be off by half of.
+/// TER-7's claim, asked of every town the suite lays: <b>the ground drawn and the ground answered for are
+/// one geometry</b>. Every assertion here is a shape read off the plan and asked of the locator — and asked
+/// <em>exactly</em>, with no allowance anywhere, because there is no second representation for the answer
+/// to be off by half of.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P4)]
@@ -153,9 +153,8 @@ public class GroundLocatorTests
     }
 
     /// <summary>
-    /// <b>The claim the cells could not make.</b> A road's kerb is exactly where the road says it is: a
-    /// hair inside the half-width is carriageway, and a hair outside it is not — on the curve, where the
-    /// old classifier was allowed to be half a cell out and a corner fillet was the worst of it.
+    /// A road's kerb is exactly where the road says it is: a hair inside the half-width is carriageway, and
+    /// a hair outside it is not — on the curve too, where a classifier by cells would be half a cell out.
     /// </summary>
     /// <remarks>
     /// Only the stretches of road no other shape reaches are asked, because everything else is a shape

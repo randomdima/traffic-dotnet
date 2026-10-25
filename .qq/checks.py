@@ -8,9 +8,9 @@ managed→native crossings are flat in the size of the town, nothing ends up ins
 the solver's step stays inside its budget, no way's claims are laid twice or with a hole in one —
 so a plain run is what says a milestone still holds.
 
-The citations are the fifth thing nothing else can check: a doc comment naming a rule that has
-since been renumbered or retired compiles, passes and misleads. `qq doclint` is the whole report.
-The provenance is the sixth: every image under assets/ traces to the prompt that made it, or is on the
+The citations are what nothing else can check: a doc comment naming a rule that has been
+renumbered or retired compiles, passes and misleads. `qq doclint` is the whole report.
+The provenance is the other: every image under assets/ traces to the prompt that made it, or is on the
 legacy list (raw_assets/index.md). `qq sprites check` is the whole report.
 
 The probes are off by default because they are figures rather than gates, and they are always

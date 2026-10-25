@@ -60,23 +60,22 @@ A sprite traces through its `.src.json` to its variant, through `variants.jsonl`
    a strip's depth — the rest read off the drawing, a building's rectangles included. **The generator is never limited,
    the result may be corrected** (the owner, 2026-10-25): a drawing is cropped, sized and given a minor correction
    where it still looks right, and taken as drawn where a correction would show — most would. A frame without its ids
-   cannot be cut. Frames asked from a layout before 2026-10-25 are still cut by it, so a kept variant can be cut again.
+   cannot be cut; one whose record names a layout is cut off that layout, so every kept variant can be cut again.
 5. **Each kept variant gets its score when it is judged**, and the lesson of a set goes into its family's
    `prompting.md` in the same change, citing the variants it is drawn from. That file is read before the
    family's next brief is written.
-6. **A cut is reproducible**: the same frame and template give the same variant, and `qq sprites use`
+6. **A cut is reproducible**: the same frame and record give the same variant, and `qq sprites use`
    gives the same sprite from the same variant.
 7. **Every part an asset switches is in its picture, switched off.** A lamp, a beacon, anything the game
    later lights is drawn at rest — unlit glass, no glow, no light cast — where its variant file authors it, or for
    a car described in words where that kind of car has it, its file's lens then read off the zone map;
-   and which of its texels each part is, is the generator's too: the same frame repainted as a zone map, every part
-   one flat colour (kept as `<id>_zones`), and the active state is those texels lit, never painted over by hand
-   (CAR-14a). The brief names each part and where on the asset it is, never its shape — a lamp may be round,
+   and which of its texels each part is, is the lamp cut's: `qq props` cuts each lens off the picture and
+   `qq props install` paints the cut as the zone map (`<id>_zones`), and the active state is those texels lit, never
+   painted over by hand (CAR-14a). The brief names each part and where on the asset it is, never its shape — a lamp may be round,
    a strip, wrapped round a corner, whatever the asset wants; a drawing missing a part, or drawing one lit, is a
    failed cell. A part added to or moved in a file is had by asking for the asset again, never by painting it in.
 
-## Before these rules
+## The loose images
 
-The images directly in this folder (`Hospital.png`, `police.png`, …) are source art from before them;
-they trace to nothing and are left as they are until their assets are made again. Everything generated
-before 2026-10-18 was dropped.
+The three images directly in this folder trace to nothing: `doctor.png`, `policeman.png` and `repair man.png` are
+the sheets the paramedic, police and recovery walkers on `legacy.txt` were drawn from.

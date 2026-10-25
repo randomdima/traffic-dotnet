@@ -153,7 +153,7 @@ internal sealed class PersonFleet
     /// </summary>
     /// <remarks>
     /// <b>Worked out once a tick, where the body's place on its way is</b> (SIM-7): the projection that
-    /// answers *where along* answers *how far off* in the same breath, and asking it twice was two
+    /// answers *where along* answers *how far off* in the same breath, and asking it twice would be two
     /// answers about one body a tick apart.
     /// </remarks>
     public float[] OffWayM { get; }

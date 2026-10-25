@@ -180,7 +180,7 @@ public class StatusPanelTests(StandingTown town) : IClassFixture<StandingTown>
 
     /// <summary>
     /// <b>The panel takes every click that lands on it.</b> A read-out drawn over a car whose figures
-    /// could be clicked through was a read-out that selected that car, which is a selection nobody
+    /// could be clicked through is a read-out that selects that car, which is a selection nobody
     /// asked for and could not see themselves making.
     /// </summary>
     [Fact]
@@ -254,11 +254,9 @@ public class StatusPanelTests(StandingTown town) : IClassFixture<StandingTown>
         var quads = new OverlayQuad[TownRenderer.OverlayCapacity];
         var run = new RunState();
 
-        // Warm through first, so the measured passes run tier-1 code. Two was enough to compile the draw
-        // and not to promote it: a method crossing its call-count threshold inside the measured window
-        // charges the recompilation to this thread, and the test failed for the runtime rather than for the
-        // panel — at a pass that moved whenever anything upstream changed how often the draw had been
-        // called.
+        // Warm through first, so the measured passes run tier-1 code: a method crossing its call-count
+        // threshold inside the measured window charges the recompilation to this thread, and the test fails
+        // for the runtime rather than for the panel.
         for (var pass = 0; pass < 256; pass++) Fill(panel, world, quads, run, figures);
 
         var before = GC.GetAllocatedBytesForCurrentThread();

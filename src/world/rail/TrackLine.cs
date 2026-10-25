@@ -47,17 +47,6 @@ internal sealed class TrackLine
     /// <summary>The level the track stands at a distance along it: at grade, or on a bridge.</summary>
     public byte LevelAt(float alongM) => _level[ChordAt(alongM)];
 
-    /// <summary>Whether any of the track between two distances along it, in either order, stands on a bridge.</summary>
-    public bool BridgedBetween(float oneM, float otherM)
-    {
-        for (var chord = ChordAt(MathF.Min(oneM, otherM)); chord <= ChordAt(MathF.Max(oneM, otherM)); chord++)
-        {
-            if (_level[chord] != TownMap.RailArrays.AtGrade) return true;
-        }
-
-        return false;
-    }
-
     /// <summary>The way the track runs at a distance along it, from its first point toward its last.</summary>
     public Vector2 AlongAt(float alongM)
     {

@@ -20,7 +20,7 @@ public class LegPatienceInATownTests
 
     /// <summary>
     /// CAR-15a: <b>past its last reroute a leg gives its place up for another once, and past that it is over</b>. Given
-    /// up for the next free bay at every patience, a car stuck in a jam was aimed at bay after bay for the rest of the run.
+    /// up for the next free bay at every patience, a car stuck in a jam would be aimed at bay after bay for the rest of the run.
     /// </summary>
     [Fact]
     public void ALegThatCoversNoGroundIsGivenUp()

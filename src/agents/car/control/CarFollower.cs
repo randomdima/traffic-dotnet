@@ -513,7 +513,7 @@ internal static class CarFollower
     /// <para>
     /// <b>A pedal still on the throttle has that to come off first</b>, and the car goes on gaining speed while
     /// it does: a release taking <c>t = p / r</c> costs <c>t (1 + p / 2b)</c> of lead. Left out, a car pulling
-    /// away hard towards a red began braking a metre late and was committed past the bar.
+    /// away hard towards a red begins braking a metre late and is committed past the bar.
     /// </para>
     /// </remarks>
     /// <param name="throttleMps2">What the pedal is asking for now, throttle positive (<see cref="PedalMps2"/>).</param>
@@ -658,8 +658,8 @@ internal static class CarFollower
         // the town can see it coming. Left out of the planned speed, as the grant is, or the plan would shrink to
         // fit it and let it go. <b>Stopped a stand-off short of it and two leads ahead</b>: what is found standing just
         // past the end is met by the plan only once it has grown into it, cuts the grant a stand-off short of it, and
-        // is read a lead after the end itself was — bound at the bare end, a car cruising at its plan's reach was
-        // already committed past a light's hold by the turn that found it.
+        // is read a lead after the end itself was — bound at the bare end, a car cruising at its plan's reach would
+        // already be committed past a light's hold by the turn that found it.
         Bind(
             ref targetMps, ApproachMps(0f, context.HorizonM - config.Driving.StandOffM - (2f * leadM), brakingMps2),
             DrivingHold.Reach, ref hold);
@@ -788,8 +788,8 @@ internal static class CarFollower
     /// </summary>
     /// <remarks>
     /// <b>Past it the brake buys a slide and costs the corner</b>: the pedal stands well clear of the tyres, and a
-    /// car cornering at its share of grip that was let ask for the whole of it braked straight on out of the bend,
-    /// ran wide, wound the wheel on for the corner it had lost, and was braked harder for that. <b>The wheel's corner
+    /// car cornering at its share of grip let ask for the whole of it brakes straight on out of the bend, runs
+    /// wide, winds the wheel on for the corner it has lost, and is braked harder for that. <b>The wheel's corner
     /// and not the one the tyres are carrying</b>, because a sliding car carries less than it asks for and would read
     /// its own slide as room to brake. A hazard is not held to this (<see cref="IsAHazard"/>).
     /// </remarks>

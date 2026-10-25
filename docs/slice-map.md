@@ -76,7 +76,7 @@ There is no tool for it. The audit is one pass over the `using TrafficSimulation
 fully-qualified names, folded to slice level; a break shows up as an edge pointing up the table or as a
 pair pointing both ways. Run it when a slice gains a dependency, not on a schedule.
 
-**Two smells that are the same break wearing different clothes**, and both were found this way:
+**Two smells that are the same break wearing different clothes**:
 
 - **A fully-qualified name instead of a `using`.** `App.Screen.GlyphSheet.Resource` written out in full
   reads as a small convenience and hides an edge from every grep that looks at import lines.
@@ -108,5 +108,4 @@ other is the art:
 - **`World.Statics.ShippedArt.Sizes`** — a building is sized by the roof it will wear (`GEN-54`) and a prop by
   the look it will wear (`GEN-6e`), and both are read off the art by a slice above the plan. What crosses is the
   measurements (`CityGen.ArtSizes`: the roofs' `BuildingSizes` and the looks' `PropSizes`), handed to
-  `Maps.Plan` by whoever opens a map, so the generator never learns that a catalogue exists. A building's
-  stages are handed only the roofs' half.
+  `Maps.Plan` by whoever opens a map, so the generator never learns that a catalogue exists.

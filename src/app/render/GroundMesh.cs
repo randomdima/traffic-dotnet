@@ -121,9 +121,6 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
 
     const uint AcrossSteps = (1u << 9) - 1;
 
-    /// <summary>Whether the corner is on a strip laid along a line (<see cref="OnTheStrip"/>), which files no tint.</summary>
-    public bool OnAStrip => Surface is Surface.Track or Surface.Kerb or Surface.Edging;
-
     /// <summary>How far across its strip a strip's corner stands, from nought on the left of its line to one on the right.</summary>
     public float Across => ((Shade >> 18) & AcrossSteps) / (float)AcrossSteps;
 

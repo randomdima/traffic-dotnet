@@ -37,9 +37,8 @@ internal static class LampAtlasBake
     const float Contrast = 1.8f;
 
     /// <summary>
-    /// What a lit lens gains, as a share of full, on the strongest channel of every texel and the rest in step. At a
-    /// quarter an amber or clear lens the art paints near full came on barely brighter than it stood (the owner,
-    /// 2026-10-24: "more contrast").
+    /// What a lit lens gains, as a share of full, on the strongest channel of every texel and the rest in step: enough
+    /// that an amber or clear lens the art paints near full still comes on plainly brighter than it stands.
     /// </summary>
     public const float Brighten = 0.4f;
 
@@ -50,9 +49,9 @@ internal static class LampAtlasBake
     const float RecolourShare = 0.85f;
 
     /// <summary>
-    /// The least a lit texel burns, as a share of full on its glass's hue: a texel the art drew dark inside the lens (a
-    /// shade, a seam, a bezel the outline took in) stays as dark as drawn while the rest brightens, and reads as a black
-    /// hole in the lamp (the owner, 2026-10-23).
+    /// The least a lit texel burns, as a share of full on its glass's hue: unfloored, a texel the art drew dark inside the
+    /// lens (a shade, a seam, a bezel the outline took in) stays as dark as drawn while the rest brightens, and reads as a
+    /// black hole in the lamp.
     /// </summary>
     const float LitFloor = 0.7f;
 
@@ -66,8 +65,7 @@ internal static class LampAtlasBake
 
     /// <summary>
     /// What a beacon end gains and the least it burns, in place of <see cref="Brighten"/> and <see cref="LitFloor"/>: a
-    /// strobe is the brightest thing in the street, and a bar lit like a tail lamp read as one barely on (the owner,
-    /// 2026-10-23).
+    /// strobe is the brightest thing in the street, and a bar lit like a tail lamp reads as one barely on.
     /// </summary>
     const float BeaconBrighten = 0.6f;
 
@@ -75,8 +73,8 @@ internal static class LampAtlasBake
 
     /// <summary>
     /// How far a beacon end's deepest texel is taken towards white, falling off evenly to none at its rim. <b>The core
-    /// has to outshine its own spill</b>: a lens paler or duller than the glow laid round it at full read as a dull panel
-    /// in a lit field (the owner, 2026-10-23: "feels turned off"). The light's own colour at the rim and hot in the
+    /// has to outshine its own spill</b>: a lens paler or duller than the glow laid round it at full reads as a dull
+    /// panel in a lit field. The light's own colour at the rim and hot in the
     /// middle is how a strobe looks.
     /// </summary>
     const float BeaconHeat = 0.7f;
@@ -98,10 +96,10 @@ internal static class LampAtlasBake
 
     /// <summary>
     /// Whether a lens whose glass is painted <paramref name="glass"/> (its texels' mean) cannot burn
-    /// <paramref name="light"/> in its own colour. <b>A lamp keeps the colour its glass is</b> (the owner, 2026-10-22),
+    /// <paramref name="light"/> in its own colour. <b>A lamp keeps the colour its glass is</b> (CAR-14.4),
     /// but where the art has no glass of the light's colour — an indicator cut on a section painted red, a reversing
     /// lamp that is the red cluster itself, a clear lens that burns amber — the glass's colour would say the wrong
-    /// thing, and the lens takes the light's (the owner, 2026-10-23).
+    /// thing, and the lens takes the light's.
     /// </summary>
     static bool Recolours(Vector3 glass, Vector3 light)
     {
@@ -426,8 +424,7 @@ internal static class LampAtlasBake
     /// <summary>
     /// How far in from a zoned lens's rim it comes up to full strength. <b>The glow lies under the lens</b> and lifts the
     /// paint round it near to the light's own colour, while the art draws a lens's outermost texels darker as they meet
-    /// its frame: solid, they were a dark ring between the lens and its light (the owner, 2026-10-23). Faded, the
-    /// glow shows through them.
+    /// its frame: solid, they would be a dark ring between the lens and its light; faded, the glow shows through them.
     /// </summary>
     const float RimPx = 1.5f;
 

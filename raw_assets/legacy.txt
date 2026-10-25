@@ -1,4 +1,5 @@
-# Images under assets/ that trace to nothing: made before raw_assets/index.md, or by hand.
+# Images under assets/ that trace to no prompt: the walkers and the signal heads, drawn before raw_assets/index.md,
+# and the lamp sheet, baked by `--lamps` off the cars' zone maps.
 # An entry leaves when `qq sprites use` replaces its image or the image is deleted. Nothing is ever added.
 assets/agents/car/variants/common/lamp_atlas.webp
 assets/agents/person/variants/coat_brown/coat_brown.webp

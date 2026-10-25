@@ -32,6 +32,9 @@ them is on its types. The one thing stated here is how a sheet is stored.
   (`CameraView.PropCull`).
 - **The clouds are their shadows alone** (`OBJ-8`): one triangle over the target, drawn after the bodies on the level
   above and before the interface and the engine's annotations (`CloudShadows`).
+- **A fan turns over the picture that draws it** (`OBJ-6`, `TRN-13`): kept as its hub and rim and never as an instance
+  of its own (`FanTable`). **Smoke is puffs the device's emit draws alone** — a car's exhaust (`CAR-54`), a diesel's
+  stack (`TRN-15`), a roof's chimneys (`OBJ-7`): `SmokeSprites`, `ChimneySprites`.
 - **What reads the picture back** is [app/debug](../../debug/docs/requirements.md)'s wireframe and ground
   page (`OBS-2o`, `OBS-2v`); a picture with no window under it is [app/shot](../../shot/docs/requirements.md)'s
   (`SHT-1`).

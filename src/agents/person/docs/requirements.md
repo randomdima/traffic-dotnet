@@ -175,8 +175,8 @@ is not making its own next movement, on a stretch of pavement with a lane runnin
 **PER-9** `P5` Go around the city from building to building. Destinations are drawn from the **agent seed**,
 **near where the person stands**: a place drawn down the road from them, a lane and a turn at a time, within a
 trip's reach (`SimConfig.PersonTripReachM`), and a building whose street that lane is — so nothing is looked up
-while the town runs (the root decision log, 2026-10-13). Drawn anywhere in the town, every trip is driven across it
-down the same few arterials.
+while the town runs (the root decision log, 2026-10-13). Drawn anywhere in the town, every trip would be driven
+across it down the same few arterials.
 
 **And a person begins the round where they end one** — inside a building, dwelling (GEN-7). There is no
 first leg that is different from the rest: building, the place they were going, building.

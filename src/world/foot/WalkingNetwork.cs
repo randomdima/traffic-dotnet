@@ -23,7 +23,7 @@ namespace TrafficSimulation.World.Foot;
 /// </para>
 /// <para>
 /// <b>Every stretch of the fine graph is one lane, and its offset is nought</b> (WLK-1, WLK-8,
-/// <see cref="LaneOffsets"/>): the line the graph holds was struck at the lane's own distance by the move
+/// <see cref="LayLanes"/>): the line the graph holds was struck at the lane's own distance by the move
 /// that laid the town's pavement, so nothing is left here to move it by and nothing asks the ground about
 /// it.
 /// </para>
@@ -46,7 +46,6 @@ internal sealed class WalkingNetwork
     readonly FootGraph _foot;
     readonly int[] _linkOfEdge;
     readonly int[] _slotOfEdge;
-    readonly float[] _laneOffsetM;
     readonly Lanes _lanes;
     readonly Joins _joins;
 
@@ -55,7 +54,7 @@ internal sealed class WalkingNetwork
 
     WalkingNetwork(
         FootGraph foot, LanePlaces places, RunNetwork runs, RouteCells cells, int[] linkOfEdge, int[] slotOfEdge,
-        float[] laneOffsetM, Lanes lanes, Joins joins, float bothWaysWithinM)
+        Lanes lanes, Joins joins, float bothWaysWithinM)
     {
         _foot = foot;
         Places = places;
@@ -63,7 +62,6 @@ internal sealed class WalkingNetwork
         Cells = cells;
         _linkOfEdge = linkOfEdge;
         _slotOfEdge = slotOfEdge;
-        _laneOffsetM = laneOffsetM;
         _lanes = lanes;
         _joins = joins;
         _bothWaysWithinM = bothWaysWithinM;
@@ -154,14 +152,6 @@ internal sealed class WalkingNetwork
     public int TailOf(int edge) => _joins.TailSlot[edge];
 
     /// <summary>
-    /// <b>Nought, everywhere</b>: the fine graph's own line <em>is</em> the lane (WLK-1,
-    /// <see cref="PavementLanes"/>), struck by the one move that laid the town's pavement. Kept as a figure
-    /// rather than dropped because a crossing's lane will stand off its own band the same way a pavement's
-    /// no longer does.
-    /// </summary>
-    public float LaneOffsetM(int edge) => _laneOffsetM[edge];
-
-    /// <summary>
     /// <b>The line a walker going this way down this stretch is actually held on</b>: the stretch's own
     /// curve cut to the ground its mitres leave it, <b>with the corner off the end of it where that
     /// corner is not a choice</b> (<see cref="TailOf"/>).
@@ -169,8 +159,8 @@ internal sealed class WalkingNetwork
     /// <remarks>
     /// The graph's own chain is the lane before its corners are cut and carried, so a reader that took it
     /// would be drawing ground no walk covers at the two ends. Laid once with the town rather than into a
-    /// caller's span: every caller wanted the same line, and the span each brought had a bound on it past
-    /// which a long stretch came back empty.
+    /// caller's span: every caller wants the same line, and a caller's span has a bound on it past which a
+    /// long stretch comes back empty.
     /// </remarks>
     public ReadOnlySpan<ArcSeg> LaneOf(int edge) => _lanes.Of(edge);
 
@@ -604,12 +594,11 @@ internal sealed class WalkingNetwork
             }
         }
 
-        var laneOffsetM = LaneOffsets(foot);
-        var offset = LayLanes(foot, laneOffsetM);
-        var joins = LayJoins(foot, offset, laneOffsetM, config);
+        var offset = LayLanes(foot);
+        var joins = LayJoins(foot, offset, config);
         var lanes = Carrying(foot, offset, joins);
         return new WalkingNetwork(
-            foot, places, runs, RouteCells.Of(runs.Graph, config), linkOfEdge, slotOfEdge, laneOffsetM, lanes,
+            foot, places, runs, RouteCells.Of(runs.Graph, config), linkOfEdge, slotOfEdge, lanes,
             OnTheLanes(foot, joins, lanes), config.PavementWidthM);
     }
 
@@ -660,22 +649,17 @@ internal sealed class WalkingNetwork
     /// <summary>Every lane of the town, as the fine graph holds it, before any corner is folded into one.</summary>
     /// <remarks>
     /// <b>Taken and not struck</b> (WLK-1): the graph's edge is the lane, laid at its own distance off the
-    /// driven ground by the one move that cut the town's pavement against every piece of the town. What
-    /// stood here was a second offset, a stretch at a time, and a stretch moved by itself can weigh a corner
-    /// only against the pieces either side of it — so it left a hole on the outside of a hairpin and folded
-    /// through itself on the inside.
+    /// driven ground by the one move that cut the town's pavement against every piece of the town. A
+    /// second offset here, a stretch at a time, would weigh a corner only against the pieces either side of
+    /// it — leaving a hole on the outside of a hairpin and folding through itself on the inside.
     /// </remarks>
-    static Lanes LayLanes(FootGraph foot, float[] laneOffsetM)
+    static Lanes LayLanes(FootGraph foot)
     {
         var arcOffsets = new int[foot.EdgeCount + 1];
         var laid = new List<ArcSeg>(foot.EdgeCount * 4);
-        var room = new ArcSeg[64];
         for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
-            var stretch = foot.ArcsOf(edge);
-            if (room.Length < stretch.Length * 2) room = new ArcSeg[stretch.Length * 2];
-
-            laid.AddRange(room.AsSpan(0, ArcOutset.Beside(stretch, laneOffsetM[edge], room)));
+            laid.AddRange(foot.ArcsOf(edge));
             arcOffsets[edge + 1] = laid.Count;
         }
 
@@ -700,9 +684,9 @@ internal sealed class WalkingNetwork
     /// <remarks>
     /// <b>And the margins at either end come off the line rather than being remembered against it</b>: the
     /// corners at a stretch's two ends take their ground before the lane is stationed, so a lane that kept
-    /// its whole offset line ran a metre or two past the mitre at each end, into the node. That spur was
-    /// ground on a way — a body standing in the corner claimed it — and it was ground no walk
-    /// covers and no picture could show without drawing a line that ends in mid-pavement. Cut here, a lane
+    /// its whole offset line would run a metre or two past the mitre at each end, into the node. That spur
+    /// would be ground on a way — a body standing in the corner would claim it — and ground no walk covers
+    /// and no picture can show without drawing a line that ends in mid-pavement. Cut here, a lane
     /// is what is walked down it, the mitres meet it end to end, and the pavement reads as one line through
     /// every node. What is left over is the inside of the corner, which is ground on no way at all — the
     /// same answer the town already gives for a verge.
@@ -782,7 +766,7 @@ internal sealed class WalkingNetwork
     /// </summary>
     internal const float SamePlaceM = 0.01f;
 
-    static Joins LayJoins(FootGraph foot, Lanes offset, float[] laneOffsetM, SimConfig config)
+    static Joins LayJoins(FootGraph foot, Lanes offset, SimConfig config)
     {
         var drawn = new ArcSeg[2];
 
@@ -801,8 +785,8 @@ internal sealed class WalkingNetwork
 
         // What every corner at one end of a stretch gives up of it — one figure per end and not one per
         // turn, so a stretch hands over at a place and not at a place per way off it.
-        var takenAtTheStartM = Margins(foot, offset, laneOffsetM, config, leaving: false);
-        var takenAtTheEndM = Margins(foot, offset, laneOffsetM, config, leaving: true);
+        var takenAtTheStartM = Margins(foot, offset, config, leaving: false);
+        var takenAtTheEndM = Margins(foot, offset, config, leaving: true);
         LeaveALaneToWalk(foot, offset, takenAtTheStartM, takenAtTheEndM);
 
         var laneFromM = new float[foot.EdgeCount];
@@ -903,31 +887,11 @@ internal sealed class WalkingNetwork
 
     /// <summary>
     /// What every corner at one end of each stretch gives up of its lane: <b>one figure per end</b>, and it
-    /// is <b>the ground that end's sharpest corner is turned on</b> — the tangent of an arc of the lane's
-    /// own offset, which is the corner the pavement itself turns there. A crossing is the exception and
-    /// gives up the band it lies across.
+    /// is <b>the room the turn itself needs</b> — a lane is the pavement's own line (<see cref="LayLanes"/>),
+    /// so it turns its corner where the pavement does and gives up nothing more. A crossing is the exception
+    /// and gives up the band it lies across.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A lane turns the corner its own line turns, at the radius its own offset gives it.</b> Two lanes
-    /// half a walk either side of a bending pavement are that bend offset both ways, so the outer one turns
-    /// at the bend plus the offset and the inner at the bend less it — and an arc of the offset about the
-    /// bend itself is that corner to within the bend's own radius. What it costs the lane is the arc's
-    /// tangent, <c>offset × tan(half the turn)</c>, which is nothing where the pavement runs straight on and
-    /// grows only as the corner sharpens. <b>Given up a fixed half-band instead</b>, every lane in the town
-    /// stopped two metres short of every corner and a chord cut across it: the walk left the kerb it was
-    /// laid off, the two directions' chords crossed in the middle of the corner, and the outside of every
-    /// bend was pavement no lane reached.
-    /// </para>
-    /// <para>
-    /// <b>And the corner stands where the lane's own two lines meet, which is not where the stretch ends</b>
-    /// (<see cref="TurnedOnM"/>). Offsetting a corner moves that meeting point along the line by the same
-    /// tangent: out along the turn for the lane on the outside of it, back down the line for the one on the
-    /// inside. Measured from the stretch's end as though the two coincided, the lane inside the turn gave up
-    /// exactly as far as its own corner and the arc was laid between two poses standing on the same point —
-    /// which is no arc, so nothing was laid and the two lanes met at the full angle of the bend. 768 of
-    /// Odesa's 8292 corners were a right angle in the walk that way.
-    /// </para>
     /// <para>
     /// <b>A stretch ends where the ground stops being its own</b>, exactly as a lane is cut back to where
     /// its movements hand over on the road side — and <b>a crossing is where that really is a band and not a
@@ -938,8 +902,8 @@ internal sealed class WalkingNetwork
     /// </para>
     /// <para>
     /// <b>It is a fact about an end and not about a turn</b> — the same rule the road side settled on for
-    /// a lane end (`TER-5d`). Per turn, a stretch handed over at as many places as it had ways off it, and
-    /// what the picture showed at a kerb was four points where the walk has one.
+    /// a lane end (`TER-5d`). Per turn, a stretch would hand over at as many places as it has ways off it, and
+    /// the picture would show four points at a kerb where the walk has one.
     /// </para>
     /// <para>
     /// <b>A way that runs straight on gives up nothing of its own</b>, because two stretches of one line do
@@ -957,20 +921,20 @@ internal sealed class WalkingNetwork
     /// Each end is its own stretch's alone, read off lanes nothing writes, so the ends are weighed on every core.
     /// </para>
     /// </remarks>
-    static float[] Margins(FootGraph foot, Lanes offset, float[] laneOffsetM, SimConfig config, bool leaving)
+    static float[] Margins(FootGraph foot, Lanes offset, SimConfig config, bool leaving)
     {
         var takenM = new float[foot.EdgeCount];
         var leastM = 2f * config.WalkerTightestTurnM;
         InChunks.Over(
             foot.EdgeCount, static () => 0,
-            (_, edge) => takenM[edge] = MarginOf(foot, offset, laneOffsetM, leastM, edge, leaving));
+            (_, edge) => takenM[edge] = MarginOf(foot, offset, leastM, edge, leaving));
 
         return takenM;
     }
 
     /// <summary>What one end of one stretch gives up of its lane (<see cref="Margins"/>).</summary>
     /// <param name="leastM">The least an end with a corner gives up: the room the turn itself needs.</param>
-    static float MarginOf(FootGraph foot, Lanes offset, float[] laneOffsetM, float leastM, int edge, bool leaving)
+    static float MarginOf(FootGraph foot, Lanes offset, float leastM, int edge, bool leaving)
     {
         var atM = float.PositiveInfinity;
         var wantedM = 0f;
@@ -995,40 +959,14 @@ internal sealed class WalkingNetwork
             anythingToLay = true;
             if (RunsStraightOn(offset.Of(from), offset.LengthM[from], offset.Of(to))) continue;
 
-            wantedM = MathF.Max(
-                wantedM,
-                foot.KindOf(edge) == FootEdgeKind.Crossing || foot.KindOf(other) == FootEdgeKind.Crossing
-                    ? foot.BandM(other) * 0.5f
-                    : TurnedOnM(offset, from, to, laneOffsetM[edge]));
+            if (foot.KindOf(edge) == FootEdgeKind.Crossing || foot.KindOf(other) == FootEdgeKind.Crossing)
+                wantedM = MathF.Max(wantedM, foot.BandM(other) * 0.5f);
         }
 
         // Never less than the turn itself needs, or a step between two lanes of one line has no room
         // to be rounded over.
         var marginM = MathF.Max(leastM, wantedM);
         return float.IsFinite(atM) && anythingToLay ? MathF.Min(marginM, atM) : 0f;
-    }
-
-    /// <summary>
-    /// How much of a lane an arc of <paramref name="offsetM"/> takes to turn the corner between two of them:
-    /// the arc's own tangent, <b>and a second one for a lane inside the turn</b>, which has to reach back
-    /// down its own line to the point its two legs cross before the arc's tangent is measured at all.
-    /// <b>It runs away as the corner approaches a hairpin</b>, which is what the bound on half the shorter
-    /// lane is there for.
-    /// </summary>
-    /// <remarks>
-    /// Both lanes are laid to the same hand of travel (<see cref="LayLanes"/>), so the one inside the turn is
-    /// the one the pavement bends towards: its two legs overrun one another and cross a tangent short of
-    /// where the stretch ends, while the outer pair fall a tangent apart past it and the arc between them
-    /// spans the gap.
-    /// </remarks>
-    static float TurnedOnM(Lanes offset, int from, int to, float offsetM)
-    {
-        var turnRad = Spline.WrapRad(
-            Spline.SampleAt(offset.Of(to), 0f).HeadingRad
-            - Spline.SampleAt(offset.Of(from), offset.LengthM[from]).HeadingRad);
-
-        var tangentM = offsetM * Trig.Tan(MathF.Abs(turnRad) * 0.5f);
-        return turnRad > 0f ? 2f * tangentM : tangentM;
     }
 
     /// <summary>
@@ -1085,14 +1023,6 @@ internal sealed class WalkingNetwork
         < StraightOnRad
         && (Spline.SampleAt(onward, joinsAtM).PositionM - Spline.SampleAt(lane, leavesAtM).PositionM).Length()
         < SamePlaceM;
-
-    /// <summary>
-    /// <b>How far to one side of the fine graph's own line each lane stands: nought</b> (WLK-1). The line
-    /// the graph holds was struck at the lane's own distance by the move that laid the town's pavement, so
-    /// there is nothing left here to move it by — and a second offset taken a stretch at a time is the one
-    /// that folds through itself (<see cref="ArcOutset.Beside"/>).
-    /// </summary>
-    static float[] LaneOffsets(FootGraph foot) => new float[foot.EdgeCount];
 
     /// <summary>
     /// <b>A walker's turn costs nothing the network can price.</b> All three turn prices are a driver's:

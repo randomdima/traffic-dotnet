@@ -11,9 +11,9 @@ namespace TrafficSimulation.World.Foot;
 /// <para>
 /// <b>Nobody walks this.</b> A walker holds the chain and is held on the network's own arcs, one way at a
 /// time (<see cref="World.Routing.RouteChain"/>, <see cref="WalkingNetwork.WayArcs"/>); the straights
-/// between stations exist only because a screen draws straights. Laying them under a body was what made a
-/// walk a chain of chords across ground that is arcs, and made the tolerance below a thing the town had to
-/// be safe at rather than a thing a picture had to look right at.
+/// between stations exist only because a screen draws straights. Laid under a body, they would make a
+/// walk a chain of chords across ground that is arcs, and the tolerance below a thing the town has to be
+/// safe at rather than a thing a picture has to look right at.
 /// </para>
 /// <para>
 /// <b>A straight way contributes one point and a bent one contributes several</b>, by its own curvature

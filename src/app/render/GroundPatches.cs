@@ -19,8 +19,8 @@ namespace TrafficSimulation.App.Render;
 /// </para>
 /// <para>
 /// <b>Every surface reads a field of its own</b>: the lattice is hashed with the surface's number, and each is as wide
-/// as its own figure. Read off one field, a lawn, the walk beside it and the road beyond all wore at the same places,
-/// and a worn patch ran across two kerbs as one blotch.
+/// as its own figure. Read off one field, a lawn, the walk beside it and the road beyond would wear at the same places,
+/// and a worn patch would run across two kerbs as one blotch.
 /// </para>
 /// <para>
 /// <b>A look's share is a threshold</b>, as a cloud cover is (<see cref="CloudShadows"/>): the field is near enough

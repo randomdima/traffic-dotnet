@@ -38,8 +38,8 @@ internal sealed class WalkingItsRoute(WalkingGround ground, PersonActions action
 
         // Walking with no way of the network under it: a body stands until the next decision lays it a
         // route, whose first leg is the straight back onto the pavement (PER-25). Aimed at the goal
-        // instead it struck out for a door across town over whatever lay between — which is the one thing
-        // the pavement graph exists to stop, and nothing here searched to find out it was doing it.
+        // instead it would strike out for a door across town over whatever lies between — the one thing
+        // the pavement graph exists to stop, with nothing here searching to find out it was doing it.
         if (People.CurrentRouteWay(person) == PersonFleet.NoWay)
         {
             People.DestinationM[person] = People.PositionM[person];

@@ -8,7 +8,7 @@ namespace TrafficSimulation.CityGen;
 /// <para>
 /// <b>A prop is laid at the size of the look it will wear</b>, so the sizes are the art's and the placement is the
 /// plan's — on the terms a building is sized by its roof (<see cref="BuildingSizes"/>). Drawn from a band of the plan's
-/// own instead, the plan stated a size the catalogue then answered with the nearest picture it had, stretched to it.
+/// own instead, the plan would state a size the catalogue then answers with the nearest picture it has, stretched to it.
 /// </para>
 /// <para>
 /// <b>A kind's looks are filed narrowest first</b>, each with the running total of its kind's shares up to it, so a draw

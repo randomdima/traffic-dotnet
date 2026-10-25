@@ -480,8 +480,8 @@ internal static class ArcOutset
     /// (<see cref="Uncovered"/>) no longer has: a stretch of the ring a long way off ends mid-way through
     /// changing hands, is weighed at a middle that is on one side of the change, and is kept or dropped
     /// whole. <b>What that leaves is a hole a third of a metre wide with both of its ends standing at
-    /// exactly the right distance</b>, which is what a town's boundary came back with — and each of those
-    /// took thirty kilometres of ring open with it.
+    /// exactly the right distance</b>, which is what a town's boundary comes back with — and each of those
+    /// takes thirty kilometres of ring open with it.
     /// </para>
     /// <para>
     /// <b>A piece whose own bend is tighter than the distance moved is turned inside out and kept</b>

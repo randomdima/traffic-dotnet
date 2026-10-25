@@ -9,8 +9,8 @@ namespace TrafficSimulation.Tests.Geometry;
 
 /// <summary>
 /// The index's whole contract: <b>the same chain the whole-network scan would have named, and the same
-/// distance along it</b> — not a nearer one, not an equally near one, the same one. It replaced a scan
-/// that decides which lane a car reacquires and which pavement a walker sets off down, so an index that
+/// distance along it</b> — not a nearer one, not an equally near one, the same one. It answers what
+/// decides which lane a car reacquires and which pavement a walker sets off down, so an index that
 /// merely found <em>a</em> nearest chain would be a town that routes differently on a tie.
 /// </summary>
 /// <remarks>
@@ -327,7 +327,7 @@ public class ChainIndexTests
         }
     }
 
-    /// <summary>The scan the index replaced, kept here as the thing it is measured against and nowhere else.</summary>
+    /// <summary>The whole-network scan, kept here as the thing the index is measured against and nowhere else.</summary>
     static int Scan(RoadGraph roads, Vector2 pointM, out float progressM)
     {
         var best = -1;

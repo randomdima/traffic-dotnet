@@ -102,7 +102,7 @@ wide circle makes a different manoeuvre into the same bay than a small car does.
   (`TownWorld.LeaveTheBay`). Of two it could make with no route to choose, the one taking less street.
 - **It is driven as it bends, at a walking pace** (`CarFollower.SteerTheManoeuvre`, `TurningPaceMps`): the wheel is
   given the shape's own bend a half wind of the rack ahead, corrected by pure pursuit of the tangent where the car is —
-  a manoeuvre's turns are shorter than a lookahead, and pursued alone a kerb's S was driven down its chord — its turns
+  a manoeuvre's turns are shorter than a lookahead, and pursued alone a kerb's S is driven down its chord — its turns
   at `SimConfig.Driving.ManoeuvringPaceMps`, each piece set off on with the wheel already wound, and each spent at its
   end and not a flank short of it.
 - **A car waits for its manoeuvre into a bay where its own turn in would begin** (`TownWorld.StopForTheBayM`):
@@ -222,7 +222,7 @@ junction at each end and of every crossing by `SimConfig.Road.KerbParkingClearM`
 leads on from and can be got onto from the rest of the town, and with `SimConfig.Road.KerbParkingLaneRunM` of that lane
 either side (`KerbStretches`). Nothing is laid along it for parking.
 
-- **The place is opened where the car will stand** (`ParkingRegistry.OpenKerb`, `TownWorld.KerbPlaceNear`): the gap
+- **The place is opened where the car will stand** (`ParkingRegistry.OpenKerb`, `TownWorld.NearestKerbGap`): the gap
   nearest where it is going, between the bodies standing on the roadside and the places other cars are already aimed
   at, `SimConfig.Road.KerbParkingGapM` short of each, and the car's middle as near the place as the gap lets it. It is a
   place of the register like a painted bay — claimed for the leg (GEN-4g), occupied once parked — worked off the kerb
