@@ -41,10 +41,9 @@
 
   <PropertyGroup>
     <!-- The engine's sources are src/, minus the two projects of their own that live beside them and
-         the other heads' halves of the machine: a folder named web/ or android/ under src/ is another
-         head's (traffic-dotnet.web.csproj, traffic-dotnet.android.csproj), and this one compiles
-         neither. -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);assets/**;towns/**;src/tests/**;src/tools/**;src/**/web/**;src/**/android/**;bin/**;obj/**</DefaultItemExcludes>
+         the browser's halves of the machine: a folder named web/ under src/ is that head's
+         (traffic-dotnet.web.csproj), and this one does not compile it. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);assets/**;towns/**;src/tests/**;src/tools/**;src/**/web/**;bin/**;obj/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- The unit suite reads types that are internal because nothing outside this assembly is meant to
@@ -73,8 +72,7 @@
     <EmbeddedResource Include="src/runtime/glyphs/glyphs.png" LogicalName="Glyphs/glyphs.png" />
   </ItemGroup>
 
-  <!-- The shaders, compiled and embedded by the runtime's own file, because the handset head does it
-       the same way and a second copy of it would be two answers. -->
+  <!-- The shaders, compiled and embedded by the runtime's own file. -->
   <Import Project="src/runtime/shaders/Shaders.targets" />
 
 </Project>

@@ -237,8 +237,8 @@ The errand has one thing a press has not: where the truck has stopped within rea
 fork is not under it, it winches the wreck onto the fork first (`EVA-5`), and a player who has not got the
 truck there picks up nothing.
 
-**CTL-9** `P7` **A finger is a pointer, and two of them are the camera.** The town runs on a desktop, in a
-browser and on a handset, and **there is one set of gestures and not two**: what a phone can do, a mouse
+**CTL-9** `P7` **A finger is a pointer, and two of them are the camera.** The town runs on a desktop and in a
+browser, a phone's among them, and **there is one set of gestures and not two**: what a phone can do, a mouse
 can do, and the code underneath is the same code.
 
 - **One finger is the left button.** It drags the town, it taps to select, and it does both through the

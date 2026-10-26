@@ -12,10 +12,9 @@ namespace TrafficSimulation.App.Main;
 /// collector to hand an open back with.
 /// </summary>
 /// <remarks>
-/// This file, <c>Game.Android.cs</c> and <c>Game.Web.cs</c> are the same answer given three times, and
-/// the project files pick which one is compiled. Everything the two Vulkan heads answer alike is
-/// <c>Game.Vulkan.cs</c>; everything about a run — the order of a frame, the interface, the town — is in
-/// <see cref="Game"/> itself and is written once.
+/// This file and <c>Game.Web.cs</c> are the same answer given twice, and the project files pick which
+/// one is compiled. The rest of the desktop's Vulkan machine is <c>Game.Vulkan.cs</c>; everything about a
+/// run — the order of a frame, the interface, the town — is in <see cref="Game"/> itself and is written once.
 /// </remarks>
 internal sealed partial class Game
 {

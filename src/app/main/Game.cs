@@ -831,7 +831,7 @@ internal sealed partial class Game : IDisposable
     /// the working set (root <c>decision-log.md</c>).
     /// <para>
     /// <b>The desktop's alone</b>: the large-object heap's compaction mode is CoreCLR's, and Mono — the
-    /// browser's runtime and the handset's — throws <c>PlatformNotSupportedException</c> for it.
+    /// browser's runtime — throws <c>PlatformNotSupportedException</c> for it.
     /// </para>
     /// </remarks>
     static partial void HandBackTheOpen();

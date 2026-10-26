@@ -424,9 +424,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. Measuring the gap per car model closes the reading.
-- **The Android head has not been built since the device tick came in** (branch `gpu-resident-sim`): no Android SDK
-  where it was worked on. It compiles all of `src/` against Vulkan, so it takes `app/devicetick` as the desktop does,
-  and its shader targets must embed the device world's kernels. A build of it closes this.
+- **`Game.Vulkan.cs` and `Game.Desktop.cs` are one head's two files** (`app/main/`): the split was what the desktop
+  and the dropped Android head shared against what each answered alone, and only the desktop compiles either now.
+  Moving `Game.Vulkan.cs` into `Game.Desktop.cs`, and its name out of `traffic-dotnet.web.csproj`'s `DesktopOnly`,
+  closes it.
+- **A bare `dotnet build` at the root fails with `MSB1011`**: two project files and `traffic-dotnet.slnx` sit there,
+  while `CLAUDE.md` quotes the bare command. Naming the project in the quoted command closes it.
 - **The solver's damping is an undeclared margin the driver depends on** (`SolverFigures.LinearDamping`,
   `AngularDamping`): about 1.4 m/s² of drag at 14 m/s that no stopping figure, committed ground or top speed is derived
   with. Set to nought, hard brakings rose 6 → 569 on Exam and 121 → 584 on O10 and reds 2 → 8 on Odesa (physics log,
@@ -634,7 +637,7 @@ applied is in the log, and each of these was judged not worth its cost, or not p
     road shape only because that cache's key misses a lane's shift; `Overtaking`/`Switching` copy the 40-byte
     `Overtake` where reading it in place would alias the row they write back.
 - **A frame**: `PersonSprites`/`TownSprites` read the fleet's arrays again a sprite (the managed world, the page, a
-  shot); the web and handset windows work `UiScale` out every pointer read where the desktop keeps it a pump.
+  shot); the web window works `UiScale` out every pointer read where the desktop keeps it a pump.
 - **Setup and the open**: `GlyphStamp.Blend` goes through the image's indexer a pixel; `KerbLines.Of` copies its pieces three times and keeps
   two; `ShellFill.Ears` allocates a `Node` a corner; `Spline.RoundedInto` a `float[]` a road; `TownLayout.StandsClear`
   a delegate a call; `ArcRings.Of`'s stringing is one thread; `TownWorld.Places.LayTheExits` stays serial until
@@ -710,10 +713,8 @@ a layout or changes behaviour.
   `Halves`' cast.
 - **`WorldLayer.StepsAhead` is a second name for `SimFigures.WorldStepsAhead`**, read only by crefs, while the car's
   follower reads the figure itself. One name in the docs closes it.
-- **The handset's project file includes `figures.trim.xml`, which names the web assembly alone** and so keeps nothing
-  there; harmless while the handset links the SDK alone, as both files now say. Naming both assemblies, or the handset
-  not including it, closes it. Nothing checks the list against the `*Figures` groups either, so a new group is
-  trimmed from the page until someone adds it by hand; a unit test comparing the two closes that.
+- **Nothing checks `figures.trim.xml` against the `*Figures` groups**, so a new group is trimmed from the page until
+  someone adds it by hand; a unit test comparing the two closes it.
 - **The instruments miss two kinds of stale name**: `qq unused` counts by spelling, so an overload sharing a live name
   and a chain of members only calling each other read as used; `qq doclint` resolves crefs and IDs but not a
   backticked `Type.Member` in prose, so a renamed member's old name lives on in a requirement until someone reads it.

@@ -47,7 +47,6 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [app/drive/](../src/app/drive/) — those hands, held by a script | [requirements](../src/app/drive/docs/requirements.md) | [log](../src/app/drive/docs/decision-log.md) |
 | [runtime/](../src/runtime/) — the machine | [requirements](../src/runtime/docs/requirements.md) | [log](../src/runtime/docs/decision-log.md) |
 | [app/web/](../src/app/web/) — the town in a browser | [requirements](../src/app/web/docs/requirements.md) | [log](../src/app/web/docs/decision-log.md) |
-| [app/android/](../src/app/android/) — the town in a hand | [requirements](../src/app/android/docs/requirements.md) | [log](../src/app/android/docs/decision-log.md) |
 
 **Slices with no document own no rule.** `world/statics/` is an implementation of rules
 stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src/world/routing/docs/requirements.md),
@@ -94,8 +93,6 @@ retired number, which the owning slice's log records.
 | `SHT-1…6` | The frame taken with no window, its caption, the sheet and the document that asks for one | [app/shot](../src/app/shot/docs/requirements.md) |
 | `DRV-1…8` | The script at the wheel: what it may hold, what it reads back, what it photographs, and the second seat | [app/drive](../src/app/drive/docs/requirements.md) |
 | `WEB-1…10` | The browser head: what is halved, the crossing budget, the query string, what a page carries and weighs, what a publish holds, the opening card, what nothing waits for, and where a page steps its world | [app/web](../src/app/web/docs/requirements.md) |
-| `AND-1…8` | The handset head: what is halved, the bootstrap, where the files are unpacked, the intent's extras, the fingers, a lost surface, and the driver it asks for | [app/android](../src/app/android/docs/requirements.md) |
-
 ## Known gaps
 
 Absences that are gaps rather than decisions, and none of them is silent. Why each came about is the

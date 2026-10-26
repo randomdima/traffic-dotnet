@@ -52,7 +52,7 @@ a file too; regenerating live and saving to the brief; and the requirements and 
   stand on** — four arms of roads between districts alone are rare — so a roundabout stands where a road between
   districts is met, never on an intercity road, every arm one lane.
 - **The web head ships the briefs** in place of the generated maps' heads and archives: a kilobyte each, fetched at
-  boot, the town laid in the page when opened. The Android head was left as it was, at the owner's word.
+  boot, the town laid in the page when opened.
 - **A town that plans fewer buildings than its frontage affords thins away from its core** (GEN-54,
   `ZoneThinFalloff`), the core said on the town's zone as its hub. A look over the shipped cities found every street
   built alike at the share the plan had room for — 45 % of `Twinford`'s frontage and 37 % of `Highmoor`'s — so
@@ -487,7 +487,7 @@ restated.
   410 → 308 KB), its zones read in 13 ms; its plan 5.7 → 6.6 s, the buildings stage 0.37 → 1.0 s for 117 851
   buildings (against 74 670 and the place's 92 113), the props 0.65 → 0.9 s; opening 17.9 → 19.3 s, static bodies
   262 k → 401 k, the peak resident set 3.50 GB as before. `Odesa` opens in 1.33 s as before and `Test` in 0.44 s
-  against 0.45. The web build ships every map as a 4 KB head and an archive, and the Android pack is 6.3 MB as before.
+  against 0.45. The web build ships every map as a 4 KB head and an archive.
 
 ## 2026-10-06 — a traced map holds its streets, lane counts and zones, and the town lays the rest
 
@@ -518,8 +518,6 @@ GEN-57 and TER-5j are restated.
     18.1 → 17.9 s; peak resident set 3.50 GB both.
   - **Where an open goes**: the town and not the file — world 11.0 s (walk graph 4.7, atlas 2.5), ground 2.7 s,
     streets 1.6 s.
-- **The Android pack took `towns/**` whole**, the layers and sources with it; it now takes the briefs and the maps,
-  133 MB → 6.3 MB gzipped.
 
 ## 2026-10-06 — a traced town stands the people and cars its map asks for
 

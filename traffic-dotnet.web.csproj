@@ -103,7 +103,7 @@
     </DesktopOnly>
     <DefaultItemExcludes>
       $(DefaultItemExcludes);assets/**;towns/**;raw_assets/**;docs/**;.tmp/**;
-      src/tests/**;src/tools/**;src/**/android/**;bin/**;obj/**;$(DesktopOnly)
+      src/tests/**;src/tools/**;bin/**;obj/**;$(DesktopOnly)
     </DefaultItemExcludes>
   </PropertyGroup>
 

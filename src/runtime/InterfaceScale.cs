@@ -53,8 +53,8 @@ internal static class InterfaceScale
     /// Three spaces meet here, and on a scaled desktop no two are the same: a 2× display hands back a
     /// 1800 × 1400 framebuffer for a 900 × 700 window while the pointer still arrives in 0…900, and
     /// <c>--ui-scale</c> names a third. Converting once here is what keeps the interface's hit tests
-    /// and the camera's zoom-about-pointer from each solving it separately. A page and a handset hand
-    /// the pointer over in the framebuffer's own pixels, so they pass the framebuffer as the window and
+    /// and the camera's zoom-about-pointer from each solving it separately. A page hands
+    /// the pointer over in the framebuffer's own pixels, so it passes the framebuffer as the window and
     /// what is left is the scale.
     /// </remarks>
     public static Vector2 InUiPx(

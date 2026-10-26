@@ -10,11 +10,9 @@ namespace TrafficSimulation.App.Main;
 /// that says how often the wall between them was crossed, and the thread a town is laid on.
 /// </summary>
 /// <remarks>
-/// <b>Shared by the two heads that draw with Vulkan</b> — the desktop's window and the handset's
-/// activity — because their answers here are the same word for word: a real file system to read a plan
-/// from and threads to read it on. What differs between them is the surface alone, and that is
-/// <c>Game.Desktop.cs</c> and <c>Game.Android.cs</c>. The browser answers all of it differently and
-/// compiles none of this (<c>Game.Web.cs</c>).
+/// The desktop's alone: a real file system to read a plan from and threads to read it on. The window it
+/// draws into is <c>Game.Desktop.cs</c>. The browser answers all of it differently and compiles none of
+/// this (<c>Game.Web.cs</c>).
 /// </remarks>
 internal sealed partial class Game
 {

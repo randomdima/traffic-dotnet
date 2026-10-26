@@ -21,9 +21,9 @@ other only in the one direction the tier's own row gives.
 | **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking, rail | core, citygen, and each other in one direction |
 | **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight, train | core, citygen, world |
 | **Composition** | `world/town/` | Everything before it. **This is the seam, and it is the only thing allowed to be** |
-| **Machine** | `runtime/` — the window, the device, the swapchain, `runtime/web/` — the canvas and WebGPU, and `runtime/android/` — the glass and the surface made of it | core. **Not the shell, not an agent, not a town** |
+| **Machine** | `runtime/` — the window, the device, the swapchain, and `runtime/web/` — the canvas and WebGPU | core. **Not the shell, not an agent, not a town** |
 | **Chrome** | `app/screen/` — the quad, the glyphs, the theme, the text buffer | Nothing. It is the vocabulary a frame's overlay is written in |
-| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, drive, web, android, devicetick | Everything |
+| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, drive, web, devicetick | Everything |
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →
@@ -59,13 +59,11 @@ learns that a device exists, which is what keeps the World tier off the Machine 
 it is handed through `WorldLayer` alone.
 
 **A folder named for a head is a second answer and never a second question.** `runtime/web/`,
-`app/render/web/`, `app/main/web/` and `app/drive/web/` hold the browser's half of something the desktop already has, and
-`runtime/android/` and `app/main/android/` hold the handset's, at the same tier and with the same name;
-the three project files pick which half is compiled ([app/web](../src/app/web/docs/requirements.md),
-[app/android](../src/app/android/docs/requirements.md)). Such a folder therefore depends on exactly what
-the slice it sits in may depend on, and `app/web/` and `app/android/` themselves — the page and the
-module that drives WebGPU, the activity and the glass it hands over — sit under `app/main/` on the same
-footing as `app/shot/`.
+`app/render/web/`, `app/main/web/` and `app/drive/web/` hold the browser's half of something the desktop already has, at
+the same tier and with the same name; the two project files pick which half is compiled
+([app/web](../src/app/web/docs/requirements.md)). Such a folder therefore depends on exactly what the slice it
+sits in may depend on, and `app/web/` itself — the page and the module that drives WebGPU — sits under
+`app/main/` on the same footing as `app/shot/`.
 
 **`tests/` mirrors the tree it tests**, folder for folder: a test for `app/screen/` is
 `tests/screen/`, and both sit under `src/`.

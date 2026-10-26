@@ -182,7 +182,7 @@ internal static class Maps
 
     /// <summary>
     /// Whether a run may write a generated town's brief back to its file: where there is a file to write, which a head
-    /// without the project's files — a page, a handset — has none of.
+    /// without the project's files — a page — has none of.
     /// </summary>
     public static bool CanSave(string name) => File.Exists(ProjectPaths.BriefFile(name));
 

@@ -8,7 +8,7 @@ indent_style = space
 [*.cs]
 indent_size = 4
 # The performance category is on (AnalysisModePerformance); these two read this engine wrongly. A member left
-# instance is an inlined one-liner kept beside its siblings, or one whose web or handset half reads the instance.
+# instance is an inlined one-liner kept beside its siblings, or one whose web half reads the instance.
 dotnet_diagnostic.CA1822.severity = suggestion
 # A rectangular report table is dense, which is what a jagged array saves room against.
 dotnet_diagnostic.CA1814.severity = none

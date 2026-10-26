@@ -1,5 +1,5 @@
 <Project>
-  <!-- **The game's version, once**, for every head that ships it — the desktop, the page and the phone —
+  <!-- **The game's version, once**, for every head that ships it — the desktop and the page —
        and stamped on each assembly. The release is raised by hand; the last figure is the count of commits
        to the tree it was built from (Directory.Build.targets, `CountTheCommits`), so it climbs on every push.
        A tree with no git history builds as the release's zeroth. -->

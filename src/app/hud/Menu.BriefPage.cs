@@ -12,7 +12,7 @@ namespace TrafficSimulation.App.Hud;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Steps and not a field</b>: no head reads typed text (a handset answers Escape and nothing else), so a seed is moved
+/// <b>Steps and not a field</b>: no head reads typed text (a phone has no keyboard), so a seed is moved
 /// a step at a time like every other figure here. Every seed but the town's own stands for its stage's: stepping it
 /// lays that stage and the ones after it again, and nothing before (GEN-11).
 /// </para>

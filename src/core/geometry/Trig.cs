@@ -13,7 +13,7 @@ namespace TrafficSimulation.Core.Geometry;
 /// float, which a car park's bays carry into a different town. <see cref="Asin"/>, <see cref="Acos"/> and the double
 /// <see cref="SinCos(double)"/> are the host's alone and no kernel mirrors them; <see cref="Powers"/> is the rest.</para>
 /// <para><b>Why not <see cref="MathF"/></b>: glibc's <c>sincosf</c> sums in doubles, which WebGPU has none of and a
-/// handset's Vulkan seldom has, and its correctly rounded tangent and arctangents need a double's last bits to settle
+/// Vulkan driver need not have, and its correctly rounded tangent and arctangents need a double's last bits to settle
 /// (core log, 2026-10-15). These are Cephes' single-precision polynomials, within three floats of exact — nothing the town
 /// can see — and every step a sum, product or quotient the host and any Vulkan driver round alike: the kernel's sums are
 /// <c>precise</c>, and its quotients <c>rounded.glsl</c>'s nearest float. The .NET JIT fuses nothing it is not asked to.</para>

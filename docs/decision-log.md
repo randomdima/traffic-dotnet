@@ -4,6 +4,14 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-26 — two heads: the desktop and the page
+
+**Asked for by the owner (2026-10-26): Android support is dropped.** `traffic-dotnet.android.csproj`, `app/android/`,
+`runtime/android/` and `app/main/android/` are gone, and with them `ProjectPaths.FoundAt`, which only the handset's
+unpacked archive called. A phone is reached through the page, whose fingers are CTL-9's.
+
+Retired, and named by nothing but this entry: `AND-1`…`AND-8`, the handset head's rules.
+
 ## 2026-10-25 — art is asked in words, against a style picture, on a transparent ground
 
 **The owner (2026-10-25): "No outlines should be used for generation. Since models are not following them anyway. And
@@ -159,8 +167,8 @@ atlas and marks digests are unchanged — and what was not is [tech-debt.md](tec
 
 ## 2026-10-15 — the engine runs on .NET 11
 
-**Asked for by the owner (2026-10-15).** Every head, the suite and the two workshop tools target `net11.0`
-(`net11.0-android` for the handset), built by SDK 11.0.100-rc.2; TEC-1 says so. Nothing in the engine changed for it.
+**Asked for by the owner (2026-10-15).** Every head, the suite and the two workshop tools target `net11.0`,
+built by SDK 11.0.100-rc.2; TEC-1 says so. Nothing in the engine changed for it.
 **The owner (2026-10-16): the page builds on the newest .NET 11, and .NET 10 is no longer built for** — CI installs the
 newest 11.0 published and `global.json` rolls forward to it.
 On O30 the tick and the open are a few percent cheaper and nothing else moved past the noise between runs:

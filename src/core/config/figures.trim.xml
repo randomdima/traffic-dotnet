@@ -7,9 +7,7 @@
   "car.parkedHandbrake is not a figure this engine holds" against a file that is perfectly correct — the
   figure is there, and its setter is not.
 
-  Only the browser head's own assembly is trimmed, and only it is named below. The phone's project file
-  reads this too, but links the SDK alone; were it to link its own assembly, it would need an entry here
-  under its own name. This is the whole of what the reflection in this slice costs, and it is here rather
+  Only the browser head's own assembly is trimmed, and only it is named below. This is the whole of what the reflection in this slice costs, and it is here rather
   than in the project file because what must be kept is a fact about these types.
 -->
 <linker>

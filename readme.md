@@ -370,38 +370,6 @@ on a fetch, so the menu's click writes a name down and the boot's own loop — t
 may wait — awaits the art and the map's file and stands the town up off it
 ([decision log](src/app/web/docs/decision-log.md)).
 
-## The same town, in a hand
-
-There is a third head. `traffic-dotnet.android.csproj` compiles the same `src/` against the **same
-Vulkan** — the same device, the same swapchain, the same renderer and the same SPIR-V the desktop
-draws with — and the whole of what differs is the bootstrap: an activity that takes its own window's
-surface in place of a window, and fingers in place of a mouse
-([app/android](src/app/android/docs/requirements.md)).
-
-```
-dotnet workload install android
-dotnet build traffic-dotnet.android.csproj -t:Run -c Release
-adb shell am start -n dev.trafficdotnet.town/.TownActivity -e map Odesa -e ui nodes
-adb logcat -s town
-```
-
-**The intent's extras are the command line**, so `-e map Odesa -e ui nodes` is `--map Odesa --ui
-nodes`, and `-e seconds` and `-e ui-scale` are the words they look like. Without a map it opens on its
-start menu over the idle ring, exactly as the other two heads do. Everything the engine prints comes
-out under the `town` tag, which is what a handset has in place of a terminal.
-
-**It is one activity and nothing else** — no view, no layout, no platform control anywhere: what a
-reader touches is the town's own interface, drawn by the same code that draws it on a desk, and the
-fingers are read as the mobile browser's are (CTL-9). **The floor is the driver's**: the instance is
-created at Vulkan 1.3, the manifest asks for that version as required, and the build is 64-bit only.
-
-**A run ends when the activity leaves the screen** and the town is laid again when it comes back. It is
-this head's one stated limit and the reason is in its [decision log](src/app/android/docs/decision-log.md).
-
-**No pipeline builds it** — it is built by hand, as above, and a tag cuts no release. **Build it Release**:
-`RunAOTCompilation` is on there and off in Debug, and the interpreter is about ten times off a 60 Hz
-loop — the same figure the browser head quotes.
-
 ## Layout
 
 ```
@@ -412,9 +380,9 @@ src/        every line of C#, and nothing else — the nine slices below
   world/    terrain, road, foot, routing, physics, containment, statics, parking, rail, town
   agents/   car, person, ambulance, service, evacuator, trafficlight, train — body / control, and the errands
             the legs of a trip are run for
-  runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders — and web/ and android/, the
-            other heads' halves
-  app/      screen, render, camera, hud, debug, playercontrol, shot, drive, web, android, devicetick, main — the shell
+  runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders — and web/, the browser
+            head's halves
+  app/      screen, render, camera, hud, debug, playercontrol, shot, drive, web, devicetick, main — the shell
   bench/    the census and the probes
   tests/    the unit suite, laid out folder for folder as the tree it tests
   tools/    workshop tools, which may depend on what the runtime may not

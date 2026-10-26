@@ -18,7 +18,7 @@ namespace TrafficSimulation.Runtime;
 /// <para><b>The scale, the interface's size and the pointer are read once a pump</b> and served from
 /// there: each is several calls into the platform, a frame asks for the pointer half a dozen times, and
 /// the platform's answers only move when its events are pumped. The page's half reads its own pumped
-/// copy the same way, and the handset's are fields its listener writes.</para>
+/// copy the same way.</para>
 /// </remarks>
 internal sealed class AppWindow : IDisposable
 {

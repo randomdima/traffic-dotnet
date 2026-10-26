@@ -29,7 +29,7 @@ internal static class FleetList
 
     /// <summary>
     /// The lamp sheet a told fleet is drawn with, cut from its own sprites by whoever told it
-    /// (<c>LampAtlasBake</c>, which a page and a handset do not carry): the committed sheet's rows are the
+    /// (<c>LampAtlasBake</c>, which a page does not carry): the committed sheet's rows are the
     /// shipped catalogue's looks.
     /// </summary>
     public static string? LampAtlasFile { get; private set; }
