@@ -68,10 +68,13 @@ internal static class CarParks
     /// and not the plan's</b> — what holds a bay for a station is the apron, which finds the bays nearest its
     /// door (GEN-4k) — so it travels only as far as the stage that stands the building on it.
     /// </param>
+    /// <param name="District">
+    /// The district each car park was laid for: a yard's own (GEN-56), and <see cref="AnyDistrict"/> for the town's.
+    /// </param>
     internal readonly record struct Laid(
-        int[] Street, Vector2[] AtM, int[] BayOffsets, int[] Road, bool[] Right, BuildingUse[] For)
+        int[] Street, Vector2[] AtM, int[] BayOffsets, int[] Road, bool[] Right, BuildingUse[] For, int[] District)
     {
-        public static Laid None => new([], [], [0], [], [], []);
+        public static Laid None => new([], [], [0], [], [], [], []);
 
         public int Count => Street.Length;
     }
@@ -98,6 +101,7 @@ internal static class CarParks
         var road = new List<int>();
         var right = new List<bool>();
         var forUse = new List<BuildingUse>();
+        var forDistrict = new List<int>();
         var parks = new PointCells(config.Grid.Main);
         var books = new Dictionary<int, SiteBook>();
         var refused = new List<int>();
@@ -178,6 +182,7 @@ internal static class CarParks
             atM.Add(laidAt.AtM);
             parks.Add(laidAt.AtM);
             forUse.Add(use);
+            forDistrict.Add(district);
             for (var bay = 0; bay < bays.Length; bay++)
             {
                 road.Add(bays[bay]);
@@ -187,10 +192,11 @@ internal static class CarParks
             bayOffsets.Add(road.Count);
         }
 
-        return new Laid([.. street], [.. atM], [.. bayOffsets], [.. road], [.. right], [.. forUse]);
+        return new Laid([.. street], [.. atM], [.. bayOffsets], [.. road], [.. right], [.. forUse], [.. forDistrict]);
     }
 
-    const int AnyDistrict = -1;
+    /// <summary>The district a car park of the town's own is laid for: whichever it lands in.</summary>
+    public const int AnyDistrict = -1;
 
     /// <summary>
     /// <b>Whether a site is inside the district a yard is wanted in</b> (GEN-56): the ground its building will
@@ -463,7 +469,7 @@ internal static class CarParks
 
     /// <summary>
     /// <b>The yards a town lays before it lays a car park of its own</b> (GEN-55, GEN-56), one entry a service
-    /// building: a hospital, a police station and a depot in every district, each to be laid inside it.
+    /// building: a hospital, a police station and a depot in every district a street stands in, each to be laid inside it.
     /// </summary>
     /// <remarks>
     /// <b>They are laid first because the sites are ranked by distance from the car parks already laid</b>
@@ -477,10 +483,14 @@ internal static class CarParks
     static List<(BuildingUse Use, int District)> TheServicesWanted(int buildings, DistrictMap districts)
     {
         var wanted = new List<(BuildingUse, int)>();
-        var each = ServiceBuildings.OfEachUse(buildings, districts);
+        if (ServiceBuildings.OfEachUse(buildings, districts) == 0) return wanted;
+
         foreach (var use in ServiceBuildings.Uses)
         {
-            for (var district = 0; district < each; district++) wanted.Add((use, district));
+            for (var district = 0; district < districts.Count; district++)
+            {
+                if (districts.Built(district)) wanted.Add((use, district));
+            }
         }
 
         return wanted;

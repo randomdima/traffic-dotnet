@@ -25,14 +25,17 @@ internal enum BuildingUse : byte
     Depot = 3,
 }
 
-/// <summary><b>The service buildings a town is laid with</b> (GEN-56): one of each use in every district.</summary>
+/// <summary><b>The service buildings a town is laid with</b> (GEN-56): one of each use in every district a street stands in.</summary>
 internal static class ServiceBuildings
 {
     /// <summary>The uses a district stands one of, in the order their yards are cut.</summary>
     public static ReadOnlySpan<BuildingUse> Uses => [BuildingUse.Hospital, BuildingUse.PoliceStation, BuildingUse.Depot];
 
-    /// <summary>How many buildings of one use a town asks for: one a district, and none where it plans no building.</summary>
-    public static int OfEachUse(int buildings, DistrictMap districts) => buildings > 0 ? districts.Count : 0;
+    /// <summary>
+    /// How many buildings of one use a town asks for: one a district its streets stand in (<see cref="DistrictMap.Built"/>),
+    /// and none where it plans no building.
+    /// </summary>
+    public static int OfEachUse(int buildings, DistrictMap districts) => buildings > 0 ? districts.BuiltCount : 0;
 
     public static int OfEachUse(CityPlan plan) => OfEachUse(plan.Buildings.Count, plan.Districts);
 }

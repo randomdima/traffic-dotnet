@@ -19,7 +19,8 @@ internal static class RoadsideSites
     /// <b>The places something could be laid off one road</b>, one per arc of it that can carry one: the
     /// middle of the stretch of that arc which is far enough from both of the road's own junctions
     /// (<c>CityGenFigures.LocalityM</c>, GEN-16), <paramref name="standoffM"/> clear of both ends of the arc,
-    /// and bending no tighter than <paramref name="curvatureMax"/>.
+    /// and bending no tighter than <paramref name="curvatureMax"/> — on no bridge, ring, car park or intercity road
+    /// (GEN-53, GEN-68).
     /// </summary>
     /// <param name="standoffM">
     /// How far back of the place the road is held clear. <b>The caller's and not the town's</b>: a car park
@@ -34,7 +35,7 @@ internal static class RoadsideSites
         TownLayout layout, SimConfig config, int road, float standoffM, float curvatureMax, List<Site> into)
     {
         var edge = layout.Edges[road];
-        if (edge.Class is RoadClass.Bridge or RoadClass.Roundabout or RoadClass.CarPark) return;
+        if (edge.Class is RoadClass.Bridge or RoadClass.Roundabout or RoadClass.CarPark or RoadClass.Intercity) return;
 
         var line = layout.LineOf(road);
         if (line.Length == 0) return;

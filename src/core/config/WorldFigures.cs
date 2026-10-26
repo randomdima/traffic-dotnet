@@ -1040,6 +1040,13 @@ internal sealed class CityGenFigures
     public int ZonePrefabsTried { get; init; } = 6;
 
     /// <summary>
+    /// <b>How sharply a town that plans fewer buildings than its zones stand thins away from its hub</b> (GEN-54): all of
+    /// the frontage is kept out to a radius of the hub, and beyond it the share kept falls as the distance to this power —
+    /// so the middle of a town is built solid and its edge thins out, rather than every street being thinned alike.
+    /// </summary>
+    public float ZoneThinFalloff { get; init; } = 1f;
+
+    /// <summary>
     /// How far two buildings a zone stands may stand into each other and still both stand (GEN-58): a party wall's half,
     /// which two neighbours of a terrace share.
     /// </summary>
@@ -1373,6 +1380,13 @@ internal sealed class CityGenFigures
 
     /// <summary>How near each other two junctions on a district road may stand at the least (GEN-68).</summary>
     public float DistrictJunctionsApartLeastM { get; init; } = 40f;
+
+    /// <summary>
+    /// <b>How much further off the arms already there a road between districts is planned than a junction's arms must
+    /// stand</b> (GEN-13, GEN-69): what a node moved as the nodes settle, and a line rounded where it is laid, take off the
+    /// angle it was planned at — so a road planned at the bound is not refused as it is laid.
+    /// </summary>
+    public float LinkArmsMarginDeg { get; init; } = 8f;
 
     /// <summary>
     /// <b>How far in from the map's edge the town's core stands at the least</b> (GEN-63), as a share of its short side:

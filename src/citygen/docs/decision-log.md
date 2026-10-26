@@ -25,8 +25,22 @@ a file too; regenerating live and saving to the brief; and the requirements and 
 - **Roads between districts are planned before any is laid** (`TownLinks`): along every shared edge, over every
   intercity road two districts face (a crossroads, as two roads in), over the water and the railway at the crossing
   sites, and a road in to every piece not yet reaching an intercity road — then their lanes by a gravity demand routed
-  over them. Planned and laid are two answers to one question, and where the layout refuses what was planned the
-  piece behind it is left reached only through its neighbours' streets (the known gaps).
+  over them. **Planned and laid are two answers to one question, so the layout is asked again after it answers**
+  (`TownLinks.JoinWhatWasLeft`, GEN-69): once the paths are closed and before any street is laid, each piece the
+  intercity network was left without gets the shortest straight district road the layout takes to it. Planning
+  against the layout's refusals alone left 2, 5 and 9 networks on `Saltbay`, `Twinford` and `Highmoor` and two
+  of the suite's four seeds split; the plan still holds what it can — a link lands square on the road it meets and
+  apart from every other landing there, two crossings of parallel tracks or two arms of a river are one link, a
+  link to a lattice point keeps its angle, a path whose next node the ground refuses is closed to the one after it —
+  planned `LinkArmsMarginDeg` squarer than a junction's arms must stand, since the settling and a line's rounding
+  take a few degrees off. With the pass every brief and seed lays one network, at no measurable cost to `Highmoor`'s
+  open (23 s either way).
+- **A district no street is left standing in is owed no services** (GEN-56, GEN-65; `DistrictMap.Built`): its yards
+  had been cut on the roads round it, so a district of open land stood a hospital nobody's street reached. Every yard
+  a shipped brief misses is then the one depot of `Twinford`'s strip between two rivers (`--brief all`), and frontage
+  kept for the yards before the streets are pruned — the plan's "services by construction" — is not built.
+- **No car park stands off an intercity road** (GEN-68): a bay on one was taken by the suite's car 0, whose way out
+  across a four-lane road's lane never began.
 - **A connector holds its line straight off a crossing for an approach before it bends**, the route's own rounding
   added on top so the straight survives it, and the road off a bridgehead passes a point on the span's line. Without
   both the corner after the approach was refused for turning tighter than its class, or met the bridge kinked.
@@ -39,6 +53,15 @@ a file too; regenerating live and saving to the brief; and the requirements and 
   districts is met, never on an intercity road, every arm one lane.
 - **The web head ships the briefs** in place of the generated maps' heads and archives: a kilobyte each, fetched at
   boot, the town laid in the page when opened. The Android head was left as it was, at the owner's word.
+- **A town that plans fewer buildings than its frontage affords thins away from its core** (GEN-54,
+  `ZoneThinFalloff`), the core said on the town's zone as its hub. A look over the shipped cities found every street
+  built alike at the share the plan had room for — 45 % of `Twinford`'s frontage and 37 % of `Highmoor`'s — so
+  nowhere read as a town's middle; kept whole out to a radius of the core and falling as the distance beyond, the
+  same count reads as a town and its edge. A falloff of one was chosen over two, which left the outermost streets of
+  `Twinford` all but bare.
+- **A building turned off square stands back by the corner it swings toward the street** (GEN-54): turned about the
+  middle of its front, that corner stood on the walk, so every prefab tried at a place of a turned zone was refused
+  for its ground — 3 698 refusals on `Saltbay`, most of them the suburbs' — where it is now 208.
 
 ## 2026-10-25 — nothing but a deck stands in the water
 

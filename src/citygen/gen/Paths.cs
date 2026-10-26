@@ -61,7 +61,8 @@ internal sealed class Paths(TownLayout layout, SimConfig config)
             if (!crossing.Bridge) continue;
 
             Stand(at, fromM, line.At(fromM));
-            Stand(at, toM, line.At(toM));        }
+            Stand(at, toM, line.At(toM));
+        }
 
         End(at, 0f, line.FirstM);
         End(at, line.LengthM, line.LastM);
@@ -193,35 +194,56 @@ internal sealed class Paths(TownLayout layout, SimConfig config)
     /// </summary>
     public void Close()
     {
-        foreach (var bridges in (ReadOnlySpan<bool>)[true, false])
+        foreach (var path in _paths)
         {
-            foreach (var path in _paths)
+            path.Nodes.Sort((a, b) => a.AlongM.CompareTo(b.AlongM));
+            for (var at = 0; at + 1 < path.Nodes.Count; at++)
             {
-                path.Nodes.Sort((a, b) => a.AlongM.CompareTo(b.AlongM));                for (var at = 0; at + 1 < path.Nodes.Count; at++)
-                {
-                    var (fromM, from) = path.Nodes[at];
-                    var (toM, to) = path.Nodes[at + 1];
-                    if (from == to) continue;
-
-                    var bridge = path.Closed.Exists(span => span.Bridge && MathF.Abs(span.FromM - fromM) < SameAlongM && MathF.Abs(span.ToM - toM) < SameAlongM);
-                    if (bridge != bridges) continue;
-
-                    if (bridge)
-                    {
-                        layout.Join(from, to, RoadClass.Bridge, lanes: path.Lanes);
-                        continue;
-                    }
-
-                    var clearM = MathF.Max(layout.Sizes.StandoffM(layout.NodeM[from]), layout.Sizes.StandoffM(layout.NodeM[to])) * 2f
-                                 + config.CityGen.LocalityM;
-                    // A lead off a bridge the ground will not take leaves the road on the path's own line rather than unlaid.
-                    if (layout.Join(from, to, path.Class, throughM: Through(path, fromM, toM, clearM), straight: true, lanes: path.Lanes) < 0)
-                    {
-                        layout.Join(from, to, path.Class, throughM: path.Line.Between(fromM, toM, clearM), straight: true, lanes: path.Lanes);
-                    }
-                }
+                if (IsSpan(path, at)) layout.Join(path.Nodes[at].Node, path.Nodes[at + 1].Node, RoadClass.Bridge, lanes: path.Lanes);
             }
         }
+
+        foreach (var path in _paths)
+        {
+            for (var at = 0; at + 1 < path.Nodes.Count;) at = ClosedFrom(path, at);
+        }
+    }
+
+    /// <summary>
+    /// <b>The road on from one of a path's nodes</b>, and the node it reaches: the next — or, where the ground refuses that
+    /// road, the first after it the ground takes one to, so a node a street hung beside the path and the settling moved
+    /// off its line is passed rather than the path broken there. Never past a bridge, which is a road of its own.
+    /// </summary>
+    int ClosedFrom(Path path, int at)
+    {
+        if (IsSpan(path, at)) return at + 1;
+
+        var (fromM, from) = path.Nodes[at];
+        for (var next = at + 1; next < path.Nodes.Count && !IsSpan(path, next - 1); next++)
+        {
+            var (toM, to) = path.Nodes[next];
+            if (from == to || Laid(path, fromM, from, toM, to)) return next;
+        }
+
+        return at + 1;
+    }
+
+    /// <summary>Whether the stretch of a path between two of its nodes is a bridge's span.</summary>
+    bool IsSpan(Path path, int at)
+    {
+        var (fromM, toM) = (path.Nodes[at].AlongM, path.Nodes[at + 1].AlongM);
+        return path.Closed.Exists(span => span.Bridge && MathF.Abs(span.FromM - fromM) < SameAlongM && MathF.Abs(span.ToM - toM) < SameAlongM);
+    }
+
+    /// <summary>One road laid along a path between two of its nodes, or false where the ground refuses it.</summary>
+    bool Laid(Path path, float fromM, int from, float toM, int to)
+    {
+        var clearM = MathF.Max(layout.Sizes.StandoffM(layout.NodeM[from]), layout.Sizes.StandoffM(layout.NodeM[to])) * 2f
+                     + config.CityGen.LocalityM;
+
+        // A lead off a bridge the ground will not take leaves the road on the path's own line rather than unlaid.
+        return layout.Join(from, to, path.Class, throughM: Through(path, fromM, toM, clearM), straight: true, lanes: path.Lanes) >= 0
+               || layout.Join(from, to, path.Class, throughM: path.Line.Between(fromM, toM, clearM), straight: true, lanes: path.Lanes) >= 0;
     }
 
     /// <summary>

@@ -32,7 +32,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   reached end, or the creep itself is the fault, closes it. Back on 2026-10-25 when the roads landing at bridgeheads
   began leaving on the span's line (GEN-14a), which reshapes the suite's city: "tick 1920, car 9 drew its plan back
   2.61 m … doing 0.2 m/s" at (1614, 1509), some 700 m from either bridge — a creeping car again, and nothing of a
-  bridge's.
+  bridge's. Passing on the town laid since GEN-69's links are joined after they are laid (2026-10-26) — hidden, not
+  fixed.
 - **`SolverGateTests.AStepAllocatesNothing(bodyCount: 1000, packed: True)`** (perf) failed once in a light
   `qq tests --changed` run, "Expected: 0, Actual: 1" (2026-10-22), and passed twice on its own after: one allocation
   in the measured window that the solver's own code did not make, or did only when the run was loaded. A run of the
@@ -47,29 +48,57 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fails: "a car let go of drove on along
   the leg it had before the hand" (2026-10-19; still on 2026-10-25's working tree). Not traced; what the leg reads
   once the hand lets go, and why it is the one from before the hand, closes it.
-- **`PedestrianWaysTests.ALaneWeldedToOnePointIsTheOnlyOneNothingIsLaidDown` and
-  `PedestrianNodesTests.APointStandingOnThePointItsLaneArrivesAtIsOnePointMidwayBetweenThem`** (unit, WLK-12) fail:
-  "the fixture town welds no lane at all" (2026-10-20, core log; both pass on 79dddfaf). The old fixture had one weld,
-  where two all but parallel kerb lines met, and lost it to a float; the fixture laid off its brief since GEN-60
-  (2026-10-26) welds none either. Each asks the fixture for a weld it does not lay; a weld staged by its own shape, or
-  the point found by a better-conditioned construction than a near-parallel meet, closes them.
-- **Six tests, ten cases, fail on the towns the generator lays since the three-stage rework** (2026-10-26), each a rule
-  broken in a town laid where none of these shapes stood before; not traced unless said:
-  - `TownGenTests.EveryDistrictIsReachedFromOutsideAndFromItsNeighbours` (town, GEN-69), seeds 7 and 0xDEADBEEF: "the
-    68 roads that are no district's own make 3 networks" — the [known gap](index.md#known-gaps): a planned road the
-    ground refuses is dropped with nothing planned behind it. Planning against the same refusals the layout asks, or
-    planning again for a piece left alone, closes it.
-  - `CrossingsTests.AZebraReachesAtLeastItsRoadsWidth` (unit, TER-6): "a zebra reaches 7.19 m over a 7.20 m
-    carriageway at 1291,1263" — 1 cm short on a two-lane road of the fixture.
-  - `LaneArrowsTests.NoArrowIsPaintedOverAZebra` (unit): "the arrow on lane 106 from 33.6 m is painted over the zebra at
+- **Nine tests, thirteen cases, fail on the towns the generator lays since the three-stage rework** (2026-10-26), each a
+  rule broken in a town laid where none of these shapes stood before — and which of them fail moves whenever the
+  generator does, the fixture being laid off its brief ([known gap](index.md#known-gaps)). Not traced unless said:
+  - `CrossingsTests.AZebraReachesAtLeastItsRoadsWidth` (unit, TER-6): "a zebra reaches 3.60 m over a 3.60 m
+    carriageway at 1224,352" — short by a float on the fixture's tightest crossroads, a four-arm junction of two
+    district roads whose south arms meet at the bound (GEN-13). Before the roads between districts were joined after
+    they are laid it was 7.19 m over 7.20 m elsewhere; a reach asked to the paint's own tolerance closes it.
+  - `PedestrianWaysTests.ALaneCrossesItselfNowhere`, `CrossingWaysTests.ACrossingsPaintRunsFromTheKerbToTheKerb` and
+    `PedestrianNodesTests.ACrossingPairStandsOnTheBoundary` (unit, WLK-12): "a walk Junction crosses itself at
+    1227,345", at the same crossroads, and "a crossing's point stands 0.011 m off the boundary at 353,869" against
+    0.01 m. The two `WLK-12` weld tests that failed before (no weld in the fixture) pass on it. A kerb corner laid at a
+    junction whose arms stand at the bound is the place; a better-conditioned construction of the corner closes them.
+  - `LaneArrowsTests.NoArrowIsPaintedOverAZebra` (unit): "the arrow on lane 126 from 33.6 m is painted over the zebra at
     34.5 m".
   - `GroundMeshTests.EveryLaneLineStandsBetweenTwoRibbonsThatTouch(Laid)` (town): a mark at (1066.6, 365.2) that no
     ribbon near it reaches the edge of.
-  - `LaneShellTests.TheGroundIsInsideTheBoundaryAndNotOutsideIt(Laid)` (town): 3 of 2 010 boundary stations, the first
-    at (721.0, 1715.3), without the driven ground on their right.
+  - `LaneShellTests.TheGroundIsInsideTheBoundaryAndNotOutsideIt` (town), `Laid`: 3 of 2 032 boundary stations, the
+    first at (721.0, 1715.3), and `Test`: 1 of 649 at (864.8, 405.5), without the driven ground on their right.
   - `RoadClosureInATownTests` (town, SRV-7…11), four cases: "1 patrol(s) never stood closing wreck 0 in 14400 ticks",
     car 84 sent to it standing 1 004 m off. Where the staged wreck now stands, and why the patrol's leg there is never
     driven, closes it.
+  - `LaneOccupancyInATownTests.AMovingCarWithTheRoadToItselfPlansPastWhatItIsCommittedTo(Laid)` (town): "car 35 is
+    doing 19.7 m/s with nothing stopping it and plans only the 31.2 m it is committed to" — since the roads between
+    districts are joined after they are laid (2026-10-26).
+- **`WayIntentsTests.EveryHolderUnderWayStatesWhereItGoes`** and
+  **`TownWorldTests.LettingGoOfTheWheelLeavesTheCarWaitingUntilTheReset`** (town) fail (2026-10-26): "Walking 29 is
+  under way and states nothing"; "a car let go of drove on along the leg it had before the hand". Both fail with the
+  day's last generator changes (the thinning, the turned fronts) taken out, so they came with an earlier change of
+  the day's tree. Not traced; finding the change they moved with closes them.
+- **An intercity road reaching the core is filed as ending on the first one** (2026-10-26, GEN-61, GEN-13;
+  `Connectors.Intercities`): the core's own cell is marked as the first road's, so every road a route takes to the core
+  is laid as ending on that road there, and none is asked whether it meets the core square to the arms already there.
+  On `Twinford` the road from the north-east comes in 41° off the north road, its last stretch is refused, and the
+  district between it and the railway (37, 0.31 km² at the core) is left with no road in and no street — the middle
+  of the city an empty field. Filing a road that reaches the core cell as ending at the core, routing one that would
+  meet it under `LinkArmsApartMinRad` from another to a road short of it instead, and leaving the cells within two
+  of the class's radii of the core out of a route's goals lays it: `Twinford` stands streets in 75 of 78 districts,
+  `Highmoor` 256 of 259. **It is not in because it moves the fixture onto a `P0` gate**:
+  `ClaimGateTests.EveryMainClaimOverAMarkPlacesItsSecondaryClaim(Test)` fails, "Driving 6's Main claim 460.0–462.9 m
+  … on Lane way 124 lies over the mark at 462.7–462.8 m and does not hold 0.0–0.1 m of Lane way 28" — with the filing
+  alone too, so it is the claims meeting a sliver of a mark the new fixture lays, not the routing. Tracing that mark
+  and then laying the change (kept as `.tmp/review/connectors-core.patch` while it lasts) closes both.
+- **The briefs plan a fraction of the buildings their frontage affords** (2026-10-26, _owner_): the counts came over
+  from the old briefs (2 400, 24 000, 72 000), laid when a town carried far fewer streets, and the three-stage towns'
+  frontage stands about 3 500, 53 000 and 191 000 — so `Twinford` keeps 45 % and `Highmoor` 37 % of it, thinned
+  away from the core (GEN-54). Whether the counts rise with the frontage, at what the sprites and the roster cost, is
+  the owner's.
+- **`Saltbay`'s core falls in open land** (2026-10-26, GEN-65): the intercity roads, the railway and the river arms
+  converge there, cutting the ground round the core into regions under `DistrictLeastM2` — 0.33 km² of its 5.1 km²
+  of dry land, most of it in the middle. A least area for a region beside the core, or a core placed off the
+  barriers' meeting, closes it.
 - **`LegEndsInATownTests.APatrolStopsOnThePlaceItWasSentTo`** (town) and **`BayManoeuvreTests.ACarSentToABayParksInIt`**
   (town) failed in some of the day's runs on the reworked towns (2026-10-26) and passed in the last: "patrol 79 drove
   through its place at (810, 1100)"; "car 0 sent from bay 363 to bay 362 … 457 m off it". Which towns they fail on is
@@ -114,10 +143,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Sixteen town tests are skipped** for the decisions no claim can make any more: all fourteen of
   `OvertakeInATownTests` (CAR-46, CAR-50, PER-28) and two of `LaneSwitchInATownTests` (getting past a wreck and slower
   traffic, CAR-53). They come back with the entry below.
-- **`BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark`** (town, GEN-55) failed from 2026-10-15 until the
-  generator's rework, and passes on the reworked suite town (2026-10-26) — hidden, not fixed, as the shapes moved:
-  read on the day's earlier towns, building 82 at (745.0, 974.5) stood 8.4 m off the middle of a rank reaching 5.4 m.
-  Not traced: `ZoneBuildings.Stand` asks `Yards.Allows` of the place before `Face.Seat` moves the building to the
+- **`BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark`** (town, GEN-55) fails: "building 69 at (1313.2, 851.0)
+  stands 3.0 m off the middle of a rank reaching 5.4 m, with 2.5 m of frontage either side of it" (2026-10-26, since
+  the buildings thin away from the core). It failed from 2026-10-15, passed on the first
+  reworked suite town and fails again once its car parks moved off the intercity roads — the shapes moving, never a
+  fix. Not traced: `ZoneBuildings.Stand` asks `Yards.Allows` of the place before `Face.Seat` moves the building to the
   face's true nearest (GEN-15), which may be the whole of it; asking it of the seated wall closes it if so.
 - **The kernels have not been held to `Trig` on a GPU** (2026-10-15): `TrigKernelTests` and `RoundedKernelTests` pass
   on lavapipe, which the suite runs. The device tier pointed at the RX 9070 XT by hand closes it.
@@ -127,7 +157,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Every figure taken on `Odesa`, `O10`, `O30`, `River` or the old `Test.map` is a figure not taken since**
   (2026-10-26): those maps are gone with the wheel (GEN-60), and the entries below that quote them quote towns nobody
   can open. The probes' default town is now `Saltbay` (`CheckCatalogue.ProbedTown`). Each figure taken again on
-  `Saltbay`, `Twinford` or `Highmoor` — and `qq tests maps`, which has not been run on them — closes it entry by entry.
+  `Saltbay`, `Twinford` or `Highmoor` closes it entry by entry; `qq tests maps` passes on all three (2026-10-26).
 - **No generated town in the suite has a tributary** (2026-10-25): the suite's city (`Towns.Brief`) asks for none, so
   `GeneratorTests` and `TownGenTests` never see one. `TerrainStageTests` asks only about the water. A seed of
   `Towns.Brief` with tributaries, run through those properties, closes it.

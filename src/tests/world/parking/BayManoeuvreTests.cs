@@ -37,7 +37,7 @@ public class BayManoeuvreTests
         var cars = world.Cars;
         Assert.True(
             cars.Line[car].LaneCount > 0 && world.Parking.BayOf(car) != bay,
-            $"car {car} has not left bay {bay} in {LeavingTicks} ticks: manoeuvre {world.Manoeuvres.Stage[car]}");
+            $"car {car} has not left bay {bay} at {world.Parking.CentreM(bay)} in {LeavingTicks} ticks: manoeuvre {world.Manoeuvres.Stage[car]}");
 
         var along = Spline.SampleAt(cars.LineOf(car), cars.ProgressM[car]).Direction;
         Assert.True(

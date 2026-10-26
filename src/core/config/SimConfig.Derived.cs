@@ -366,6 +366,9 @@ internal sealed partial class SimConfig
     /// <summary>The sharpest corner a junction turns (GEN-13).</summary>
     public float ArmsApartMinRad => CityGen.ArmsApartMinDeg * MathF.PI / 180f;
 
+    /// <summary>How far off the arms already there a road between districts is planned (GEN-13, GEN-69).</summary>
+    public float LinkArmsApartMinRad => (CityGen.ArmsApartMinDeg + CityGen.LinkArmsMarginDeg) * MathF.PI / 180f;
+
     public float TributaryJoinLeastRad => CityGen.TributaryJoinLeastDeg * MathF.PI / 180f;
 
     public float TributaryJoinMostRad => CityGen.TributaryJoinMostDeg * MathF.PI / 180f;

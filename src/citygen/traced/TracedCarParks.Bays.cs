@@ -109,7 +109,8 @@ internal static partial class TracedCarParks
 
         var (streets, bays) = WithBays(laid, bayLines, leadM, config);
         return (streets, new CarParks.Laid(
-            [.. street], [.. atM], [.. bayOffsets], bays, [.. right], Enumerable.Repeat(BuildingUse.Ordinary, street.Count).ToArray()));
+            [.. street], [.. atM], [.. bayOffsets], bays, [.. right], Enumerable.Repeat(BuildingUse.Ordinary, street.Count).ToArray(),
+            Enumerable.Repeat(CarParks.AnyDistrict, street.Count).ToArray()));
     }
 
     /// <summary>Whether a bay's far node stands on the map, as every node a town lays does.</summary>

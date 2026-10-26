@@ -636,7 +636,10 @@ internal static class Program
             }
 
             withStreets.Remove(-1);
+            var bare = Enumerable.Range(0, town.Partition.Count).Where(district => !withStreets.Contains(district))
+                .Select(district => $"{district} at ({town.Partition.CentreM[district].X:F0}, {town.Partition.CentreM[district].Y:F0}) {town.Partition.AreaM2[district] / 1e6f:F2} km²");
             Console.WriteLine($"  streets    in {withStreets.Count} of {town.Partition.Count} districts, {laid.Roads.Roads.Count} roads in all");
+            foreach (var district in bare) Console.WriteLine($"             none in {district}");
             var roads = laid.Roads.Roads;
             var arms = new int[laid.Roads.Junctions.CentreM.Length];
             for (var road = 0; road < roads.Count; road++)
@@ -648,6 +651,33 @@ internal static class Program
             Console.WriteLine(
                 $"  junctions  {arms.Count(count => count == 3)} of three arms, {arms.Count(count => count >= 4)} of four or more, " +
                 $"{laid.Roads.Junctions.Lit.Count(lit => lit)} lit; {roads.Flow.Count(flow => flow != RoadFlow.BothWays)} one-way roads");
+            Console.WriteLine($"  main roads {MainNetworks(roads, arms.Length)} networks (GEN-69 asks one)");
+            if (read.Roster.Buildings > 0)
+            {
+                var yards = new List<string>();
+                var missing = new List<string>();
+                foreach (var use in ServiceBuildings.Uses)
+                {
+                    var laidFor = new HashSet<int>();
+                    for (var park = 0; park < laid.CarParks.Count; park++)
+                    {
+                        if (laid.CarParks.For[park] == use) laidFor.Add(laid.CarParks.District[park]);
+                    }
+
+                    yards.Add($"{laidFor.Count} {use}");
+                    for (var district = 0; district < laid.Districts.Count; district++)
+                    {
+                        if (laid.Districts.Built(district) && !laidFor.Contains(district))
+                        {
+                            missing.Add($"{use} in {district} at ({town.Partition.CentreM[district].X:F0}, {town.Partition.CentreM[district].Y:F0}) {town.Partition.AreaM2[district] / 1e6f:F2} km²");
+                        }
+                    }
+                }
+
+                Console.WriteLine($"  services   {string.Join(", ", yards)} yards, of {laid.Districts.BuiltCount} districts with streets each (GEN-56)");
+                foreach (var yard in missing) Console.WriteLine($"             no {yard}");
+            }
+
             if (sketch is null || briefs.Length > 1) continue;
 
             BriefSketch.Write(town, config, sketch);
@@ -655,6 +685,22 @@ internal static class Program
         }
 
         return 0;
+    }
+
+    /// <summary>How many networks the roads that are no district's own make: every road but a street and a car park's.</summary>
+    static int MainNetworks(CityPlan.RoadArrays roads, int junctions)
+    {
+        var root = Clusters.Apart(junctions);
+        var main = new bool[junctions];
+        for (var road = 0; road < roads.Count; road++)
+        {
+            if (roads.Class[road] is RoadClass.Street or RoadClass.CarPark) continue;
+
+            (main[roads.FromJunction[road]], main[roads.ToJunction[road]]) = (true, true);
+            Clusters.Union(root, roads.FromJunction[road], roads.ToJunction[road]);
+        }
+
+        return Enumerable.Range(0, junctions).Where(junction => main[junction]).Select(junction => Clusters.Find(root, junction)).Distinct().Count();
     }
 
     /// <summary>

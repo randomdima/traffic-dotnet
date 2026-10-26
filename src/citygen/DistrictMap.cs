@@ -17,20 +17,33 @@ internal sealed class DistrictMap
     readonly float _cellM;
     readonly int _columns;
     readonly int _rows;
+    readonly bool[] _built;
 
-    public DistrictMap(short[] label, float cellM, int columns, int rows, Vector2[] centreM)
+    /// <param name="built">Whether each district carries a street of its own (<see cref="Built"/>).</param>
+    public DistrictMap(short[] label, float cellM, int columns, int rows, Vector2[] centreM, bool[] built)
     {
-        (_label, _cellM, _columns, _rows) = (label, cellM, columns, rows);
+        (_label, _cellM, _columns, _rows, _built) = (label, cellM, columns, rows, built);
         CentreM = centreM;
+        BuiltCount = Array.FindAll(built, each => each).Length;
     }
 
     /// <summary>A town that is one district, which is every map not laid in districts.</summary>
-    public static DistrictMap Whole { get; } = new([], 0f, 0, 0, [Vector2.Zero]);
+    public static DistrictMap Whole { get; } = new([], 0f, 0, 0, [Vector2.Zero], [true]);
 
     public int Count => CentreM.Length;
 
+    /// <summary>How many districts carry a street of their own (<see cref="Built"/>).</summary>
+    public int BuiltCount { get; }
+
     /// <summary>The middle of the ground each district holds.</summary>
     public Vector2[] CentreM { get; }
+
+    /// <summary>
+    /// <b>Whether a district carries a street of its own once the town is laid</b> — what it is owed services for
+    /// (GEN-56). One that carries none is open land (GEN-65): reached by no road between districts, or too narrow for a
+    /// street of it to be anything but a dead end (GEN-5a).
+    /// </summary>
+    public bool Built(int district) => _built[district];
 
     /// <summary>The district a point stands in, or −1 where it stands in none.</summary>
     public int At(Vector2 pointM)

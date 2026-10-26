@@ -72,7 +72,7 @@ internal static class TownGen
         {
             Courses = water.Courses,
             Rails = connectors.Tracks,
-            Zones = Zones(brief, partition, districts, extentM),
+            Zones = Zones(brief, partition, districts, connectors.CoreM, extentM),
         };
         return new Authored(brief, seeds, water, connectors, ground, partition, districts, map);
     }
@@ -159,17 +159,18 @@ internal static class TownGen
     }
 
     /// <summary>
-    /// <b>What the town is zoned for</b> (GEN-58): the whole map, saying the town's counts, and a zone for each district —
-    /// its outline, its kind (GEN-74) and the bearing its buildings behind the frontage stand square to.
+    /// <b>What the town is zoned for</b> (GEN-58): the whole map, saying the town's counts and its core as the hub its
+    /// buildings thin away from (GEN-54), and a zone for each district — its outline, its kind (GEN-74) and the bearing its
+    /// buildings behind the frontage stand square to.
     /// </summary>
-    static TownMap.ZoneArrays Zones(TownBrief brief, Partition partition, Districts districts, Vector2 extentM)
+    static TownMap.ZoneArrays Zones(TownBrief brief, Partition partition, Districts districts, Vector2 coreM, Vector2 extentM)
     {
         var zones = new TownMap.ZoneArrays.Builder();
         zones.Add(
             -1, ZoneKind.Town,
             [
                 (ZoneParam.People, brief.Roster.People), (ZoneParam.Cars, brief.Roster.Cars), (ZoneParam.Buildings, brief.Roster.Buildings),
-                (ZoneParam.UnregulatedShare, brief.Streets.UnregulatedShare),
+                (ZoneParam.UnregulatedShare, brief.Streets.UnregulatedShare), (ZoneParam.HubXM, coreM.X), (ZoneParam.HubYM, coreM.Y),
             ],
             [TownMap.WholeOutline(extentM)]);
 
@@ -220,6 +221,7 @@ internal static class TownGen
         paths.TheNodesMoved(moved);
         took("settle");
         paths.Close();
+        links.JoinWhatWasLeft(layout);
         Lattice.Lay(layout, streets, moved);
         took("streets");
 
@@ -234,7 +236,9 @@ internal static class TownGen
         OneWayStreets.Lay(layout, config);
         took("one-way");
 
-        var districtMap = new DistrictMap(town.Partition.Label, town.Partition.Grid.CellM, town.Partition.Grid.Columns, town.Partition.Grid.Rows, town.Partition.CentreM);
+        var districtMap = new DistrictMap(
+            town.Partition.Label, town.Partition.Grid.CellM, town.Partition.Grid.Columns, town.Partition.Grid.Rows, town.Partition.CentreM,
+            WithStreets(layout, town.Partition));
         var carPark = new Rng(seed, Streams.CarPark);
         var carParks = CarParks.Lay(layout, town.Brief.Roster.Buildings, config, districtMap, sizes, ref carPark);
         took("car parks");
@@ -244,6 +248,22 @@ internal static class TownGen
         took("roads");
 
         return new Laid(roads, carParks, districtMap);
+    }
+
+    /// <summary>Which districts a street stands in, by the middle of each street the layout kept (<see cref="DistrictMap.Built"/>).</summary>
+    static bool[] WithStreets(TownLayout layout, Partition partition)
+    {
+        var built = new bool[partition.Count];
+        for (var road = 0; road < layout.Edges.Count; road++)
+        {
+            if (layout.Edges[road].Class != RoadClass.Street) continue;
+
+            var line = layout.LineOf(road);
+            var district = partition.At(Spline.SampleAt(line, Spline.TotalLengthM(line) * 0.5f).PositionM);
+            if (district >= 0) built[district] = true;
+        }
+
+        return built;
     }
 
     /// <summary>

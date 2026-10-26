@@ -112,7 +112,9 @@ districts either side: that is a district's edge, not something it spans.
 **GEN-65** `P5` **A district is no bigger than a district gets, and a town grows by adding districts rather than by
 growing them** (`DistrictLargestM2`). A region is cut into as many districts as keep every one under that area, as near
 equal as its shape allows. **A region smaller than the least district (`DistrictLeastM2`) is open land** and stands no
-street of its own; it is not merged across a barrier into the district beside it.
+street of its own; it is not merged across a barrier into the district beside it. **So is a district no street of its
+own is left standing in** — one no road between districts reaches, or too narrow for its streets to be anything but
+dead ends (GEN-5a) — though it keeps its number.
 
 **GEN-66** `P6` **A district is any smooth, compact shape.** Its outline is its region's edge where it meets a barrier,
 and where it meets another district **a curve**: the cut is made in a warped plane (`DistrictBendShare`), so the edge
@@ -147,6 +149,8 @@ district's lattice runs along its own ground's longest axis** rather than a comp
 
 - **A street never meets an intercity road.** It meets the streets of its own district and the roads between districts
   round it.
+- **No car park stands off an intercity road** (`RoadsideSites.SitesOn`): a bay is got into and out of across the lane
+  it stands off (`GEN-4f`), and an intercity road's lanes are the town's way in and out, not ground to manoeuvre on.
 - **An intercity road's junctions stand no nearer each other than `IntercityJunctionsApartLeastM`**, and those on a
   road between districts no nearer than `DistrictJunctionsApartLeastM`.
 - **Only where roads between districts or above meet is a junction lit** (TLT-3); one a street meets is unlit and run
@@ -483,9 +487,13 @@ four are fronted on the same terms.
   it will wear** (`CityGen.BuildingSizes`), so the picture drawn on it is the size the plan stood rather than the
   nearest thing to it. A building behind the frontage is square to its zone's bearing, or to the nearest street, and
   its way in is on that street's walk.
-- **What the zones stand is thinned evenly to what a town plans** (`ZoneParam.Buildings`), the frontage before the
-  ground behind, and never cut off at the last rings walked: thinned ring by ring instead, a town that plans fewer buildings than its frontage affords is built
-  solid along whichever rings came first and empty everywhere else.
+- **What the zones stand is thinned to what a town plans** (`ZoneParam.Buildings`), the frontage before the ground
+  behind, and never cut off at the last rings walked: thinned ring by ring instead, a town that plans fewer buildings
+  than its frontage affords is built solid along whichever rings came first and empty everywhere else. **A town that
+  names a hub thins away from it** (`ZoneParam.HubXM`, `ZoneThinFalloff`) — a generated town's is its core — so its
+  middle is built solid and its edge thins out; one that names none is thinned alike everywhere.
+- **A building turned off square touches the building line at its nearest corner**, its front stood back by as much as
+  the turn swings that corner toward the street.
 - **It runs after every stage that lays driven ground and before the props** (`GEN-10`, `GEN-6b`): a
   building is cleared against the ground the finished map answers with, and a verge crowded by buildings
   carries fewer props.
@@ -670,7 +678,7 @@ once the town is laid: it is what a service's beat is kept to (`SRV-5`). A trace
   and far face, across the rank on the side it faces, both stand in the district. A district's edge is as often
   as not a road between districts: asked of the road alone, a yard cut into one stood its building over the road
   in the next district, and a yard cut into one facing into the district is that district's.
-- **A district with no street stands nothing.**
+- **A district with no street stands nothing** (`DistrictMap.Built`), and no yard is cut for it on the roads round it.
 - **A yard is as wide as its building's frontage** (`GEN-55`), so a district none of whose kerbs runs straight
   for that long stands no building of that service, and the census says so (`GEN-8`). No district stands two.
 

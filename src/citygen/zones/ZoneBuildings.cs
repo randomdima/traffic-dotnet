@@ -44,8 +44,10 @@ namespace TrafficSimulation.CityGen.Zones;
 /// building two rings both reach stands for the first. <b>The ground behind the frontage is built after it</b>
 /// (<see cref="Behind"/>), against what stands along the streets. <b>A town that plans fewer buildings than its zones
 /// stand</b> (<see cref="ZoneParam.Buildings"/>) keeps each along the streets by a draw at the share its plan has room
-/// for, so what it thins is thinned evenly over the whole town rather than the last rings walked, and builds behind
-/// them only with what room is left — and one that plans none stands none of its zones'.
+/// for, so what it thins is thinned over the whole town rather than off the last rings walked, and builds behind
+/// them only with what room is left — and one that plans none stands none of its zones'. <b>Where the town names a
+/// hub</b> (<see cref="ZoneParam.HubXM"/>) that share falls away from it (<see cref="Keeping"/>), so the middle of the
+/// town is built solid and its edge thins out; where it names none, the share is the same everywhere.
 /// </para>
 /// </remarks>
 internal static class ZoneBuildings
@@ -99,6 +101,9 @@ internal static class ZoneBuildings
             (own, ring) => (ringStood[ring], tallies[ring]) = Along(faces[ring], ring, survey.Seed, zones, yards, prefabs, ground, config, own));
 
         var most = room == int.MaxValue ? int.MaxValue : built.Count + room;
+        var hubM = zones.Zones.Own(Map.TownMap.ZoneArrays.Root, ZoneParam.HubXM) is { } hubX && zones.Zones.Own(Map.TownMap.ZoneArrays.Root, ZoneParam.HubYM) is { } hubY
+            ? new Vector2(hubX, hubY)
+            : (Vector2?)null;
         var thin = new Rng(survey.Seed, Streams.Building);
         var thinned = 0;
         StandAll(ringStood);
@@ -126,19 +131,17 @@ internal static class ZoneBuildings
 
         return new Laying(built.Arrays(), places, open, thinned, built.Count - alongTheStreets, stoodByLook, refusedByLook);
 
-        // Every building of each pool kept at the share the plan still has room for, stood where nothing stood before it.
+        // Every building of each pool kept at the share the plan still has room for where it stands, stood where nothing
+        // stood before it.
         void StandAll(Stood[][] pools)
         {
-            var candidates = 0;
-            foreach (var stood in pools) candidates += stood?.Length ?? 0;
-
             var left = most == int.MaxValue ? int.MaxValue : most - built.Count;
-            var keepShare = candidates > left ? left / (float)candidates : 1f;
+            var keeping = Keeping.Of(pools, left, hubM, config.CityGen.ZoneThinFalloff);
             foreach (var stood in pools)
             {
                 foreach (var building in stood)
                 {
-                    if (thin.NextFloat() >= keepShare || built.Count >= most)
+                    if (thin.NextFloat() >= keeping.At(building.CentreM) || built.Count >= most)
                     {
                         thinned++;
                         continue;
@@ -183,6 +186,55 @@ internal static class ZoneBuildings
 
     /// <summary>What one ring's walk asked and refused.</summary>
     readonly record struct Tally(int Places, int Open, int[] Refused);
+
+    /// <summary>
+    /// <b>How much of what the zones stood a town that plans fewer buildings keeps, place by place</b> (GEN-54): the same
+    /// share everywhere where the town names no hub; where it names one, all of it out to a radius of the hub and beyond
+    /// that a share falling as the distance to the power <see cref="CityGenFigures.ZoneThinFalloff"/> — the radius the one
+    /// at which the shares of every building offered come to what the plan has room for.
+    /// </summary>
+    readonly record struct Keeping(Vector2? HubM, float RadiusM, float Share, float Falloff)
+    {
+        /// <summary>How many times the radius is halved toward the one that keeps what the plan has room for.</summary>
+        const int Halvings = 40;
+
+        public float At(Vector2 atM)
+        {
+            if (HubM is not { } hubM) return Share;
+
+            var awayM = Vector2.Distance(atM, hubM);
+            return awayM <= RadiusM ? 1f : MathF.Pow(RadiusM / awayM, Falloff);
+        }
+
+        public static Keeping Of(Stood[][] pools, int left, Vector2? hubM, float falloff)
+        {
+            var candidates = 0;
+            foreach (var stood in pools) candidates += stood.Length;
+            if (candidates <= left) return new Keeping(null, 0f, 1f, falloff);
+            if (hubM is not { } hub) return new Keeping(null, 0f, left / (float)candidates, falloff);
+
+            var (leastM, mostM) = (0f, 0f);
+            foreach (var stood in pools)
+            {
+                foreach (var building in stood) mostM = MathF.Max(mostM, Vector2.Distance(building.CentreM, hub));
+            }
+
+            for (var halving = 0; halving < Halvings; halving++)
+            {
+                var keeping = new Keeping(hub, (leastM + mostM) * 0.5f, 1f, falloff);
+                var kept = 0f;
+                foreach (var stood in pools)
+                {
+                    foreach (var building in stood) kept += keeping.At(building.CentreM);
+                }
+
+                if (kept > left) mostM = keeping.RadiusM;
+                else leastM = keeping.RadiusM;
+            }
+
+            return new Keeping(hub, leastM, 1f, falloff);
+        }
+    }
 
     /// <summary>The building last stood along a ring, which the next may repeat.</summary>
     readonly record struct Before(int Zone, BuildingLook Look, int Prefab);
@@ -253,8 +305,9 @@ internal static class ZoneBuildings
                 if (!yards.Allows(faceM + (along * (sizeM.X * 0.5f)), sizeM.X * 0.5f, own.Near)) continue;
                 if (own.Face.Seat(own, faceM + (along * (sizeM.X * 0.5f)), along, sizeM.X, config) is not var (lineWallM, seated)) continue;
 
+                // A front turned off square swings one corner towards the street, so it is stood back by that much.
                 var outward = -Heading.RightOf(seated);
-                var wallM = lineWallM + (outward * MathF.Max(0f, backM));
+                var wallM = lineWallM + (outward * (MathF.Max(0f, backM) + (sizeM.X * 0.5f * MathF.Abs(Trig.Sin(skewRad)))));
                 var headingRad = Trig.Atan2(seated.Y, seated.X) + skewRad;
                 var centreM = wallM + (-Heading.RightOf(Heading.Unit(headingRad)) * (sizeM.Y * 0.5f));
                 var there = zones.SettingsAt(wallM + (outward * figures.ZoneDepthM));

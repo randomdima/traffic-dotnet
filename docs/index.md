@@ -167,12 +167,9 @@ owning slice's log; this list says only what is absent now and what closes it.
 - **Nothing enters or leaves a generated city by its intercity roads** (`GEN-63`): a lane out past the map's edge
   leads to a world the town does not hold, and no car arrives from it or goes into it. The generator and the suite
   treat the edge as that world; the traffic does not.
-- **The roads between districts are not always one network** (`GEN-69`): they are planned as one, and a planned road
-  the ground then refuses (a link leaning too near another road's arm, a lead off a bridge) is dropped with nothing
-  planned again behind it, which leaves the districts it served reached through their neighbours' streets alone.
-  Two of the suite's seeds show it (`TownGenTests`).
 - **A district's services are hoped for, not reserved** (`GEN-56`): its streets are laid without keeping a straight
-  frontage for its three yards, so a crooked district stands one of them or none, and the census says so.
+  frontage for its three yards, so a crooked district stands one short — `Twinford`'s district 9, a strip between two
+  rivers, has no depot — and `--brief` and the census say so.
 - **A railway crosses a river at whatever angle its line meets it** (`GEN-70` is the roads'): the track is routed
   before the bridges are, as RAIL-8 raises it over the water.
 - **One laboratory map ships, and it is the scenario map**: `Exam`, a lattice of traffic scenarios driven end to

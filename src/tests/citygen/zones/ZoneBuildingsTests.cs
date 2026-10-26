@@ -98,6 +98,25 @@ public class ZoneBuildingsTests
     }
 
     /// <summary>
+    /// <b>A turned building stands back until its nearest corner is on the building line</b> (GEN-54): turned off square,
+    /// one corner of its front swings toward the street, and that corner — no part nearer — touches the line.
+    /// </summary>
+    [Fact]
+    public void ATurnedBuildingTouchesTheBuildingLineAtItsNearestCorner()
+    {
+        var buildings = Laid(Set(Zoned.Terrace(North(150f, 850f)), (ZoneParam.SkewDeg, 10f), (ZoneParam.Frontage, 0.5f)));
+
+        Assert.NotEmpty(buildings.Prefab);
+        for (var building = 0; building < buildings.Count; building++)
+        {
+            var halfM = Sizes.PrefabM[buildings.Prefab[building]] * 0.5f;
+            var headingRad = buildings.HeadingRad[building];
+            var nearestY = buildings.CentreM[building].Y + (MathF.Abs(MathF.Sin(headingRad)) * halfM.X) + (MathF.Abs(MathF.Cos(headingRad)) * halfM.Y);
+            Assert.Equal(FaceY - (Config.BuildingLineM - Config.WalkOuterM), nearestY, 2e-2f);
+        }
+    }
+
+    /// <summary>
     /// <b>A zone of no variety repeats the building before</b>: along a terrace whose zone draws nothing afresh, every house
     /// is the first one's prefab.
     /// </summary>
@@ -231,6 +250,21 @@ public class ZoneBuildingsTests
 
         Assert.InRange(planned, 1, all / 2);
         Assert.Equal(0, none);
+    }
+
+    /// <summary>
+    /// <b>A town that plans fewer buildings than its zones stand thins away from its hub</b> (GEN-54): with its hub at
+    /// the street's west end and room for half, the west half of the street stands more than the east half.
+    /// </summary>
+    [Fact]
+    public void ATownThinsAwayFromItsHub()
+    {
+        var all = Laid(Zoned.Terrace(North(150f, 850f))).Count;
+
+        var buildings = Laid([(ZoneParam.Buildings, all / 2), (ZoneParam.HubXM, 150f), (ZoneParam.HubYM, StreetY)], Zoned.Terrace(North(150f, 850f)));
+
+        var west = buildings.CentreM.Count(centreM => centreM.X < 500f);
+        Assert.True(west > buildings.Count - west, $"{west} west of the middle, {buildings.Count - west} east of it");
     }
 
     /// <summary>

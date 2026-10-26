@@ -167,6 +167,34 @@ public class BuildingsTests
     }
 
     /// <summary>
+    /// <b>Every district a street stands in stands a hospital, a police station and a depot</b> (GEN-56), each inside it;
+    /// one no street stands in is open land and owed none (GEN-65).
+    /// </summary>
+    [Fact]
+    public void EveryDistrictWithStreetsStandsEachService()
+    {
+        var plan = Plan;
+        var uses = ServiceBuildings.Uses;
+        var stood = new bool[plan.Districts.Count * uses.Length];
+        for (var building = 0; building < plan.Buildings.Count; building++)
+        {
+            var use = uses.IndexOf(plan.Buildings.Use[building]);
+            var district = plan.Districts.At(plan.Buildings.CentreM[building]);
+            if (use >= 0 && district >= 0) stood[(district * uses.Length) + use] = true;
+        }
+
+        for (var district = 0; district < plan.Districts.Count; district++)
+        {
+            if (!plan.Districts.Built(district)) continue;
+
+            for (var use = 0; use < uses.Length; use++)
+            {
+                Assert.True(stood[(district * uses.Length) + use], $"district {district} about {plan.Districts.CentreM[district]} stands no {uses[use]}");
+            }
+        }
+    }
+
+    /// <summary>
     /// <b>No building stands on the rounding round the end of a car park, or down its side</b> (GEN-55).
     /// Where one fronts a rank of bays, the whole of its frontage stands on the flat — the line those bays
     /// end on — because a building perched on the rounding fronts the mouth of the car park at an angle.

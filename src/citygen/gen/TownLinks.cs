@@ -7,8 +7,9 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <summary>
 /// <b>The roads between districts</b> (GEN-67, GEN-69): one along every edge two districts share, links across every
 /// barrier two districts face each other over — a bridge over a river, a level crossing over a railway, a crossroads over
-/// an intercity road — and a road in from an intercity road to every district no other road between districts brings to
-/// one; each laid as a district road, and as wide as the demand over it says.
+/// an intercity road — and a road in from an intercity road, or across a district from one that reaches it, to every
+/// district no other road between districts brings to one; each laid as a district road, and as wide as the demand over
+/// it says.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -66,9 +67,13 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
 
     /// <summary>
     /// How near the way it came in a link holds, as the cosine off it: <b>no further off square to the road it leaves than
-    /// that road's own arms let a junction take</b> (GEN-13) — a link leaning nearer is planned and then refused when laid.
+    /// that road's own arms let a junction take</b> (GEN-13), with the margin laying it takes off
+    /// (<see cref="SimConfig.LinkArmsApartMinRad"/>) — a link leaning nearer is planned and then refused when laid.
     /// </summary>
-    readonly float _inwardLeast = MathF.Sin(config.ArmsApartMinRad);
+    readonly float _inwardLeast = MathF.Sin(config.LinkArmsApartMinRad);
+
+    /// <summary>How near two roads leaving one junction lie, as the cosine between them: no nearer than its arms are let (GEN-13).</summary>
+    readonly float _armsApartCos = MathF.Cos(config.LinkArmsApartMinRad);
 
     /// <summary>Each intercity road's junctions as planned, by how far along it each stands.</summary>
     readonly List<float>[] _stations = [.. intercity.Select(path => paths.All[path].Nodes.Select(node => node.AlongM).ToList())];
@@ -89,6 +94,84 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
         var lanes = Lanes(planned);
         var pathOf = new int[planned.Count];
         for (var at = 0; at < planned.Count; at++) pathOf[at] = Add(planned, at, lanes[at], pathOf);
+    }
+
+    /// <summary>
+    /// <b>Every piece of the roads laid so far that the intercity network was left without, joined to it</b> (GEN-69) — once
+    /// the paths are closed into roads and before any street is: a planned road the ground refused leaves the roads
+    /// planned behind it a piece of their own, which the town would otherwise delete with its streets
+    /// (<see cref="TownLayout.KeepTheLargestComponent"/>). Each is given the shortest straight district road the layout
+    /// takes from one of its junctions to one of the network's, within a road in's reach; one none is taken for is left.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of the layout and not of the plan</b>, since the refusals are the layout's: the plan holds every rule it
+    /// can, and this is what is left of the rest.
+    /// </remarks>
+    public void JoinWhatWasLeft(TownLayout layout)
+    {
+        var edges = layout.Edges;
+        var root = Clusters.Apart(layout.NodeM.Count);
+        foreach (var edge in edges) Clusters.Union(root, edge.From, edge.To);
+
+        var size = new Dictionary<int, int>();
+        var outside = new HashSet<int>();
+        foreach (var edge in edges)
+        {
+            var piece = Clusters.Find(root, edge.From);
+            size[piece] = size.GetValueOrDefault(piece) + 1;
+            if (edge.Class == RoadClass.Intercity) outside.Add(piece);
+        }
+
+        if (size.Count < 2) return;
+
+        var main = size.Keys.Where(piece => outside.Count == 0 || outside.Contains(piece)).MaxBy(piece => size[piece]);
+        var reachM = config.CityGen.BlockSpacingAlongMaxM * RoadInReachInBlocks;
+        var shortestM = 2f * TownGen.CorridorM(config, 1);
+        var onARoad = new bool[layout.NodeM.Count];
+        foreach (var edge in edges) (onARoad[edge.From], onARoad[edge.To]) = (true, true);
+
+        // Again until none is joined: a piece the network reaches only through another is joined once that one is.
+        var left = size.Keys.Where(piece => piece != main).OrderByDescending(piece => size[piece]).ToList();
+        for (var joinedAny = true; joinedAny;)
+        {
+            joinedAny = false;
+            foreach (var piece in left.ToList())
+            {
+                if (!JoinedOn(piece)) continue;
+
+                left.Remove(piece);
+                joinedAny = true;
+            }
+        }
+
+        // The shortest road the layout takes from one of the piece's junctions to one of the network's.
+        bool JoinedOn(int piece)
+        {
+            var joined = Clusters.Find(root, main);
+            var candidates = new List<(int From, int To, float M)>();
+            for (var from = 0; from < onARoad.Length; from++)
+            {
+                if (!onARoad[from] || Clusters.Find(root, from) != piece) continue;
+
+                for (var to = 0; to < onARoad.Length; to++)
+                {
+                    if (!onARoad[to] || Clusters.Find(root, to) != joined) continue;
+
+                    var apartM = Vector2.Distance(layout.NodeM[from], layout.NodeM[to]);
+                    if (apartM >= shortestM && apartM <= reachM) candidates.Add((from, to, apartM));
+                }
+            }
+
+            foreach (var (from, to, _) in candidates.OrderBy(candidate => candidate.M))
+            {
+                if (layout.Join(from, to, RoadClass.Arterial, straight: true) < 0) continue;
+
+                Clusters.Union(root, from, to);
+                return true;
+            }
+
+            return false;
+        }
     }
 
     /// <summary>
@@ -254,8 +337,15 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
         }
     }
 
+    /// <summary>
+    /// Whether a crossing stands within a spacing of another of its kind: along the barrier where both cross one, and on the
+    /// ground where each crosses its own — two tracks laid side by side, two arms of one river — so no two links run
+    /// along each other to the same roads.
+    /// </summary>
     static bool TooNear(Crossing site, IEnumerable<Crossing> standing, IEnumerable<Crossing> chosen, float apartM) =>
-        standing.Concat(chosen).Any(other => other.Bridge == site.Bridge && other.Barrier == site.Barrier && MathF.Abs(other.AlongM - site.AlongM) < apartM);
+        standing.Concat(chosen).Any(other => other.Bridge == site.Bridge && (other.Barrier == site.Barrier
+            ? MathF.Abs(other.AlongM - site.AlongM) < apartM
+            : Vector2.Distance(Blend.Lerp(other.NearM, other.FarM, 0.5f), Blend.Lerp(site.NearM, site.FarM, 0.5f)) < apartM));
 
     /// <summary>
     /// <b>One link across a crossing</b>: from inside one district, held on the crossing's line through its approach, over
@@ -299,7 +389,7 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
                 // Held near the way it came in: a link turned along the barrier it crossed would lie against it (GEN-49).
                 var ontoM = planned[other].Line.At(alongM);
                 if (Vector2.Dot((ontoM - fromM) / awayM, heading) < inwardLeast || !InTheDistrict(fromM, ontoM, district)) continue;
-                if (CrossesAny(planned, fromM, ontoM, other)) continue;
+                if (CrossesAny(planned, fromM, ontoM, other) || !Lands(planned, other, alongM, (fromM - ontoM) / awayM)) continue;
 
                 (best, bestAlongM, bestM) = (other, alongM, awayM);
             }
@@ -311,11 +401,11 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
     }
 
     /// <summary>Whether a straight crosses any planned road but the one it ends on, where it would meet it at no junction (GEN-49).</summary>
-    static bool CrossesAny(List<Planned> planned, Vector2 fromM, Vector2 toM, int but)
+    static bool CrossesAny(List<Planned> planned, Vector2 fromM, Vector2 toM, int but, int andBut = -1)
     {
         for (var other = 0; other < planned.Count; other++)
         {
-            if (other == but) continue;
+            if (other == but || other == andBut) continue;
 
             var points = planned[other].Line.PointsM;
             for (var point = 0; point + 1 < points.Length; point++)
@@ -347,8 +437,8 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
     /// <summary>
     /// <b>Where a link ends on its district's lattice</b>: a place up to a reach on from where it crosses into the district,
     /// drawn back toward it until it stands in the district, and moved onto the district's own lattice point nearest that
-    /// (<see cref="Lattice.PointNearest"/>) where that is the district's too — so the lattice's streets meet the link's
-    /// end as they meet each other.
+    /// (<see cref="Lattice.PointNearest"/>) where that is the district's too and no further off the way it came — so the
+    /// lattice's streets meet the link's end as they meet each other.
     /// </summary>
     Vector2 Inside(Vector2 fromM, Vector2 heading, float reachM, int district)
     {
@@ -361,8 +451,11 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
             break;
         }
 
+        // Moved only as far as the link still leaves the road it came off as square as it was planned to (GEN-13).
         var onTheLatticeM = Lattice.PointNearest(_partition, town.Districts, district, atM);
-        return _partition.At(onTheLatticeM) == district && Vector2.Dot(onTheLatticeM - fromM, heading) > _streetM ? onTheLatticeM : atM;
+        var toLatticeM = onTheLatticeM - fromM;
+        var square = toLatticeM.Length() > _streetM && Vector2.Dot(Vector2.Normalize(toLatticeM), heading) >= _inwardLeast;
+        return _partition.At(onTheLatticeM) == district && square ? onTheLatticeM : atM;
     }
 
     /// <summary>
@@ -412,12 +505,15 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
             {
                 var middleM = alongs[0].AlongM + ((alongs[^1].AlongM - alongs[0].AlongM) * (pick + 0.5f) / picks);
                 var (alongM, towardA) = alongs.MinBy(at => MathF.Abs(at.AlongM - middleM));
-                if (Station(road, alongM) is not { } stationM) continue;
+                if (WouldStation(road, alongM) is not { } stationM) continue;
 
                 var atM = line.At(stationM);
                 var station = new End(Road: road, RoadAlongM: stationM);
                 var (intoA, inA) = Into(planned, a, atM, towardA);
                 var (intoB, inB) = Into(planned, b, atM, -towardA);
+                if (!ArmsClear(planned, road, stationM, atM, Vector2.Normalize(inA - atM)) || !ArmsClear(planned, road, stationM, atM, Vector2.Normalize(inB - atM))) continue;
+
+                Station(road, stationM);
                 planned.Add(new Planned(a, b, new Polyline([atM, inA]), [], station, intoA, Seam: false));
                 planned.Add(new Planned(a, b, new Polyline([atM, inB]), [], station, intoB, Seam: false));
             }
@@ -442,9 +538,10 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
             given = false;
             var (root, outside) = Joined(planned, seams);
             var reaching = Clusters.Find(root, outside);
-            foreach (var piece in Enumerable.Range(0, planned.Count).Where(at => Clusters.Find(root, at) != reaching).GroupBy(at => Clusters.Find(root, at)))
+            var reaches = Enumerable.Range(0, planned.Count).Select(at => Clusters.Find(root, at) == reaching).ToArray();
+            foreach (var piece in Enumerable.Range(0, planned.Count).Where(at => !reaches[at]).GroupBy(at => Clusters.Find(root, at)))
             {
-                if (RoadIn(planned, fronts, [.. piece])) given = true;
+                if (RoadIn(planned, fronts, [.. piece]) || Across(planned, [.. piece], reaches)) given = true;
                 if (given) break;
             }
 
@@ -464,10 +561,13 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
                 var middleM = fronting.Average(front => front.AlongM);
                 foreach (var (road, alongM, side, left, _) in fronting.OrderBy(front => MathF.Abs(front.AlongM - middleM)))
                 {
-                    if (Station(road, alongM) is not { } stationM) continue;
+                    if (WouldStation(road, alongM) is not { } stationM) continue;
 
                     var atM = paths.All[intercity[road]].Line.At(stationM);
                     var (last, inward) = Into(planned, district, atM, left == district ? side : -side);
+                    if (!ArmsClear(planned, road, stationM, atM, Vector2.Normalize(inward - atM))) continue;
+
+                    Station(road, stationM);
                     planned.Add(new Planned(district, district, new Polyline([atM, inward]), [], new End(Road: road, RoadAlongM: stationM), last, Seam: false));
                     given = true;
                     break;
@@ -499,8 +599,7 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
 
             var atM = paths.All[intercity[road]].Line.At(stationM);
             var inward = district == left ? side : -side;
-            var reachM = MathF.Max(town.Districts[district].BlockAlongM, town.Districts[district].BlockAcrossM) * RoadInReachInBlocks;
-            var (best, bestAlongM, bestM) = (-1, 0f, reachM);
+            var (best, bestAlongM, bestM) = (-1, 0f, ReachOf(district));
             foreach (var at in piece)
             {
                 if (planned[at].A != district && planned[at].B != district) continue;
@@ -508,7 +607,8 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
                 var (ontoAlongM, awayM) = planned[at].Line.Nearest(atM);
                 var ontoM = planned[at].Line.At(ontoAlongM);
                 if (awayM >= bestM || awayM < _streetM || Vector2.Dot((ontoM - atM) / awayM, inward) < _inwardLeast || !InTheDistrict(atM, ontoM, district)) continue;
-                if (CrossesAny(planned, atM, ontoM, at)) continue;
+                if (CrossesAny(planned, atM, ontoM, at) || !ArmsClear(planned, road, stationM, atM, (ontoM - atM) / awayM)) continue;
+                if (!Lands(planned, at, ontoAlongM, (atM - ontoM) / awayM)) continue;
 
                 (best, bestAlongM, bestM) = (at, ontoAlongM, awayM);
             }
@@ -523,6 +623,110 @@ internal sealed class TownLinks(TownGen.Authored town, Paths paths, int[] interc
         }
 
         return false;
+    }
+
+    /// <summary>How far a road in to a district, or across it, may run to the roads it joins.</summary>
+    float ReachOf(int district) => MathF.Max(town.Districts[district].BlockAlongM, town.Districts[district].BlockAcrossM) * RoadInReachInBlocks;
+
+    /// <summary>
+    /// <b>One road across a district</b> from a road between districts that reaches the intercity network to one of a piece
+    /// that does not, both that district's — the shortest, square enough to each (GEN-13), inside the district all the way
+    /// and crossing no other — or false where none is. What joins a piece no intercity road can be brought in to.
+    /// </summary>
+    bool Across(List<Planned> planned, int[] piece, bool[] reaches)
+    {
+        var (bestFrom, bestFromAlongM, bestTo, bestToAlongM, bestM) = (-1, 0f, -1, 0f, float.PositiveInfinity);
+        foreach (var to in piece)
+        {
+            foreach (var district in (ReadOnlySpan<int>)[planned[to].A, planned[to].B])
+            {
+                for (var from = 0; from < planned.Count; from++)
+                {
+                    if (!reaches[from] || (planned[from].A != district && planned[from].B != district)) continue;
+
+                    var line = planned[from].Line;
+                    for (var alongM = 0f; alongM <= line.LengthM; alongM += config.CityGen.RouteCellM)
+                    {
+                        var fromM = line.At(alongM);
+                        var (toAlongM, awayM) = planned[to].Line.Nearest(fromM);
+                        if (awayM >= bestM || awayM < _streetM || awayM > ReachOf(district)) continue;
+
+                        var toM = planned[to].Line.At(toAlongM);
+                        var heading = (toM - fromM) / awayM;
+                        if (!Lands(planned, from, alongM, heading) || !Lands(planned, to, toAlongM, -heading)) continue;
+                        if (!InTheDistrict(fromM, toM, district) || CrossesAny(planned, fromM, toM, from, to)) continue;
+
+                        (bestFrom, bestFromAlongM, bestTo, bestToAlongM, bestM) = (from, alongM, to, toAlongM, awayM);
+                    }
+                }
+            }
+        }
+
+        if (bestFrom < 0) return false;
+
+        var shared = planned[bestTo].A == planned[bestFrom].A || planned[bestTo].A == planned[bestFrom].B ? planned[bestTo].A : planned[bestTo].B;
+        planned.Add(new Planned(
+            shared, shared, new Polyline([planned[bestFrom].Line.At(bestFromAlongM), planned[bestTo].Line.At(bestToAlongM)]), [],
+            new End(Onto: bestFrom, OntoAlongM: bestFromAlongM), new End(Onto: bestTo, OntoAlongM: bestToAlongM), Seam: false));
+        return true;
+    }
+
+    /// <summary>
+    /// <b>Whether a road may end on a planned road here, leaving it this way</b> (GEN-13): square enough to it, clear of its
+    /// ends — where the roads it meets there stand — and far enough off every road planned to end on it near the same place,
+    /// which the same node would carry.
+    /// </summary>
+    bool Lands(List<Planned> planned, int onto, float alongM, Vector2 leaving)
+    {
+        var line = planned[onto].Line;
+        var weldM = config.CityGen.DistrictJunctionsApartLeastM;
+        if (alongM < weldM || alongM > line.LengthM - weldM) return false;
+        if (MathF.Abs(Vector2.Dot(Heading.RightOf(line.Heading(alongM)), leaving)) < _inwardLeast) return false;
+
+        var atM = line.At(alongM);
+        foreach (var plan in planned)
+        {
+            foreach (var (end, first) in (ReadOnlySpan<(End, bool)>)[(plan.First, true), (plan.Last, false)])
+            {
+                if (end.Onto != onto || MathF.Abs(end.OntoAlongM - alongM) >= weldM) continue;
+
+                if (Vector2.Dot(Leaving(plan.Line, atM, first), leaving) > _armsApartCos) return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a road leaving a planned junction on an intercity road this way stands far enough off every road planned to
+    /// leave it already (GEN-13) — two leaving it nearer would be refused as the second is laid.
+    /// </summary>
+    bool ArmsClear(List<Planned> planned, int road, float stationM, Vector2 atM, Vector2 heading)
+    {
+        foreach (var plan in planned)
+        {
+            foreach (var (end, first) in (ReadOnlySpan<(End, bool)>)[(plan.First, true), (plan.Last, false)])
+            {
+                if (end.Road != road || end.RoadAlongM != stationM) continue;
+
+                if (Vector2.Dot(Leaving(plan.Line, atM, first), heading) > _armsApartCos) return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Which way a line leaves a place it ends at or ends near: toward its first point a street's width off it.</summary>
+    Vector2 Leaving(Polyline line, Vector2 atM, bool first)
+    {
+        var points = line.PointsM;
+        for (var at = 0; at < points.Length; at++)
+        {
+            var pointM = points[first ? at : points.Length - 1 - at];
+            if (Vector2.Distance(pointM, atM) > _streetM) return Vector2.Normalize(pointM - atM);
+        }
+
+        return Vector2.Zero;
     }
 
     /// <summary>The junction <see cref="Station"/> would plan on an intercity road for a place along it, without planning it.</summary>

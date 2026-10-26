@@ -42,7 +42,7 @@ internal static class BriefSketch
         var rails = town.Connectors.Rails;
         for (var track = 0; track < rails.Count; track++) Line(svg, rails.TrackOf(track), "#404040", 4f);
 
-        TownGen.Lay(town, config, ShippedArt.Sizes.Buildings, static _ => { }, (layout, paths) =>
+        var laid = TownGen.Lay(town, config, ShippedArt.Sizes.Buildings, static _ => { }, (layout, paths) =>
         {
             foreach (var path in paths.All)
             {
@@ -74,10 +74,49 @@ internal static class BriefSketch
             foreach (var nodeM in layout.NodeM) svg.Append(Invariant($"<circle cx=\"{nodeM.X:F1}\" cy=\"{nodeM.Y:F1}\" r=\"3\" fill=\"#000\"/>\n"));
         });
 
+        MainNetworks(svg, laid.Roads.Roads);
+
         var coreM = town.Connectors.CoreM;
         svg.Append(Invariant($"<circle cx=\"{coreM.X:F0}\" cy=\"{coreM.Y:F0}\" r=\"25\" fill=\"none\" stroke=\"#e02020\" stroke-width=\"6\"/>\n"));
         svg.Append("</svg>\n");
         File.WriteAllText(path, svg.ToString());
+    }
+
+    /// <summary>
+    /// The finished town's roads that are no district's own (GEN-69), dashed over the rest: the largest network they make in
+    /// white, every other in a colour of its own.
+    /// </summary>
+    static void MainNetworks(StringBuilder svg, CityPlan.RoadArrays roads)
+    {
+        var junctions = 0;
+        for (var road = 0; road < roads.Count; road++) junctions = Math.Max(junctions, Math.Max(roads.FromJunction[road], roads.ToJunction[road]) + 1);
+
+        var root = Clusters.Apart(junctions);
+        var main = new List<int>();
+        for (var road = 0; road < roads.Count; road++)
+        {
+            if (roads.Class[road] is RoadClass.Street or RoadClass.CarPark) continue;
+
+            main.Add(road);
+            Clusters.Union(root, roads.FromJunction[road], roads.ToJunction[road]);
+        }
+
+        var largest = main.GroupBy(road => Clusters.Find(root, roads.FromJunction[road])).MaxBy(piece => piece.Count())?.Key ?? -1;
+        var colourOf = new Dictionary<int, string>();
+        foreach (var road in main)
+        {
+            var piece = Clusters.Find(root, roads.FromJunction[road]);
+            if (!colourOf.TryGetValue(piece, out var colour)) colourOf[piece] = colour = piece == largest ? "#ffffff" : Pieces[colourOf.Count % Pieces.Length];
+
+            var arcs = roads.SegmentsOf(road);
+            var lengthM = Spline.TotalLengthM(arcs);
+            var points = new List<Vector2>();
+            for (var alongM = 0f; alongM < lengthM; alongM += 5f) points.Add(Spline.SampleAt(arcs, alongM).PositionM);
+            if (lengthM > 0f) points.Add(Spline.SampleAt(arcs, lengthM).PositionM);
+            svg.Append(Invariant($"<polyline fill=\"none\" stroke=\"{colour}\" stroke-width=\"6\" stroke-dasharray=\"12 8\" points=\""));
+            foreach (var pointM in points) svg.Append(Invariant($"{pointM.X:F1},{pointM.Y:F1} "));
+            svg.Append("\"/>\n");
+        }
     }
 
     static void Polygon(StringBuilder svg, ReadOnlySpan<Vector2> ringM, string fill, string stroke)

@@ -53,7 +53,10 @@ internal enum ZoneParam : byte
     /// <summary>The town's: how many of the junctions that could carry lights are left to the ranking instead (TER-5e).</summary>
     UnregulatedShare,
 
-    /// <summary>A wheel's hub, metres east of the map's west edge.</summary>
+    /// <summary>
+    /// The town's: its hub, metres east of the map's west edge — what a town that plans fewer buildings than its zones
+    /// stand thins away from (GEN-54). Unsaid, it thins every street alike.
+    /// </summary>
     HubXM,
 
     /// <summary>And metres south of its north edge.</summary>
