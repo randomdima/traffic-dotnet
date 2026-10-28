@@ -137,6 +137,13 @@ dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet ID,ID,... -
   `.tmp/gen/briefs/`. imgbench's prompts and a brief whose frame was asked from a layout describe what is not sent:
   take their wording about the assets, never their lines about outlines, tracing or magenta.
 - `use` clears islands under 8 px the shrink leaves off the body (CAR-12's pixel-dust gate).
+- **A walker is asked as a block of drawings, one look a frame** (`kind` of none; its file has `sheet` and `heightM`):
+  8 columns of walk frames by 5 facing rows — back, back-left, left, front-left, front — the right-hand facings mirrored
+  by `use`. **The owner's allowance** (2026-10-27): a walker frame is sent a second picture, the pose guide `brief`
+  draws (stick figures in the frame's grid, left limbs blue, right red) — in words alone the model drew one leg striding
+  in every column. `qq walkers brief --sheet=S` writes the brief and both pictures and prints the call; `cut` aligns the look's 40 drawings into
+  one variant and writes `<id>_walk.gif`, which is what a look is judged by. Read
+  `raw_assets/agents/person/prompting.md` before the brief.
 - **A ground surface is asked tile by tile** (`kind: "Surface"` under `assets/world/terrain/ground/surfaces/`): its
   file's `looks` (a kept lawn, a worn one) each name a count of tiles, ids `<surface>_<look letter><n>`, each a square
   drawn edge to edge with no border, no grid and no direction. Once every look has a tile used, `use` joins them all

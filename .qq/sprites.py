@@ -45,6 +45,7 @@ from pathlib import Path
 
 import _sim
 import _surfaces
+import _walkers
 import art
 from common import cli, paths
 
@@ -114,7 +115,9 @@ WEBP_ERROR = 6.0
 #: Per family, by its path under assets/: the art grid it is drawn at (a figure `qq art` reads off the engine), the
 #: edge its front is on, and how a layout lays its cells (`rows` for a train's vehicles, TRN-4). A car's sheet
 #: has its nose along +x (CarCatalog); a building's street front is at the bottom.
+#: A walker is read beside the cars, so it is laid at their grid too.
 FAMILIES = {"agents/car/": ("CarSpritePixelsPerMetre", "right", "grid"), "agents/train/": ("ArtPixelsPerMetre", "right", "rows"),
+            "agents/person/": ("CarSpritePixelsPerMetre", "bottom", "grid"),
             "world/rail/": ("ArtPixelsPerMetre", "right", "grid"),
             "world/terrain/ground/kerbs/": ("CarSpritePixelsPerMetre", "bottom", "grid"),
             "world/terrain/ground/bridge/": ("CarSpritePixelsPerMetre", "bottom", "grid")}
@@ -218,7 +221,16 @@ def parse_args():
     parser.add_argument("--as", dest="as_ids", default="",
                         help="keep: the ids the cells are kept as, one per cell in order — a cell drawn as another asset "
                              "than it was asked for (a trial kept for another surface); its record names the id it was "
-                             "asked as")
+                             "asked as. cut: the walker look a clip walks, one a tile of a --grid clip ('-' for none), "
+                             "id@heightM for a trial look with no variant file yet")
+    parser.add_argument("--cycle", default="", metavar="LO-HI",
+                        help="cut: the seconds one stride cycle may last in a clip asked to play fast (0.35-0.7); left "
+                             "out, an everyday walk's")
+    parser.add_argument("--grid", default="", metavar="COLSxROWS",
+                        help="cut: a clip of several looks, each in its own tile, read left to right, top to bottom")
+    parser.add_argument("--shots", default="",
+                        help="cut: a clip's shots by number from 0, one per facing front to back (0,3,4,5,6) — where a "
+                             "shot went wrong and another holds its facing; left out, its last five")
     parser.add_argument("--full", action="store_true", help="trace: print every prompt whole")
     return parser.parse_args()
 
@@ -407,6 +419,8 @@ def sprite_of(path, i):
         return (d.get("wreck") or {}).get("sprite")
     if (arm := beam_of(d, i)) is not None:
         return d["beam"][arm]["sprite"]
+    if _walkers.is_walker(d):
+        return d["sheet"]
     return d.get("zones") if is_zones(d, i) else d.get("sprite")
 
 
@@ -439,9 +453,15 @@ def cut(base, a):
 
     fid = a.refs[0]
     rec = frame_record(base, fid)
+    if rec.get("op") == "video":
+        return cut_walker_clip(base, fid, rec, a)
     layout = cells_of(base, rec)
     if "described" in layout:
-        return cut_described(base, fid, layout["described"])
+        ids = layout["described"]
+        found = assets(base)
+        if ids and all(i in found and _walkers.is_walker(json.loads(found[i].read_text(encoding="utf-8"))) for i in ids):
+            return cut_walkers(base, fid, ids, found)
+        return cut_described(base, fid, ids)
     frame, rgb, key, flat = opened(base / rec["file"])
     if list(frame.size) != layout["size"]:
         cli.fail(f"{fid} is {frame.size[0]}x{frame.size[1]}, its template {layout['size'][0]}x{layout['size'][1]}: "
@@ -684,6 +704,98 @@ def cut_described(base, fid, ids):
     looked_at(cuts, out)
     print(f"{_sim.rel(base, out / '_cuts.png')}, {_sim.rel(base, out / '_ends.png')}: the cuts in the brief's order, "
           "and each one's tail and nose magnified, three to a row")
+    return 0
+
+
+def cut_walkers(base, fid, ids, found):
+    """A walker frame (`_walkers`): each look's block of facings and walk frames, aligned, as `<id>.png`; the frame
+    with every drawing boxed, `_overlay.png`; and each look walking every facing as the game will show it,
+    `<id>_walk.gif`."""
+    from PIL import Image, ImageDraw, PngImagePlugin
+
+    heights = {i: float(json.loads(found[i].read_text(encoding="utf-8"))["heightM"]) for i in ids}
+    pixels, solid = frame_pixels(base, fid)
+    out = base / CUTS / fid
+    out.mkdir(parents=True, exist_ok=True)
+    blocks, boxes = _walkers.cut_frame(pixels, solid, ids, heights, lambda m: cli.fail(f"{fid}: {m}"))
+    print(f"{fid}: {len(ids)} walker look(s), {_walkers.FACINGS} facings of {_walkers.frames_per_look(len(ids))} "
+          f"frames -> {_sim.rel(base, out)}")
+    import numpy as np
+
+    overlay = Image.fromarray(on_key(pixels.astype(np.int16)).astype(np.uint8), "RGB")
+    draw = ImageDraw.Draw(overlay)
+    for cell, (x0, y0, x1, y1) in boxes.items():
+        draw.rectangle([x0, y0, x1 - 1, y1 - 1], outline=(255, 255, 255))
+        draw.text((x0 + 2, y0 + 2), cell, fill=(255, 255, 255))
+    overlay.save(out / "_overlay.png")
+    for i, (block, info) in blocks.items():
+        png = PngImagePlugin.PngInfo()
+        png.add_text("cut", json.dumps({"frame": fid, **{k: v for k, v in info.items() if k != "flags"}}))
+        block.save(out / f"{i}.png", pnginfo=png)
+        _walkers.preview(block, info, out / f"{i}_walk.gif", i)
+        print(f"{info['cell']:>2} {i:<20} cells {info['cellPx'][0]}x{info['cellPx'][1]} px, {info['pxPerM']:.1f} px/m  "
+              f"{'; '.join(info['flags']) or 'ok'}")
+    print(f"{_sim.rel(base, out / '_overlay.png')}: every drawing boxed as facing:column; "
+          f"<id>_walk.gif: each look walking the eight facings, up at the top")
+    return 0
+
+
+def cut_walker_clip(base, fid, rec, a):
+    """An orbit clip (`_walkers.cut_clip`): each look `--as` names — one, or one a tile of a `--grid` clip — its block
+    as `<id>.png`, the look walking every facing as the game will show it, `<id>_walk.gif`, and each facing alone,
+    `<id>_walk_<row>_<name>.gif`. A look is a walker variant file under assets/, or `id@heightM` for one not yet
+    written (a trial: cut and looked at, not kept)."""
+    from PIL import PngImagePlugin
+
+    cols, rows = (int(n) for n in (a.grid or "1x1").split("x"))
+    ids = a.as_ids.split(",")
+    found = assets(base)
+    looks = {}
+    for t, i in enumerate(ids):
+        if i in ("", "-"):
+            continue
+        if "@" in i:
+            i, height = i.split("@")
+            looks[t] = (i, float(height))
+        elif i in found and _walkers.is_walker(d := json.loads(found[i].read_text(encoding="utf-8"))):
+            looks[t] = (i, float(d["heightM"]))
+        else:
+            cli.fail(f"{fid}: `--as` {i} is neither a walker variant file under assets/ nor id@heightM")
+    if len(ids) != cols * rows or not looks:
+        cli.fail(f"{fid} is a clip: `--as` names the look each of its {cols * rows} tile(s) walks, '-' for none")
+    import numpy as np
+
+    frames, fps = _walkers.clip_frames(base / rec["file"])
+    shots = _walkers.orbit_shots(frames, fps)
+    picked = [int(s) for s in a.shots.split(",") if s] or None
+    cycle_s = tuple(float(s) for s in a.cycle.split("-")) if a.cycle else _walkers.ORBIT_CYCLE_S
+    th, tw = frames[0].shape[0] // rows, frames[0].shape[1] // cols
+
+    def keyed(rgb):
+        key, _ = border_colour(rgb)
+        return _walkers.despilled(chroma_key(rgb.astype(np.int16), key))
+
+    out = base / CUTS / fid
+    out.mkdir(parents=True, exist_ok=True)
+    print(f"{fid}: {len(shots)} shots from frames {[s for s, _ in shots]} at {fps:g} fps -> {_sim.rel(base, out)}")
+    for t, (i, height_m) in looks.items():
+        x, y = t % cols * tw, t // cols * th
+        tile = [f[y:y + th, x:x + tw] for f in frames]
+        try:
+            block, info = _walkers.cut_clip(tile, fps, keyed, height_m, picked, shots, cycle_s)
+        except ValueError as e:
+            cli.fail(f"{fid} {i}: {e}")
+        png = PngImagePlugin.PngInfo()
+        tiled = {"tile": [t % cols, t // cols], "grid": [cols, rows]} if cols * rows > 1 else {}
+        png.add_text("cut", json.dumps({"frame": fid, **tiled, **{k: v for k, v in info.items() if k != "flags"}}))
+        block.save(out / f"{i}.png", pnginfo=png)
+        _walkers.preview(block, info, out / f"{i}_walk.gif", i)
+        _walkers.preview_each(block, info, out, i)
+        for c in info["cycles"]:
+            print(f"  {i} facing {c['facing']}: frames {c['frames'][0]}-{c['frames'][1]}, loop {c['periodS']} s, "
+                  f"seam {c['seam']}, steps {c['length']} unlike, {c['timing']} off time {'; '.join(c['flags']) or 'ok'}")
+        print(f"{i:<20} cells {info['cellPx'][0]}x{info['cellPx'][1]} px, {info['pxPerM']:.1f} px/m  "
+              f"{'; '.join(info['flags']) or 'ok'}")
     return 0
 
 
@@ -1291,6 +1403,8 @@ def use(base, a):
 
     if _surfaces.is_surface(json.loads(described.read_text(encoding="utf-8"))):
         return use_tile(base, found, described, i, name)
+    if _walkers.is_walker(json.loads(described.read_text(encoding="utf-8"))):
+        return use_walker(base, described, i, name, variant)
 
     # A drawing asked without a layout is the car's geometry: its file takes what the cut measured before it is sized.
     measured = json.loads(Image.open(variant).text.get("cut", "{}")).get("measured")
@@ -1378,6 +1492,33 @@ def use(base, a):
     off_legacy(base, {_sim.rel(base, described.parent / s) for s in (was, now) if s})
     print(f"{_sim.rel(base, described.parent / now)} <- {name}: {wanted[0]}x{wanted[1]} px at "
           f"{density:.1f} px/m ({fmt} {how})")
+    return 0
+
+
+def use_walker(base, described: Path, i: str, name: str, variant: Path):
+    """A walker's look: its block mirrored and spread into the engine's 8×8 sheet (`_walkers.sheet`), a cell its
+    `heightM` tall at the art grid, and installed over its walk sheet. Its down picture is a sheet of its own."""
+    d = json.loads(described.read_text(encoding="utf-8"))
+    density = grid(art.read_figures(base), _sim.rel(base, described))
+    height_px = round(float(d["heightM"]) * density)
+    info = _walkers.info_of(variant)
+    from PIL import Image
+
+    walk = without_dust(_walkers.sheet(Image.open(variant).convert("RGBA"), info, height_px, art.shrink))
+    data, how = art.encode(walk, "webp", WEBP_ERROR)
+    now = f"{i}.webp"
+    was = d["sheet"]
+    if was != now:
+        art.name(base, described.parent / was, now)
+        (described.parent / was).unlink(missing_ok=True)
+    (described.parent / now).write_bytes(data)
+    (described.parent / f"{i}{SOURCE}").write_text(
+        json.dumps({"variant": _sim.rel(base, variant), "pxPerM": round(density, 2), "encoding": f"webp {how}"},
+                   indent=1) + "\n", encoding="utf-8")
+    mark_used(raw_dir(base, described, i) / VARIANTS, name)
+    off_legacy(base, {_sim.rel(base, described.parent / s) for s in (was, now)})
+    print(f"{_sim.rel(base, described.parent / now)} <- {name}: {walk.width}x{walk.height} px, cells "
+          f"{walk.width // _walkers.SHEET_COLS}x{height_px} at {density:.1f} px/m (webp {how})")
     return 0
 
 
@@ -1822,6 +1963,8 @@ def assets(base) -> dict[str, Path]:
             found[d["id"]] = path
             for t in _surfaces.tile_ids(d):
                 found.setdefault(t, path)
+        elif _walkers.is_walker(d):
+            found[d["id"]] = path
         elif isinstance(d, dict) and "id" in d and ("footprintM" in d or "diameterM" in d):
             found[d["id"]] = path
             if "collisionM" in d:

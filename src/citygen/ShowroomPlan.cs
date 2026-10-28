@@ -16,8 +16,12 @@ namespace TrafficSimulation.CityGen;
 /// <b>The car park is a loop with ranks of bays down both kerbs of its long sides</b> — the idle ring's shape
 /// (<see cref="IdlePlan.Loop"/>) drawn out wide — every bay the bay every town lays (GEN-53): a lane wide, square to
 /// the kerb, a node a lead off each end. A car spawn stands on every bay, so the town parks each look there
-/// (<c>TownWorld.StandCar</c>), and the bays past the last look stand empty. <b>Nobody else is on it</b>: no pavement and
-/// nobody on foot, and its cars run no round (CAR-8) — each stands where it was parked until a hand or an order drives it.
+/// (<c>TownWorld.StandCar</c>), and the bays past the last look stand empty. <b>Nobody else is on it</b>: no pavement,
+/// and its cars run no round (CAR-8) — each stands where it was parked until a hand or an order drives it.
+/// </para>
+/// <para>
+/// <b>Every walker look walks a ring of its own</b> down the middle of the car park (PER-30, <see cref="WithWalkers"/>),
+/// round and round, so its walk is seen in every facing its sheet draws; the rings past the last look stand empty.
 /// </para>
 /// <para>
 /// <b>What it shows is whatever the looks are</b>, which is the run's to say (<c>--fleet</c>, or the shipped list): the
@@ -60,6 +64,12 @@ internal static class ShowroomPlan
     /// <summary>How many bays the car park has, which is the most looks it shows.</summary>
     public const int Slots = BaysARank * Ranks;
 
+    /// <summary>How many walker looks the showroom shows at most, each round a ring of its own (PER-30).</summary>
+    public const int WalkerSlots = 8;
+
+    /// <summary>The ground between two neighbouring walkers' rings.</summary>
+    const float RingGapM = 3f;
+
     /// <summary>The grass between two buildings side by side in a row.</summary>
     const float BuildingGapM = 3f;
 
@@ -101,8 +111,8 @@ internal static class ShowroomPlan
             Name = Name,
             WorldSizeM = worldSizeM,
 
-            // No pavement and nobody on foot: the buildings are pictures of themselves, and a kerb laid for nobody is
-            // ground the picture would have to explain.
+            // No pavement: the buildings are pictures of themselves, and a kerb laid for nobody is ground the picture
+            // would have to explain. The walker looks on show walk rings of their own (PER-30), on no way of a network.
             PavementWidthM = 0f,
             Junctions = Junctions(loop, bays, config),
             JunctionCorners = new CityPlan.JunctionCornerArrays
@@ -120,7 +130,7 @@ internal static class ShowroomPlan
             },
             Buildings = rows.Buildings(centreM),
             Props = CityPlan.PropArrays.None,
-            Spawns = bays.Spawns,
+            Spawns = WithWalkers(bays.Spawns, centreM, config),
             Water = CityPlan.WaterArrays.None,
             Rails = RailLines.Lay(Yard(worldSizeM, config), worldSizeM, config),
         };
@@ -197,6 +207,28 @@ internal static class ShowroomPlan
 
     /// <summary>The bays as their lines, the car parks they make, and a car spawn on each.</summary>
     sealed record Laid(List<ArcSeg> Lines, CityPlan.CarParkArrays CarParks, CityPlan.SpawnArrays Spawns);
+
+    /// <summary>
+    /// <b>The walkers' rings</b> (PER-30): a row of <see cref="WalkerSlots"/> down the middle of the car park, between its
+    /// inner ranks, after the cars — a person spawn at each ring's centre.
+    /// </summary>
+    static CityPlan.SpawnArrays WithWalkers(CityPlan.SpawnArrays cars, Vector2 centreM, SimConfig config)
+    {
+        var spacingM = (2f * config.Person.ShowroomRingM) + RingGapM;
+        var kind = new byte[cars.Count + WalkerSlots];
+        var positionM = new Vector2[kind.Length];
+        var headingRad = new float[kind.Length];
+        cars.Kind.CopyTo(kind, 0);
+        cars.PositionM.CopyTo(positionM, 0);
+        cars.HeadingRad.CopyTo(headingRad, 0);
+        for (var walker = 0; walker < WalkerSlots; walker++)
+        {
+            kind[cars.Count + walker] = IdlePlan.SpawnKindPerson;
+            positionM[cars.Count + walker] = centreM + new Vector2((walker - ((WalkerSlots - 1) * 0.5f)) * spacingM, 0f);
+        }
+
+        return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad, AtTheKerb = cars.AtTheKerb };
+    }
 
     /// <summary>
     /// <b>A rank down each kerb of each half of the two long sides</b>, from a zebra past the node to the corner, and

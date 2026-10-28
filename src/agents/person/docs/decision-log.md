@@ -4,6 +4,40 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-28 — a look is cut from one orbit clip, and the showroom walks every look round a ring
+
+**The owner asked for a new look made from nothing but one front picture of it, in one generation, and then for her on
+the showroom.** Image models draw no coherent walk and video models drift when a person turns
+([prompting](../../../../raw_assets/agents/person/prompting.md)); what held was the camera turning instead:
+
+- **One clip, the camera cutting round the walker a shot a second** (HeyGen Video 1, 5 s, $0.05): the walker walks on
+  the spot facing one way; five shots — front, front and left side, left side, back and left side, back. The look's
+  own rotated pictures are never asked for or given: a new look has only its front.
+- **The clip stays at 5 s, and the walk is asked quick** (the owner: "dont increase duration", then "mark this as our
+  best flow"). Two-second shots looped cleanly at 12 s, but cost more than twice as much, so the extra length was
+  dropped. Quick, short steps fit more than a stride into each one-second shot without a run. `qq walkers orbit`
+  writes this brief.
+- **`qq sprites cut CLIP --as ID` cuts it** (`_walkers.cut_clip`): the shots found at their hard cuts, each its best
+  loop at eight columns, column 0 nearest a passing; nothing re-centred. Each shot is scaled once, so the look stands
+  as tall in every facing. `keep` and `use` are a frame's.
+- **The showroom walks every walker look once, round a ring** (PER-30): a walk is only seen walking, and a ring
+  turns it through every facing. A look on show takes no trip, so the map still lays no pavement.
+- **`ponytail_red` lies down as `tee_red` does** (`down` names `tee_red_down.webp`): one front picture gives no
+  picture of the look lying in the road. The tech debt says what closes it.
+
+## 2026-10-27 — a walker's look is drawn in five facings and laid at the cars' grid
+
+**The owner asked for every walker drawn again in the town's present style, with more looks.** The engine's sheet is
+unchanged (eight facings anticlockwise from up, eight walk columns); what changed is how one is made
+([prompting](../../../../raw_assets/agents/person/prompting.md)):
+
+- **Five facings are drawn and three mirrored** — a walker is the same left and right, so a look costs 40 drawings and
+  not 64, and the two sides cannot drift apart. What a look is told apart by may not be on one side only.
+- **At the cars' grid, 96 px/m, not the ground's 31.5**: a walker stands beside a car and is read as closely, and the
+  generator draws a figure at about 100 px/m anyway. A look's sheet is some 690×1400 px against 272×456; at the seven
+  looks shipped that is 27 MB of atlas against 3.
+- **`describe` on the variant file** holds the brief's words for the look, as a prop's does; the engine never reads it.
+
 ## 2026-10-13 — a straight holds what the walker stands on and where it lands, and nothing it crosses is looked up
 
 **At the owner's ruling that the host looks nothing up** (the root log, 2026-10-13): a straight — a walk back onto the

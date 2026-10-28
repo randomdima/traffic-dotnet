@@ -227,8 +227,19 @@ def cmd_video(args):
         if offered and value not in offered:
             sys.exit(f"{args.model} offers {name} {offered}, not {value}")
     settings = {"resolution": args.resolution, "aspect_ratio": args.aspect, "duration": args.duration}
-    if m.get("generate_audio") is not None:
+    # The record's `generate_audio` says whether the setting is offered; False is a model that always renders
+    # sound and refuses the setting.
+    if m.get("generate_audio"):
         settings["generate_audio"] = False
+    for option in args.option:
+        # A provider's own parameter, as the model lists it (`allowed_passthrough_parameters`), sent under
+        # provider.options.<slug>.parameters.
+        slug, _, kv = option.partition(":")
+        key, _, value = kv.partition("=")
+        if key not in (m.get("allowed_passthrough_parameters") or []):
+            sys.exit(f"{args.model} passes through {m.get('allowed_passthrough_parameters')}, not {key!r}")
+        settings.setdefault("provider", {"options": {}})["options"].setdefault(slug, {"parameters": {}})[
+            "parameters"][key] = value
     image = resolve_image(args.image)
     last = resolve_image(args.last_image) if args.last_image else None
     if last and "last_frame" not in (m.get("supported_frame_images") or []):
@@ -308,6 +319,8 @@ def main():
     v.add_argument("--resolution", default="480p")
     v.add_argument("--aspect", default="3:2")
     v.add_argument("--duration", type=int, default=1, help="seconds, as the model offers them")
+    v.add_argument("--option", action="append", default=[], metavar="SLUG:KEY=VALUE",
+                   help="a provider's own parameter, e.g. google-vertex:negativePrompt=zoom, pan")
     v.add_argument("--past-cap", action="store_true", help=f"allow more than {MAX_ATTEMPTS} clips under one --name")
     v.set_defaults(func=cmd_video)
 

@@ -81,14 +81,20 @@ internal sealed partial class TownWorld
             if (_plan.Spawns.Kind[spawn] != SpawnKindPerson) continue;
 
             var positionM = _plan.Spawns.PositionM[spawn];
+
+            // The showroom's rings past the last walker look stand nobody, so no look walks twice (PER-30).
+            var onShow = ShowroomPlan.ShowsEachLookOnce(_plan.Name);
+            if (onShow && variants >= PersonCatalog.Shared.Count) continue;
+
             // Round the walkers and never past them, as the fleet's own wrap does: the uniforms share
             // the sheet list with them (<see cref="PersonCatalog.Count"/>), and nobody wears one who was
             // not named to (SRV-3a).
             var person = People.Add(
-                positionM, _plan.Spawns.HeadingRad[spawn], _config.Person.MassKg, _config.PersonRadiusM,
-                (byte)(variants % PersonCatalog.Shared.Count), new Rng(_agentSeed, (ulong)spawn),
+                onShow ? RingStartM(positionM) : positionM, _plan.Spawns.HeadingRad[spawn], _config.Person.MassKg,
+                _config.PersonRadiusM, (byte)(variants % PersonCatalog.Shared.Count), new Rng(_agentSeed, (ulong)spawn),
                 PersonFleet.DrawsReckless(_agentSeed, (ulong)spawn, _config.Driving.RecklessShare));
             variants++;
+            if (onShow) GiveItItsRing(person, positionM);
 
             // Where on the pavement the plan stood it, found while the map is built (the root decision log, 2026-10-13).
             _placeOf[person] = _walking.PlaceNearest(positionM);

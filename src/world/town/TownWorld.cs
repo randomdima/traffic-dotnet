@@ -1047,6 +1047,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // body is still stepped, struck and pushed like any other; what it has stopped doing is deciding.
         if (People.Wounded[agent]) return;
 
+        // PER-30: a look on show walks its ring and takes no trip.
+        if (IsOnShow(agent) && !People.Inside[agent].Any)
+        {
+            WalkTheRing(agent);
+            return;
+        }
+
         // Inside a building or a car there is no line to hold and no ground to be on: what runs is the
         // trip, and the whole action set is the container's.
         if (People.Inside[agent].Any)

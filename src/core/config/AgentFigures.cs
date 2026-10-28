@@ -784,6 +784,14 @@ internal sealed class PersonFigures
     public float MassKg { get; init; } = 80f;
 
     /// <summary>
+    /// <b>The ring a walker look walks round on the showroom</b> (PER-30): its radius, and how far round it ahead of
+    /// itself the walker aims — near enough that it keeps to the ring, far enough that it never arrives.
+    /// </summary>
+    public float ShowroomRingM { get; init; } = 3f;
+
+    public float ShowroomRingLeadDeg { get; init; } = 45f;
+
+    /// <summary>
     /// <b>How near its aim a walker's body has to stand for the aim to be under it</b>, as the square of the distance — a
     /// tenth of a millimetre: it stands rather than turning to face a point a rounding away (<c>WalkerFollower.Step</c>).
     /// </summary>

@@ -1,4 +1,5 @@
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Parking;
@@ -33,6 +34,25 @@ public class ShowroomTests
         {
             var look = world.Cars.Variant[car];
             Assert.False(worn[look], $"{CarCatalog.Shared.Variants[look].Id} stands twice");
+            worn[look] = true;
+        }
+    }
+
+    /// <summary><b>Every walker look walks once</b> (PER-30), each round a ring of its own, and no uniform is worn.</summary>
+    [Fact]
+    public void EveryWalkerLookWalksOnce()
+    {
+        using var world = new TownWorld(Towns.Of(ShowroomPlan.Name), Config);
+
+        var looks = PersonCatalog.Shared.Count;
+        Assert.InRange(looks, 1, ShowroomPlan.WalkerSlots);
+        Assert.Equal(looks, world.People.Count);
+
+        var worn = new bool[looks];
+        for (var person = 0; person < world.People.Count; person++)
+        {
+            var look = world.People.Variant[person];
+            Assert.False(worn[look], $"{PersonCatalog.Shared.Variants[look].Id} walks twice");
             worn[look] = true;
         }
     }

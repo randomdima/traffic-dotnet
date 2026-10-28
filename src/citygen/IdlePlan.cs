@@ -456,6 +456,8 @@ internal static class IdlePlan
     /// <summary>The spawn kinds the format carries.</summary>
     internal const byte SpawnKindCar = 1;
 
+    internal const byte SpawnKindPerson = 0;
+
     static T[] Filled<T>(int count, T value)
     {
         var filled = new T[count];

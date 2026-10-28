@@ -1,0 +1,28 @@
+{
+ "id": "walkorbit_heygen-v1",
+ "ts": "2026-10-28T01:28:32",
+ "op": "video",
+ "name": "walkorbit_heygen",
+ "file": ".tmp/gen/frames/walkorbit_heygen-v1.mp4",
+ "model": "heygen/heygen-video-1",
+ "settings": {
+  "resolution": "480p",
+  "aspect_ratio": "3:4",
+  "duration": 5
+ },
+ "costUsd": 0.05,
+ "usage": {
+  "cost": 0.05,
+  "is_byok": false
+ },
+ "prompt": "The young woman walks on the spot for the whole clip, always facing the same way: she never turns, never stops and never moves away from her spot. It is the camera that changes, not her. The clip is five shots of exactly one second each, joined by hard cuts exactly on each one-second tick: within a shot the camera is perfectly still, and at each cut it jumps instantly, with no camera movement and no transition, an eighth of a turn further round her, towards her left-hand side, always at the same height and distance, always looking down at her from about 55 degrees, she always in the middle of the picture at the same size.\n\nShot 1 (0–1 s): the camera is in front of her, as in the first frame; we see her face and front.\nShot 2 (1–2 s): the camera is in front of her and to her left; she faces towards us and to the picture's left.\nShot 3 (2–3 s): the camera is at her left side; we see her in profile, facing the picture's left.\nShot 4 (3–4 s): the camera is behind her and to her left; she faces away from us and to the picture's left.\nShot 5 (4–5 s): the camera is straight behind her; we see her back.\n\nHer walk runs on unbroken across the cuts: an easy, relaxed everyday walk — never a run or a jog — with a full, natural stride, the planted foot sliding back along the floor under her as on a moving walkway, each heel landing in front of her and the back foot pushing off from its toe behind; legs nearly straight as the heel lands, not marching, knees never lifted high; arms swinging loosely opposite to the legs, elbows straight. The background stays one flat, uniform chroma-key green in every shot: no floor, no shadow, no scenery. Her look — her long dark-brown ponytail, her face, her red T-shirt, denim shorts and white trainers — her build and the flat-shaded pixel-art game-sprite style stay exactly as in the first frame.",
+ "inputs": [
+  {
+   "role": "first frame",
+   "sha": "17a47c436ad361b2",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/walkturn/girl_b_3x4.png"
+  }
+ ]
+}

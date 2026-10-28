@@ -2,7 +2,6 @@
 # and the lamp sheet, baked by `--lamps` off the cars' zone maps.
 # An entry leaves when `qq sprites use` replaces its image or the image is deleted. Nothing is ever added.
 assets/agents/car/variants/common/lamp_atlas.webp
-assets/agents/person/variants/coat_brown/coat_brown.webp
 assets/agents/person/variants/coat_brown/coat_brown_down.webp
 assets/agents/person/variants/hoodie_teal/hoodie_teal.webp
 assets/agents/person/variants/hoodie_teal/hoodie_teal_down.webp
@@ -12,9 +11,7 @@ assets/agents/person/variants/police_navy/police_navy.webp
 assets/agents/person/variants/police_navy/police_navy_down.webp
 assets/agents/person/variants/recovery_yellow/recovery_yellow.webp
 assets/agents/person/variants/recovery_yellow/recovery_yellow_down.webp
-assets/agents/person/variants/tee_blue/tee_blue.webp
 assets/agents/person/variants/tee_blue/tee_blue_down.webp
-assets/agents/person/variants/tee_red/tee_red.webp
 assets/agents/person/variants/tee_red/tee_red_down.webp
 assets/agents/trafficlight/heads/car_light.webp
 assets/agents/trafficlight/heads/pedestrian_light.webp

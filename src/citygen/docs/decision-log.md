@@ -197,7 +197,7 @@ looks evenly, and the renderer draws that look at its own size. The band, its to
 and for the car picked out, unless it is being driven, to loop its lamps two seconds a state.
 
 - **Its cars run no round** (CAR-8, `TownWorld._showroom`): each stands where it was parked until a hand or an order
-  drives it. It already had nobody on foot.
+  drives it. Its walkers walk rings of their own (the walker's log, 2026-10-28).
 - **The car picked out shows headlamps, reversing, brake, left, right and hazard lamps in turn** (CAR-14.9), off the
   town's clock. A parked car's tick is skipped (`TownWorld.StandsParked`), so the showroom signals its lamps there: in
   turn while picked out, dark the tick after it is let go of.

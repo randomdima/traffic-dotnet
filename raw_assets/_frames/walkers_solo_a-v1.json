@@ -1,0 +1,47 @@
+{
+ "id": "walkers_solo_a-v1",
+ "ts": "2026-10-27T21:20:31",
+ "op": "edit",
+ "name": "walkers_solo_a",
+ "file": ".tmp/gen/frames/walkers_solo_a-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.012852,
+ "usage": {
+  "prompt_tokens": 1326,
+  "completion_tokens": 158,
+  "total_tokens": 1484,
+  "cost": 0.012852,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.012852,
+   "upstream_inference_prompt_cost": 0.008112,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image is attached: finished art from the same game, cars seen from above. Match its painting style, finish and light only — not its contents, colours or scale.\n\nMake one image: a walking-animation sprite sheet for a 2D city game, of one person walking. Lay it as a grid of 8 columns by 5 rows, 40 figures in all, each standing in its own equal cell, well apart from its neighbours: no figure touches or overlaps another, and nothing reaches into the next cell. All 40 figures are the same person.\n\nThe view is the same for every figure: from in front of the person and high above, looking down at about 40 degrees, as in a classic top-down role-playing game — the top of the head and the shoulders show, the whole body is seen, a little shortened, the feet at the bottom. Each figure stands upright on its feet; the ground is not drawn.\n\nRows — the way the person walks, the same in every column of a row:\n1. Straight away from us, up the picture: we see the back of the head, the back and the backs of the legs.\n2. Diagonally away and to the left, towards the top-left corner: we see the back and the left side; the face is turned away.\n3. To the left: the left side in profile, the nose pointing left.\n4. Diagonally towards us and to the left, towards the bottom-left corner: we see the front and the left side, the face in three-quarter view looking down-left.\n5. Straight towards us, down the picture: we see the face and the front.\nNobody in rows 2 to 4 faces or walks to the right.\n\nColumns — the eight steps of one walk, in order, the same pose in every row of a column:\n1. Standing still: feet side by side under the body, arms relaxed at the sides.\n2. The left foot lifting and starting forward, the right carrying the weight; arms starting to swing.\n3. Left foot forward in a full stride, its heel touching down; right foot behind, on its toes; right arm forward, left arm back.\n4. The weight moving onto the left foot, flat under the body; the right heel lifting behind.\n5. Passing: the left foot under the body, the right foot lifted and swinging past it; arms close to the sides.\n6. The right foot swinging forward, ahead of the body.\n7. Right foot forward in a full stride, its heel touching down; left foot behind, on its toes; left arm forward, right arm back.\n8. The weight moving onto the right foot, flat under the body; the left heel lifting behind.\n\nEvery figure of one person is the same person: the same height, build, face, hair, clothes, colours and anything carried. All the figures of a person are the same size: the head at the same height and the feet on one line in every cell of a row. Between cells only the facing, the legs and the arms change. The stride is a calm walk, not a run.\n\nA real adult in natural proportions: the head about one seventh of the height, slim natural limbs — not a chibi, not a big-headed cartoon.\n\nStyle: painted game art like the style image — soft detailed painting, a clean readable silhouette, a thin darker edge rather than a heavy black outline, natural believable colours, light from the top-left with soft shading on the figure. Summer in a Black Sea port city.\n\nEverything outside the figures is fully transparent: no background colour, no ground, no floor line, no cast shadow, nothing half-transparent. No text, letters, numbers, labels, grid lines, frames or borders anywhere.\n\nThe person: 1.84 m tall. A grey-haired man of about 60, clean-shaven, in a light-brown linen jacket worn open over a cream shirt, dark-grey trousers and brown leather shoes.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "029e23e559e4d1a5",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/walkers_style.png"
+  }
+ ],
+ "cells": [
+  "coat_brown"
+ ]
+}

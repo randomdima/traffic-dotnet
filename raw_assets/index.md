@@ -7,7 +7,8 @@ is converted from a variant here, never this file itself.
 Art is generated with the [remotegen](../.claude/skills/remotegen/SKILL.md) skill, nine or more assets
 to a frame, and cut, kept and installed with `qq sprites`. **A frame is asked in words, with a style picture as its
 only image, and comes back on a transparent background** (the owner, 2026-10-25): no layout of outlines is sent, since
-the model does not keep to one and every picture sent is paid for.
+the model does not keep to one and every picture sent is paid for. A walker's frame is the exception: it is sent its
+pose guide too (the owner, 2026-10-27; [agents/person/prompting.md](agents/person/prompting.md)).
 
 ## What lives where
 
@@ -59,7 +60,9 @@ A sprite traces through its `.src.json` to its variant, through `variants.jsonl`
    other is taken whole and sized by the one figure its file authors — a footprint's width, a round asset's diameter,
    a strip's depth — the rest read off the drawing, a building's rectangles included. **The generator is never limited,
    the result may be corrected** (the owner, 2026-10-25): a drawing is cropped, sized and given a minor correction
-   where it still looks right, and taken as drawn where a correction would show — most would. A frame without its ids
+   where it still looks right, and taken as drawn where a correction would show — most would. A walker's look is the
+   exception that is many drawings: its frame's ids name looks, each a run of columns over the facing rows, and its
+   variant is the block of them, aligned ([agents/person/prompting.md](agents/person/prompting.md)). A frame without its ids
    cannot be cut; one whose record names a layout is cut off that layout, so every kept variant can be cut again.
 5. **Each kept variant gets its score when it is judged**, and the lesson of a set goes into its family's
    `prompting.md` in the same change, citing the variants it is drawn from. That file is read before the

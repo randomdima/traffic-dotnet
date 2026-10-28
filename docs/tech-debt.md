@@ -768,6 +768,21 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 
 ## Inconsistencies
 
+- **Walkers are half redrawn** (2026-10-27, `assets/agents/person/`): `tee_blue`, `tee_red` and `coat_brown` walk in the
+  present style and still lie down as their legacy pictures (PER-18), and `hoodie_teal` and the three uniforms are
+  legacy whole, so a town shows both styles side by side; `tee_blue` and `coat_brown` were asked with the first pose
+  guide, whose steps the owner found too long. Every look asked again with the keyed guide (`qq walkers`) and a sheet
+  of the down pictures closes it.
+- **`ponytail_red` lies down as `tee_red`** (2026-10-28, its variant file's `down`): cut from one orbit clip, it has no
+  picture of itself lying in the road, so a casualty of it turns into the legacy painted woman with a bag. A down
+  picture asked for it from its own front picture closes it.
+- **A walker's drawn step is about half the step it is moved by** (2026-10-27, `PersonSprites`): the walk cycle is
+  stepped one cycle per `heightM` walked — two steps of some 0.85 m — while the keyed pose guide draws steps of about
+  0.45 m, so the feet slide forward under the body. A stride a figure of the walker's own (a share of its height, on
+  `SimConfig`) that the guide is drawn from and the column is stepped by closes it.
+- **The remotegen skill's car style picture cannot be laid** (2026-10-27): `crossover_pearl`, `estate_steel` and
+  `kombi_sage` with `--style-whole` fail ("has no used variant cut from a cell of a frame"); without it they lay. The
+  skill naming the ids and flag that work closes it.
 - **The generator's stages carry tuning figures as literals** (2026-10-26): `Connectors` turns an intercity road's
   bearing by ±0.15 rad a try and 0.12 a retry, a rail line's by ±0.2 rad and its loop ±0.3 of the extent, and rounds a
   route at 1.25 times the intercity floor; `TerrainStage` turns a coast ±0.35 of the breadth and inland ±0.8 rad;

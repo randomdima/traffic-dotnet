@@ -29,4 +29,7 @@ internal enum PersonAction : byte
 
     /// <summary>A casualty (PER-18): down in the road until an ambulance has been.</summary>
     Down,
+
+    /// <summary>A look on show (PER-30): round a ring of its own on the showroom, on no way, and it holds nothing ahead.</summary>
+    Show,
 }

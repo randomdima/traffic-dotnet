@@ -14,6 +14,9 @@ internal sealed class PersonVariantFile
     public required string Down { get; init; }
 
     public required float HeightM { get; init; }
+
+    /// <summary>The art brief's own words for the look, which the engine never reads.</summary>
+    public string? Describe { get; init; }
 }
 
 [JsonSourceGenerationOptions(
