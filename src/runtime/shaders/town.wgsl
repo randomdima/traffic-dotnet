@@ -576,7 +576,10 @@ fn groundFragment(frag: GroundOut) -> @location(0) vec4f {
 
 struct SpriteOut {
     @builtin(position) position: vec4f,
-    @location(0) uv: vec3f,
+    @location(0) uv: vec2f,
+    // Flat: interpolated over a tilted car's quad, whose corners stand at different w, a handset's GPU answers a hair
+    // under the page, and a cast truncates where sprite.frag's array lookup rounds — the car drawn off the page before.
+    @location(11) @interpolate(flat) page: i32,
     @location(1) tint: vec4f,
     // One where the sheet is light, summed onto the picture rather than laid over it (SheetSource.AddsLight).
     @location(2) @interpolate(flat) light: f32,
@@ -658,7 +661,8 @@ fn spriteVertex(
     let uv = (vec2f(cell.xy) + cellAt) / vec2f(cell.zw);
 
     result.position = toClip(centreM + along * fromCentreM.x + across * fromCentreM.y) * depth;
-    result.uv = vec3f(place.originScale.xy + uv * place.originScale.zw, place.layerSize.x);
+    result.uv = place.originScale.xy + uv * place.originScale.zw;
+    result.page = i32(round(place.layerSize.x));
     result.tint = tint;
     result.light = place.layerSize.w;
     result.fans = fansRun(sheet, 2.0 * halfSizeM.x * f32(cell.z), camera.turning.y);
@@ -671,7 +675,7 @@ fn spriteVertex(
 @fragment
 fn spriteFragment(frag: SpriteOut) -> @location(0) vec4f {
     // The pages carry no mip chain, so the atlas is sampled at the top level.
-    var texel = textureSampleLevel(pages, clamped, frag.uv.xy, i32(frag.uv.z), 0.0);
+    var texel = textureSampleLevel(pages, clamped, frag.uv, frag.page, 0.0);
 
     // A picture that draws fans has its look laid over each one, turned (OBJ-6, TRN-13).
     if (frag.fans != 0u) {
@@ -684,12 +688,12 @@ fn spriteFragment(frag: SpriteOut) -> @location(0) vec4f {
 
     // A ringed quad is grown past its cell, where the page holds another picture.
     let ringed = frag.ring.y > 0.0;
-    if (ringed && !ringInCell(frag, frag.uv.xy)) {
+    if (ringed && !ringInCell(frag, frag.uv)) {
         texel = vec4f(0.0);
     }
     var ring = vec4f(0.0);
     if (ringed) {
-        ring = ringAt(frag, frag.uv.xy);
+        ring = ringAt(frag, frag.uv);
     }
 
     // The art is keyed, so most of every cell is nothing at all; discarding it keeps the blend from
@@ -719,7 +723,7 @@ fn ringSolidAt(frag: SpriteOut, uv: vec2f) -> f32 {
         return 0.0;
     }
 
-    let alpha = textureSampleLevel(pages, clamped, uv, i32(frag.uv.z), 0.0).a;
+    let alpha = textureSampleLevel(pages, clamped, uv, frag.page, 0.0).a;
     return smoothstep(RING_FAINT_ALPHA, RING_SOLID_ALPHA, alpha);
 }
 
