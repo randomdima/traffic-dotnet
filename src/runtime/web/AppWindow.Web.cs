@@ -51,7 +51,14 @@ internal sealed class AppWindow : IDisposable
     const int TouchOneY = 12;
     const int TouchTwoX = 13;
     const int TouchTwoY = 14;
-    const int Axes = 15;
+
+    /// <summary>The device's own time since the last pump, as <c>gputime.js</c> sums it (<see cref="Gpu"/>).</summary>
+    const int GpuDrawMs = 15;
+
+    const int GpuDraws = 16;
+    const int GpuKernelsMs = 17;
+    const int GpuBatches = 18;
+    const int Axes = 19;
 
     readonly byte[] _keys = new byte[(Keys * 2) + 8];
     readonly double[] _axes = new double[Axes];
@@ -118,6 +125,12 @@ internal sealed class AppWindow : IDisposable
 
         return count;
     }
+
+    /// <summary>
+    /// The device's own time since the last pump (<see cref="GpuTimes"/>): what landed of the frames' passes and the
+    /// kernels' batches the page timed, which is none on a device without <c>timestamp-query</c>.
+    /// </summary>
+    public GpuTimes Gpu => new(_axes[GpuDrawMs], (int)_axes[GpuDraws], _axes[GpuKernelsMs], (int)_axes[GpuBatches]);
 
     /// <summary>
     /// What the page has seen since the last frame asked. The edges — a press, a click, a notch, a

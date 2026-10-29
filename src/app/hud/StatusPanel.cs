@@ -340,12 +340,15 @@ internal sealed class StatusPanel
     {
         // Every section writes a header, and the claims one is not there at all on a map with none.
         var rows = RunRows + Sections - (claims.IsEmpty ? 1 : 0);
-        if (_open[Frame] && frame.FrameMs > 0d) rows += FrameRows;
+        if (_open[Frame] && frame.FrameMs > 0d) rows += FrameRows + GpuRows(frame);
         if (_open[Tick]) rows += TickRows;
         if (_open[Town]) rows += TownRows;
         if (_open[Claims]) rows += ClaimRows(claims);
         return rows;
     }
+
+    /// <summary>The device's own rows under the frame's, each only where the window timed any (<see cref="FrameSection"/>).</summary>
+    static int GpuRows(in FrameFigures frame) => (frame.Gpu.Draws > 0 ? 1 : 0) + (frame.Gpu.Batches > 0 ? 1 : 0);
 
     /// <summary>
     /// What the claims come to when they are showing: a heading a watch, and <b>two rows a claim</b> —
@@ -417,6 +420,10 @@ internal sealed class StatusPanel
         Row(ref draw, ref row, text, "    other", frame.OtherMs, "ms", "F2");
         Row(ref draw, ref row, text, "  blocked", frame.BlockedMs, "ms", "F2");
         Row(ref draw, ref row, text, "  slowest", frame.WorstMs, "ms", "F2");
+
+        // The device's own time, where the head takes it (GpuTimes): a pass a frame, and a batch of kernels each.
+        if (frame.Gpu.Draws > 0) Row(ref draw, ref row, text, "  gpu frame", frame.GpuDrawMs, "ms", "F2");
+        if (frame.Gpu.Batches > 0) Row(ref draw, ref row, text, "  gpu batch", frame.GpuBatchMs, "ms", "F2");
     }
 
     /// <summary>

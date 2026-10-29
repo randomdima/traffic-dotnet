@@ -48,6 +48,7 @@ const kernels = {
     fill: null,
     landed: null,
     proofs: [],
+    clock: null,
 };
 
 /// What runs each time a batch has landed: the ticks a frame put off until the device answered (town.js `ticker`).
@@ -66,9 +67,17 @@ export function kernelLimits(adapter) {
     return limits;
 }
 
-export function useDevice(device) {
+/// The device, and the clock its batches are timed on (gputime.js) or none. **Handed over and not made here**: the build
+/// loads this file on its own to rewrite kernels (page_kernel.mjs), where it can import nothing.
+export function useDevice(device, clock) {
     kernels.device = device;
     kernels.fits = Object.entries(NEEDED).every(([name, least]) => device.limits[name] >= least);
+    kernels.clock = clock;
+}
+
+/// The device's time on the batches measured since the last time this was asked, and how many: [ms, count].
+export function kernelTimes() {
+    return kernels.clock?.drain() ?? [0, 0];
 }
 
 /// The run's whole memory, asked for afresh each time it is written into: a view kept is one the runtime's next growth
@@ -271,6 +280,11 @@ function kernelSubmit(operations, push, serial, landedAddress) {
     const reads = [];
     let pass = null;
     let scratchUsed = 0;
+
+    // The batch bracketed by two empty passes, so the copies and fills between its own passes are timed with them.
+    const clock = kernels.clock;
+    const timed = clock?.take() ?? null;
+    if (timed) encoder.beginComputePass({ timestampWrites: clock.writes(timed, true, false) }).end();
     for (let at = 0; at < ops.length; at += STRIDE) {
         const code = ops[at];
         if (code === DISPATCH || code === INDIRECT) {
@@ -321,6 +335,11 @@ function kernelSubmit(operations, push, serial, landedAddress) {
     }
 
     pass?.end();
+    if (timed) {
+        encoder.beginComputePass({ timestampWrites: clock.writes(timed, false, true) }).end();
+        clock.resolve(encoder, timed);
+    }
+
     for (const held of reads) {
         held.staging ??= device.createBuffer({
             size: held.size, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST, label: 'read back',
@@ -329,6 +348,7 @@ function kernelSubmit(operations, push, serial, landedAddress) {
     }
 
     queue.submit([encoder.finish()]);
+    if (timed) clock.land(timed);
     land(reads, serial, landedAddress);
 }
 

@@ -214,9 +214,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **The owner's phone steps the managed world, and its frame rate is not taken since the pixel ratio was capped**
   (2026-10-29, web log). Its Vulkan refuses `tyre_pass.comp` (`VK_ERROR_UNKNOWN`) though its limits fit; which GPU it is,
   off a saved log's header, and a kernel cut so that driver builds it, close the first. It ran 20 fps on a test map as
-  on Saltbay before WEB-11's cap of 2: a phone's `?ui=frame` read-out — `cpu` against `blocked` — sets
-  `PageMostPixelRatio`, and says whether the ground's shading (four octaves of noise and up to six samples a pixel)
-  wants a cheaper form there as well.
+  on Saltbay before WEB-11's cap of 2: a phone's `?ui=frame` read-out — its `gpu frame` row (`gputime.js`) against the
+  frame — sets `PageMostPixelRatio`, and says whether the ground's shading (four octaves of noise and up to six samples
+  a pixel) and the clouds' wants a cheaper form there as well.
+- **The desktop's frame read-out has no `gpu` rows** (2026-10-29): a page times its render pass and its kernels'
+  batches on the device (`GpuTimes`), and the Vulkan heads take no timestamps (`AppWindow.Gpu` answers none). A
+  timestamp query pool around the frame's recording and the world's batch closes it.
 
 - **The ground pass's GPU time is not taken since the water's waves** (`WaterWaves`, 2026-10-25): three sines and three
   lumps of value noise a water pixel and one varying every ground corner, judged negligible but not measured; the browser head held 60 Hz on River

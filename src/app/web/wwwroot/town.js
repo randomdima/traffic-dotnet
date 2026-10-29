@@ -18,7 +18,8 @@
 // reason: a town that gains five hundred walkers must change a number and not a recording.
 
 import * as opening from './loading.js'
-import { compute, kernelBufferOf, kernelLimits, onLanded, useDevice } from './compute.js'
+import { compute, kernelBufferOf, kernelLimits, kernelTimes, onLanded, useDevice } from './compute.js'
+import { GpuClock } from './gputime.js'
 import { addContext } from './log.js'
 
 const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6, standing: 7, fans: 8 };
@@ -61,12 +62,15 @@ const AXIS = {
     // what they mean**: a pinch, a twist and a two-finger pan are one movement read a frame apart, and
     // reading it is the run's (src/app/playercontrol/TouchGesture.cs).
     touchCount: 10, touchOneX: 11, touchOneY: 12, touchTwoX: 13, touchTwoY: 14,
+    // The device's own time since the last pump (gputime.js): the frames' passes and the kernels' batches whose
+    // timestamps landed, summed, and how many of each.
+    gpuDrawMs: 15, gpuDraws: 16, gpuKernelsMs: 17, gpuBatches: 18,
 };
 
 /// How many of them there are, which is the length the run's own array is made at. **Whether the
 /// run is over is not one of them**: an axis is something the page saw, a pump copies the page's
 /// copy over the run's, and the page has no opinion about that one.
-const AXIS_COUNT = 15;
+const AXIS_COUNT = 19;
 
 const state = {
     device: null,
@@ -95,6 +99,8 @@ const state = {
     // from the first of them, which is more than the frame sees and never less.
     firstInstance: false,
     mostPixelRatio: Infinity,
+    drawClock: null,
+    deviceSaid: { at: 0, drawMs: 0, draws: 0, kernelsMs: 0, batches: 0 },
 };
 
 /// The adapter, asked for once and answered to everybody who asks.
@@ -154,11 +160,11 @@ async function start(wgsl) {
     if (!found) return 'No WebGPU adapter: the browser has the API but no device it will hand out.';
 
     state.firstInstance = found.features.has('indirect-first-instance');
-    state.device = await found.requestDevice({
-        requiredFeatures: state.firstInstance ? ['indirect-first-instance'] : [],
-        requiredLimits: kernelLimits(found),
-    });
-    useDevice(state.device);
+    const features = ['indirect-first-instance', 'timestamp-query'].filter(feature => found.features.has(feature));
+    state.device = await found.requestDevice({ requiredFeatures: features, requiredLimits: kernelLimits(found) });
+    const timed = state.device.features.has('timestamp-query');
+    state.drawClock = timed ? new GpuClock(state.device, 'frame') : null;
+    useDevice(state.device, timed ? new GpuClock(state.device, 'kernels') : null);
     addContext(() => described(found, state.device));
     state.device.addEventListener('uncapturederror', e => fault(`WebGPU: ${e.error.message}`));
     state.device.lost.then(info => fault(`WebGPU device lost: ${info.message}`));
@@ -523,6 +529,8 @@ function frame(camera, under, over, above, overlay, underlay, underlayAbove, fra
     }
 
     const encoder = state.device.createCommandEncoder();
+    const clock = state.drawClock;
+    const timed = clock?.take() ?? null;
     const pass = encoder.beginRenderPass({
         colorAttachments: [{
             view: state.context.getCurrentTexture().createView(),
@@ -530,11 +538,14 @@ function frame(camera, under, over, above, overlay, underlay, underlayAbove, fra
             loadOp: 'clear',
             storeOp: 'store',
         }],
+        timestampWrites: timed ? clock.writes(timed, true, true) : undefined,
     });
 
     pass.executeBundles([state.bundle]);
     pass.end();
+    if (timed) clock.resolve(encoder, timed);
     queue.submit([encoder.finish()]);
+    if (timed) clock.land(timed);
 }
 
 /// The most device pixels the canvas is drawn at to the point (src/core/config `PageMostPixelRatio`), handed over once
@@ -560,10 +571,30 @@ function resize() {
     state.axes[AXIS.resized] = 1;
 }
 
+/// The device's own time, said on the console every so often, so a log saved off a handset carries it (log.js).
+function sayTheDevice() {
+    const said = state.deviceSaid;
+    said.drawMs += state.axes[AXIS.gpuDrawMs];
+    said.draws += state.axes[AXIS.gpuDraws];
+    said.kernelsMs += state.axes[AXIS.gpuKernelsMs];
+    said.batches += state.axes[AXIS.gpuBatches];
+    const now = performance.now();
+    if (now - said.at < DEVICE_SAID_EVERY_MS || said.draws + said.batches === 0) return;
+
+    const mean = (ms, count) => count > 0 ? `${(ms / count).toFixed(2)} ms over ${count}` : 'none';
+    console.log(`the device: a frame's pass ${mean(said.drawMs, said.draws)}, a kernels' batch ${mean(said.kernelsMs, said.batches)}`);
+    state.deviceSaid = { at: now, drawMs: 0, draws: 0, kernelsMs: 0, batches: 0 };
+}
+
+const DEVICE_SAID_EVERY_MS = 10000;
+
 /// What the page has seen since the last frame asked, copied into the run's own memory. What is
 /// edge-triggered — a press, a click, a notch, a resize — is handed over and forgotten here, so the
 /// run reads each of them exactly once.
 function pump(keys, axes) {
+    [state.axes[AXIS.gpuDrawMs], state.axes[AXIS.gpuDraws]] = state.drawClock?.drain() ?? [0, 0];
+    [state.axes[AXIS.gpuKernelsMs], state.axes[AXIS.gpuBatches]] = kernelTimes();
+    sayTheDevice();
     keys.set(state.keys);
     axes.set(state.axes);
     state.keys.fill(0, PRESSED, PRESSED + KEY_COUNT);

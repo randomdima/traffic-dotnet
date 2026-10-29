@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using TrafficSimulation.Runtime;
 
 namespace TrafficSimulation.App.Debug;
 
@@ -74,6 +75,9 @@ internal struct FrameParts
     /// </summary>
     public long WrittenBytes;
 
+    /// <summary>What landed of the device's own time since the last frame (<see cref="GpuTimes"/>).</summary>
+    public GpuTimes Gpu;
+
     public readonly bool Timed => _timed;
 
     /// <summary>Everything since the last mark, into one of the fields above.</summary>
@@ -103,5 +107,6 @@ internal struct FrameParts
         WholeMs += frame.WholeMs;
         SimTicks += frame.SimTicks;
         WrittenBytes += frame.WrittenBytes;
+        Gpu += frame.Gpu;
     }
 }

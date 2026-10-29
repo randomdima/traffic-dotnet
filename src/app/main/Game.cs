@@ -420,6 +420,7 @@ internal sealed partial class Game : IDisposable
         _betweenFrames = default;
 
         _window.PumpEvents();
+        parts.Gpu = _window.Gpu;
         if (_window.TakeResized())
         {
             _renderer.Recreate();

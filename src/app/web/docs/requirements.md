@@ -186,6 +186,11 @@ this is the only way a panel dragged or a camera pinched is ever driven.
 open and the bodies' at tick 600, and a desktop `--shot --map NAME --seconds 10` prints the same two. A page's managed
 world (`?managed-world`) is held to them to the bit; its device world is the desktop's only within what a driver may fuse.
 
+**A page times its device on the device** ([`gputime.js`](../wwwroot/gputime.js)), where the browser gives it
+`timestamp-query`: the frame's render pass and every batch of kernels, read back when the device is done and never
+waited on, shown under the frame's own rows in `?ui=frame` (`gpu frame`, `gpu batch`) and said on the console every
+ten seconds, so a log saved off a handset carries them. A phone's `blocked` says the frame waited and not on what.
+
 **`qq web --cpu FILE` is where a page's open went**: the browser's sampling profiler from the navigate until the town
 says it stood, named off the native module's symbol map, self and inclusive by function — and `--cpu-read` with
 `--focus` asks a kept profile again, which is how code the page runs interpreted and the desktop never does is found.

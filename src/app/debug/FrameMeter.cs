@@ -1,4 +1,5 @@
 using TrafficSimulation.Core.Simulation;
+using TrafficSimulation.Runtime;
 
 namespace TrafficSimulation.App.Debug;
 
@@ -88,6 +89,15 @@ internal readonly record struct FrameFigures
 
     /// <summary>The world's own drill-down inside two of those phases, read per tick the same way.</summary>
     public TickParts Sub { get; init; }
+
+    /// <summary>The device's own time over the window (<see cref="GpuTimes"/>): what landed of it, summed, and how much.</summary>
+    public GpuTimes Gpu { get; init; }
+
+    /// <summary>A frame's render pass on the device, the mean of those timed in the window; nought where none was.</summary>
+    public double GpuDrawMs => Gpu.Draws > 0 ? Gpu.DrawMs / Gpu.Draws : 0d;
+
+    /// <summary>A batch of kernels on the device, the mean of those timed in the window; nought where none was.</summary>
+    public double GpuBatchMs => Gpu.Batches > 0 ? Gpu.KernelsMs / Gpu.Batches : 0d;
 
     /// <summary>
     /// What this build spent that none of the named rows claimed: the loop's own arithmetic, the
@@ -213,6 +223,7 @@ internal sealed class FrameMeter
             WrittenKb = _sum.WrittenBytes * per / 1024d,
             Phases = ticked ? phases : Figures.Phases,
             Sub = ticked ? sub : Figures.Sub,
+            Gpu = _sum.Gpu,
         };
 
         _sum = default;

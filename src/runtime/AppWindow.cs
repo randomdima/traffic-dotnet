@@ -149,6 +149,9 @@ internal sealed class AppWindow : IDisposable
     /// </summary>
     public int Touches(Span<Vector2> intoPx) => 0;
 
+    /// <summary>The device's own time since the last pump (<see cref="GpuTimes"/>): <b>none here</b>, which takes no timestamps.</summary>
+    public GpuTimes Gpu => default;
+
     /// <summary>
     /// Opens the window, fullscreen unless <c>--windowed</c> asked otherwise, on the display
     /// <c>--display</c> names or the one the pointer is on when it names none. <c>--size W H</c> is
