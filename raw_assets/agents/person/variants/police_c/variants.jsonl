@@ -1,0 +1,3 @@
+{"variant": "police_c-v5", "frame": "walkorbit_police_c-v1", "cell": 1, "pxPerM": 251.124, "score": 4, "status": "candidate", "ts": "2026-10-28T13:49:03"}
+{"variant": "police_c-v6", "frame": "walkorbit_police_c-v1", "cell": 1, "recutOf": "police_c-v5", "pxPerM": 262.921, "score": 4, "status": "candidate", "ts": "2026-10-28T16:50:45"}
+{"variant": "police_c-v7", "frame": "walkorbit_police_c-v1", "cell": 1, "recutOf": "police_c-v6", "pxPerM": 257.865, "score": 4, "status": "used", "ts": "2026-10-28T21:38:49"}

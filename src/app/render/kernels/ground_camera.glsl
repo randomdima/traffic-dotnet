@@ -17,6 +17,7 @@ layout(set = 0, binding = 0) uniform Camera {
     vec4 propCull;
     vec4 turning;
     vec4 carTilt;
+    uvec4 rings;
     vec4 cloudField;
     vec4 cloudLook;
     // The patches every surface wears its looks by (GroundPatches): the field's mean and one over its spread; then each

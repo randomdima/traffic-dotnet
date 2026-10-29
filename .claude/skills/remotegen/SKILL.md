@@ -1,6 +1,6 @@
 ---
 name: remotegen
-description: Generate and edit images through OpenRouter's image models for this project's art — sprites, roof sheets, textures — always GPT Image 2.5 Sunburst at quality low unless the owner says otherwise, at least nine assets to a sheet, three attempts a sheet. Billed per image. The only image generator; local models are not used. Use for any image: game art, sprites, sheets, textures, mockups, "generate an image", "make a sprite", "draw", "edit that image", "another version".
+description: Generate and edit images and walker videos through OpenRouter for this project's art — sprites, roof sheets, textures, walk clips — always GPT Image 2.5 Sunburst at quality low unless the owner says otherwise, at least nine assets to a sheet, one 5 s video a walker look, three attempts a sheet. A generation's shape (model, settings, duration, how many calls an asset takes) is never changed without asking the owner first. Billed per image. The only image generator; local models are not used. Use for any image: game art, sprites, sheets, textures, mockups, "generate an image", "make a sprite", "draw", "edit that image", "another version".
 ---
 
 # remotegen
@@ -20,6 +20,7 @@ this index or the attempt cap.
 R=.claude/skills/remotegen/remotegen.py
 $R edit --image REF [--image REF ...] -p "PROMPT" [--cells IDS.json] [--mask M.png] [--name STEM] [--aspect 3:2]
 $R gen "PROMPT" [--cells IDS.json] [--name STEM] [--aspect 1:1]
+$R video --image FIRST -p "PROMPT" --name STEM --model M --resolution R --aspect A --duration S   # as `qq walkers orbit` prints it, nothing else
 $R credit            # spent / left on the key
 $R list | show ID
 ```
@@ -37,6 +38,19 @@ copies the frame is the parent's image kept under another name.
 
 ## The owner's rules for a run
 
+**The core rule: a generation's shape is the owner's, and is never changed to get a result.** Its shape is the model,
+every setting sent (quality, background, aspect, resolution, a clip's duration) and **how many generations one asset is
+made from** — one frame a sheet, and **one 5 s video a walker look** (`qq walkers orbit` prints that one call). A longer
+clip, a second clip or image for the same asset, a pre- or post-pass through another call, another model: each is a
+change of shape, asked of the owner first and waited for — stop, report what failed and what you propose, and
+generate nothing until the owner says yes. Never "one trial to see", never because the brief cannot get it inside the
+shape: a result the shape cannot give is reported as such. Only the brief's wording, a `--mask` redo, and the attempts
+the cap allows are yours. (2026-10-28: a stance per facing asked for, and three 10 s clips and a second clip per look
+made without asking, $0.40 — the owner: "all frames MUST be done with a single 5s video".) **The owner's allowance**
+(2026-10-29): `quilted_navy` and `flannel_hat`, whose 1 s shots could not hold a stride, were each made from one 10 s
+clip of five 2 s shots — "do 10s but only for this two" — and then `tee_print` ("do 10s for walker 11 as well") and
+`shirt_burgundy` ("again allowed 10s"); every other look is still one 5 s clip.
+
 - **Settings are not yours to change**: `openai/gpt-image-2.5-sunburst` at quality `low` with a transparent
   background (the owner, 2026-10-20) are the defaults, and `--model`, `--quality`, `--background` and `--past-cap`
   exist for the owner's word only. A sheet is `--aspect 3:2`.
@@ -49,7 +63,9 @@ copies the frame is the parent's image kept under another name.
   `qq prefabs sheets` plans the whole catalogue that way and `qq prefabs brief`
   writes each frame's prompt. The fans' looks (`assets/world/building/fans/`) went one to a frame (2026-10-24: "Generate
   10 good images", "Dont cut them"), asked with `--cells` and taken whole by `cut` — a picture that is no car is never
-  fitted or clipped.
+  fitted or clipped. Walker looks drawn after the owner's photos of real people go as many to a cast frame as there are
+  photos, the photos sent beside the installed cast as references (2026-10-28, `qq walkers cast --photos`); a photo is
+  kept under `.tmp/gen/photos/` and its frame's lineage records it by hash only, never in git.
 - **Get it in one go; a retry is a backoff, not a habit** (the owner, 2026-10-20). Before v1, read what worked and
   failed on the family's earlier frames (its `prompting.md`, and the lessons of frames made this session) and write
   the brief to avoid those faults. A v2 needs a real defect a kept cell cannot carry; a v3 a stronger reason still —
@@ -76,8 +92,9 @@ palette. It takes no resolution: 3:2 comes back 1536×1024 and 1:1 1024×1024. T
 
 ## From frame to the game: every image traces to its prompt
 
-A frame is scratch; what goes into git is each asset's cut, with the record of how it was made
-([raw_assets/index.md](../../../raw_assets/index.md) is the whole rule). One set, start to finish:
+A frame is scratch; what goes into git is each asset's cut, with the record of how it was made — and a clip a kept
+walker was cut from, which `keep` puts beside its record ([raw_assets/index.md](../../../raw_assets/index.md) is the
+whole rule). One set, start to finish:
 
 ```bash
 # 1. read the family's prompting.md under raw_assets/, if it has one, before writing the brief
@@ -96,7 +113,8 @@ qq sprites keep roofs_house_a-v1 house_01 house_02 --score=4      # the good dra
 qq sprites use house_01-v1               # into assets/ at the art grid, with house_01.src.json
 qq sprites compare house_01              # every kept variant of it beside the sprite in the game
 qq sprites trace house_01                # sprite -> variant -> frame(s) -> prompt and inputs
-# a car set, in game before it is in Fleet.json: the showroom, captioned (readme)
+# every unit or building change ends on the showroom, captioned (raw_assets/index.md rule 8); a car set before it is
+# in Fleet.json with --fleet ID,ID,..., a person row or a building framed with --at X Y --view METRES
 dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet ID,ID,... --shot .tmp/gen/showroom.png --caption --seconds 3
 # 3. the set's lesson into the family's prompting.md, citing the variants
 ```
@@ -137,6 +155,10 @@ dotnet run --project traffic-dotnet.csproj -- --map Showroom --fleet ID,ID,... -
   `.tmp/gen/briefs/`. imgbench's prompts and a brief whose frame was asked from a layout describe what is not sent:
   take their wording about the assets, never their lines about outlines, tracing or magenta.
 - `use` clears islands under 8 px the shrink leaves off the body (CAR-12's pixel-dust gate).
+- **A walker look is one 5 s video** (the orbit flow, `raw_assets/agents/person/prompting.md`): HeyGen, 480p, 3:4,
+  5 s, its one first frame the look's cast figure, every facing and every frame of the look cut from that one clip.
+  `qq walkers orbit` writes the brief and prints the call; the call is sent as printed. The frame flow below is what it
+  replaced.
 - **A walker is asked as a block of drawings, one look a frame** (`kind` of none; its file has `sheet` and `heightM`):
   8 columns of walk frames by 5 facing rows — back, back-left, left, front-left, front — the right-hand facings mirrored
   by `use`. **The owner's allowance** (2026-10-27): a walker frame is sent a second picture, the pose guide `brief`

@@ -271,8 +271,15 @@ public class GroundLocatorTests
     /// carriageway's own width, not because either asked the other.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A crossing is not asked: it is paint over a carriageway on purpose (TER-6), so the ground under one
     /// is the road's and a walker is admitted to it by the crossing rather than by the surface.
+    /// </para>
+    /// <para>
+    /// <b>Asked of the courses the town lays</b> (<see cref="PavementLanes"/>): every ring of every lane but the
+    /// stretches nobody walks where a walk ends (<see cref="PavementLanes.GapsOf"/>, GEN-75), and the turns across the
+    /// walk there.
+    /// </para>
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -280,34 +287,37 @@ public class GroundLocatorTests
     {
         var plan = Towns.Of(map);
         var ground = GroundOf(map);
-        var ways = FootWays.Lay(plan, Config);
+        var pavement = PavementLanes.Of(plan, Config);
 
         var walked = 0;
-        for (var way = 0; way < ways.Count; way++)
+        for (var lane = 0; lane < pavement.Count; lane++)
         {
-            if (ways.KindOf(way) == FootConnectorKind.Crossing) continue;
-
-            for (var lane = 0; lane < FootConnectors.LanesPerWay; lane++)
+            for (var ring = 0; ring < pavement.RingsOf(lane).Length; ring++)
             {
-                var line = ways.LaneOf(way, lane);
-                if (line.Length == 0) continue;
-
+                var line = pavement.RingsOf(lane)[ring];
+                var gaps = pavement.GapsOf(lane, ring);
                 walked++;
                 var lengthM = Spline.TotalLengthM(line);
                 for (var alongM = 0f; alongM <= lengthM; alongM += 2f)
                 {
-                    var atM = Spline.SampleAt(line, MathF.Min(alongM, lengthM)).PositionM;
-                    if (!ground.At(atM).Preferred)
-                    {
-                        Assert.Fail(
-                            $"{map}: a walk {ways.KindOf(way)} runs over {ground.GroundAt(atM)} at " +
-                            $"{atM.X:F0},{atM.Y:F0}, {alongM:F0} m along its own lane");
-                    }
+                    var inAGap = false;
+                    foreach (var (fromM, toM) in gaps) inAGap |= alongM >= fromM && alongM <= toM;
+                    if (!inAGap) Asked(Spline.SampleAt(line, alongM).PositionM, $"lane {lane}, {alongM:F0} m along ring {ring}");
                 }
             }
         }
 
+        foreach (var (oneM, otherM) in pavement.Turns) Asked((oneM + otherM) * 0.5f, "a turn's middle");
+
         Assert.True(walked > 0, $"{map}: no walk is laid along the boundary at all");
+
+        void Asked(Vector2 atM, string where)
+        {
+            if (!ground.At(atM).Preferred)
+            {
+                Assert.Fail($"{map}: a walk runs over {ground.GroundAt(atM)} at {atM.X:F0},{atM.Y:F0}, {where}");
+            }
+        }
     }
 
     /// <summary>

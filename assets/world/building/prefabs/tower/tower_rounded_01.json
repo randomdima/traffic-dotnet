@@ -17,7 +17,7 @@
     "panel block",
     "rounded corners"
   ],
-  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge, its corners rounded in wide curves",
+  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine room as a raised box, ventilation shafts and a low parapet round the edge, its corners rounded in wide curves",
   "fans": [
     { "atM": [10.6392, -6.1778], "rimAtM": [10.6433, -6.1047], "rimM": [0.8535, 0.8987] }
   ],

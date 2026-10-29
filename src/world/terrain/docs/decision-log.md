@@ -1,5 +1,19 @@
 # Terrain — decision log
 
+## 2026-10-26 — the walk is struck off the walked roads, and an intercity road has a shoulder
+
+**The owner: "intercity roads must not have parkings or sidewalk (meaning also no connected buildings)"**, and, asked how
+under `TER-7b`: **"just dont generate it there, dont cut it afterwards - no sidewalk extrusion".** That changes `TER-7b`,
+a `P0`, at the owner's word: the pavement is the ground within one distance of the kerb of the walked roads, struck off a
+shell of their own (`Paving.Walked`), and no longer of the whole driven ground. Striking it wide and cutting it back, or
+drawing its stretch beside an intercity road in another material, was offered and not taken.
+
+- **A shoulder is a layer of its own** (GEN-75): the unwalked roads' shell moved by `ShoulderWidthM`, under the walk, so
+  it shows only where no walk is struck — and `GroundShapes.At` answers it, so the picture and the answer stay one line.
+- **One asphalt for every road.** The darker chip-sealed asphalt generated for intercity roads was, at the owner's word,
+  "new coloring for all roads — just because it looks better, not need to separate roads": it is the tarmac's two looks
+  now (`pavement.json`'s c and d, kept from the same frame), the old two kept as trials.
+
 ## 2026-10-25 — a bridge is dressed from art of its own
 
 **The owner asked for bridges drawn from new generated art: "new sidewalk, new road, new props along the way and

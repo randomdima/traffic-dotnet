@@ -1,0 +1,28 @@
+{
+ "id": "walkorbit_quilted_navy-v1",
+ "ts": "2026-10-28T20:25:55",
+ "op": "video",
+ "name": "walkorbit_quilted_navy",
+ "file": ".tmp/gen/frames/walkorbit_quilted_navy-v1.mp4",
+ "model": "heygen/heygen-video-1",
+ "settings": {
+  "resolution": "480p",
+  "aspect_ratio": "3:4",
+  "duration": 5
+ },
+ "costUsd": 0.05,
+ "usage": {
+  "cost": 0.05,
+  "is_byok": false
+ },
+ "prompt": "Five one-second shots joined by hard cuts. The woman walks on the spot the whole time, always facing the same way; only the camera moves, round to her left, always high above looking down on her head, always at the same distance: shot 1 from the front, 2 front-left, 3 her left side, 4 back-left, 5 behind. Quick, short, even steps, three every second, never a run. Flat chroma-key green background.",
+ "inputs": [
+  {
+   "role": "first frame",
+   "sha": "9b548b1b9bf686f9",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/walkorbit_quilted_navy.png"
+  }
+ ]
+}

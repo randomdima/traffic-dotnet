@@ -114,33 +114,33 @@ internal sealed class CentrelineRuns
     {
         var lengthM = Spline.TotalLengthM(arcs);
 
-        // How far behind the band's own middle the far edge of the bar stands, less the half-band the band
-        // itself is: a place carrying no paint carries no depth either (WLK-10a), and the bar behind it
-        // stands that much nearer the junction.
+        // How far behind the band's near edge the back of the bar stands: a place carrying no paint carries
+        // no depth either (WLK-10a), and the bar behind it stands that much nearer the junction.
         var behindM = config.Road.StopBarSetbackM + config.Road.StopBarThicknessM;
 
-        var fromM = Clear(arcs, lengthM, crossings, headEnd, behindM, 0f);
-        var toM = Clear(arcs, lengthM, crossings, tailEnd, -behindM, lengthM);
+        var fromM = Clear(arcs, lengthM, crossings, headEnd, behindM, atHead: true);
+        var toM = Clear(arcs, lengthM, crossings, tailEnd, behindM, atHead: false);
         return (fromM, MathF.Max(fromM, toM));
     }
 
     /// <summary>
-    /// Where the paint at one arm leaves off along the run, read off the crossing standing there: its own
-    /// place on the line, taken <paramref name="behindM"/> further in. An arm with no crossing carries no
-    /// bar either (<see cref="StopBars"/>) and leaves the line its whole run.
+    /// Where the paint at one arm leaves off along the run, read off the crossing standing there: where the
+    /// run meets the line <paramref name="behindM"/> behind the band's near edge, which is the line the bars
+    /// behind it are laid on (<see cref="Crossings.BehindM"/>). An arm with no crossing carries no bar either
+    /// (<see cref="StopBars"/>) and leaves the line its whole run.
     /// </summary>
     static float Clear(
-        ReadOnlySpan<ArcSeg> arcs, float lengthM, Crossings crossings, int end, float behindM, float wholeM)
+        ReadOnlySpan<ArcSeg> arcs, float lengthM, Crossings crossings, int end, float behindM, bool atHead)
     {
+        var wholeM = atHead ? 0f : lengthM;
         var at = crossings.At(Road(end), JunctionArms.AtTo(end));
         if (at == Crossings.None) return wholeM;
 
-        var atM = Spline.ProjectM(arcs, crossings.CentreM[at], lengthM * 0.5f, lengthM);
-
-        // The band's own half, taken the way the bar was: which end of the run this is decides the sign of
-        // both, and a place with no paint at it has no half to take.
-        var halfBandM = MathF.CopySign(crossings.DepthM[at] * 0.5f, behindM);
-        return Math.Clamp(atM + behindM + halfBandM, 0f, lengthM);
+        // The traffic meets the band at the head end against the run, and at the tail end with it.
+        var nearM = Spline.ProjectM(arcs, crossings.CentreM[at], lengthM * 0.5f, lengthM);
+        var arriving = Spline.SampleAt(arcs, nearM).Direction * (atHead ? -1f : 1f);
+        var stopsM = crossings.BehindM(at, arcs, nearM, arriving, behindM, out _);
+        return float.IsNaN(stopsM) ? wholeM : Math.Clamp(stopsM, 0f, lengthM);
     }
 
     /// <summary>
@@ -164,6 +164,7 @@ internal sealed class CentrelineRuns
         if (roads.Count == 0) return new CentrelineRuns([.. arcOffsets], [], [.. roadOffsets], [], [], []);
 
         var arms = JunctionArms.Of(plan);
+        var carriedOn = CarriedOn(plan, config);
         var firstLine = new int[roads.Count + 1];
         var longest = 0;
         for (var road = 0; road < roads.Count; road++)
@@ -188,7 +189,7 @@ internal sealed class CentrelineRuns
                 var headForward = true;
                 while (true)
                 {
-                    var back = Across(arms, roads, head, !headForward);
+                    var back = Across(arms, carriedOn, roads, head, !headForward);
                     if (back == JunctionArms.NoEnd || Road(back) == road) break;
 
                     head = Road(back);
@@ -220,7 +221,7 @@ internal sealed class CentrelineRuns
                     if (arcs.Count > arcOffsets[^1]) Joined(arcs, drawn[0], roads.LaneWidthM(at), config);
                     foreach (var arc in drawn) arcs.Add(arc);
 
-                    var on = Across(arms, roads, at, forward);
+                    var on = Across(arms, carriedOn, roads, at, forward);
                     if (on == JunctionArms.NoEnd) break;
 
                     var next = Road(on);
@@ -269,23 +270,63 @@ internal sealed class CentrelineRuns
     /// <see cref="JunctionArms.NoEnd"/> where it stops there: at a junction anything else meets
     /// (<see cref="JunctionArms.Across"/>), and where what carries on is not laid the same — not the same lanes
     /// each way at the same width between the same roadsides, so no line of one stands where a line of the other
-    /// does, or not on the same level.
+    /// does, or not on the same level. <b>At a node that only carries lanes on</b> (TER-5k) it is the one other end there
+    /// laid the same, and none where two are.
     /// </summary>
-    static int Across(JunctionArms arms, CityPlan.RoadArrays roads, int road, bool forward)
+    static int Across(
+        JunctionArms arms, Dictionary<int, List<int>> carriedOn, CityPlan.RoadArrays roads, int road, bool forward)
     {
-        var across = arms.Across(Arrives(roads, road, forward), End(road, forward));
-        if (across == JunctionArms.NoEnd || LinesOn(roads, Road(across)) == 0) return JunctionArms.NoEnd;
+        var junction = Arrives(roads, road, forward);
+        var end = End(road, forward);
+        var across = arms.Across(junction, end);
+        if (across != JunctionArms.NoEnd) return LaidTheSame(roads, road, forward, across) ? across : JunctionArms.NoEnd;
+        if (!carriedOn.TryGetValue(junction, out var ends)) return JunctionArms.NoEnd;
 
-        // A bridgehead is where one level's paint stops and the other's starts: each is drawn with its own
-        // carriageway (TER-7b), so a run carried across one would be a line half of it under a deck.
+        foreach (var other in ends)
+        {
+            if (other == end || !LaidTheSame(roads, road, forward, other)) continue;
+            if (across != JunctionArms.NoEnd) return JunctionArms.NoEnd;
+
+            across = other;
+        }
+
+        return across;
+    }
+
+    // A bridgehead is where one level's paint stops and the other's starts: each is drawn with its own
+    // carriageway (TER-7b), so a run carried across one would be a line half of it under a deck.
+    static bool LaidTheSame(CityPlan.RoadArrays roads, int road, bool forward, int across)
+    {
         var next = Road(across);
         var nextForward = !JunctionArms.AtTo(across);
-        return Ways(roads, road, forward) == Ways(roads, next, nextForward)
+        return LinesOn(roads, next) > 0
+               && Ways(roads, road, forward) == Ways(roads, next, nextForward)
                && roads.LaneWidthM(road) == roads.LaneWidthM(next)
                && roads.RoadsideLineM(road, forward) == roads.RoadsideLineM(next, nextForward)
-               && roads.LevelOf(road) == roads.LevelOf(next)
-            ? across
-            : JunctionArms.NoEnd;
+               && roads.LevelOf(road) == roads.LevelOf(next);
+    }
+
+    /// <summary>The road ends at each node that only carries lanes on (<see cref="LaneLines.IsSeamless"/>).</summary>
+    static Dictionary<int, List<int>> CarriedOn(CityPlan plan, SimConfig config)
+    {
+        var roads = plan.Roads;
+        var lanes = plan.Paving(config).Lanes;
+        var carriedOn = new Dictionary<int, List<int>>();
+        for (var road = 0; road < roads.Count; road++)
+        {
+            if (roads.IsABay(road)) continue;
+
+            foreach (var atTo in (ReadOnlySpan<bool>)[false, true])
+            {
+                var junction = Arrives(roads, road, atTo);
+                if (junction < 0 || !lanes.IsSeamless(junction)) continue;
+
+                if (!carriedOn.TryGetValue(junction, out var ends)) carriedOn[junction] = ends = [];
+                ends.Add(End(road, atTo));
+            }
+        }
+
+        return carriedOn;
     }
 
     /// <summary>

@@ -78,14 +78,22 @@ internal sealed class GroundRings
     readonly GridLevel _kerbLevel;
     readonly Lock _indexing = new();
 
-    GroundRings(GroundLayer carriageway, GroundLayer walk, ArcSeg[][] walkEdge, GridLevel kerbLevel)
+    GroundRings(GroundLayer carriageway, GroundLayer walk, ArcSeg[][] walkEdge, GroundLayer shoulder, GridLevel kerbLevel)
     {
         Carriageway = carriageway;
         Walk = walk;
         WalkEdge = walkEdge;
+        Shoulder = shoulder;
         _kerbLevel = kerbLevel;
-        _layers = [walk];
+        _layers = [shoulder, walk];
     }
+
+    /// <summary>
+    /// <b>The shoulder beside the roads with no walk</b> (GEN-75, <see cref="Paving.Unwalked"/>): their ground out to
+    /// <see cref="RoadFigures.ShoulderWidthM"/>, laid under the walk, so it shows where no walk is struck. Empty where
+    /// every road is walked.
+    /// </summary>
+    public GroundLayer Shoulder { get; }
 
     /// <summary>
     /// The driven ground itself, at nought: the boundary the lines lay, kerb to kerb, rounded at the one
@@ -95,8 +103,8 @@ internal sealed class GroundRings
     public GroundLayer Carriageway { get; }
 
     /// <summary>
-    /// The walk: the ground from that boundary out to the pavement's outer face
-    /// (<see cref="SimConfig.WalkOuterM"/>), which is the concrete a walker walks down the middle of.
+    /// The walk: the ground from the walked roads' boundary (<see cref="Paving.Walked"/>, GEN-75) out to the pavement's
+    /// outer face (<see cref="SimConfig.WalkOuterM"/>), which is the concrete a walker walks down the middle of.
     /// </summary>
     public GroundLayer Walk { get; }
 
@@ -185,7 +193,7 @@ internal sealed class GroundRings
     /// ground answers the walk off, laid on the first ask and read by whatever else must keep to the walk — the
     /// connections a crossing is walked through (WLK-15) — so the two cannot disagree about one metre of it.
     /// </summary>
-    /// <remarks><b>It encloses the carriageway</b>, the layer being the offset whole (TER-7b).</remarks>
+    /// <remarks><b>It encloses the walked roads' carriageway</b>, the layer being the offset whole (TER-7b).</remarks>
     public RingSides WalkSides(SimConfig config)
     {
         lock (_indexing) return _walkSides ??= RingSides.Of(Walk.Rings, config.ShellLevel);
@@ -196,23 +204,33 @@ internal sealed class GroundRings
     /// <paramref name="shell"/> is the town's own (<see cref="Paving.Perimeter"/>) rather than one laid for
     /// this, because a second merge of the same lines is a second answer about the same ground.
     /// </summary>
-    public static GroundRings Of(BandShell shell, SimConfig config)
+    /// <param name="walked">
+    /// The ground the walk is struck off (<see cref="Paving.Walked"/>, GEN-75): <paramref name="shell"/> itself where
+    /// every road is walked, and otherwise the walk does not enclose the carriageway of a road with none.
+    /// </param>
+    /// <param name="unwalked">The ground of the roads with no walk (<see cref="Paving.Unwalked"/>), or none.</param>
+    public static GroundRings Of(BandShell shell, BandShell walked, BandShell? unwalked, SimConfig config)
     {
         var roundedM = config.Road.LineRoundedM;
         var walkM = config.WalkOuterM;
-        // The two moves read the shell and nothing else, so they run side by side.
+        var shoulderM = config.Road.ShoulderWidthM;
+        // The two moves read a shell each and nothing else, so they run side by side.
         var ((inner, innerLoose), (outer, loose)) = InChunks.Both(
-            () => shell.Outset(0f, roundedM, ArcOutset.Corners.Filled), () => shell.Outset(walkM, roundedM));
+            () => shell.Outset(0f, roundedM, ArcOutset.Corners.Filled), () => walked.Outset(walkM, roundedM));
+        var (shoulder, shoulderLoose) = unwalked?.Outset(shoulderM, roundedM) ?? ([], []);
+
+        return new GroundRings(
+            Layer("carriageway", 0f, inner, innerLoose),
+            Layer("walk", walkM, outer, loose),
+            Shut(outer, loose),
+            Layer("shoulder", shoulderM, shoulder, shoulderLoose),
+            config.Grid.Main);
 
         // <b>A layer is a region, so it is filled from rings shut across whatever its move left open</b>
         // (<see cref="ArcRings.Shut"/>), and the open runs are handed back beside them as the fault they are.
-        if (innerLoose.Length > 0) inner = [.. inner, .. ArcRings.Shut(innerLoose)];
-        if (loose.Length > 0) outer = [.. outer, .. ArcRings.Shut(loose)];
+        static GroundLayer Layer(string named, float outwardM, ArcSeg[][] rings, ArcSeg[][] loose) =>
+            new(named, outwardM, Shut(rings, loose), loose);
 
-        return new GroundRings(
-            new GroundLayer("carriageway", 0f, inner, innerLoose),
-            new GroundLayer("walk", walkM, outer, loose),
-            outer,
-            config.Grid.Main);
+        static ArcSeg[][] Shut(ArcSeg[][] rings, ArcSeg[][] loose) => loose.Length > 0 ? [.. rings, .. ArcRings.Shut(loose)] : rings;
     }
 }

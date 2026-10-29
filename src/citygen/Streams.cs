@@ -30,4 +30,21 @@ internal static class Streams
     public const ulong Prop = 0x7072_6F70_7300_0000;
 
     public const ulong Spawn = 0x7370_6177_6E73_0000;
+
+    /// <summary>
+    /// <b>One thing's own stream under a stage's</b> — a ring's, a zone's, a district's — the key mixed before it is
+    /// folded in.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never a key folded in bare</b>: PCG32's first draw is read off the high bits of the seed and the stream
+    /// together (<see cref="Core.Simulation.Rng"/>), so streams a small number apart begin on the same draw, and a
+    /// stage that keys every district on its number lays every district's first figure alike.
+    /// </remarks>
+    public static ulong Keyed(ulong stream, ulong key)
+    {
+        var mixed = key + 0x9E37_79B9_7F4A_7C15ul;
+        mixed = (mixed ^ (mixed >> 30)) * 0xBF58_476D_1CE4_E5B9ul;
+        mixed = (mixed ^ (mixed >> 27)) * 0x94D0_49BB_1331_11EBul;
+        return stream ^ mixed ^ (mixed >> 31);
+    }
 }

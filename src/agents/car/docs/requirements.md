@@ -109,7 +109,8 @@ its way, along the street and never in a box — as a pass's step out with no st
 - **Its route**: a route may move across, at the price of a turn and one move across for each lane over
   ([routing](../../../world/routing/docs/requirements.md#where-a-link-ends)), and a turn is made only from the lane
   of its own number (TER-5j). **The car moves across wherever it gets the room**, and until then its line runs on
-  down its own lane beside the route, for as long as its lanes go the route's way. **A lane lost at a node is left
+  down its own lane beside the route, for as long as its lanes go the route's way — **and never beside the lane the
+  leg ends on**, whose place a car moving across later would already have passed. **A lane lost at a node is left
   the same way** by a car going nowhere in particular: its toured line stops at the lane's end, and the car moves
   across toward the nearest lane beside that carries on. **A car that cannot move across for its route drives on
   instead** (`TownWorld.DriveOnPastTheMoveAcross`): come to rest at its line's end with less of it left than a step

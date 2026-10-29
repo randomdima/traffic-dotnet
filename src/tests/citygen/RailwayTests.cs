@@ -1,7 +1,9 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Gen;
+using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Rail;
 using Xunit;
@@ -47,6 +49,49 @@ public class RailwayTests
         {
             Assert.True(crossings.SinAcross[meeting] >= leastSin, $"road {crossings.Road[meeting]} meets the track at a sine of {crossings.SinAcross[meeting]}");
         }
+    }
+
+    /// <summary>
+    /// <b>Two tracks side by side cross on one bridge</b> (RAIL-12): where each is on a bridge beside the other, the two
+    /// bridges end square across both, as a road's lanes do.
+    /// </summary>
+    [Fact]
+    public void TracksSideBySideCrossOnOneBridge()
+    {
+        var spans = new List<(Vector2 FromM, Vector2 ToM)>();
+        for (var track = 0; track < Plan.Rails.Count; track++)
+        {
+            var lineM = Plan.Rails.TrackOf(track);
+            var level = Plan.Rails.Level.AsSpan(Plan.Rails.PointOffsets[track], lineM.Length);
+            for (var from = 0; from + 1 < lineM.Length; from++)
+            {
+                if (level[from] == TownMap.RailArrays.AtGrade) continue;
+
+                var to = from + 1;
+                while (to + 1 < lineM.Length && level[to] != TownMap.RailArrays.AtGrade) to++;
+
+                spans.Add((lineM[from], lineM[to]));
+                from = to;
+            }
+        }
+
+        var pairs = 0;
+        foreach (var (fromM, toM) in spans)
+        {
+            var axis = Vector2.Normalize(toM - fromM);
+            foreach (var (otherFromM, otherToM) in spans)
+            {
+                var apartM = Vector2.Distance((fromM + toM) * 0.5f, (otherFromM + otherToM) * 0.5f);
+                if (fromM == otherFromM || apartM > 2f * Config.RailDeckHalfM) continue;
+
+                pairs++;
+                var (least, most) = (MathF.Min(Vector2.Dot(otherFromM, axis), Vector2.Dot(otherToM, axis)), MathF.Max(Vector2.Dot(otherFromM, axis), Vector2.Dot(otherToM, axis)));
+                Assert.Equal(Vector2.Dot(fromM, axis), least, LineTolerance.OnePlaceM);
+                Assert.Equal(Vector2.Dot(toM, axis), most, LineTolerance.OnePlaceM);
+            }
+        }
+
+        Assert.True(pairs > 0, "the suite's double track crosses no water side by side");
     }
 
     [Fact]

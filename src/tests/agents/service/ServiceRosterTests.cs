@@ -38,6 +38,8 @@ public class ServiceRosterTests
 
     /// <summary>A map with nothing on it asks for no service, rather than one of nothing (GEN-56).</summary>
     [Fact]
-    public void AMapWithNoBuildingsAsksForNoService() =>
-        Assert.Equal(0, ServiceBuildings.OfEachUse(Towns.WithBuildings(0)));
+    public void AMapWithNoBuildingsAsksForNoService()
+    {
+        foreach (var use in ServiceBuildings.Uses) Assert.Empty(ServiceBuildings.Serving(use, Towns.WithBuildings(0), TrafficSimulation.Core.Config.SimConfig.Shipped().CityGen));
+    }
 }

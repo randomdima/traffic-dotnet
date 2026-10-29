@@ -623,12 +623,14 @@ internal sealed partial class TownWorld
     /// turns off at from a lane beside — and that is the one place the car stands to wait for the lane beside.
     /// </para>
     /// <para>
-    /// <b>A route that ends on the lane beside stops the line where it is</b>, since the car's place is on that lane.
+    /// <b>A route that ends on the lane beside stops the line where it is</b>, since the car's place is on that lane — and
+    /// so does one that ends on a lane turned onto off a lane beside, which the car has to have moved across for by the
+    /// junction rather than after it.
     /// </para>
     /// </remarks>
     int OnBesideTheRoute(int car, int fromLane, int next)
     {
-        var onward = _roads.OnBesideTheRoute(fromLane, next, Cars.PeekRouteLaneAfterNext(car), out var passed);
+        var onward = _roads.OnBesideTheRoute(fromLane, next, Cars.PeekRouteLaneAfterNext(car), Cars.RouteEndsOn[car], out var passed);
         for (var lane = 0; lane < passed; lane++) Cars.TakeNextRouteLane(car);
 
         return onward;

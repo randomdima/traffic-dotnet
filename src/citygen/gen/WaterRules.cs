@@ -51,6 +51,9 @@ internal sealed class WaterRules(
 
     public bool Wet(Vector2 atM) => ground.At(atM) == Ground.Water;
 
+    /// <summary>Whether the water or its shore stands under a place or either side of it by a reach (GEN-71).</summary>
+    public bool Ashore(Vector2 atM, Vector2 sideM) => ground.Waterside(atM + sideM) || ground.Waterside(atM - sideM);
+
     /// <summary>Whether a junction may stand here at all: off the water, and clear of the railway (GEN-14, RAIL-5).</summary>
     public bool Holds(Vector2 atM) => !Wet(atM) && !ground.RailWithin(atM, railClearM);
 

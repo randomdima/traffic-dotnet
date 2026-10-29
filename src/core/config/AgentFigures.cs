@@ -744,6 +744,13 @@ internal sealed class DrivePatienceFigures
     public int ReroutesPerLeg { get; init; } = 3;
 
     /// <summary>
+    /// How far either side of the patience a car's own fuse falls, as a share of it. A fifth: enough that two
+    /// cars jammed against one another give up on different ticks, and not so much that the patience stops
+    /// meaning what it says.
+    /// </summary>
+    public float FuseJitterShare { get; init; } = 0.2f;
+
+    /// <summary>
     /// What a blocked stretch is priced at, and how long the mark lives in patiences. Expensive,
     /// never impassable: in a town this small the only road to a place may be the marked one, and a mark
     /// expires so a road nobody has driven since is tried again.
@@ -784,12 +791,10 @@ internal sealed class PersonFigures
     public float MassKg { get; init; } = 80f;
 
     /// <summary>
-    /// <b>The ring a walker look walks round on the showroom</b> (PER-30): its radius, and how far round it ahead of
-    /// itself the walker aims — near enough that it keeps to the ring, far enough that it never arrives.
+    /// <b>How slow a walker's body is drawn standing</b>: below it, its facing's first column, the stance, rather than
+    /// the stride it stopped in — a walker held at a kerb, in a queue or by a shove still means to walk, and is still.
     /// </summary>
-    public float ShowroomRingM { get; init; } = 3f;
-
-    public float ShowroomRingLeadDeg { get; init; } = 45f;
+    public float DrawnStandingBelowMps { get; init; } = 0.2f;
 
     /// <summary>
     /// <b>How near its aim a walker's body has to stand for the aim to be under it</b>, as the square of the distance — a
@@ -799,11 +804,11 @@ internal sealed class PersonFigures
 
     /// <summary>
     /// <b>How much of its own diameter a body is carried by a shove at walking pace before its feet have
-    /// taken it back</b>, which is what the foot grip is (<see cref="SimConfig.PersonFootGripMps2"/>). A fifth:
+    /// taken it back</b>, which is what the foot grip is (<see cref="SimConfig.PersonFootGripMps2"/>). A quarter:
     /// a walker bumped is carried well inside its own footprint, which is what makes a crowd on a pavement
     /// jostle like people and not like traffic. Its own stops and starts spend no grip (PER-3).
     /// </summary>
-    public float StopsWithinDiameters { get; init; } = 0.2f;
+    public float StopsWithinDiameters { get; init; } = 0.25f;
 
     /// <summary>
     /// The grip a body along the ground has rather than a sole pressed into it — what a casualty slides to
@@ -907,7 +912,12 @@ internal sealed class PersonFigures
     /// </summary>
     public float SidestepPatienceS { get; init; } = 5f;
 
-    public float DiameterInPropDiameters { get; init; } = 0.5f;
+    /// <summary>
+    /// <b>A walker's body as the solver collides it</b> (<see cref="SimConfig.PersonRadiusM"/>), narrower than the
+    /// figure drawn over it so two walkers' pictures may overlap before their bodies touch (PER-31 draws which is in
+    /// front).
+    /// </summary>
+    public float DiameterInPropDiameters { get; init; } = 0.4f;
     public float ExitSearchRadiusInPropDiameters { get; init; } = 1f;
 
     /// <summary>

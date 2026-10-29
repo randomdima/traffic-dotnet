@@ -42,7 +42,7 @@ internal sealed partial class DebugOverlay
         if (world.Plan.Zones.Count == 0) return null;
         if (ReferenceEquals(_zonedPlan, world.Plan)) return _zoneTree;
 
-        (_zoneTree, _zonedPlan) = (new ZoneTree(world.Plan.Zones, config.Zones), world.Plan);
+        (_zoneTree, _zonedPlan) = (new ZoneTree(world.Plan.Zones, config), world.Plan);
         return _zoneTree;
     }
 

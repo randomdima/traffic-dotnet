@@ -192,21 +192,30 @@ public class LaneShellTests
     /// </remarks>
     sealed class Bands
     {
-        readonly Paving _paving;
+        readonly ArcSeg[][] _arcs;
+        readonly float[] _widthM;
+        readonly float[] _lengthM;
         readonly ChainIndex _lines;
         readonly int[] _near;
         readonly float[] _alongM;
         readonly float _widestM;
 
+        /// <summary>
+        /// <b>The bands the ground's shell is merged from and no others</b> (<see cref="LaneShell.Bands"/>): the driven
+        /// lines on the ground, and the tapers and stubs a road's ground is eased over or run on by, which no driven
+        /// line covers.
+        /// </summary>
         public Bands(Paving paving, SimConfig config)
         {
-            _paving = paving;
-            _lines = paving.DrivenLines(config);
-            _near = new int[paving.DrivenCount];
-            _alongM = new float[paving.DrivenCount];
-            for (var line = 0; line < paving.DrivenCount; line++)
+            (_arcs, _widthM) = LaneShell.Bands(paving, config, CityPlan.RoadArrays.Ground);
+            _lines = LaneShell.Indexed(_arcs, config);
+            _lengthM = new float[_arcs.Length];
+            _near = new int[_arcs.Length];
+            _alongM = new float[_arcs.Length];
+            for (var line = 0; line < _arcs.Length; line++)
             {
-                _widestM = MathF.Max(_widestM, paving.DrivenWidthM(line) * 0.5f);
+                _lengthM[line] = Spline.TotalLengthM(_arcs[line]);
+                _widestM = MathF.Max(_widestM, _widthM[line] * 0.5f);
             }
         }
 
@@ -222,10 +231,10 @@ public class LaneShellTests
 
                 // A band has square ends, so the ground off the end of a line is not the line's however
                 // near it stands.
-                if (alongM <= 0f || alongM >= _paving.DrivenLengthM(line)) continue;
+                if (alongM <= 0f || alongM >= _lengthM[line]) continue;
 
-                var halfM = _paving.DrivenWidthM(line) * 0.5f + RoundingM;
-                var onM = Spline.SampleAt(_paving.ArcsOfDriven(line), alongM).PositionM;
+                var halfM = _widthM[line] * 0.5f + RoundingM;
+                var onM = Spline.SampleAt(_arcs[line], alongM).PositionM;
                 if (Vector2.DistanceSquared(onM, pointM) < halfM * halfM) return true;
             }
 

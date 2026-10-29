@@ -1,0 +1,4 @@
+{"variant": "recovery_a-v6", "frame": "walkorbit_recovery_a-v2", "cell": 1, "pxPerM": 241.111, "score": 4, "status": "candidate", "ts": "2026-10-28T13:50:48"}
+{"variant": "recovery_a-v7", "frame": "walkorbit_recovery_a-v2", "cell": 1, "recutOf": "recovery_a-v6", "pxPerM": 241.111, "score": 4, "status": "candidate", "ts": "2026-10-28T16:15:18"}
+{"variant": "recovery_a-v8", "frame": "walkorbit_recovery_a-v2", "cell": 1, "recutOf": "recovery_a-v7", "pxPerM": 264.444, "score": 4, "status": "candidate", "ts": "2026-10-28T16:51:55"}
+{"variant": "recovery_a-v9", "frame": "walkorbit_recovery_a-v2", "cell": 1, "recutOf": "recovery_a-v8", "pxPerM": 252.222, "score": 4, "status": "used", "ts": "2026-10-28T21:39:13"}

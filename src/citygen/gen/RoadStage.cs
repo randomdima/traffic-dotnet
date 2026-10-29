@@ -137,7 +137,7 @@ internal static class RoadStage
     /// </summary>
     /// <remarks>
     /// <b>One site for it.</b> The stage moves the line by this and a car park reads off it where the kerb a
-    /// bay stands off actually runs (<see cref="CarParks.LaneTowardM"/>, GEN-53); two sites would be two
+    /// bay stands off actually runs (<see cref="CarParks.KerbM"/>, GEN-53); two sites would be two
     /// answers to where the carriageway is.
     /// </remarks>
     public static float DrivenHalfM(SimConfig config, RoadFlow flow, float widthM) => flow switch
@@ -269,8 +269,59 @@ internal static class RoadStage
             Class = [.. layout.Edges.Select(edge => edge.Class)],
             SegmentOffsets = offsets, Segments = [.. segments],
             ThroughOffsets = throughOffsets, ThroughM = [.. throughM],
-            Bay = bay, LaidStraight = LaidStraight(layout),
+            Bay = bay, LaidStraight = LaidStraight(layout), Unwalked = Unwalked(layout),
+            Level = layout.Edges.Any(edge => edge.Over)
+                ? [.. layout.Edges.Select(edge => edge.Over ? CityPlan.RoadArrays.Over : CityPlan.RoadArrays.Ground)]
+                : [],
+            BannedTurns = SlipTurns(layout),
         };
+    }
+
+    /// <summary>
+    /// <b>The turns a slip road's node on an intercity road does not make</b> (GEN-68): a slip is driven onto or off the
+    /// one intercity arm it leaves the line of — the one lying furthest round from it — and to or from nothing else, so no
+    /// movement there crosses the intercity road or turns back along it.
+    /// </summary>
+    static RoadTurn[] SlipTurns(TownLayout layout)
+    {
+        var banned = new List<RoadTurn>();
+        var slipNodes = new SortedSet<int>();
+        foreach (var edge in layout.Edges)
+        {
+            if (edge.Class != RoadClass.Slip) continue;
+
+            slipNodes.Add(edge.From);
+            slipNodes.Add(edge.To);
+        }
+
+        foreach (var node in slipNodes)
+        {
+            var arms = layout.ArmsAt(node);
+            if (!arms.Exists(arm => layout.Edges[arm].Class == RoadClass.Slip) || !arms.Exists(arm => layout.Edges[arm].Class == RoadClass.Intercity)) continue;
+
+            foreach (var slip in arms)
+            {
+                if (layout.Edges[slip].Class != RoadClass.Slip) continue;
+
+                var slipRad = layout.OutwardRad(slip, node);
+                var (partner, widestRad) = (-1, -1f);
+                foreach (var arm in arms)
+                {
+                    var apartRad = MathF.Abs(MathF.IEEERemainder(layout.OutwardRad(arm, node) - slipRad, MathF.Tau));
+                    if (layout.Edges[arm].Class == RoadClass.Intercity && apartRad > widestRad) (partner, widestRad) = (arm, apartRad);
+                }
+
+                foreach (var arm in arms)
+                {
+                    if (arm == slip || arm == partner) continue;
+
+                    banned.Add(new RoadTurn(node, slip, arm));
+                    banned.Add(new RoadTurn(node, arm, slip));
+                }
+            }
+        }
+
+        return [.. banned];
     }
 
     /// <summary>
@@ -288,6 +339,23 @@ internal static class RoadStage
         }
 
         return any ? straight : [];
+    }
+
+    /// <summary>
+    /// <b>Which roads have no walk beside them</b> (GEN-75), as the flag per road the plan carries — <b>empty where
+    /// every road is walked.</b>
+    /// </summary>
+    static bool[] Unwalked(TownLayout layout)
+    {
+        var unwalked = new bool[layout.Edges.Count];
+        var any = false;
+        for (var road = 0; road < unwalked.Length; road++)
+        {
+            unwalked[road] = layout.Edges[road].Unwalked;
+            any |= unwalked[road];
+        }
+
+        return any ? unwalked : [];
     }
 
     /// <summary>
@@ -325,7 +393,7 @@ internal static class RoadStage
 
         for (var at = 0; at < chains.Length; at++)
         {
-            if (chains[at].Length == 0 || layout.Edges[at].Class != RoadClass.Bridge) continue;
+            if (chains[at].Length == 0 || (layout.Edges[at].Class != RoadClass.Bridge && !layout.Edges[at].Over)) continue;
 
             road.Add(at);
             fromM.Add(0f);

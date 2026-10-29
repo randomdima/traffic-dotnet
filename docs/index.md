@@ -69,9 +69,9 @@ retired number, which the owning slice's log records.
 | `AGT-5`, `AGT-7` | The terminal state; every leg bounded | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `SIM-3`, `SIM-4`, `SIM-8`, `SIM-9`, `AGT-6` | Units, the two seeds, the one grid, real time at any display rate, where randomness comes from | [core](../src/core/docs/requirements.md) |
-| `GEN-1…3`, `GEN-5…19`, `GEN-46…72`, `GEN-74` | A generated city's brief and its three stages — water, connectors, districts, roads by class, links between districts, bridges, lattices — a map's file and its zones, the maps, a city traced off its survey, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks laid off a street, a traced car park laid as a mall's, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
+| `GEN-1…3`, `GEN-5…19`, `GEN-46…72`, `GEN-74…77` | A generated city's brief and its three stages — water, connectors, districts, a town as big as its roster, its blocks' own uses, roads by class, an intercity road's walkless verge, links between districts, bridges, lattices — a map's file and its zones, the maps, a city traced off its survey, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks laid off a street, a traced car park laid as a mall's, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
 | `TER-1…3d`, `TER-7…7b`, `PHY-8` | The ground, the pavement and its kerb, water and decks, and the stack of layers the mesh is | [world/terrain](../src/world/terrain/docs/requirements.md) |
-| `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5d.2`, `TER-5f`, `TER-5i`, `TER-5j`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint, the arrow a lane carries and the movements an unmarked arm makes | [world/road](../src/world/road/docs/requirements.md) |
+| `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5d.2`, `TER-5f`, `TER-5i`, `TER-5j`, `TER-5k`, `TER-6`, `TER-6a` | Roads, junctions, nodes that only carry lanes on, crossings, paint, the arrow a lane carries and the movements an unmarked arm makes | [world/road](../src/world/road/docs/requirements.md) |
 | `TER-49`, `TER-4c…4c.8`, `TER-5c…5c.3`, `TER-5e`, `TER-5g`, `TER-5g.1` | Each agent claiming on its own turn, the ribbon atlas and its marks, a zebra held whole, where the bodies are, the ground a pass covers, where they mean to be, the ground a car backs up over, no movement over ground unclaimed, right of way and the ladder | [world/road/claims](../src/world/road/docs/claims.md) |
 | `WLK-1`, `WLK-1a…3`, `WLK-8…16` | The pavement's lanes, the zebras and the junction a crossing is, the joints a walk carries on at, the walk kept off the road, and the node network held in code | [world/foot](../src/world/foot/docs/requirements.md) |
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
@@ -164,9 +164,10 @@ owning slice's log; this list says only what is absent now and what closes it.
 - **Nothing enters or leaves a generated city by its intercity roads** (`GEN-63`): a lane out past the map's edge
   leads to a world the town does not hold, and no car arrives from it or goes into it. The generator and the suite
   treat the edge as that world; the traffic does not.
-- **A district's services are hoped for, not reserved** (`GEN-56`): its streets are laid without keeping a straight
-  frontage for its three yards, so a crooked district stands one short — `Twinford`'s district 9, a strip between two
-  rivers, has no depot — and `--brief` and the census say so.
+- **A catchment's services are hoped for, not reserved** (`GEN-56`): the district chosen to stand one is chosen before
+  its streets are laid, and they are laid without keeping a straight frontage for its yard, so a crooked district hands
+  its catchment's on to its neighbours, a few at most, and past them the catchment goes without — which `--brief` and
+  the census say.
 - **A railway crosses a river at whatever angle its line meets it** (`GEN-70` is the roads'): the track is routed
   before the bridges are, as RAIL-8 raises it over the water.
 - **One laboratory map ships, and it is the scenario map**: `Exam`, a lattice of traffic scenarios driven end to

@@ -1,7 +1,13 @@
 {
   "variants": [
-    "../paramedic_red/paramedic_red.json",
-    "../police_navy/police_navy.json",
-    "../recovery_yellow/recovery_yellow.json"
+    "../paramedic_a/paramedic_a.json",
+    "../paramedic_b/paramedic_b.json",
+    "../paramedic_c/paramedic_c.json",
+    "../police_a/police_a.json",
+    "../police_b/police_b.json",
+    "../police_c/police_c.json",
+    "../recovery_a/recovery_a.json",
+    "../recovery_b/recovery_b.json",
+    "../recovery_c/recovery_c.json"
   ]
 }

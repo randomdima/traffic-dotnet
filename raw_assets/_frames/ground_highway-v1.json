@@ -1,0 +1,58 @@
+{
+ "id": "ground_highway-v1",
+ "ts": "2026-10-26T20:07:46",
+ "op": "edit",
+ "name": "ground_highway",
+ "file": ".tmp/gen/frames/ground_highway-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "high",
+  "background": "transparent"
+ },
+ "costUsd": 0.058233,
+ "usage": {
+  "prompt_tokens": 2493,
+  "completion_tokens": 1372,
+  "total_tokens": 3865,
+  "cost": 0.058233,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.058233,
+   "upstream_inference_prompt_cost": 0.017073,
+   "upstream_inference_completions_cost": 0.04116
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 1372
+  }
+ },
+ "prompt": "One image is attached: finished art from the same top-down 2D city game, at one scale. Top row, left to right: a square of the town's road asphalt (its fresh look above, its worn look below), a square of the town's footway asphalt, a square of its grass; below them two cars, 4.5 m long. Match that art's look: crisp, clean hand-painted game art, natural colours, tidy and well kept. It must NOT look like a photograph: no blur, no photographic noise.\n\nMake one image of 12 separate squares of ground texture, in a 4 by 3 grid — 3 rows of 4, read left to right and top to bottom — each square the same size, a clear gap of transparency between neighbouring squares and from the picture's edge. They are the ground of an intercity highway running out of town: its carriageway's asphalt and the gravel shoulder beside it. The game repeats each over large areas, under cars, turned at any angle.\n\nThe highway's asphalt (rows 1 and 3) must read clearly as a different, more important road than the town's road in the attached picture when the two meet at a junction: clearly darker — near black, where the town's is charcoal grey — and newer.\n\nShape comes first:\n- Each square is filled edge to edge, right into all four corners: no border, frame, rim, bevel, outline, shadow or vignette, and its edges look the same as its middle.\n- Outside the squares the background is fully transparent. No text, numbers, labels or grid lines anywhere.\n\nRules for every square:\n- Look straight down (orthographic). No perspective, no light falling off towards any edge.\n- Each square is 9.2 × 9.2 m of ground. Keep everything true to size: a stone of the shoulder one to three centimetres, a chip of the asphalt about a centimetre.\n- How each asphalt square is built: a smooth, even surface whose grain is fine — small specks a pixel or two across, so close together that they read as one texture and never as separate stones — with only gentle, soft, broad variations of tone. No pebbles you can pick out one by one, no rubble, cracks, potholes, patches or oil blotches: it is in good repair.\n- No direction and no pattern: no joints, seams, lines, stripes, ruts, tyre tracks, grooves, brush strokes or grid of any kind, so the square looks the same turned any way.\n- Even texture: the same tone and density all over the square, nothing that catches the eye, so it repeats without a visible pattern.\n- The four squares of a row are the same ground: exactly the same colours, grain and style, so they can be joined without a visible seam. The first two of a row are its fresh look; the last two the same ground a little more used.\n- Nothing stands on the ground and nothing is painted on it: no road markings, paint, lines, kerbs, drains, posts, plants, litter or objects.\n\nRow 1 — cells 1 and 2: new highway asphalt: deep near-black binder, clearly darker than the town road in the attached picture, with a slightly coarser grain than it: tightly packed small dark grey chips about a centimetre across, embedded flat, with a few pale ones among them. Cells 3 and 4: the same highway asphalt a little more used: a shade less black, the same chips, soft faint lighter patches of tone where tyres have polished it. No oil spots, no cracks.\n\nRow 2 — cells 5 and 6: a gravel road shoulder: compacted grey-beige crushed stone fines packed hard and flat, densely scattered small grey and buff stones one to three centimetres across, soft broad patches of slightly darker packed earth. Cells 7 and 8: the same gravel shoulder a little more used: drier and dustier, a shade browner, more packed earth showing between the stones, still flat. No plants, no grass, no puddles.\n\nRow 3 — cells 9 and 10: fresh smooth black asphalt with a faint cool blue-black tint, very even, a fine tight grain of tiny dark grey specks and very few pale ones — also clearly darker than the town road in the attached picture. Cells 11 and 12: the same smooth black asphalt a little more used: a shade greyer, soft faint lighter patches. No oil spots, no cracks.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "c50de701ed5d603e",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/ground_highway_style.png"
+  }
+ ],
+ "cells": [
+  "highway_a1",
+  "highway_a2",
+  "highway_b1",
+  "highway_b2",
+  "shoulder_a1",
+  "shoulder_a2",
+  "shoulder_b1",
+  "shoulder_b2",
+  "highway_c1",
+  "highway_c2",
+  "highway_d1",
+  "highway_d2"
+ ]
+}

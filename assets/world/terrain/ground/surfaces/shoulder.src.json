@@ -1,0 +1,49 @@
+{
+ "variant": "raw_assets/world/terrain/ground/surfaces/shoulder_a1/shoulder_a1-v1.png",
+ "variants": [
+  "raw_assets/world/terrain/ground/surfaces/shoulder_a1/shoulder_a1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/shoulder_a2/shoulder_a2-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/shoulder_b1/shoulder_b1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/shoulder_b2/shoulder_b2-v1.png"
+ ],
+ "looks": [
+  [
+   [
+    "shoulder_a1",
+    false
+   ],
+   [
+    "shoulder_a2",
+    false
+   ],
+   [
+    "shoulder_a2",
+    true
+   ],
+   [
+    "shoulder_a1",
+    true
+   ]
+  ],
+  [
+   [
+    "shoulder_b1",
+    false
+   ],
+   [
+    "shoulder_b2",
+    false
+   ],
+   [
+    "shoulder_b2",
+    true
+   ],
+   [
+    "shoulder_b1",
+    true
+   ]
+  ]
+ ],
+ "pxPerM": 31.5,
+ "encoding": "webp q90"
+}

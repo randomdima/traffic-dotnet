@@ -587,7 +587,8 @@ internal static class CarFollower
         hold = DrivingHold.None;
         var lateralMps2 = car.PlannedCorneringMps2;
         var brakingMps2 = car.PlannedBrakingMps2;
-        var leadM = MathF.Abs(alongMps) * LeadS(car, lastMps2);
+        var leadS = LeadS(car, lastMps2);
+        var leadM = MathF.Abs(alongMps) * leadS;
 
         var targetMps = car.MaxSpeedMps;
 
@@ -637,12 +638,12 @@ internal static class CarFollower
                 ref hold);
         }
 
-        Bind(ref targetMps, ApproachMps(0f, lineLengthM - progressM - leadM, brakingMps2), DrivingHold.LineEnd, ref hold);
+        Bind(ref targetMps, StopMps(lineLengthM - progressM, leadS, brakingMps2), DrivingHold.LineEnd, ref hold);
 
         // The place this car was sent to, which is a term of the same minimum rather than an errand's own
         // hand on the wheel: an ambulance stopping at a casualty is running its line on the road that
         // casualty left it.
-        Bind(ref targetMps, ApproachMps(0f, context.PlaceStopM - leadM, brakingMps2), DrivingHold.Place, ref hold);
+        Bind(ref targetMps, StopMps(context.PlaceStopM, leadS, brakingMps2), DrivingHold.Place, ref hold);
 
         // The road to itself, which is the figure the next claim is asked for at — before the grant
         // is folded in, and never after it.
@@ -661,7 +662,7 @@ internal static class CarFollower
         // is read a lead after the end itself was — bound at the bare end, a car cruising at its plan's reach would
         // already be committed past a light's hold by the turn that found it.
         Bind(
-            ref targetMps, ApproachMps(0f, context.HorizonM - config.Driving.StandOffM - (2f * leadM), brakingMps2),
+            ref targetMps, StopMps(context.HorizonM - config.Driving.StandOffM, 2f * leadS, brakingMps2),
             DrivingHold.Reach, ref hold);
 
         // <b>And the grant, which is the whole of following</b> (S-2a). The ground the reservations gave this
@@ -670,7 +671,7 @@ internal static class CarFollower
         // Nothing in front is followed or credited with a speed of its own; a car keeps to the section it was
         // given, and what is in front moving on is that section growing.
         Bind(
-            ref targetMps, ApproachMps(0f, context.AuthorityM - leadM, brakingMps2),
+            ref targetMps, StopMps(context.AuthorityM, leadS, brakingMps2),
             context.GrantCutBy == HeadwayKind.Light ? DrivingHold.Waiting : DrivingHold.Claimed, ref hold);
 
         // Something the car means to get past is slowed for gently (CAR-46), so it is come up to slower and the
@@ -678,13 +679,12 @@ internal static class CarFollower
         if (context.WaitsToPass)
         {
             Bind(
-                ref targetMps,
-                ApproachMps(0f, context.AuthorityM - leadM, brakingMps2 * config.Driving.WaitingToPassBrakingShare),
+                ref targetMps, StopMps(context.AuthorityM, leadS, brakingMps2 * config.Driving.WaitingToPassBrakingShare),
                 DrivingHold.Claimed, ref hold);
         }
 
         // And stood for where it waits for the ground for what it does next: its step out, or its manoeuvre's first piece.
-        Bind(ref targetMps, ApproachMps(0f, context.WaitAtM - leadM, brakingMps2), DrivingHold.Claimed, ref hold);
+        Bind(ref targetMps, StopMps(context.WaitAtM, leadS, brakingMps2), DrivingHold.Claimed, ref hold);
 
         return MathF.Max(0f, targetMps);
     }
@@ -727,6 +727,25 @@ internal static class CarFollower
     /// <summary>What may be held here to be down to <paramref name="atMps"/> in <paramref name="distanceM"/>.</summary>
     public static float ApproachMps(float atMps, float distanceM, float brakingMps2) =>
         distanceM <= 0f ? atMps : MathF.Sqrt(atMps * atMps + 2f * brakingMps2 * distanceM);
+
+    /// <summary>
+    /// <b>What may be held here to be at rest in <paramref name="distanceM"/></b>, the ground covered over
+    /// <paramref name="leadS"/> at that same speed spent first: the root of <c>v² = 2b(d − v·lead)</c> that is not negative.
+    /// </summary>
+    /// <remarks>
+    /// <b>The speed that keeps to its own stop, and not the stop read at the speed the car is doing</b>. Read at that,
+    /// the lead grows with the speed, so close to the stop a car a little quick is told to be a lot slower — the target
+    /// falls by <c>b·lead / v</c> for every m/s, past one below <c>b·lead</c> — and the pedal, closing the gap in a tick,
+    /// overshoots it the other way: throttle and brake every few ticks over the last metre. Both agree on a car already
+    /// doing the speed its stop allows.
+    /// </remarks>
+    public static float StopMps(float distanceM, float leadS, float brakingMps2)
+    {
+        if (distanceM <= 0f) return 0f;
+
+        var leadMps = brakingMps2 * leadS;
+        return MathF.Sqrt((leadMps * leadMps) + (2f * brakingMps2 * distanceM)) - leadMps;
+    }
 
     /// <summary>What a corner of this curvature may be taken at before the tyres let go.</summary>
     public static float CornerMps(float curvature, float lateralMps2)

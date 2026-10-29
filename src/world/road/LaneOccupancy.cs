@@ -187,7 +187,15 @@ internal sealed partial class LaneOccupancy
     readonly WayCrossings _marks;
 
     /// <summary>One mark in decimetres, both sides, rounded as a claim's edges are.</summary>
+    /// <remarks>
+    /// <b>But the other way's from its start's own decimetre</b>, rounded down (<see cref="DmDownOf"/>): the secondary claim
+    /// a main claim over the mark places is that ground, and a mark lying inside one decimetre of the other way rounded up
+    /// at both ends is an empty claim — placed nowhere, while the main claim lies over the mark (TER-5c.1).
+    /// </remarks>
     readonly record struct MarkDm(int OnWay, ushort FromDm, ushort ToDm, ushort MineFromDm, ushort MineToDm);
+
+    /// <summary>A metre of a way as decimetres from its start, rounded down: the decimetre it falls in.</summary>
+    static ushort DmDownOf(float m) => (ushort)Math.Clamp(MathF.Floor((m * DmPerM) + DmGrain), 0f, ushort.MaxValue);
 
     /// <summary>Every mark in decimetres, numbered as <see cref="_marks"/> numbers them — worked out once, as the marks are.</summary>
     readonly MarkDm[] _marksDm;
@@ -454,7 +462,7 @@ internal sealed partial class LaneOccupancy
         for (var at = 0; at < _marksDm.Length; at++)
         {
             ref readonly var mark = ref marks.All[at];
-            _marksDm[at] = new MarkDm(mark.OnWay, DmOf(mark.FromM), DmOf(mark.ToM), DmOf(mark.MineFromM), DmOf(mark.MineToM));
+            _marksDm[at] = new MarkDm(mark.OnWay, DmDownOf(mark.FromM), DmOf(mark.ToM), DmOf(mark.MineFromM), DmOf(mark.MineToM));
         }
 
         _rows = new WayRow[Math.Min(ways.Count, WaysPerHolder * room)];

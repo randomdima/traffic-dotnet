@@ -41,7 +41,7 @@ internal sealed partial class TownWorld
 
     /// <inheritdoc/>
     /// <remarks>
-    /// <b>One step of the world begun and the one before it read</b> (<see cref="WorldLayer"/>, <see cref="WorldLayer.StepsAhead"/>):
+    /// <b>One step of the world begun and the one before it read</b> (<see cref="WorldLayer"/>, <see cref="SimFigures.WorldStepsAhead"/>):
     /// the signals the actors wrote this tick cross with it, the device steps while the next tick decides, and nothing of
     /// a body is touched here.
     /// </remarks>

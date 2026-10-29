@@ -6,33 +6,79 @@ every lesson here that a sentence can carry. The brief each clip or frame was as
 
 ## The orbit flow — the best so far (2026-10-28)
 
-**A look's walk is one 5 s clip from one front picture**: a figure of a cast frame (nine looks standing, 3×3, the
-game's view) laid alone on chroma green at 3:4, and HeyGen Video 1 at 480p ($0.05). In the clip the walker walks on
-the spot facing one way while the camera cuts round it, one facing a second: front, front and left side, left side,
-back and left side, back. Step by step:
+**A look is one 5 s clip from one front picture, and never more** (the owner, 2026-10-28; remotegen's core rule):
+every facing, every walk frame and any stance are cut from that one clip. A longer clip or a second one is asked
+first. The clip: a figure of a cast frame (nine looks standing, 3×3, the
+game's view) laid alone at 3:4 on chroma green, or blue where the figure's own colours stand out in green, and
+HeyGen Video 1 at 480p ($0.05). In the clip the walker walks on the spot facing one way while the camera cuts round
+it, one facing a second: front, front and left side, left side, back and left side, back. The same figure, laid flat,
+is the look's down picture. Step by step:
 
-    qq walkers scaffold --sheet=<S>                         # the variant file: id, heightM, describe
-    qq walkers orbit <id> --cast=walkers_cast_b-v2:<N>      # first frame and brief; prints the calls below
+    qq walkers scaffold --sheet=<S> && qq walkers cast --sheet=<S>   # nine variant files; the cast brief and its call
+    #   or, after the owner's photos cropped to each person under .tmp/gen/photos/: --photos=P1,P2,... (one a look)
+    qq walkers orbit <id> --cast=walkers_<S>-v1:<N>         # first frame and brief; prints the calls below
     .claude/skills/remotegen/remotegen.py video …           # the clip, walkorbit_<id>-v1
     qq sprites cut walkorbit_<id>-v1 --as <id>              # flags; look at <id>_walk.gif and the per-facing GIFs
+    # before keeping: look at the side row beside the front — the crown and shoulder tops must show (eye level, below)
     qq sprites keep walkorbit_<id>-v1 <id> --score=4 && qq sprites use <id>-vN
+    qq walkers down <id> --cast=walkers_<S>-v1:<N>          # the down picture, kept and installed
+    # the look in its catalogue (Catalog.json or Service.json), then the showroom's row of people, captioned:
+    dotnet run --project traffic-dotnet.csproj -- --map Showroom --shot .tmp/showroom.png --caption --view 40 --at 340 344 --seconds 3
 
-What each sentence of the brief (`ORBIT` in `.qq/walkers.py`) is there for, from the trials below:
+**The brief is four sentences** (`ORBIT` in `.qq/walkers.py`; the owner, 2026-10-28: the video model confuses fast):
+five 1 s shots and hard cuts; walks on the spot and never turns, only the camera moving round to the left, high above
+and always at the same distance, each shot named — the two diagonals "(mostly his front)" and "(mostly his back)"; the
+pace; the flat screen. Each phrase answers a fault the trials below met: without "same distance" the camera zoomed in
+through every shot, without the diagonals' cues back-left came out a profile, without "never turns" one look turned
+within every shot, without the pace the loops seamed worse. Its camera can still go round the right side: look at the
+diagonals before keeping, and cut those shots `--mirror`. The long brief it replaced, each of whose sentences is
+below, held the camera at eye level less often; neither has been rolled against the other on one look.
+
+What each sentence of the long brief was there for, from the trials below:
 
 - **"It is the camera that changes"**, with each shot named by where the camera stands, not by how far it turned
   since the last one. Named by the turn, the angles went wrong.
 - **"Walking from the very first moment"**: without it, the front shot starts from the standing first frame and its
   loop has a seam.
 - **Back-left "halfway between his side and his back"**: without it, back-left comes out a second profile.
+- **"The camera never comes down to eye level: in every shot … we look down onto the top of his head and his
+  shoulders"**, said once for the whole clip, and the side shot as "at his left side, high above", **never "in
+  profile"**. Asked "we see him in profile", four of eighteen side shots came out at eye level (below); a profile is
+  what a camera level with the face sees.
 - **"Quick, short steps, three steps every second … never a run, one foot always on the ground"**: a one-second
   shot then holds more than one stride, so the cut has room to choose its loop. "Brisk", or a double-speed
   fast-forward, did not help.
 - Nothing more per shot: added detail ("one eye, her chest in front", "never to the picture's right") dropped the
   camera to eye level.
 
-The cut finds the shots by the frame's upper half changing all at once, takes the best loop in each and scales each
-shot to one height. `--shots` picks the shots when the clip went wrong in one; `--grid` cuts a clip of several looks
-in tiles. Best result: `walkfast_linen` (seams 0.41–0.78 of a frame's change, every facing true).
+The cut finds the shots by the frame's upper half changing all at once, takes the best loop in each, scales each
+shot to one height, and turns each facing's loop to start at its frame nearest standing (`stance_column`): column 0
+is the stance the game stands a stopped walker in, and every look's sheet starts its walk alike. **The stance is
+picked from the walk, never generated** (the owner, 2026-10-28, after the trials below found no stance after a cut in
+one 5 s clip). From the side or a
+diagonal that is the passing, feet closest together (`feet_apart`). From in front or behind it is two legs reaching
+the ground side by side, equally low and alike in width (`feet_side_by_side`): there the passing lifts the swinging
+foot towards the camera or hides it — a raised knee the owner saw on most north and south stances — and a foot kicked
+back towards a camera behind is drawn as low as the planted one, so a level of the lowest paint either side of the body
+picked raised knees too. Every north and south row of the eighteen holds at least one such frame. No clip holds a true
+standstill, so a stance can keep a short step. Before 2026-10-28 the loop was only weighed towards such a start, and
+77 of the eighteen looks' 90 facings began mid-stride; the sheet was also laid by pasting each figure through its own
+alpha, which squared every soft edge's alpha and thinned the outlines. All eighteen were cut again from their clips
+with both fixed. `--shots` picks the shots when the clip went wrong in one; `--mirror` flips the shots the camera
+took round the walker's right side (one in four service clips); `--grid` cuts a clip of several looks in tiles.
+**The back-left shot is the one most often taken round the right**, and the cut cannot tell: it reads as a walker
+going up-right in the up-left row, and its mirror up-left in the up-right row — the two north diagonals swapped while
+every other row is true. `recovery_a` and `recovery_c` were kept so and cut again with `--mirror 3` (`-v7`); look at a
+cut's `_walk_1_back-left.gif` before keeping it. Best
+result: `walkfast_linen` (seams 0.41–0.78 of a frame's change, every facing true).
+
+**A side shot at eye level is the commonest failure, and the flags only point at it** (`_walkers.eye_level_flags`):
+a flat profile, no crown or shoulder tops, the legs full length. The cut flags the side row scaled under 0.8 of the
+back's and front's mean (the camera came lower and nearer) or standing over 5.3 head-widths tall; set on the
+eighteen looks of 2026-10-28, every eye-level side raised one. The scale's threshold was 0.9 while shots were scaled
+by their loop's median; scaled by the stance, the eye-level sides read 0.73–0.86 and the kept ones 0.83–1.05. A
+bun or a ponytail widens the head and hides the second. The flag is a reason to look, not a verdict: the side row is
+looked at beside the front before every keep.
 
 ## What a walker frame is
 
@@ -81,7 +127,6 @@ roll each, scored 3.
   untested.
 - **Proportions lean stocky**: heads about a sixth of the height against the seventh asked, `tee_red-v1` short in the
   leg. Untested: naming the leg length ("legs about half the height").
-- Down pictures are not asked yet: a regenerated look still lies down as its legacy picture (PER-18).
 
 ## Walks cut from a video (2026-10-27) — side view trial, three models, $0.38
 
@@ -255,6 +300,191 @@ jitters.
   short steps, three steps every second … never a run" (`walkfast_linen`) gives cycles of 0.75–0.92 s and the best
   seams (0.41–0.78), against 0.9–1.1 s for "fast-forward footage … played back at double speed" (`walk2x_linen`,
   seams 0.58–1.06). Neither ran. Allowing cycles as short as 0.35 s (`--cycle`) gets one step cut as a whole cycle.
+- **Four looks in one 5 s orbit fail** (`walkorbit4` v1–v3, HeyGen, 3:4, 480p, $0.05 each): cast figures laid 2×2
+  at 0.55 of a tile's height, the `walkfast_linen` brief put as "four small videos tiled side by side … in all four
+  tiles at once". The tiles stay put, all four walk in step and the camera stays high, at about 118 px/m a look, but
+  no roll keeps its looks. v1 (figures 2, 3, 4, 9) cuts four times, not five: no back-left, the side held 2.4 s; in
+  the back shot the linen man wears the white shirt of the tile below him. Seams 0.27–1.3, against 0.41–0.78 for the
+  same man alone. v2 names the cuts' times and gives each tile a line on its clothes from behind: back-left lasts
+  0.4 s between two side shots, and at the back cut two tiles' looks are swapped. v3 (figures 3, 4, 5, 8, no two
+  alike in colour, the lines dropped): five shots at the asked times, but from back-left on the top row's two looks
+  are replaced by the bottom row's. The 3×3 roll's 2 s shots kept every look; 1 s shots of several looks do not.
+- **The cast's other seven looks, one 5 s clip each** (`walkorbit_<id>-v1`, `qq walkers orbit`, $0.05 each): every
+  clip cut at five shots and every look kept its clothes in all five facings. `curly_navy`'s and `polo_green`'s
+  back-left come out near a profile. `polo_green` on a blue screen (0, 71, 187) keeps its shirt green, where the
+  `walkorbit9-v1` green screen keyed it grey. Each cut flags one to five facings (timing, length, seam), as
+  `walkfast_linen` did, and none was re-rolled.
+- **The uniforms, a cast of their own** (`walkers_service_a-v1`, `qq walkers cast`, $0.014, then a 5 s clip each,
+  $0.50): three police, three paramedics and three recovery crew, the cast brief unchanged but for the people. Every
+  look kept its uniform in all five facings, and the recovery crew's fluorescent vests stayed yellow on the blue screen
+  `screen_for` chose for them. Two clips took the camera round the right side: `recovery_a` in all three side shots
+  and `recovery_c` in back-left only, both cut mirrored (`--mirror 1,2,3`, `--mirror 3`). `paramedic_a` v1's
+  back-left was a front-left showing her chest; v2 was true. The cuts flag more seams than the civilians' (one to
+  four facings each); none was re-rolled for it.
+- **Four of the eighteen walked their side at eye level** (found 2026-10-28, after install, by the owner): `curly_navy`,
+  `polo_green`, `paramedic_b` and `recovery_a` v1 — a flat profile, no crown, full-length legs, their back-left near a
+  profile too. Every one was asked "we see him in profile". Asked again ($0.20) with that gone and "the camera never
+  comes down to eye level … we look down onto the top of his head and his shoulders" once for the clip, all four v2
+  came out from above in every facing, back-left with them, and turned the right way. Three more sides sat only a
+  little low, raising the scale flag — `paramedic_a` (0.79), `ponytail_red` (0.87), `recovery_c` (0.88) — and asked
+  the same way ($0.15: `walkorbit_paramedic_a-v3`, `walkorbit_recovery_c-v2`, `walkorbit_ponytail_red-v1`) came out
+  from above too, their sides scaled 1.04–1.12. Seven for seven with the new wording.
+- **Five looks again, for wrong facings and size jumps the owner saw turning** (2026-10-28, $0.30): `paramedic_c`,
+  `curly_navy`, `shirt_white`, `hoodie_black`, `polo_green`, one roll each with the brief unchanged. Three came out
+  true in all five facings, the camera high (`walkorbit_shirt_white-v2`, `walkorbit_hoodie_black-v2`,
+  `walkorbit_polo_green-v3`, kept at 4). Two drew back-left as a second profile — `paramedic_c-v2` and
+  `curly_navy-v3` — so alike the side shot that the cut found four shots, not five. `paramedic_c-v3`, shot 4 alone
+  given the cue that held back-left in `walkrow5h_cues` ("we see his back together with his left side, only the edge
+  of his cheek and no eyes — not in profile: most of his back shows"), came out a true back-left with the camera
+  still high; `ORBIT` now carries it. `curly_navy` had used its three rolls and stays on `-v2`'s clip.
+  **The owner, on those: 1, 8 and 6 still change size as they turn, and `hoodie_black`'s north diagonals are
+  swapped** (cut again with `--mirror 3`, `-v7`). The cut scaled each shot so its loop's median height matched;
+  from in front or behind a stride drops the forward foot lower in the picture and stretches that height, from the
+  side it does not, so the front and back came out about a tenth smaller than the side — 345 px standing against
+  389 for `polo_green`. Each shot is now scaled by its stance's height (`cut_clip`), and `curly_navy-v7`,
+  `shirt_white-v7`, `polo_green-v8` and `hoodie_black-v7` were cut again so, then the other fourteen from their
+  clips with the options their variants' records name (owner: "we don't want inconsistent logic"): every look's
+  stance within 1.4 % across its eight facings. Head width does not settle it either way — hair and hoods move it a
+  tenth or more a look.
+- **A true stance per facing, asked of HeyGen** (owner: each facing should start standing, then walk; 2026-10-28,
+  `linen_grey`, $0.40, nothing kept). **Made in breach of the shape** — 10 s clips and a second clip per look, never
+  asked — and the reason remotegen's core rule now says so outright; none of it is a flow. What it showed: HeyGen never
+  stops a walk once it has begun. "For the first half second he stands still … then steps off" in 2 s shots
+  (`walkorbit_linen_grey-v1`) and "walks in bursts, stop and go … every cut falls while he is standing"
+  (`-v2`) both walked through every cut. A standing orbit before the walking one (`-v3`, ten 1 s shots) held the
+  stand for its first two shots only, then walked, its facings out of order. A clip of standing alone
+  (`walkstand_linen_grey-v1`) held all five facings still, at the cast picture's steeper camera than a walking clip
+  keeps — its stances drew stocky against the walk. Five standing facings laid in a row as a first frame
+  (`walkrow_linen_grey-v1`) stood at frame 0, then all five walked on the spot holding their facings, under one camera.
+  Inside one 5 s clip, a stance is still the walk's frame nearest standing (`stance_column`).
+- **The stance in one 5 s clip, on a minimal brief** (owner: keep the video prompt minimal, it confuses fast;
+  `walkstance_linen_grey` v1–v3, HeyGen 480p 3:4 5 s, the cast figure as first frame, $0.15, nothing kept). Four
+  sentences: five 1 s shots, hard cuts; one spot, the camera round to his left, high above; the five shots named; "every
+  shot starts with him standing still, then he walks on the spot"; flat blue. Then each shot as "the same moment
+  filmed five times" (v2), then as "five separate takes … every take starts again from the beginning" (v3). **No roll
+  stood after a cut**: in all three only the clip's first frames stand, and every later shot opens mid-walk — HeyGen
+  carries the walk on across a cut whatever the cut is called. The short brief keeps all five facings true (back-left
+  too) and, once "always at the same distance" is in (v2, v3), the camera steady; without it (v1) the camera zooms in
+  through each shot. With no pace sentence the loops seam worse — 0.22–1.80 of a frame's change against `walkfast_linen`'s
+  0.41–0.78, five or six facings flagged a roll against two.
+- **Three looks from the owner's photos, on the minimal brief** (2026-10-28, `walkers_photo_a-v1`, $0.03; clips
+  $0.30). The cast: one Sunburst frame, image 1 the installed cast `walkers_cast_b-v2` for its style, images 2–4 the
+  photos cropped to each person (`qq walkers cast --photos`), "draw each as the same person … take nothing else from the
+  photo: not its pose, camera, light or background". All three came out standing south at the cast's camera and
+  proportions, faces, hair, clothes, a handbag and a T-shirt's print kept; a backpack and a towel seen only on a strap
+  in the photo were drawn whole. Kept as rolled. Then one 5 s clip each, `ORBIT` cut to four sentences (the owner: the
+  video model confuses fast). v1 of each: facings in order, but `quilted_navy`'s side and back-left taken round her
+  right (cut `--mirror 2,3`, kept at 4); `tee_print`'s back-left a near profile showing his chest; `flannel_hat` turning
+  through her front shot, her front-left a plain front. "(mostly his front)" and "(mostly his back)" after the two
+  diagonals gave `tee_print-v2` true in all five (kept at 4); `flannel_hat-v2` turned within every shot, and "never
+  turns" (v3) held her front still, with her side leaning towards back-left — kept at 3, her last roll. Her front
+  shot also walks towards the camera, which leaves her standing smallest of the looks (docs/tech-debt.md).
+- **The owner on those three: they change size as they walk, and the walk does not loop** (2026-10-28; two more rolls
+  each, $0.30, none kept). Measured: in the four-sentence brief's front and front-left shots the lowest foot slides
+  6–21 % of the figure's height a second down the picture while the head top barely moves — the walker walks towards
+  the camera, which `walkfast_linen-v1` (the long brief, "the planted foot slides back … as on a moving walkway") does
+  within 5 %. The cut now flags it (`ADVANCE_FLAG`) and takes it out (`held_still`: a straight line through each
+  shot's heights and lowest paint, every frame scaled and moved back onto its mean): front rows' height spread over
+  the loop fell from 0.17–0.27 to 0.06–0.07 and each look's stance from 0.76–0.81 of its cell to 0.84–0.88, with no
+  new roll. Asked back in the brief, the walkway held the feet within ±6 % a second but turned three of the six
+  diagonals round the walker's right. "Four steps every second" left HeyGen's step at 0.42–0.50 s, the same as
+  "three". The seams did not move with either: each 1 s shot holds one cycle of 0.85–1.0 s and a few frames, so the
+  cut has two or three starts to choose from, and the seam is what the shot gives (docs/tech-debt.md). Re-cut and kept
+  from the first rolls: `quilted_navy-v2`, `flannel_hat-v2`, `tee_print-v2`.
+- **The owner: size is still the biggest issue, facing down against down-left** (`shirt_white`). Every facing was
+  scaled to one standing height, but the front shot keeps the cast picture's steep camera while HeyGen takes the
+  others lower, so at one height the front draws its head and body larger: `linen_grey`'s head 35 px from in front,
+  28–30 from every other side. Head width cannot be the measure — a bun, a ponytail or a brim swings it up to twice
+  over between facings. A width across the picture does not change with the camera's pitch, and a body is as wide from
+  in front as from behind: the front is now scaled so its torso (25–45 % down, above a belt) is as wide as the back's
+  (`_walkers.front_by_width`), and only ever shrunk — `police_b`'s back was the shot taken nearer, 13 % wider. Fronts
+  moved ×0.82–1.00, `linen_grey` and `police_a` most; his front head 31 px against 32 from front-left. The diagonals
+  are left on height: HeyGen seldom takes them at 45°. All 21 looks were cut again from their clips with this and
+  `held_still`, their options read off their kept variants' records.
+- **The head outlined in every facing** (`tee_print`, `qq props seed tee_print --cell F,0`, each jaw placed by eye and
+  checked by a second agent): widths 33.0–37.1 cm, within ±6 % of their median; heights crown to chin 37.1–39.1 cm
+  but front-left 44.5 (and the back 32.5, crown to nape) — its shot's camera steeper, more crown and face showing. By
+  the head's √(width × height), the back by width against the front, the cut's facings were 0–3.5 % off, front-left
+  the most: `qq sprites cut … --scale 0=1.017,1=1.004,2=0.997,3=0.965,4=1.005` (`tee_print-v4`), recorded in the
+  variant's cut. Barely visible at the game's scale; the cell, set by front-left's tallest frame, shrank 4 %, so the
+  whole look now stands 4 % taller (docs/tech-debt.md).
+- **"The camera travels along with him" in place of "walks on the spot"** (`walkorbit_tee_print-v5`, one roll, $0.05,
+  the owner asking for a constant angle): "walks forward the whole time … the camera travels along with him, so he stays
+  the same size in the middle of the picture, and only its angle changes". Drift fell where it was worst — front +10 →
+  +4 %, front-left +17 → −13 %, back +9 → 0 % of his height a second — but changed sign rather than vanishing, so
+  `held_still` is still wanted. It took the camera round his right side (cut `--mirror 1,2,3`, the print's word then
+  reading backwards on the side and front-left), and the diagonals seamed worse: front-left 0.91 → 1.33, back-left
+  0.77 → 1.55 with its timing off. The owner: it kept his size consistent. v6 ($0.05) named it "a tracking shot: the
+  camera moves with him at exactly his walking speed … his feet always at the same height in it", the walk "at one
+  steady pace", and the turn its own sentence ("Between shots only the camera's angle changes, round to his left"):
+  side and back-left went round his left but front-left round his right (cut `--mirror 1`); front and back loop well
+  (seams 0.42, 0.63) with no drift; front-left −17 % and back-left +8 % are held still. Side to back-left came as a
+  sweep over four frames, not a hard cut (cut `--split 68-72`), leaving each 22 frames, and both seam at 1.7–1.8.
+  The owner: the angle is good, but the camera zooms or pans within a shot — measured on the diagonals, front-left's
+  feet climbing 57 px/s with the head still and its torso narrowing 28 % a second, as the camera kept circling.
+  v7 ($0.05): "fixed to him, as if on a rig that moves with him: within a shot it never zooms, pans, tilts or circles
+  … Only at each cut does the camera's angle change", and "instant hard cuts". Within-shot motion roughly halved
+  (front-left 25 px/s, −21 %; back-left 10 px/s, −9 %; front, side, back still within 16 px/s and 3 %), five hard cuts
+  found, but front-left and back-left round his right and the side round his left (cut `--mirror 1,3`), so the print
+  reads backwards on two rows; front seams 1.47. Which side a facing was taken from is read off which way he faces: the
+  sheet's left facings face the picture's left. Kept at 3 (`tee_print-v9`, its diagonals sized by width). v8 ($0.05):
+  "each from its own fixed camera" for the camera going "round", and "already walking in the first frame": all five
+  shots round his left, but the diagonals turned more within their shots than ever (torso +51 % and +36 % a second),
+  the front still started from standing, and every seam 0.97–1.46. Across v5–v8 how far a diagonal turns within its
+  shot swings by roll more than by wording; not kept. v9 ($0.05), the long brief `walkorbit_hoodie_black-v2` was asked
+  with (sixteen of the installed looks were cut from it, `tee_print` never before): all five shots round his left (no
+  mirror, the print true), front and back the steadiest yet (feet and sideways under 2 px/s, torso within 0.2 %),
+  back seam 0.49 and back-left 0.54; but front-left turned +41 % a second (v7 −21 %) and its timing is off (0.81), the
+  side seams 1.29. The torso's change over a front-left shot measured on the sixteen long-brief clips runs +21 to
+  +69 % a second too — a measure that mixes arm swing with the turn, so it does not say the long brief turns more.
+- **What makes `curly_navy` read better than `tee_print` is the drawing, not the walk** (2026-10-28, the owner: walker
+  2 on the showroom "very good"). Its seams (1.1–1.65), drift and turning within the diagonals are no better. But its
+  clip kept the cast's bold dark ink outline and flat colours, and its legs (mid-blue jeans, white trainers) stand out
+  on the asphalt. `tee_print`'s first frame, from the photo cast (`walkers_photo_a`), has thinner lines and smoother
+  shading, and every one of his clips (v1–v9, the long brief's "flat-shaded pixel-art game-sprite style" included)
+  re-rendered him soft and near 3D with the outline gone; black, grey and dark-grey trainers then lose the stride on
+  grey. A 1 px dark rim laid round each figure at install was tried and taken out (2026-10-29): opaque, it counted as
+  the figure's solid part, so the selection ring (CTL-1) started a pixel further out between two dark lines and read
+  thin; and the owner: every look already carries a dark rim of its own.
+- **The rig brief with each shot's facing named** (2026-10-29, `.tmp/gen/briefs/orbit_v2_template.txt`, one roll
+  each, $0.10): `tee_print-v7`'s locked camera ("within a shot the camera is locked to her: it never zooms, pans, tilts
+  or circles") with the long brief's per-shot facing ("she faces towards us and to the picture's left"), "walking from
+  the very first moment", "goes round her left side only", and "drawn throughout in the first frame's style, with its
+  dark outlines and flat colours, never a soft 3D render". Both clips went round the left in all five shots — so a
+  one-handed prop stays in one hand — and neither kept an outline. `flannel_hat-v6`: seams 0.28–1.27 (her `-v3` clip
+  0.59–2.13), drift 7 % (21 %), a true side; her towel and backpack drawn as one white backpack; kept at 4
+  (`flannel_hat-v5`). `quilted_navy-v4`: her side at eye level (5.4 head-widths tall against `-v1`'s 4.4) and her front
+  and back seams 1.3–2.0 (0.5–1.0); not kept. One win in two: not yet `ORBIT`.
+- **The owner: walking south, `flannel_hat` and `quilted_navy` "move with only one leg and then cut and repeat"**
+  (2026-10-29). Which foot reaches lower, frame by frame through `walkorbit_flannel_hat-v6`'s front shot: one foot
+  leads frames 2–10, the feet stand together 11–18, the other starts to lead only at 19 and is still reaching when
+  the shot ends at 23; her back shot the same. HeyGen walked her step, pause, step, a stride of 1.2–1.3 s, and a 1 s
+  shot holds one step and the start of the next, so the eight columns are one leg's step and a cut.
+  `walkorbit_curly_navy-v2`'s front: one foot 1–6, together 7–14, the other 15–21 — both steps inside the second. The
+  cut's `legSwap` (columns 2 and 6 against the stance) reads the pause as a swap and did not see it.
+- **A 10 s clip of five 2 s shots for those two** (2026-10-29, the owner: "do 10s but only for this two"; $0.20,
+  one roll each, `walkorbit_quilted_navy-v5`, `walkorbit_flannel_hat-v7`): the rig brief with "five two-second shots"
+  and the long brief's "never comes down to eye level … the top of her head and her shoulders". Both went round the
+  left in all five shots — the bag in one hand, the towel on one shoulder, her grey backpack back — and neither side
+  came at eye level (4.38 and 3.38 head-widths). Every front and back loop holds one stride, each foot leading for
+  three columns; every loop 0.96–1.08 s, seams 0.38–0.80. Two cut changes came with it: a shot is at least 0.6 of
+  the shot a facing is asked for (`MIN_SHOT_SHARE`; held at 0.6 s, `quilted_navy-v5`'s front was cut into three on
+  its strides), and the side and diagonal loops are held within 15 % of the front and back loops' stride
+  (`stride_bounds`: her side took 0.75 s, a step and a half, against 1.0 s). Both kept at 4 (`quilted_navy-v5`,
+  `flannel_hat-v6`). Then `tee_print` the same way (`walkorbit_tee_print-v10`, $0.10, the owner: "do 10s for walker 11
+  as well"): round his left in all five, the print true, the first cut of any look with no flag — every loop 1.0 s,
+  seams 0.30–0.50, drift under 4 %, each foot leading three columns front and back — and his diagonals turning within
+  their shots +9.6 % and −5.7 % a second, against `-v7`'s −21 % and −9 %. Kept at 4 (`tee_print-v10`).
+- **A fourth photo look, alone on its cast frame, its walk asked symmetric** (2026-10-29, `shirt_burgundy`, the owner:
+  "again allowed 10s. Symmetric."; cast $0.026, clips $0.20). The photo held a pen in one hand and a water bottle in
+  the other; cropped short of the bottle and described "both hands empty, nothing carried", the cast (`walkers_photo_b-v1`,
+  one figure) drew him empty-handed, glasses and beard kept — `CAST_PHOTOS` now lets a look's line overrule "anything
+  carried". `walkorbit_shirt_burgundy-v1` (the `tee_print-v10` brief as it was) came round his left in all five, a high
+  true side, but limped: from in front his right foot lifted for about six frames a cycle and his left for two or three
+  (steps 0.5 off in time). v2 put the pace sentence as "his left and right legs take turns exactly alike, each foot
+  lifting for as long and stepping as far as the other": front 0.07 and back 0.0 off in time, loops 1.13–1.17 s, seams
+  0.45–0.66, only back-left flagged (strides 0.26 unlike). Kept at 4 (`shirt_burgundy-v1`). One roll each way: the
+  parity sentence is untried on any other look.
 - **A longer Veo clip with a negative prompt was worse** (`walkclip_side_veo-v2`, 6 s, `negativePrompt` through
   `remotegen video --option`, "every step exactly as long as the one before", $0.18): it walked unevenly with pauses
   and one forward kick, its best cycle 2.3 s.

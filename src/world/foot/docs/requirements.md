@@ -24,8 +24,9 @@ but WLK-14, which is the owner's.
 
 ## The pavement
 
-**WLK-1** `P4` **A pavement is the driven ground's own boundary moved off itself, once per walking lane, and
-it is placed off nothing else.** The lines a car is driven on lay a shape, its outside is one boundary
+**WLK-1** `P4` **A pavement is the walked ground's own boundary moved off itself, once per walking lane, and
+it is placed off nothing else.** The lines a car is driven on beside which a walk stands — every road's but an
+intercity road's (GEN-75) — lay a shape, its outside is one boundary
 ([TER-7b](../../terrain/docs/requirements.md)), and the move taken at each lane's own distance
 (`WalkingLaneAtM`) is that lane's course — so **two moves are the whole town's pavement**, both sides of every
 road at once, because a boundary has the road between its two hands and the move keeps it. **Nothing here
@@ -41,6 +42,12 @@ against the pieces either side of it, so it folds through itself wherever the of
 that. **What the move owes is closure, and the census reports it** (`--bench census`): a course that comes
 back as a run rather than a ring is a pavement with two ends in the middle of the town. **Every corner of a
 course is rounded, at the courses' own radius and not the ground's** (`Road.WalkRoundedM`, TER-3c.10).
+
+**A walk that ends turns its walker back** (GEN-75). Where a walk ends at a road with no walk, its courses close
+round the end over that road's carriageway; that stretch of each is walked by nobody — wherever a course stands on the
+driven ground or nearer its edge than its own distance (`PavementLanes.GapsOf`) — and each end of it is joined across
+the walk to the other lane's (`PavementLanes.Turns`), so a walker reaching the end steps across and walks back. A
+crossing's hand-over that would land past the end is made at it.
 
 **WLK-8** `P4` **A pavement is walked a lane each way, and each lane's own line is one whole move of the
 boundary** (WLK-1) — so the two lanes stand a lane's width apart, two walkers passing each keep to their own
@@ -73,8 +80,9 @@ wider circle swings the inside edge out past it, onto the road, and a tighter on
 
 **WLK-10** `P4` **A town's zebras stand where its kerb ends put a station, and nowhere else**
 (`CityGen.KerbEnds`), unless the town says where they are (below). A station is struck across each end of each street at a box where three or more roads
-meet, `Road.FootNodeClearM` out along the road past the further of the street's two kerb ends, and runs from
-the carriageway's edge on that kerb's side to its other edge; the band runs between those two points.
+meet, half a `Road.CrossingDepthM` out along the road past the further of the street's two kerb ends — **the band
+starts at the kerb end, with no clearance before it** — and runs from the carriageway's edge on that kerb's side
+to its other edge; the band runs between those two points.
 **Where a walk crosses is the whole of the placement** — an end the kerb ends put no station at asks for no
 paint, which is what leaves a bay, a roundabout's ring and every end at a bend or a dead end with none. **A
 town that says where its zebras are** (`CityPlan.ZebraAtEveryStation`) — which no shipped map does, a traced one

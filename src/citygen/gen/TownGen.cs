@@ -35,6 +35,16 @@ internal static class TownGen
     public static float CorridorM(SimConfig config, int lanes) =>
         (config.LaneWidthM * lanes * SimConfig.LanesPerCarriageway * 0.5f) + config.PavementWidthM + config.IntersectionCornerRadiusM;
 
+    /// <summary>
+    /// <b>How far either side of a road a span carried over it reaches</b> (GEN-68): past the corridor of the road under it,
+    /// and as far again as a junction's box — which its end is where anything but the road carrying it on meets it there
+    /// (GEN-14a) — so the node where it comes down stands clear of the road it crosses and is read as no junction with it.
+    /// Asked of the widest roads both, either being met over any intercity road.
+    /// </summary>
+    public static float OverHalfSpanM(SimConfig config) =>
+        CorridorM(config, LayoutEdge.MostLanes)
+        + (2f * config.JunctionRadiusAcrossM(config.LaneWidthM * LayoutEdge.MostLanes * SimConfig.LanesPerCarriageway));
+
     /// <summary>What the water and the railway let a road do (<see cref="WaterRules"/>), over this ground.</summary>
     public static WaterRules RulesOf(GroundShapes ground, CityPlan.RailArrays rails, Func<Vector2, bool> sea, SimConfig config) =>
         new(ground, config.Terrain.GroundStepM, sea, config.CityGen.BridgeDeckLongestM, CorridorM(config, 1),
@@ -57,24 +67,52 @@ internal static class TownGen
         brief.Check();
         var seeds = brief.Seeds.Resolved;
         var extentM = new Vector2(brief.WidthM, brief.HeightM);
+        // A town that plans no building has no edge to thin out to: it is every district, its roads through its core.
+        var graded = brief.Districts.Country && brief.Roster.Buildings > 0;
 
         var terrain = new Rng(seeds.Terrain, Streams.Terrain);
         var water = TerrainStage.Lay(brief, config, ref terrain);
-        var connectors = Connectors.Lay(brief, water, config, seeds.Connectors, water.InTheSea);
+        var connectors = Connectors.Lay(brief, water, config, seeds.Connectors, water.InTheSea, graded);
         var ground = new GroundShapes(GroundPieces.None(seeds.Terrain, extentM, config.PavementWidthM).With(water.Rings).With(connectors.Rails), config);
 
         var grid = CellGrid.Over(extentM, config.CityGen.DistrictCellM);
-        var partition = Partition.Cut(grid, Barriers(grid, ground, water, connectors, config), config, seeds.Districts);
-        var industrial = partition.EdgeShares(static barrier => barrier is Barrier.Rail or Barrier.Road);
-        var districts = Districts.Plan(partition, industrial, connectors.CoreM, brief.Districts.GridShare, config, seeds.Districts);
+        var land = Partition.Cut(grid, Barriers(grid, ground, water, connectors, config), config, seeds.Districts);
+        var partition = land;
+        var country = new List<(ZoneKind Kind, List<Vector2> Outline)>();
+        float[]? fill = null;
+
+        // <b>The town grades out to the country</b> (GEN-76): some of the rim left to it, the rest cut on its own so the old
+        // town and the edge are the town's and not the map's, and each district filled less the further out it is.
+        if (graded)
+        {
+            var roadsIn = connectors.Roads.Select(road => road.Line).ToList();
+            var furthestM = TownExtent.FurthestM(land, connectors.CoreM);
+            var built = TownExtent.Built(land, connectors.CoreM, furthestM, roadsIn, config, seeds.Districts);
+            for (var district = 0; district < land.Count; district++)
+            {
+                if (!built[district]) country.Add((TownExtent.Country(land, district, seeds.Districts, config), land.Outline(district)));
+            }
+
+            if (country.Count > 0) partition = land.Only(built);
+            fill = TownExtent.Fill(partition, connectors.CoreM, furthestM, roadsIn, config, seeds.Districts);
+        }
+
+        var districts = Planned(partition, connectors.CoreM, brief, config, seeds.Districts, fill);
 
         var map = TownMap.Bare(brief.Name, brief.Description, seeds.Streets, extentM, ZoneKind.Town, []) with
         {
             Courses = water.Courses,
             Rails = connectors.Tracks,
-            Zones = Zones(brief, partition, districts, connectors.CoreM, extentM),
+            Zones = Zones(brief, partition, districts, fill, country, connectors.CoreM, extentM, config),
         };
         return new Authored(brief, seeds, water, connectors, ground, partition, districts, map);
+    }
+
+    /// <summary>What each district of a cut is like (GEN-74), off what borders it, how far it stands from the core and how full it is built.</summary>
+    static Districts Planned(Partition partition, Vector2 coreM, TownBrief brief, SimConfig config, ulong seed, float[]? fill)
+    {
+        var industrial = partition.EdgeShares(static barrier => barrier is Barrier.Rail or Barrier.Road);
+        return Districts.Plan(partition, industrial, coreM, brief.Districts.GridShare, config, seed, fill);
     }
 
     /// <summary>
@@ -94,7 +132,7 @@ internal static class TownGen
             var atM = grid.CentreOf(cell);
             if (!ground.Waterside(atM)) continue;
 
-            barrier[cell] = water.InTheSea(atM) ? Barrier.Sea : Barrier.Water;
+            barrier[cell] = Barrier.Water;
             offWaterM[cell] = 0f;
             open.Enqueue(cell, 0f);
         }
@@ -131,9 +169,12 @@ internal static class TownGen
             }
         }
 
+        // A bypassed town's intercity roads keep their interchanges' slip roads in their verge (GEN-68), so the district roads
+        // running along their edge stand clear of the slips.
+        var verges = connectors.BypassM > 0f ? config.CityGen.InterchangeOffsetM + CorridorM(config, 1) : CorridorM(config, LayoutEdge.MostLanes);
         foreach (var road in connectors.Roads)
         {
-            var halfM = CorridorM(config, road.Lanes) + streetM;
+            var halfM = verges + streetM;
             for (var point = 0; point + 1 < road.Line.PointsM.Length; point++)
             {
                 grid.Band(road.Line.PointsM[point], road.Line.PointsM[point + 1], halfM, cell =>
@@ -143,12 +184,12 @@ internal static class TownGen
             }
         }
 
-        var (columnsIn, rowsIn) = ((int)MathF.Ceiling(streetM / grid.CellM), (int)MathF.Ceiling(streetM / grid.CellM));
+        var marginCells = (int)MathF.Ceiling(streetM / grid.CellM);
         for (var row = 0; row < grid.Rows; row++)
         {
             for (var column = 0; column < grid.Columns; column++)
             {
-                if (column >= columnsIn && row >= rowsIn && column < grid.Columns - columnsIn && row < grid.Rows - rowsIn) continue;
+                if (column >= marginCells && row >= marginCells && column < grid.Columns - marginCells && row < grid.Rows - marginCells) continue;
 
                 var cell = grid.Index(column, row);
                 if (barrier[cell] == Barrier.None) barrier[cell] = Barrier.Edge;
@@ -160,10 +201,14 @@ internal static class TownGen
 
     /// <summary>
     /// <b>What the town is zoned for</b> (GEN-58): the whole map, saying the town's counts and its core as the hub its
-    /// buildings thin away from (GEN-54), and a zone for each district — its outline, its kind (GEN-74) and the bearing its
-    /// buildings behind the frontage stand square to.
+    /// buildings thin away from (GEN-54), and a zone for each district — its outline, its kind (GEN-74), the bearing its
+    /// buildings behind the frontage stand square to and, in a town graded out to the country, how much of its kind's
+    /// frontage and ground behind it builds — and a zone for each piece of the country round it (GEN-76).
     /// </summary>
-    static TownMap.ZoneArrays Zones(TownBrief brief, Partition partition, Districts districts, Vector2 coreM, Vector2 extentM)
+    /// <param name="fill">How much of what its kind builds each district builds (<see cref="TownExtent.Fill"/>); none builds all of it.</param>
+    static TownMap.ZoneArrays Zones(
+        TownBrief brief, Partition partition, Districts districts, float[]? fill, List<(ZoneKind Kind, List<Vector2> Outline)> country,
+        Vector2 coreM, Vector2 extentM, SimConfig config)
     {
         var zones = new TownMap.ZoneArrays.Builder();
         zones.Add(
@@ -180,10 +225,25 @@ internal static class TownGen
             if (outline.Count > 1 && outline[0] == outline[^1]) outline.RemoveAt(outline.Count - 1);
             if (outline.Count < 3) continue;
 
+            var kind = districts[district].Kind;
+            var bearing = (ZoneParam.BearingDeg, districts[district].BearingRad * 180f / MathF.PI);
+            // What its widened blocks (Districts.Plan) have not thinned of its frontage, its gaps do; its ground behind is
+            // as large as its blocks are, and thins by the whole of its fill.
+            var defaults = ZoneTree.DefaultsOf(kind, config.Zones);
+            var fronted = fill is null ? 1f : MathF.Pow(fill[district], 1f - config.CityGen.TownSparseBlockShare);
             zones.Add(
-                TownMap.ZoneArrays.Root, districts[district].Kind,
-                [(ZoneParam.BearingDeg, districts[district].BearingRad * 180f / MathF.PI)],
+                TownMap.ZoneArrays.Root, kind,
+                fill is null
+                    ? [bearing]
+                    : [bearing, (ZoneParam.Frontage, defaults.Frontage * fronted), (ZoneParam.Interior, defaults.Interior * fill[district])],
                 [[.. outline]]);
+        }
+
+        foreach (var (kind, raw) in country)
+        {
+            var outline = Polyline.Thinned(raw, partition.Grid.CellM * 0.5f);
+            if (outline.Count > 1 && outline[0] == outline[^1]) outline.RemoveAt(outline.Count - 1);
+            if (outline.Count >= 3) zones.Add(TownMap.ZoneArrays.Root, kind, [], [[.. outline]]);
         }
 
         return zones.Arrays();
@@ -205,10 +265,11 @@ internal static class TownGen
         var nodeSizes = new NodeSizes(extentM, config);
         var lines = new RoadLines(seed, config, town.Districts.BlockTightestM, extentM, rules, nodeSizes);
         var shortestRoadM = CorridorM(config, 1) * 2f;
-        var layout = new TownLayout(shortestRoadM, config.ArmsApartMinRad, figures.LocalityM, config.Grid.Main, rules, lines, nodeSizes);
+        var layout = new TownLayout(
+            shortestRoadM, config.ArmsApartMinRad, figures.LocalityM, config.Grid.Main, rules, lines, nodeSizes, config.SlipArmsApartMinRad);
         var paths = new Paths(layout, config);
 
-        var intercity = Intercities(town, paths);
+        var intercity = Intercities(town, paths, config);
         var links = new TownLinks(town, paths, intercity, config);
         links.Lay();
         took("paths");
@@ -221,15 +282,16 @@ internal static class TownGen
         paths.TheNodesMoved(moved);
         took("settle");
         paths.Close();
-        links.JoinWhatWasLeft(layout);
-        Lattice.Lay(layout, streets, moved);
+        var settled = Lattice.Settled(streets, moved);
+        links.JoinWhatWasLeft(layout, settled);
+        Lattice.Lay(layout, settled);
         took("streets");
 
         joined?.Invoke(layout, paths);
         layout.KeepTheLargestComponent();
         layout.PruneTheDeadEnds();
         took("prune");
-        ThroughRoads.Lay(layout);
+        ThroughRoads.Lay(layout, config);
         took("through");
         Roundabouts.Lay(layout, town.Districts.BlockTightestM, rules, config, extentM, CorridorM(config, 1));
         took("roundabouts");
@@ -240,7 +302,9 @@ internal static class TownGen
             town.Partition.Label, town.Partition.Grid.CellM, town.Partition.Grid.Columns, town.Partition.Grid.Rows, town.Partition.CentreM,
             WithStreets(layout, town.Partition));
         var carPark = new Rng(seed, Streams.CarPark);
-        var carParks = CarParks.Lay(layout, town.Brief.Roster.Buildings, config, districtMap, sizes, ref carPark);
+        var carParks = CarParks.Lay(
+            layout, town.Brief.Roster.Buildings, config, districtMap, sizes, extentM,
+            atM => town.Districts.At(atM) is var district && (district < 0 || town.Districts[district].Kind != ZoneKind.Suburb), ref carPark);
         took("car parks");
 
         var signals = new Rng(seed, Streams.Signal);
@@ -268,16 +332,26 @@ internal static class TownGen
 
     /// <summary>
     /// <b>The intercity roads, laid first</b> (GEN-63): each its route, the crossings it takes, and its far end put on the
-    /// road it meets where it ends on another.
+    /// road it meets where it ends on another. <b>In a bypassed town nothing on them stops</b> (GEN-68): each railway is
+    /// crossed on a span carried over it.
     /// </summary>
-    static int[] Intercities(Authored town, Paths paths)
+    static int[] Intercities(Authored town, Paths paths, SimConfig config)
     {
         var roads = town.Connectors.Roads;
         var path = new int[roads.Count];
         for (var road = 0; road < roads.Count; road++)
         {
             var line = roads[road].Line;
-            path[road] = paths.Add(line, RoadClass.Intercity, roads[road].Lanes, CrossingsOn(line, town.Connectors));
+            path[road] = paths.Add(line, RoadClass.Intercity, LayoutEdge.MostLanes, roads[road].Crossed, overRails: town.Connectors.BypassM > 0f);
+
+            // The road it is carried over stands no node under it, nor where one settled would draw its end down (GEN-16).
+            foreach (var crossing in roads[road].Crossed)
+            {
+                if (!crossing.Over) continue;
+
+                var keepM = OverHalfSpanM(config) + config.CityGen.LocalityM;
+                paths.Keep(path[crossing.Barrier], crossing.AlongM - keepM, crossing.AlongM + keepM);
+            }
             if (roads[road].EndsOn < 0) continue;
 
             var onto = path[roads[road].EndsOn];
@@ -285,17 +359,5 @@ internal static class TownGen
         }
 
         return path;
-    }
-
-    /// <summary>The crossings a line takes: every one both of whose ends it passes through.</summary>
-    public static List<Crossing> CrossingsOn(Polyline line, Connectors.Laid connectors)
-    {
-        var on = new List<Crossing>();
-        foreach (var crossing in (IEnumerable<Crossing>)[.. connectors.Bridges, .. connectors.LevelCrossings])
-        {
-            if (line.Nearest(crossing.NearM).AwayM < 0.5f && line.Nearest(crossing.FarM).AwayM < 0.5f) on.Add(crossing);
-        }
-
-        return on;
     }
 }

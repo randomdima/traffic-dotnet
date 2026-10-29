@@ -66,11 +66,17 @@ internal sealed class RoadLines(
     /// <summary>And the ground each of them keeps (<see cref="FootprintM"/>).</summary>
     readonly List<float> _footprintM = [];
 
+    /// <summary>And which of them is carried over what it crosses, and which is an intercity road (<see cref="PassesOver"/>).</summary>
+    readonly List<(bool Over, bool Intercity)> _levels = [];
+
     /// <summary>
     /// Which roads have a piece in each cell of the grid's main level (SIM-8), so that what a candidate has to
-    /// be asked about is the handful of roads near it (GEN-49). Keyed by <see cref="GridLevel.KeyOf(int, int)"/>.
+    /// be asked about is the handful of roads near it (GEN-49): a cell's place in <see cref="_inCell"/>, filed the first
+    /// time a road passes through it and kept, emptied or not, from then on.
     /// </summary>
-    readonly Dictionary<long, List<int>> _inCell = [];
+    readonly CellTable _cellOf = new();
+
+    readonly List<List<int>> _inCell = [];
 
     readonly GridLevel _level = config.Grid.Main;
 
@@ -110,7 +116,7 @@ internal sealed class RoadLines(
     /// <see cref="CarParks"/>): it is laid where the kerb is, so there is nothing to draw.
     /// </summary>
     public bool Clear(ArcSeg[] chain, in LayoutEdge edge, ReadOnlySpan<int> without) =>
-        chain.Length > 0 && !OffTheGround(chain, edge.Class) && !SharesGround(chain, edge, without);
+        chain.Length > 0 && !OffTheGround(chain, edge) && !SharesGround(chain, edge, without);
 
     /// <inheritdoc cref="CanLay(in LayoutEdge, IReadOnlyList{Vector2}, ReadOnlySpan{int}, out ArcSeg[])"/>
     public bool CanLay(in LayoutEdge edge, IReadOnlyList<Vector2> nodeM, out ArcSeg[] chain) =>
@@ -124,7 +130,8 @@ internal sealed class RoadLines(
     public bool Apart(ArcSeg[] chain, in LayoutEdge edge, ArcSeg[] otherChain, in LayoutEdge other)
     {
         if (other.From == edge.From || other.From == edge.To
-            || other.To == edge.From || other.To == edge.To)
+            || other.To == edge.From || other.To == edge.To
+            || PassesOver(LevelOf(edge), LevelOf(other)))
         {
             return true;
         }
@@ -140,6 +147,15 @@ internal sealed class RoadLines(
     public static float FootprintM(SimConfig config, in LayoutEdge edge) =>
         edge.OfferedWidthM(config.LaneWidthM) + (2f * config.PavementWidthM);
 
+    /// <summary>
+    /// <b>Whether one of two roads passes over the other</b> (GEN-49, GEN-68): a road carried over and an intercity road keep
+    /// no ground from each other, the one standing on its deck above the other's carriageway.
+    /// </summary>
+    static bool PassesOver((bool Over, bool Intercity) one, (bool Over, bool Intercity) other) =>
+        (one.Over && other.Intercity && !other.Over) || (other.Over && one.Intercity && !one.Over);
+
+    static (bool Over, bool Intercity) LevelOf(in LayoutEdge edge) => (edge.Over, edge.Class == RoadClass.Intercity);
+
     /// <summary>The ground the widest road a town lays keeps (GEN-67), which is how far round a line another is looked for.</summary>
     static float WidestFootprintM(SimConfig config) =>
         (config.LaneWidthM * LayoutEdge.MostLanes * SimConfig.LanesPerCarriageway) + (2f * config.PavementWidthM);
@@ -151,14 +167,25 @@ internal sealed class RoadLines(
         _laid.Add(chain);
         _between.Add((edge.From, edge.To));
         _footprintM.Add(FootprintM(config, edge));
+        _levels.Add(LevelOf(edge));
         FileBridge(edge);
         Cells(chain, _cells);
         foreach (var cell in _cells)
         {
-            ref var here = ref CollectionsMarshal.GetValueRefOrAddDefault(_inCell, GridLevel.KeyOf(cell.X, cell.Y), out _);
-            here ??= [];
+            var here = Held(GridLevel.KeyOf(cell.X, cell.Y));
             if (here.Count == 0 || here[^1] != road) here.Add(road);
         }
+    }
+
+    /// <summary>The roads a cell holds, an empty list made for it the first time it is asked to hold one.</summary>
+    List<int> Held(long key)
+    {
+        var cell = _cellOf[key];
+        if (cell >= 0) return _inCell[cell];
+
+        _cellOf.Set(key, _inCell.Count);
+        _inCell.Add([]);
+        return _inCell[^1];
     }
 
     /// <summary>
@@ -192,6 +219,8 @@ internal sealed class RoadLines(
         _laid.RemoveRange(carried, _laid.Count - carried);
         _between.RemoveRange(carried, _between.Count - carried);
         _footprintM.RemoveRange(carried, _footprintM.Count - carried);
+        _levels.RemoveRange(carried, _levels.Count - carried);
+        for (var road = 0; road < carried; road++) _levels[road] = LevelOf(edges[road]);
         foreach (var road in _moved)
         {
             _laid[road] = kept[road];
@@ -217,12 +246,11 @@ internal sealed class RoadLines(
             var key = GridLevel.KeyOf(cell.X, cell.Y);
             if (!add)
             {
-                if (_inCell.TryGetValue(key, out var held)) held.Remove(road);
+                if (_cellOf[key] is var held and >= 0) _inCell[held].Remove(road);
                 continue;
             }
 
-            ref var here = ref CollectionsMarshal.GetValueRefOrAddDefault(_inCell, key, out _);
-            here ??= [];
+            var here = Held(key);
             if (!here.Contains(road)) here.Add(road);
         }
     }
@@ -267,11 +295,7 @@ internal sealed class RoadLines(
             return [Arc(from.StandM, (to.StandM - from.StandM) / betweenM, betweenM, from.Curvature)];
         }
 
-        // A corner a road passes is a junction's floor (GEN-51) — but never tighter than its own walk stands off its line,
-        // or the walk's edge round the inside of the corner turns inside out (GEN-67: a wider road holds a wider corner).
-        var floorM = edge.ThroughM.Length > 0
-            ? MathF.Max(config.JunctionCorneringRadiusM, (FootprintM(config, edge) * 0.5f) + config.LaneWidthM)
-            : FloorRadiusM(config, edge.Class);
+        var floorM = FloorOf(config, edge);
 
         var draw = new Rng(seed, WanderStream ^ ConnectionPoints.Keyed(nodeM[edge.From], nodeM[edge.To]));
         var wanderNodes = edge.ThroughM.Length > 0
@@ -295,11 +319,23 @@ internal sealed class RoadLines(
         // <b>A road laid straight is straights</b> (GEN-47): one between its two stand points, or one a leg
         // with every corner it was joined through rounded at its class's own radius — tighter only where the
         // legs have no room for that, and never past the floor. A biarc through the corner instead would bend
-        // the whole of both legs to pass the corner's own point.
+        // the whole of both legs to pass the corner's own point. <b>An intercity road is laid round its curve</b>
+        // (GEN-63) instead: its points were drawn off one (RouteSpline), each corner rounded at the circle through it
+        // and its two neighbours — but the first and last, where each arm's straight ends, at the floor, so the road
+        // leaves its junction or its bridge straight.
         if (edge.Straight)
         {
             Span<ArcSeg> laid = stackalloc ArcSeg[(2 * pointsM.Length) - 3];
-            var count = Spline.RoundedInto(pointsM, FloorRadiusM(config, edge.Class), laid);
+            Span<float> reachM = stackalloc float[pointsM.Length - 2];
+            for (var corner = 1; corner < pointsM.Length - 1; corner++)
+            {
+                var curve = edge.Class == RoadClass.Intercity && corner > 1 && corner < pointsM.Length - 2;
+                var radiusM = curve ? MathF.Max(floorM, CircleThroughM(pointsM[corner - 1], pointsM[corner], pointsM[corner + 1])) : FloorRadiusM(config, edge.Class);
+                var legM = MathF.Min(Vector2.Distance(pointsM[corner - 1], pointsM[corner]), Vector2.Distance(pointsM[corner], pointsM[corner + 1]));
+                reachM[corner - 1] = MathF.Min(radiusM * Spline.HalfTurnTan(pointsM, corner), legM * 0.5f);
+            }
+
+            var count = Spline.RoundedInto(pointsM, reachM, laid);
             ArcSeg[] straights = [.. laid[..count]];
             return count > 0 && TightestRadiusM(straights) >= floorM ? straights : [];
         }
@@ -332,15 +368,16 @@ internal sealed class RoadLines(
             ? (atFrom ? edge.ThroughM[0] : edge.ThroughM[^1])
             : nodeM[atFrom ? edge.To : edge.From];
 
-        var shaped = edge.Class is RoadClass.Bridge or RoadClass.Roundabout;
+        // A span over what it crosses is the other road the layout bends itself (GEN-14a), as the one arc of its path.
+        var shaped = edge.Class is RoadClass.Bridge or RoadClass.Roundabout || edge.Curvature != 0f;
 
-        // The lead bends with the ring and with nothing else, and the far end of a piece leaves it the other
-        // way round (GEN-19).
+        // The lead bends with the ring or the span and with nothing else, and the far end of a piece leaves it the
+        // other way round (GEN-19).
         var curvature = shaped ? (atFrom ? edge.Curvature : -edge.Curvature) : 0f;
 
         var settled = shaped;
         if (!shaped && !edge.Straight && _farBridgehead.TryGetValue(junction, out var far)
-            && ConnectionPoints.CarriesOn(nodeM[junction], towardM, nodeM[far], out var onTheSpanM))
+            && ConnectionPoints.CarriesOn(nodeM[junction], towardM, nodeM[far.Node], far.Curvature, out var onTheSpanM))
         {
             towardM = onTheSpanM;
             settled = true;
@@ -352,34 +389,39 @@ internal sealed class RoadLines(
     }
 
     /// <summary>
-    /// <b>Each bridgehead's far end</b>, filed as the bridges are kept, so the road landing on one leaves on its span
-    /// (<see cref="ConnectionPoints.CarriesOn"/>, GEN-14a). The first bridge at a node holds it, as the plan reads it.
+    /// <b>Each bridgehead's far end, and how its span bends leaving it</b>, filed as the bridges are kept, so the road
+    /// landing on one leaves on its span (<see cref="ConnectionPoints.CarriesOn"/>, GEN-14a). Every road with a deck is
+    /// one, and the first at a node holds it, as the plan reads it.
     /// </summary>
-    readonly Dictionary<int, int> _farBridgehead = [];
+    readonly Dictionary<int, (int Node, float Curvature)> _farBridgehead = [];
 
     void FileBridge(in LayoutEdge edge)
     {
-        if (edge.Class != RoadClass.Bridge) return;
+        if (edge.Class != RoadClass.Bridge && !edge.Over) return;
 
-        _farBridgehead.TryAdd(edge.From, edge.To);
-        _farBridgehead.TryAdd(edge.To, edge.From);
+        _farBridgehead.TryAdd(edge.From, (edge.To, edge.Curvature));
+        _farBridgehead.TryAdd(edge.To, (edge.From, -edge.Curvature));
     }
 
     /// <summary>
-    /// <b>Whether any of a road runs off the world it was laid on, or over water it is no bridge over</b>
-    /// (GEN-14). The ground a road joins is asked about when the nodes are placed, and <b>what is asked here is
+    /// <b>Whether any of a road runs off the world it was laid on, over water it is no bridge over, or onto the shore</b>
+    /// (GEN-14, GEN-71). The ground a road joins is asked about when the nodes are placed, and <b>what is asked here is
     /// the line</b>, which is free to bow off its own chord and does so hardest where it turns a corner it was
-    /// joined through (GEN-51).
+    /// joined through (GEN-51) — a street bowing toward a bank stood its walk on the shore.
     /// </summary>
     /// <remarks>
-    /// <b>Walked at a metre, which is the step the ground is judged at.</b> There is no closed form for where a
-    /// chain of arcs reaches furthest or first gets its feet wet, and no need for one: a bow a metre's walk
-    /// cannot find is a bow nothing stands in.
+    /// <b>Walked at the step the ground is judged at</b> (<see cref="TerrainFigures.GroundStepM"/>). There is no closed
+    /// form for where a chain of arcs reaches furthest or first gets its feet wet, and no need for one: a bow that walk
+    /// cannot find is a bow nothing stands in. <b>The shore is asked only away from the road's ends</b>: the one node a
+    /// town stands at a bank is a bridgehead, and the road landing there runs off the shore by its own approach.
     /// </remarks>
-    bool OffTheGround(ReadOnlySpan<ArcSeg> chain, RoadClass roadClass)
+    bool OffTheGround(ReadOnlySpan<ArcSeg> chain, in LayoutEdge edge)
     {
+        var roadClass = edge.Class;
+        var reachM = (FootprintM(config, edge) * 0.5f) + config.CityGen.WaterfrontClearM;
+        var landingM = water.AbutmentM + reachM;
         var lengthM = Spline.TotalLengthM(chain);
-        for (var alongM = 0f; ; alongM += 1f)
+        for (var alongM = 0f; ; alongM += config.Terrain.GroundStepM)
         {
             var sample = Spline.SampleAt(chain, MathF.Min(alongM, lengthM));
             var atM = sample.PositionM;
@@ -393,7 +435,12 @@ internal sealed class RoadLines(
             }
 
             if (roadClass != RoadClass.Bridge && water.Wet(atM)) return true;
-            if (!water.Crosses(atM, sample.Direction, roadClass)) return true;
+            if (roadClass != RoadClass.Bridge && alongM > landingM && alongM < lengthM - landingM && water.Ashore(atM, sample.Right * reachM))
+            {
+                return true;
+            }
+
+            if (!edge.Over && !water.Crosses(atM, sample.Direction, roadClass)) return true;
             if (alongM >= lengthM) return false;
         }
     }
@@ -422,7 +469,7 @@ internal sealed class RoadLines(
                 for (var atY = cell.Y - _reach; atY <= cell.Y + _reach; atY++)
                 {
                     if (Math.Abs(atX - last.X) <= _reach && Math.Abs(atY - last.Y) <= _reach) continue;
-                    if (_inCell.TryGetValue(GridLevel.KeyOf(atX, atY), out var here)) _near.UnionWith(here);
+                    if (_cellOf[GridLevel.KeyOf(atX, atY)] is var here and >= 0) _near.UnionWith(_inCell[here]);
                 }
             }
 
@@ -435,6 +482,7 @@ internal sealed class RoadLines(
 
             var (from, to) = _between[other];
             if (from == edge.From || from == edge.To || to == edge.From || to == edge.To) continue;
+            if (PassesOver(LevelOf(edge), _levels[other])) continue;
 
             if (Crosses(chain, _laid[other], (footprintM + _footprintM[other]) * 0.5f)) return true;
         }
@@ -561,7 +609,16 @@ internal sealed class RoadLines(
         var bend = 0f;
         foreach (var arc in arcs) bend = MathF.Max(bend, MathF.Abs(arc.Curvature));
 
-        return bend <= 1e-6f ? float.PositiveInfinity : 1f / bend;
+        return bend <= 0f ? float.PositiveInfinity : 1f / bend;
+    }
+
+    /// <summary>The radius of the circle through three points, or the widest a float holds where they stand in a line.</summary>
+    static float CircleThroughM(Vector2 aM, Vector2 bM, Vector2 cM)
+    {
+        var across = MathF.Abs(((bM.X - aM.X) * (cM.Y - aM.Y)) - ((bM.Y - aM.Y) * (cM.X - aM.X)));
+        return across > 1e-6f
+            ? Vector2.Distance(aM, bM) * Vector2.Distance(bM, cM) * Vector2.Distance(aM, cM) / (2f * across)
+            : float.MaxValue;
     }
 
     /// <summary>The one arc a piece of a ring is: the chord it stands on decides how far round it goes.</summary>
@@ -618,12 +675,22 @@ internal sealed class RoadLines(
     /// </summary>
     int WanderNodes(in LayoutEdge edge, ref Rng draw)
     {
-        // A spoke is straight because the layout reads it as a ray: everything that asks whether a point
-        // stands clear of an arterial asks it of a line through the hub.
+        // Only a street wanders: every other class is laid along a line the town planned for it (GEN-47).
         if (edge.Class != RoadClass.Street || edge.Straight) return 0;
 
         return 1 + draw.NextInt(config.CityGen.WanderNodesMost);
     }
+
+    /// <summary>
+    /// <b>The tightest one road of the layout is laid to bend</b>: its class's floor (<see cref="FloorRadiusM"/>), and a
+    /// junction's where it passes corners (GEN-51) — but never tighter than its own walk stands off its line, or the walk's
+    /// edge round the inside of the corner turns inside out (GEN-67: a wider road holds a wider corner). <b>The one
+    /// answer</b> the line is drawn to and a later pass asks a line it moves of (<see cref="OneWayStreets"/>).
+    /// </summary>
+    public static float FloorOf(SimConfig config, in LayoutEdge edge) =>
+        edge.ThroughM.Length > 0
+            ? MathF.Max(config.JunctionCorneringRadiusM, (FootprintM(config, edge) * 0.5f) + config.LaneWidthM)
+            : FloorRadiusM(config, edge.Class);
 
     /// <summary>
     /// How tightly a road of this class may bend: the radius its own design speed affords on tarmac.
@@ -636,6 +703,7 @@ internal sealed class RoadLines(
             {
                 RoadClass.Street => config.CityGen.StreetDesignSpeedMps,
                 RoadClass.Roundabout => config.CityGen.RoundaboutDesignSpeedMps,
+                RoadClass.Slip => config.CityGen.SlipDesignSpeedMps,
                 _ => config.CityGen.ArterialDesignSpeedMps,
             });
 

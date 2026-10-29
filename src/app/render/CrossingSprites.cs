@@ -81,7 +81,7 @@ internal static class CrossingSprites
             {
                 into[written++] = new SpriteInstance(
                     (fromM + toM) * 0.5f, new Vector2(drawnM, widthM) * 0.5f, SpriteCell.Whole, SpriteTint.Plain, (uint)sheets.Barrier,
-                    MathF.Atan2(armM.Y, armM.X));
+                    Trig.Atan2(armM.Y, armM.X));
             }
 
             into[written++] = new SpriteInstance(

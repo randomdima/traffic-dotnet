@@ -64,7 +64,7 @@ internal static class TrainSprites
     /// </summary>
     public static int Fill(
         ReadOnlySpan<WagonView> wagons, TrainCatalog catalog, int firstSheet, Vector2 viewCentreM, Vector2 viewSpanM,
-        bool onABridge, Span<SpriteInstance> into)
+        bool onABridge, Span<SpriteInstance> into, SpriteRings rings = default)
     {
         var written = 0;
         var halfSpanM = viewSpanM * 0.5f;
@@ -73,14 +73,13 @@ internal static class TrainSprites
             ref readonly var wagon = ref wagons[each];
             if (!wagon.IsInWorld || wagon.OnABridge != onABridge) continue;
 
-            ref readonly var vehicle = ref catalog.Vehicles[wagon.Look];
-            var reachM = vehicle.FootprintM.X * 0.5f;
+            var reachM = catalog.Vehicles[wagon.Look].FootprintM.X * 0.5f;
             var offM = Vector2.Abs(wagon.PositionM - viewCentreM);
             if (offM.X > halfSpanM.X + reachM || offM.Y > halfSpanM.Y + reachM) continue;
 
             into[written++] = new SpriteInstance(
-                wagon.PositionM, vehicle.FootprintM * 0.5f, SpriteCell.Whole, SpriteTint.Plain, (uint)(firstSheet + wagon.Look),
-                wagon.HeadingRad, each);
+                wagon.PositionM, catalog.Vehicles[wagon.Look].FootprintM * 0.5f, SpriteCell.Whole, SpriteTint.Plain,
+                (uint)(firstSheet + wagon.Look), wagon.HeadingRad, each, rings.OfWagon(each));
         }
 
         return written;

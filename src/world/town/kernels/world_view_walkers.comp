@@ -46,11 +46,14 @@ void main()
     int body = row.body;
     vec2 velocityMps = motion[body].xy;
 
-    // What its gait is drawn off: the step's own travel, which is its velocity over the step (PersonFleet.DistanceWalkedM).
+    // What its gait is drawn off: the step's own travel, which is its velocity over the step, handed back for the host to
+    // copy rather than sum again (WalkerView.DistanceWalkedM).
+    float walkedM = row.distanceWalkedM;
     if (stepped && (row.flags & WalkerInside) == 0u)
     {
-        walkers[walker].distanceWalkedM = row.distanceWalkedM + length(velocityMps) * world.dtS;
+        walkedM += length(velocityMps) * world.dtS;
+        walkers[walker].distanceWalkedM = walkedM;
     }
 
-    walkerViews[walker] = WalkerViewRow(pose[body].xy, velocityMps, row.headingRad, uintBitsToFloat(overlap[body]));
+    walkerViews[walker] = WalkerViewRow(pose[body].xy, velocityMps, row.headingRad, uintBitsToFloat(overlap[body]), walkedM, 0.0);
 }

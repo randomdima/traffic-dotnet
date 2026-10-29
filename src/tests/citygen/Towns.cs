@@ -118,10 +118,14 @@ internal static class Towns
     /// <param name="railLoopDeg">Its loop (RAIL-11): none, unless the case is about the loop.</param>
     /// <param name="waterTributaries">The rivers flowing into its own: none, unless the case is about them.</param>
     /// <param name="waterWidthSpread">How far its river widens and narrows: one width, unless the case is about that.</param>
+    /// <param name="country">
+    /// <b>Whether it grades out to the country</b> (GEN-76): no, unless the case is about that — every other case stages its
+    /// question on a whole town built alike, which grading would thin, widen and bypass.
+    /// </param>
     public static TownBrief Brief(
         ulong seed, WaterKind water = WaterKind.River, int cars = 60, float gridDistrictShare = 0.5f,
         int buildings = 0, int people = 0, int railTracks = 0, float railLoopDeg = 0f, int waterTributaries = 0,
-        float waterWidthSpread = 0f) => new()
+        float waterWidthSpread = 0f, bool country = false) => new()
     {
         Name = City,
         Description = "The suite's own town, laid to ask questions of a city without shipping one",
@@ -139,7 +143,7 @@ internal static class Towns
         {
             IntercityRoads = 2, Railways = railTracks > 0 ? 1 : 0, RailTracks = Math.Max(1, railTracks), RailLoopDeg = railLoopDeg,
         },
-        Districts = new DistrictsBrief { GridShare = gridDistrictShare },
+        Districts = new DistrictsBrief { GridShare = gridDistrictShare, Country = country },
         Streets = new StreetsBrief { UnregulatedShare = 0.2f },
         Roster = new RosterBrief { Buildings = buildings, People = people, Cars = cars },
     };
@@ -275,6 +279,7 @@ internal static class Towns
     {
         get
         {
+            yield return Fixture;
             yield return City;
             foreach (var map in Shipped)
             {
@@ -307,18 +312,6 @@ internal static class Towns
     {
         var maps = new TheoryData<string>();
         foreach (var map in Maps.Briefs()) maps.Add(map);
-        return maps;
-    }
-
-    /// <summary>
-    /// Every map there is. <b>Only what is about the shipped <em>set</em></b> may ask this — that every map
-    /// has a catalogue row, that every file reads back as it was written, that every one of them is watched
-    /// against something — because those are questions about the list rather than about any town on it.
-    /// </summary>
-    public static TheoryData<string> EveryShippedMap()
-    {
-        var maps = new TheoryData<string>();
-        foreach (var map in Shipped) maps.Add(map);
         return maps;
     }
 

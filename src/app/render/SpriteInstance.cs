@@ -22,8 +22,8 @@ namespace TrafficSimulation.App.Render;
 /// <para>
 /// <b>The tint is a colour and an opacity</b>, and everything the town draws but a mark and a glow leaves both
 /// alone: a mark is the same quad laid at whatever strength the tyre that made it earned, and a picture
-/// cannot carry a per-instance strength. <b>Nothing here says "selected"</b> — that is a shape drawn
-/// over the picture rather than a colour laid into it (<see cref="Hud.SelectionMark"/>).
+/// cannot carry a per-instance strength. <b>"Selected" is no tint</b>: it is a ring round the picture
+/// (<see cref="Ring"/>, <see cref="SpriteRings"/>), carried in the sheet's half-word above every slot the atlas has.
 /// </para>
 /// <para>
 /// <b>The half-size is two halves</b> (<see cref="Halves"/>), so an instance the device emits is the host's to the bit.
@@ -46,8 +46,8 @@ internal readonly record struct SpriteInstance
     /// <summary>The tint as red, green, blue and opacity a byte each from the low (<see cref="Tint"/>).</summary>
     public readonly uint PackedTint;
 
-    /// <summary>The atlas slot drawn from: fewer than <see cref="SheetAtlas.Slots"/>.</summary>
-    public readonly ushort Sheet;
+    /// <summary>The atlas slot, and the ring above it (<see cref="RingShift"/>).</summary>
+    readonly ushort _sheet;
 
     /// <summary>
     /// Which body of its kind this is, the same every frame — a building's or a wagon's index, its low sixteen bits; nought
@@ -55,17 +55,27 @@ internal readonly record struct SpriteInstance
     /// </summary>
     public readonly ushort Id;
 
+    /// <summary>Where the ring starts in the sheet's half-word, past every slot (<c>quad.glsl</c> and <c>town.wgsl</c> say it again).</summary>
+    public const int RingShift = 14;
+
     public SpriteInstance(
-        Vector2 centreM, Vector2 halfSizeM, SpriteCell cell, uint packedTint, uint sheet, float headingRad, int id = 0)
+        Vector2 centreM, Vector2 halfSizeM, SpriteCell cell, uint packedTint, uint sheet, float headingRad, int id = 0,
+        SpriteRing ring = SpriteRing.None)
     {
         CentreM = centreM;
         _halfSize = Halves.Pack(halfSizeM);
         HeadingRad = headingRad;
         Cell = cell;
         PackedTint = packedTint;
-        Sheet = (ushort)sheet;
+        _sheet = (ushort)(sheet | ((uint)ring << RingShift));
         Id = (ushort)id;
     }
+
+    /// <summary>The atlas slot drawn from: fewer than <see cref="SheetAtlas.Slots"/>.</summary>
+    public ushort Sheet => (ushort)(_sheet & ((1 << RingShift) - 1));
+
+    /// <summary>The ring round its picture (CTL-1), which the stages grow the quad by.</summary>
+    public SpriteRing Ring => (SpriteRing)(_sheet >> RingShift);
 
     /// <summary>The quad's half-size as drawn: the one handed in, at a half's precision (<see cref="AsDrawn"/>).</summary>
     public Vector2 HalfSizeM => Halves.Unpack(_halfSize);

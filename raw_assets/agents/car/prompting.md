@@ -300,9 +300,9 @@ else in the box erased to clear (copy 1: head, front indicator, brake, rear indi
 ## zones_trial (2026-10-20) — the installed sprites zoned at their ends, lit by the tool, a trial, $0.039
 
 `zones_trial-v1`, `-v2`: eight installed unlit sprites at their own size, one a cell, masked to 0.8 m of each end,
-with a legend of the keys drawn in the band at the top (template `.tmp/zone_sheet.py`, brief
-`.tmp/gen/briefs/zones_trial.txt`). The keys are colours no lamp has: head `#0000FF`, indicator `#00FF00`, tail and
-brake `#FF00FF`, reverse `#00FFFF`. Cut and lit by `.tmp/zone_lit.py`: a texel is the nearest key its end may hold
+with a legend of the keys drawn in the band at the top. The keys are colours no lamp has: head `#0000FF`, indicator
+`#00FF00`, tail and brake `#FF00FF`, reverse `#00FFFF`. Cut and lit by a throwaway script: a texel is the nearest key
+its end may hold
 (front: head, indicator; rear: brake, indicator, reverse), on the body and changed from the sprite. A lens is the
 sprite's own texels burning in the lamp's colour by their lightness, and its glow a blur of the zone on a padded canvas.
 
@@ -316,7 +316,7 @@ sprite's own texels burning in the lamp's colour by their lightness, and its glo
   the others).
 - **The zones are blocky and only roughly mirrored**: the top-against-bottom overlap is 0.5–0.7 for heads and brakes
   and 0.1–0.5 for indicators and reverse. They are a few texels off the lens edge, and the light shows that edge.
-- **Against a map read off the sprite alone** (`.tmp/zone_tool.py`): read by texel colour, the tool's zones follow
+- **Against a map read off the sprite alone**: read by texel colour, the tool's zones follow
   the lens where it stands off its paint and fail where it does not — a red car's tails, a white car's heads. Read by
   the regions the art's black lines close off, each classed by its median colour, they find every lamp of the eight
   cars, symmetric and smoothed, with no generation. Its lines are black or a ridge darker than both sides (a lens's

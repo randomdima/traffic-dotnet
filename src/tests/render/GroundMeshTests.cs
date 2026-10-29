@@ -559,17 +559,20 @@ public class GroundMeshTests
     /// paint, brighter than the ground, as well as an edge darker than it, on a surface and as paint.
     /// </summary>
     [Theory]
-    [InlineData(2.6f, 2.6f, 2.5f, (uint)Surface.Paint)]
+    [InlineData(2.9f, 2.9f, 2.8f, (uint)Surface.Paint)]
     [InlineData(0.58f, 0.58f, 0.62f, (uint)Surface.Water)]
     [InlineData(1f, 1f, 1f, (uint)Surface.Grass)]
     public void ACornerKeepsItsShadeAndItsSurface(float r, float g, float b, uint surface)
     {
         var vertex = new GroundVertex(Vector2.Zero, new Vector3(r, g, b), (Surface)surface);
-        var halfStep = GroundVertex.BrightestTint / 511f * 0.5f;
+        var halfStep = new Vector3(
+            GroundVertex.ChannelSteps, GroundVertex.ChannelSteps, GroundVertex.ThirdChannelSteps);
+        halfStep = new Vector3(GroundVertex.BrightestTint * 0.5f) / halfStep;
 
         Assert.Equal((Surface)surface, vertex.Surface);
         Assert.False(vertex.Fades);
-        Assert.InRange(Vector3.Abs(vertex.Tint - new Vector3(r, g, b)).Length(), 0f, halfStep * MathF.Sqrt(3f));
+        var off = Vector3.Abs(vertex.Tint - new Vector3(r, g, b));
+        Assert.True(off.X <= halfStep.X && off.Y <= halfStep.Y && off.Z <= halfStep.Z, $"{vertex.Tint} kept for {r},{g},{b}");
     }
 
     /// <summary>

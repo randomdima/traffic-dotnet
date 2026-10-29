@@ -1,3 +1,6 @@
+using System.Numerics;
+using TrafficSimulation.Core.Config;
+
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
@@ -25,17 +28,57 @@ internal enum BuildingUse : byte
     Depot = 3,
 }
 
-/// <summary><b>The service buildings a town is laid with</b> (GEN-56): one of each use in every district a street stands in.</summary>
+/// <summary>
+/// <b>The service buildings a town is laid with</b> (GEN-56): each use serves a catchment of the districts its streets stand
+/// in (<see cref="DistrictMap.Built"/>), so a town has as many of each as its catchments — a hospital to many districts, a
+/// police station to a few.
+/// </summary>
+/// <remarks>
+/// <b>Which districts stand one is spread over the town</b>: the one nearest the middle of the built districts first, then
+/// each time the built district furthest from every one already chosen — so the catchments are about one size and every
+/// district is near one, without the districts being grouped first.
+/// </remarks>
 internal static class ServiceBuildings
 {
-    /// <summary>The uses a district stands one of, in the order their yards are cut.</summary>
+    /// <summary>The uses a town stands, in the order their yards are cut.</summary>
     public static ReadOnlySpan<BuildingUse> Uses => [BuildingUse.Hospital, BuildingUse.PoliceStation, BuildingUse.Depot];
 
-    /// <summary>
-    /// How many buildings of one use a town asks for: one a district its streets stand in (<see cref="DistrictMap.Built"/>),
-    /// and none where it plans no building.
-    /// </summary>
-    public static int OfEachUse(int buildings, DistrictMap districts) => buildings > 0 ? districts.BuiltCount : 0;
+    /// <summary>How many districts one building of a use serves.</summary>
+    public static int CatchmentOf(BuildingUse use, CityGenFigures figures) => use switch
+    {
+        BuildingUse.Hospital => figures.DistrictsPerHospital,
+        BuildingUse.PoliceStation => figures.DistrictsPerPoliceStation,
+        _ => figures.DistrictsPerDepot,
+    };
 
-    public static int OfEachUse(CityPlan plan) => OfEachUse(plan.Buildings.Count, plan.Districts);
+    /// <summary>
+    /// <b>The districts that stand a building of one use</b>, in the order chosen: one for each catchment of the built
+    /// districts, and none where the town plans no building.
+    /// </summary>
+    public static List<int> Serving(BuildingUse use, int buildings, DistrictMap districts, CityGenFigures figures)
+    {
+        var chosen = new List<int>();
+        if (buildings <= 0 || districts.BuiltCount == 0) return chosen;
+
+        var built = Enumerable.Range(0, districts.Count).Where(districts.Built).ToList();
+        var middleM = Vector2.Zero;
+        foreach (var district in built) middleM += districts.CentreM[district];
+        middleM /= built.Count;
+
+        var wanted = (int)MathF.Ceiling(built.Count / (float)Math.Max(1, CatchmentOf(use, figures)));
+        var nearestM = new float[districts.Count];
+        Array.Fill(nearestM, float.PositiveInfinity);
+        var next = built.MinBy(district => Vector2.DistanceSquared(districts.CentreM[district], middleM));
+        while (chosen.Count < wanted)
+        {
+            chosen.Add(next);
+            foreach (var district in built) nearestM[district] = MathF.Min(nearestM[district], Vector2.Distance(districts.CentreM[district], districts.CentreM[next]));
+            next = built.MaxBy(district => nearestM[district]);
+        }
+
+        return chosen;
+    }
+
+    public static List<int> Serving(BuildingUse use, CityPlan plan, CityGenFigures figures) =>
+        Serving(use, plan.Buildings.Count, plan.Districts, figures);
 }

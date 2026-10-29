@@ -41,6 +41,10 @@ namespace TrafficSimulation.App.Render;
 /// sheets carries its tilt as its ID (<see cref="BodyTilt"/>), and the vertex stage draws the plane it tilts to.
 /// </para>
 /// <para>
+/// <b><see cref="Rings"/> is the renderer's too</b>: how the ring round a selected unit's picture is drawn (CTL-1,
+/// <see cref="SpriteRings"/>), its hues and its widths, which an instance asking for a ring is grown and banded by.
+/// </para>
+/// <para>
 /// <b><see cref="Clouds"/> is the clouds' shadows at this tick (OBJ-8)</b>, <see cref="CloudShadows.At"/>; left out, a
 /// frame draws none.
 /// </para>
@@ -58,7 +62,7 @@ namespace TrafficSimulation.App.Render;
 internal readonly record struct CameraView(
     Vector2 CentreM, Vector2 ClipPerM, Vector2 UiPx, Vector2 Facing, Vector4 SurfacePeriodsM = default,
     Vector4 WaterPeriodM = default, Vector4 PropCull = default, Vector4 Turning = default, Vector4 CarTilt = default,
-    CloudShadow Clouds = default, GroundPatches Patches = default, Vector4 WaterDriftM = default, WaterWaves Waves = default)
+    RingLook Rings = default, CloudShadow Clouds = default, GroundPatches Patches = default, Vector4 WaterDriftM = default, WaterWaves Waves = default)
 {
     /// <summary>How far the fans have turned and the least one is cut across, as <see cref="Turning"/> carries them.</summary>
     public static Vector4 Turned(float turns, float leastAcrossM) => new(turns, leastAcrossM, 0f, 0f);

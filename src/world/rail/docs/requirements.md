@@ -41,7 +41,8 @@ the dressing is drawn and stands nothing: a deck the ballast's band wide and pas
 the deck itself, carrying a side — walkway and parapet — along each edge; where it lands on the track at grade, a post
 at each corner and a wing wall turned back along the bank from it; and on the ground a pier noses out from under the
 deck at every pitch where it stands in the water. Two tracks side by side are one deck, dressed along its outer edges
-only.
+only, **and one bridge, as a road's lanes are**: each track is on it as far as any of them is, so its ends stand square
+across them all (`RailLines.OneDeck`) and not where each track's own chords happened to leave the shore.
 
 **RAIL-13** `P8` **A track at grade lies on a bed of ballast that runs out into the grass as a shore does** (`GEN-2c`):
 the bed is drawn apart from the sleepers and rails laid over it, the band the town keeps clear wide (`RAIL-4`), its

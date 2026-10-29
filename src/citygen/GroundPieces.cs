@@ -36,6 +36,9 @@ internal readonly record struct GroundPieces(
     /// <summary>The railway's ballast (RAIL-4), laid with the water before any road.</summary>
     public CityPlan.RailArrays Rails { get; init; } = CityPlan.RailArrays.None;
 
+    /// <summary>Walk laid as an area rather than along a road (<see cref="CityPlan.Plazas"/>).</summary>
+    public CityPlan.RingArrays Plazas { get; init; } = CityPlan.RingArrays.None;
+
     /// <summary>Bare ground of the size given: grass everywhere, which is what a town starts as.</summary>
     public static GroundPieces None(ulong seed, Vector2 worldSizeM, float pavementWidthM) =>
         new(seed, worldSizeM, pavementWidthM,

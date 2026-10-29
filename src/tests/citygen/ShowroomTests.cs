@@ -38,22 +38,57 @@ public class ShowroomTests
         }
     }
 
-    /// <summary><b>Every walker look walks once</b> (PER-30), each round a ring of its own, and no uniform is worn.</summary>
+    /// <summary><b>Every prop look stands once</b>, in the field between the yard and the buildings.</summary>
     [Fact]
-    public void EveryWalkerLookWalksOnce()
+    public void EveryPropLookStandsOnce()
+    {
+        var props = Towns.Of(ShowroomPlan.Name).Props;
+
+        var looks = ShippedArt.Sizes.Props.Count;
+        Assert.True(looks > 0, "the art holds no prop look");
+        Assert.Equal(looks, props.Count);
+
+        var worn = new bool[looks];
+        foreach (var look in props.Look)
+        {
+            Assert.False(worn[look], $"prop look {look} stands twice");
+            worn[look] = true;
+        }
+    }
+
+    /// <summary><b>Every person look stands once</b> (PER-30), the uniforms with the walkers.</summary>
+    [Fact]
+    public void EveryPersonLookStandsOnce()
     {
         using var world = new TownWorld(Towns.Of(ShowroomPlan.Name), Config);
 
-        var looks = PersonCatalog.Shared.Count;
-        Assert.InRange(looks, 1, ShowroomPlan.WalkerSlots);
+        var looks = PersonCatalog.Shared.SheetCount;
         Assert.Equal(looks, world.People.Count);
 
         var worn = new bool[looks];
         for (var person = 0; person < world.People.Count; person++)
         {
             var look = world.People.Variant[person];
-            Assert.False(worn[look], $"{PersonCatalog.Shared.Variants[look].Id} walks twice");
+            Assert.False(worn[look], $"{PersonCatalog.Shared.Variants[look].Id} stands twice");
             worn[look] = true;
+        }
+    }
+
+    /// <summary>
+    /// <b>The island inside the loop is walk</b> (<see cref="CityPlan.Plazas"/>): the ground answers sidewalk under every
+    /// person look's place, which is the row down the island's middle.
+    /// </summary>
+    [Fact]
+    public void ThePeopleStandOnTheIslandsWalk()
+    {
+        var plan = Towns.Of(ShowroomPlan.Name);
+        var ground = new GroundShapes(plan.Paving(Config), Config);
+
+        for (var spawn = 0; spawn < plan.Spawns.Count; spawn++)
+        {
+            if (plan.Spawns.Kind[spawn] != IdlePlan.SpawnKindPerson) continue;
+
+            Assert.Equal(Ground.Sidewalk, ground.At(plan.Spawns.PositionM[spawn]));
         }
     }
 

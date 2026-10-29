@@ -180,7 +180,8 @@ public class UnitPanelTests(StandingTown town) : IClassFixture<StandingTown>
         var panel = new UnitPanel();
         var quads = new OverlayQuad[TownRenderer.OverlayCapacity];
         ScenarioWatch[] watching = [new TalkativeWatch()];
-        for (var pass = 0; pass < 2; pass++) Lay(panel, world, quads, watching);
+        // Warmed past tier-up, as StatusPanelTests' panel is: a recompile in the measured window is charged to this thread.
+        for (var pass = 0; pass < 256; pass++) Lay(panel, world, quads, watching);
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var pass = 0; pass < 64; pass++) Lay(panel, world, quads, watching);

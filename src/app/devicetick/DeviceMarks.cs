@@ -64,7 +64,8 @@ internal sealed class DeviceMarks(Vk vk) : IMarker
             _vk = vk;
             _entries = filing.EntryCell.Length;
             _batch = new ComputeBatch(vk);
-            _kernel = new ComputeKernel(vk, "ribbon_marks.comp", 7, (uint)Marshal.SizeOf<MarksPush>());
+            // Two sets: one for the first guess at the room, and one for weighing again at the count that guess found (Answered).
+            _kernel = new ComputeKernel(vk, "ribbon_marks.comp", 7, (uint)Marshal.SizeOf<MarksPush>(), sets: 2);
             _held = new DeviceHoldings(vk);
             _pieces = _held.Laid<MarkPiece>(filing.Pieces, BufferUse.TransferSrc);
             _entryCell = _held.Laid<uint>(filing.EntryCell, BufferUse.TransferSrc);

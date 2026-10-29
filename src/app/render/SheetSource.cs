@@ -22,4 +22,10 @@ internal readonly record struct SheetSource(string? Path, byte[]? Rgba, int Widt
     /// otherwise be white on white. <see cref="SheetPlace.Light"/> carries it to the fragment stage.
     /// </summary>
     public bool AddsLight { get; init; }
+
+    /// <summary>
+    /// How wide a dark line is laid round the picture's solid part as it is packed, in its own pixels; nought lays none
+    /// (<see cref="SheetOutline"/>). The file is left as it is.
+    /// </summary>
+    public float OutlineArtPx { get; init; }
 }

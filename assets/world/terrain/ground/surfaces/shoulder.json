@@ -1,0 +1,11 @@
+{
+ "id": "shoulder",
+ "kind": "Surface",
+ "sprite": "shoulder.webp",
+ "describe": "the shoulder beside an intercity road's carriageway, where a city street would have its pavement: packed gravel and compacted dirt seen straight down, with no lines, ruts or direction of any kind",
+ "mosaic": 2,
+ "looks": [
+  {"look": "a", "describe": "a gravel road shoulder: compacted grey-beige crushed stone fines packed hard and flat, densely scattered small grey and buff stones one to three centimetres across, soft broad patches of slightly darker packed earth", "tiles": 2},
+  {"look": "b", "describe": "the same gravel shoulder a little more used: drier and dustier, a shade browner, more packed earth showing between the stones, still flat, no plants", "tiles": 2}
+ ]
+}

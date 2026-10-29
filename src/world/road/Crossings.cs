@@ -103,6 +103,35 @@ internal sealed class Crossings
     public int At(int road, bool atTo) => _atEnd[JunctionArms.End(road, atTo)];
 
     /// <summary>
+    /// <b>Where a line down the carriageway meets the line <paramref name="backM"/> behind one band's near edge</b>
+    /// (TER-6), as a distance along it — or NaN where it never does — and <paramref name="towards"/>, the band's axis
+    /// the way the traffic <paramref name="arriving"/> meets it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Struck along the band's own axis and crossed exactly</b> (<see cref="Spline.CrossingsM"/>), so everything
+    /// held behind one band stands on one line square to it: a bar on each lane, and the lane paint between them. A
+    /// place read off each line's own metres instead parts from that line by however far the line stands off the band's
+    /// middle times the skew between its bearing there and the band's axis.
+    /// </remarks>
+    /// <param name="nearM">A place along the line near the band, which picks the crossing where its circle meets the edge twice.</param>
+    public float BehindM(int crossing, ReadOnlySpan<ArcSeg> arcs, float nearM, Vector2 arriving, float backM, out Vector2 towards)
+    {
+        var axis = _axis[crossing];
+        towards = Vector2.Dot(axis, arriving) >= 0f ? axis : -axis;
+
+        // A whole span either side of the middle, so a line anywhere across the carriageway meets it however skewed.
+        var reachM = _spanM[crossing];
+        var across = Heading.RightOf(towards);
+        var middleM = _centreM[crossing] - (towards * ((_depthM[crossing] * 0.5f) + backM));
+        ReadOnlySpan<ArcSeg> edge = [new ArcSeg(middleM - (across * reachM), Trig.Atan2(across.Y, across.X), reachM * 2f, 0f)];
+
+        // Run on past a line's ends by as far as the edge stands back, so a line ending at the band still answers.
+        Span<SplineCrossing> found = stackalloc SplineCrossing[1];
+        var runOnM = backM + _depthM[crossing];
+        return Spline.CrossingsM(arcs, edge, nearM, reachM, found, runOnM) > 0 ? found[0].OneM : float.NaN;
+    }
+
+    /// <summary>
     /// <b>The bands a town's kerb ends ask for</b> (TER-6): one across every station
     /// (<see cref="KerbNodes"/>), from one of its two points to the other, and none anywhere else.
     /// </summary>

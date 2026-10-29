@@ -40,7 +40,7 @@ internal static class BridgeSheet
     const uint InsetAlongSteps = 2;
 
     /// <summary>And across, in the steps it files the width in.</summary>
-    const uint InsetAcrossSteps = 16;
+    const uint InsetAcrossSteps = 8;
 
     /// <summary>
     /// <b>The rectangle of the fittings' layer a fitting is drawn in</b>, as a share of the picture along and across:

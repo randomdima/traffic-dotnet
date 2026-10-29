@@ -35,6 +35,8 @@ INDEX = os.path.join(GEN_DIR, "index.jsonl")
 # Every picture a frame was asked from, by content, as it was when sent: a style picture redrawn under the same
 # path afterwards must not rewrite what an older frame's record says it was given.
 INPUTS_DIR = os.path.join(GEN_DIR, "inputs")
+# The records of frames a kept variant traces to: they outlive .tmp/, so a version or an attempt is counted here too.
+KEPT_FRAMES_DIR = os.path.join(ROOT, "raw_assets", "_frames")
 
 # The owner's pick for sprite sheets: the only model to draw every sheet of imgbench's train benchmark top-down
 # and right, and at quality low half the price with no visible loss (2026-10-18).
@@ -70,9 +72,10 @@ def append_index(rec):
 
 
 def next_path(name, ext):
-    """.tmp/gen/frames/<name>-v<N>.<ext>, N the first free version."""
+    """.tmp/gen/frames/<name>-v<N>.<ext>, N the first version neither scratch nor a kept record holds."""
     n = 1
-    while os.path.exists(os.path.join(FRAMES_DIR, f"{name}-v{n}.{ext}")):
+    while (os.path.exists(os.path.join(FRAMES_DIR, f"{name}-v{n}.{ext}"))
+           or os.path.exists(os.path.join(KEPT_FRAMES_DIR, f"{name}-v{n}.json"))):
         n += 1
     return os.path.join(FRAMES_DIR, f"{name}-v{n}.{ext}"), n
 
@@ -144,9 +147,11 @@ def snapshot(path, role):
 
 
 def check_attempts(name, past_cap):
-    """Refuses a frame past MAX_ATTEMPTS under one name, before anything is billed. Counts the frames the index
-    holds; a refusal that returned no image is not in it and is counted by whoever ran it."""
-    made = sum(1 for r in read_index() if r.get("name") == name)
+    """Refuses a frame past MAX_ATTEMPTS under one name, before anything is billed. Counts the frames the index and
+    the kept records hold; a refusal that returned no image is in neither and is counted by whoever ran it."""
+    kept = os.listdir(KEPT_FRAMES_DIR) if os.path.isdir(KEPT_FRAMES_DIR) else []
+    made = len({r["id"] for r in read_index() if r.get("name") == name}
+               | {f[:-5] for f in kept if f.endswith(".json") and re.fullmatch(rf"{re.escape(name)}-v\d+", f[:-5])})
     if made >= MAX_ATTEMPTS and not past_cap:
         sys.exit(f"{name} already has {made} frame(s) and {MAX_ATTEMPTS} is the limit for one generation: "
                  "report the frames to the owner instead of trying again (--past-cap only on the owner's word)")

@@ -1,0 +1,8 @@
+{
+  "id": "guardrail_median_4m",
+  "sprite": "guardrail_median_4m.webp",
+  "kind": 2,
+  "footprintM": [4.0, 0.959],
+  "turns": true,
+  "describe": "double-sided W-beam median barrier section, 4 m long: two galvanised steel beams run the whole length along both long edges, two square steel posts between them a quarter of the way in from each end, both ends cut straight and square"
+}

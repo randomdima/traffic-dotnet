@@ -59,7 +59,8 @@ internal sealed class CrashSandbox : ISimWorld, IStepRoster, IDisposable
         People = new PersonFleet(people);
         // <b>The rig stands the nominal car</b>: every figure `--bench crash` quotes is quoted against
         // `SimConfig`'s own weight, so a rig that stood the fleet would be reporting a variant.
-        Cars = new CarFleet(cars, arcsPerCar: 1, CarBuilds.OfTheNominalCar(config, CarCatalog.Shared));
+        Cars = new CarFleet(cars, arcsPerCar: 1, CarBuilds.OfTheNominalCar(config, CarCatalog.Shared),
+            config.Patience.FuseJitterShare);
         _tyres = new TyreCarries(cars);
         _impulseNs = new Vector2[people];
         _declaredMps = new Vector2[people];

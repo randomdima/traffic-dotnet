@@ -1,0 +1,58 @@
+{
+ "id": "props_street_guardrail-v2",
+ "ts": "2026-10-26T20:10:29",
+ "op": "edit",
+ "name": "props_street_guardrail",
+ "file": ".tmp/gen/frames/props_street_guardrail-v2.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.017852,
+ "usage": {
+  "prompt_tokens": 2326,
+  "completion_tokens": 158,
+  "total_tokens": 2484,
+  "cost": 0.017852,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.017852,
+   "upstream_inference_prompt_cost": 0.013112,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image is attached: finished art from the same game — the grass these things stand on and two cars, at one scale — to match in style, finish and scale only, not its contents or colours.\n\nMake one image of 12 separate sprites for a 2D city game seen from above: roadside furniture along an intercity highway outside town — steel crash barriers and their ends, a concrete median, a crash cushion, a drum and a marker post. Lay them in a 4 by 3 grid — 3 rows of 4, read left to right and top to bottom in the order listed below — each centred in its place in the grid, well apart from its neighbours and from the picture's edge, never touching another.\n\nWhat an earlier attempt got wrong, and must not be drawn again:\n- Drawings 3 and 4 came out nearly twice as deep as they are: about 1 m deep against their 4 m length, where they are 0.6 m deep, nearly seven times as long as deep. Drawing 4 was also seen at an angle, its front face and sloped ends showing like a brick: it is seen strictly from directly above, so its outline is a long thin rectangle with square ends, the top ridge a lighter line along its middle and the two sloped faces either side of it as two long bands of soft shading.\n- The steel rails (drawings 1, 2, 5, 6, 9) came out about 25 % too deep. A rail with its posts is only 0.45 m deep in all: the beam a narrow strip along the bottom edge, the post tops small squares just behind it.\n- Drawing 11 was seen from the side, a cone. It is seen straight down: concentric rings, the orange top in the middle, a white band ring round it and the black base ring outside.\n\nSize and shape:\n- Each is drawn at the true size given, in metres, against the cars in the style image (4.5 m long, 1.8 m wide): a smaller thing is drawn smaller than a larger one, in proportion. A round thing is as wide as it is deep; a rectangular one keeps the proportion given.\n- Every made object has clean straight or round edges. Nothing is cut off.\n- A barrier section lies horizontally, its length along the picture's width. The game lays sections end to end along a road, so a section's end marked \"cut straight and square\" is a crisp vertical edge with the beam (or the concrete) reaching right to it at full width: no end cap, no taper, no gap, no post at the very end. Its two ends are the same height and in line, so the next section continues it seamlessly.\n- Seen straight down, a steel beam shows its narrow top edge and the posts behind it show their small square tops; a concrete barrier shows its top ridge and its sloped faces from above. No face of a barrier seen from the side.\n\nScale of the details is strict: a post top about 15 cm square, a spacer block about as large, a beam about 10 cm wide seen from above. A small thing keeps its details few, simple and readable.\n\nThe view:\n- A thing marked \"front at the bottom\" is turned in the game to face the traffic, so it is seen strictly from directly above (orthographic plan view, like a map), its front at the bottom edge: no perspective, no tilt, no side faces.\n- Everything else is never turned, so it may be seen from high above at a slight angle, a little of its side showing towards the bottom, as long as it reads mostly from above: a tree is mostly its crown, a bin mostly its lid.\n- No cast shadow on the ground; soft shading on the thing itself, light from the top-left.\n\nStyle: painted game art like the style image, natural and believable rather than cartoonish: soft detailed painting, no heavy black outlines, rich but natural colours, every drawing clearly different from its neighbours. Summer, in a Black Sea port city.\n\nEverything outside the drawings is fully transparent: no background colour, no ground, no grass under them, no shadow, nothing half-transparent. No text, letters, numbers, logos, labels, grid lines or frames anywhere.\n\nDrawings, row by row, left to right:\n\n\nRow 1\n1. 4 x 0.45 m (8.9x wider than deep, front at the bottom) — new galvanised steel W-beam crash barrier section, 4 m long: a narrow bright silver-grey steel beam runs the whole length along the bottom edge, its corrugated profile showing as two thin parallel ridges along it; just behind it two small square steel posts, each with a short spacer block joining it to the beam, one a quarter of the way in from each end; both ends cut straight and square, the beam reaching right to them, so sections join end to end\n2. 4 x 0.45 m (8.9x wider than deep, front at the bottom) — the same 4 m W-beam crash barrier section weathered: dull grey galvanising with soft brown rust spots and road grime, two posts a quarter of the way in from each end, both ends cut straight and square\n3. 4 x 0.6 m (6.7x wider than deep, front at the bottom) — double-sided W-beam median barrier section, 4 m long: two galvanised steel beams run the whole length along both long edges, two square steel posts between them a quarter of the way in from each end, both ends cut straight and square\n4. 4 x 0.6 m (6.7x wider than deep, front at the bottom) — precast concrete highway median barrier section, 4 m long: light grey concrete, a narrow flat top ridge along its middle, the sloped faces either side of it shaded, both ends cut straight and square\n\nRow 2\n5. 2 x 0.45 m (4.4x wider than deep, front at the bottom) — the same new galvanised W-beam section, 2 m long: the beam runs the whole length along the bottom edge, one square steel post with its spacer block at the middle behind it, both ends cut straight and square\n6. 2 x 0.45 m (4.4x wider than deep, front at the bottom) — the same 2 m W-beam section weathered: dull grey with soft brown rust spots, one post at the middle, both ends cut straight and square\n7. 2 x 0.9 m (2.2x wider than deep, front at the bottom) — flared terminal end of a W-beam crash barrier, 2 m long: at the left end the galvanised beam lies along the bottom edge, cut straight and square to join a run; towards the right it curves smoothly away up to the top edge and ends in a rounded steel fishtail end cap; one post behind it at the middle\n8. 1 x 0.45 m (2.2x wider than deep, front at the bottom) — short end of a W-beam crash barrier, 1 m long: the galvanised beam along the bottom edge, the left end cut straight and square to join a run, the right end a rounded steel fishtail cap bent back, one post at the middle\n\nRow 3\n9. 4 x 0.5 m (8.0x wider than deep, front at the bottom) — the same new 4 m W-beam section dented by a crash: the beam pushed back towards the posts in its middle in a shallow bend, scuffed bare steel and a smear of black tyre rubber there, two posts a quarter of the way in from each end, both ends straight and square and in line\n10. 2.5 x 0.9 m (2.8x wider than deep, rounded corners, front at the bottom) — highway crash cushion at a barrier's end: a row of yellow plastic energy-absorbing segments on a dark steel frame, its rounded nose at the right with black and yellow diagonal chevron stripes\n11. round, 0.6 m across — orange and white plastic road channelizing drum seen from above: a round orange top with a white ring, a black rubber base ring showing round it\n12. 0.15 x 0.12 m (1.2x wider than deep, front at the bottom) — white plastic roadside delineator post seen from above: a small white post top with a black band across it and an orange reflector on its front",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "fa8eff6a33e96d75",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/props_street_guardrail_style.png"
+  }
+ ],
+ "cells": [
+  "guardrail_4m",
+  "guardrail_4m_rusty",
+  "guardrail_median_4m",
+  "concrete_median_4m",
+  "guardrail_2m",
+  "guardrail_2m_rusty",
+  "guardrail_end_flare",
+  "guardrail_end_cap",
+  "guardrail_4m_dented",
+  "crash_cushion",
+  "traffic_drum",
+  "delineator_post"
+ ]
+}

@@ -1,5 +1,18 @@
 # The railway — decision log
 
+## 2026-10-27 — tracks side by side cross on one bridge
+
+**The owner: "fix track bridges on multi track crossings so its a single unit, like for roads … its basicaly exactly the
+same logic as roads"** (`RAIL-12`). Each track went onto its bridge where its own chords first touched the shore, so a
+double line's two decks were staggered, each with its own ends, posts and wing walls.
+
+- **The plan carries it, not the drawing** (`RailLines.OneDeck`): a track's level is the train's as well (`RAIL-8`), so
+  the tracks of one bridge go up and come down at one place. Each run is carried on to the furthest any of its group
+  reaches, square across them, a chord an end falls inside cut there; the drawing already dressed touching decks along
+  their outer edges only.
+- **Grouped where the decks touch**, a quarter and three quarters along each run, so two tracks crossing each other on
+  bridges are not one.
+
 ## 2026-10-25 — a rail bridge dressed as a road's, and the track's ballast a bed of its own
 
 **The owner: "Improve railway bridges - similar logic to roadbridges, just difference generated assets. also improve

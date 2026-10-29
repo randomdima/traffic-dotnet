@@ -147,9 +147,9 @@ public class CentrelineRunsTests
     /// <remarks>
     /// <b>Measured against the bars that were laid and not against the figure they were laid at</b>: a bar
     /// stands on its lane and the line on the carriageway between the two, so the two are compared in the
-    /// bar's own frame — how far behind its back edge the paint stops. What the half-carriageway between
-    /// those two frames costs over the bend an arm makes is <see cref="FramesM"/>, which is a centimetre
-    /// and not a tolerance the claim leans on.
+    /// bar's own frame — how far behind its back edge the paint stops. Both are struck off the one line
+    /// behind the band (<see cref="Crossings.BehindM"/>), so however far apart they stand and however the arm
+    /// bends, the paint stops on the bar's back edge to within the arithmetic's rounding.
     /// </remarks>
     [Fact]
     public void TheLineDownARunStopsBehindTheBarAtEitherEndOfIt()
@@ -189,8 +189,7 @@ public class CentrelineRunsTests
                 // behind it is further against that way again.
                 var backM = bars.CentreM[bar] - (bars.Approach[bar] * bars.ThicknessM[bar] * 0.5f);
 
-                // Read in a street's frame: a road of more lanes each way stands its bar further off the line (GEN-67).
-                var behindM = Vector2.Dot(backM - stopsM, bars.Approach[bar]) / Math.Max(1, plan.Roads.LanesOn(lanes.LaneRoad[lane]) / 2);
+                var behindM = Vector2.Dot(backM - stopsM, bars.Approach[bar]);
                 asked++;
                 if (behindM >= -worstM) continue;
 
@@ -203,21 +202,7 @@ public class CentrelineRunsTests
         // The staging and not the claim: a fixture whose runs ended at no bar would ask nothing, and pass.
         Assert.True(asked > 0, "no run of the fixture ends at an arm carrying a bar");
         Assert.True(
-            worstM <= FramesM,
-            $"the line down run {worstRun} stops {worstM:0.##} m past the bar on lane {worstLane}");
+            worstM <= LineTolerance.RoundingM,
+            $"the line down run {worstRun} stops {worstM * 1000f:0.#} mm past the bar on lane {worstLane}");
     }
-
-    /// <summary>
-    /// How far the run's metres and a lane's may part over the paint at one arm's end: half a carriageway
-    /// of offset, over the bend a street makes in the seven metres that paint takes — for a street of one lane each
-    /// way, and as many times that as a road has lanes each way.
-    /// </summary>
-    /// <remarks>
-    /// <b>Measured on the fixture rather than derived</b>, which is why the claim is stated as a bound it
-    /// does not lean on, and <b>the worst of them is what is weighed</b> so that a reading which grows says
-    /// by how much rather than naming whichever run first crossed a line. It grew when the bar's own edge
-    /// moved onto the band's axis (TER-6) — the paint stops a fixed reach down the run whatever the band
-    /// did, so every centimetre the bar moves comes out of the margin between them.
-    /// </remarks>
-    const float FramesM = 0.04f;
 }

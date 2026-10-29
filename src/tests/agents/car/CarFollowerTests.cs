@@ -215,6 +215,24 @@ public class CarFollowerTests
     }
 
     /// <summary>
+    /// <b>The speed a stop allows does not move with the speed the car is doing</b> (S-2): read at that speed, the lead
+    /// it covers first grows with it, and close to the stop a car a little quick was told to be a lot slower — the
+    /// pedal overshooting each way, throttle and brake in turn.
+    /// </summary>
+    [Theory]
+    [InlineData(0.5f)]
+    [InlineData(2f)]
+    public void AStopAsksTheSameSpeedOfACarALittleQuickAsOfOneALittleSlow(float stopInM)
+    {
+        var context = DriveContext.Clear with { AuthorityM = stopInM };
+        var slow = Target(Straight, 10f, 0.3f, context, out var hold);
+        var quick = Target(Straight, 10f, 1.5f, context, out _);
+
+        Assert.Equal(DrivingHold.Claimed, hold);
+        Assert.Equal(slow, quick);
+    }
+
+    /// <summary>
     /// <b>The end of its own plan is kept as a hold found standing there would cut it</b> (S-2, TER-4c.1): a stand-off
     /// short, and a lead later than the end itself is read — so a car whose plan reaches that and its stop holds the
     /// speed it is doing, and one whose plan reaches less slows.

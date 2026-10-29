@@ -1,0 +1,28 @@
+{
+ "id": "walkorbit_curly_navy-v2",
+ "ts": "2026-10-28T12:07:54",
+ "op": "video",
+ "name": "walkorbit_curly_navy",
+ "file": ".tmp/gen/frames/walkorbit_curly_navy-v2.mp4",
+ "model": "heygen/heygen-video-1",
+ "settings": {
+  "resolution": "480p",
+  "aspect_ratio": "3:4",
+  "duration": 5
+ },
+ "costUsd": 0.05,
+ "usage": {
+  "cost": 0.05,
+  "is_byok": false
+ },
+ "prompt": "The man walks on the spot for the whole clip, always facing the same way: he never turns, never stops and never moves away from his spot. It is the camera that changes, not him. The clip is five shots of exactly one second each, joined by hard cuts exactly on each one-second tick: within a shot the camera is perfectly still, and at each cut it jumps instantly, with no camera movement and no transition, always at the same height and distance, always looking down at him from about 55 degrees, he always in the middle of the picture at the same size. The camera never comes down to eye level: in every shot, as in the first frame, we look down onto the top of his head and his shoulders.\n\nShot 1 (0–1 s): the camera is in front of him, as in the first frame; he is walking from the very first moment.\nShot 2 (1–2 s): the camera is in front of him and to his left; he faces towards us and to the picture's left.\nShot 3 (2–3 s): the camera is at his left side, high above; he faces the picture's left.\nShot 4 (3–4 s): the camera is behind him and to his left, halfway between his side and his back; he faces away from us and to the picture's left.\nShot 5 (4–5 s): the camera is straight behind him; we see his back.\n\nHe walks quickly, like someone in a hurry to catch a tram — but still a walk, never a run or a jog: one foot is always on the ground. Quick, short steps, three steps every second, in one steady, even rhythm like a metronome, every step as long as the one before it, running on unbroken across the cuts, so every shot holds at least one and a half whole stride cycles. The planted foot slides back along the floor under him as on a moving walkway, each heel landing in front of him and the back foot pushing off from its toe behind; legs nearly straight as the heel lands, knees never lifted high; arms swinging loosely opposite to the legs, elbows straight. The background stays one flat, uniform chroma-key green in every shot: no floor, no shadow, no scenery. His look — a man of about 35 with short curly dark hair and a short beard, in a plain navy T-shirt, mid-blue jeans and white trainers — his build and the flat-shaded pixel-art game-sprite style stay exactly as in the first frame.",
+ "inputs": [
+  {
+   "role": "first frame",
+   "sha": "0969f92c6fb144da",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/walkorbit_curly_navy.png"
+  }
+ ]
+}

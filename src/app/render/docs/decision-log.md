@@ -3,6 +3,35 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-28 — walkers are put in the order drawn by counting, on the device, every frame
+
+**Walkers were drawn in roster order**, so two that overlapped were drawn either way round (PER-31). The owner asked for
+the fix to be the device's alone, since the desktop sends nothing of a walker to be drawn.
+
+- **A third pass of the emit counts, and sorts nothing** (`sprites_order.comp`): the write pass builds the walkers
+  shown aside, and each is written to the head of the over run at the count of those that rank before it. Which
+  walker comes before which is decided again every frame, because the visible walkers are rebuilt every frame anyway.
+- **A workgroup a walker, its threads sharing the count.** A thread a walker that counted every other one, one read
+  after another, cost 61 µs for 195 walkers; reading them a tile at a time into shared memory cost 23 µs; a workgroup
+  each costs 3 µs (`--bench deviceworld`, Saltbay's whole town, RX 9070 XT).
+- **Not a depth test**: it needs a depth attachment, a pipeline of its own and a draw of its own for the walkers, and
+  an alpha cut-off that either hardens their edges or leaves the ground showing between two that overlap.
+- **Not buckets by row**: an atomic place within a bucket is in no fixed order, so walkers on one kerb line, at one
+  `y`, would swap in front of each other frame by frame. A count is the same every time.
+- **Not an order of the whole town kept from tick to tick**: a walker coming out of a door appears at any `y`, and a
+  few swaps a tick put it right only after many ticks.
+- **The host's fill sorts by the same key** (`PersonSprites.Depth`), so the page draws walkers in the same order, and
+  the probe that holds the device's instances to the host's still compares them one to one.
+
+## 2026-10-26 — a corner files its surface in six bits
+
+**Every one of the sixteen surfaces five bits held was taken** when the shoulder (GEN-75) came, so the word gives the
+surface six bits and the third tint channel, and a strip's across, eight: a tint is a few shades to begin with, and a
+strip is a few hundred texels across at most. **The shoulder takes no binding of its own**: its looks are laid in the
+walk's array after the walk's (`ProjectPaths.GroundSurfaceLooksAfter`), and both vertex stages read the walk's period
+and patches for it. A separate intercity asphalt was built the same way and dropped at the owner's word, the one asphalt
+now wearing its art.
+
 ## 2026-10-24 — the ground is generated, worn in two looks the patches choose between
 
 **The owner: "improve [ground and water] to look better, more matching our new car and building models. More
@@ -373,7 +402,7 @@ building grid of 24 px/m, three pages, was offered and refused.
 
 ## 2026-10-12 — a frame writes only what changed: marks, scenery and the ground drawn off rows laid once
 
-The engine review's draw items (`.tmp/engine-review.md` §3.2–3.4, 3.9, 4.20–4.25). Whole-town framing, RX 9070 XT,
+The engine review's draw items. Whole-town framing, RX 9070 XT,
 `qq prof --frame --view 40000` (the exit's new `written` line): Odesa 1 916 → 93 kB a frame written into memory the
 device reads, ticked on the device 1 796 → 33 kB with its sprites 0.13 → 0.01 ms; OdesaOsm 9 896 → 1 781 kB.
 

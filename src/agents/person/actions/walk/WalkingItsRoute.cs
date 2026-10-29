@@ -69,8 +69,10 @@ internal sealed class WalkingItsRoute(WalkingGround ground, PersonActions action
             walkedOut = ground.HasWalkedOut(person, stopsAtM);
         }
 
-        if (walkedOut && People.OnTheLastWay(person))
+        if (People.OnTheLastWay(person) && (walkedOut || People.Hopping[person]))
         {
+            People.Hopping[person] = true;
+
             // The chain is walked out. What is left is the hop onto the goal, over ground the network does
             // not number — or, where the chain stopped for want of room rather than because it arrived,
             // nothing at all: the walk ends on the network and the rest of it is laid again from there.

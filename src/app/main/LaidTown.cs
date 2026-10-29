@@ -77,8 +77,11 @@ internal sealed class LaidTown
         var plan = planning.Made;
 
         // The world before the ground, because laying the world's atlas is an open's peak and the mesh laid
-        // first stood under it; laid after, it is laid into what the atlas worked in.
+        // first stood under it; laid after, it is laid into what the atlas worked in. <b>Where the device files the
+        // atlas</b> that peak is not the host's, and the ground is laid beside the world, where there is a thread to
+        // lay it on: the two read the plan and write nothing either reads.
         var made = worldMaker is not null && !Scenarios.Stages(plan.Name);
+        var groundAside = made ? GroundMesh.BuildAside(plan, config) : null;
         var standing = TownWorld.Laying(plan, config, made ? worldMaker : null);
         foreach (var stage in standing.Stages) yield return stage;
 
@@ -96,7 +99,7 @@ internal sealed class LaidTown
             yield return OpenWatch.Passed("the world the device's, and collected");
         }
 
-        var ground = GroundMesh.Build(plan, config);
+        var ground = groundAside?.GetAwaiter().GetResult() ?? GroundMesh.Build(plan, config);
         plan.Paving(config).LetGoOfTheLayingIndexes();
         world.Roads.LetGoOfTheLayingIndex();
         yield return OpenWatch.Passed("the ground");

@@ -4,7 +4,22 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
-## 2026-10-28 — a look is cut from one orbit clip, and the showroom walks every look round a ring
+## 2026-10-29 — a straight holds nothing behind the walker, and a hop once begun is kept
+
+- **A straight holds each way under the body past it only on the side it walks along that way**
+  (`WalkingGround.TheStraightAhead`): ahead where it walks the way forward, behind where it walks it back, and the
+  body's own stretch alone where it crosses the way or stands. Held either side, a walker stepping sideways off the end
+  of a lit zebra's paint as it turned red held the paint behind it, which the red holds up to the body (TLT-2a): refused,
+  it stood on the paint for good — exam card 70, and card 69 whenever its walker took the same last step. The way it
+  lands on is still held either side where it stands where it lands, and its body holds every way it stands on at p0.
+- **A hop, once begun, is kept until the chain is laid again** (`PersonFleet.Hopping`). Read off where the body stood,
+  a hop to a goal off the way and a little back along it put the body short of the chain's end again: the walker walked
+  a stride on towards the end, hopped back, and stood 0.4 m into the hop for good — exam card 93, since the zebra starts
+  at the kerb end (2026-10-27).
+
+Cards 70 and 93 pass and no other card moved; the unit, town, perf and device tiers at their baselines.
+
+## 2026-10-28 — a look is cut from one orbit clip, and the showroom stands every look once
 
 **The owner asked for a new look made from nothing but one front picture of it, in one generation, and then for her on
 the showroom.** Image models draw no coherent walk and video models drift when a person turns
@@ -18,12 +33,34 @@ the showroom.** Image models draw no coherent walk and video models drift when a
   dropped. Quick, short steps fit more than a stride into each one-second shot without a run. `qq walkers orbit`
   writes this brief.
 - **`qq sprites cut CLIP --as ID` cuts it** (`_walkers.cut_clip`): the shots found at their hard cuts, each its best
-  loop at eight columns, column 0 nearest a passing; nothing re-centred. Each shot is scaled once, so the look stands
-  as tall in every facing. `keep` and `use` are a frame's.
-- **The showroom walks every walker look once, round a ring** (PER-30): a walk is only seen walking, and a ring
-  turns it through every facing. A look on show takes no trip, so the map still lays no pavement.
-- **`ponytail_red` lies down as `tee_red` does** (`down` names `tee_red_down.webp`): one front picture gives no
-  picture of the look lying in the road. The tech debt says what closes it.
+  loop at eight columns; nothing re-centred. Each shot is scaled once, so the look stands as tall in every facing.
+  `keep` and `use` are a frame's.
+- **Column 0 of every facing is its stance, and a walker whose body stops is drawn in it** (the owner: "they can stop
+  mid-frame … switch to first frame of the angle", "first if standing, as close as possible, and then movement loop"):
+  the cut turns each facing's loop to start at its frame nearest standing and run on in order — from the side or a
+  diagonal the passing, feet closest together; from in front or behind two legs reaching the ground side by side,
+  since there a passing lifts the swinging foot towards the camera (the owner: "north + south mostly bad") — and both
+  draw paths step the columns only while the body moves faster than `SimConfig.Person.DrawnStandingBelowMps` — a
+  walker held at a kerb or in a queue still means to walk, and had stood frozen mid-stride.
+- **The showroom stands every person look once, still, facing the camera** (PER-30; the owner: "show all units once",
+  "drop their auto movement, we dont need any behavior, just standing still waiting for manual control"): the
+  uniforms stand with the walkers, and a walk is seen by taking a look by hand. A look on show takes no trip, so the
+  map lays no pavement, and its row has a place for each look `ArtSizes.PersonLooks` counts, so it stays centred
+  however many there are. The paved slab under the car park went with the rings (the owner: "just regular road and
+  parking").
+- **The cast's nine looks are each cut from a clip of their own** (`walkers_cast_b-v2`, the owner: "do single person
+  gen for remaining examples and add them to the game"): four looks tiled in one 5 s clip were tried three times
+  and swapped clothes between tiles every time. A look whose own colours stand out in green (a polo, a high-visibility
+  vest) is laid on a blue screen, which `qq walkers orbit` picks off the figure and the cut keys by.
+- **Every legacy look is gone, the civilians and the uniforms** (the owner: "drop old civilian assets", "regenerate
+  police, medic, repairman, 3 variants each"): the town walks the nine orbit-cut civilians, and each service's crews
+  wear its three looks in turn (`PersonCatalog.PoliceLook`, as `CarCatalog.PoliceLook` is a car's), a service's looks
+  being the service list's ids that start with its name. The uniforms are a cast of their own, `walkers_service_a`.
+- **A look lies down as its cast figure** (the owner: "for dead or standing use the frame we used as input to the
+  video model"): the standing front picture its clip started from, turned head along +x, `qq walkers down`. A body in
+  the road is drawn as a person standing laid flat, not as a fallen pose.
+- **A shot the camera took round the walker's right side is mirrored, not asked again** (`qq sprites cut --mirror`):
+  the sheet's left side is the mirror of the right, as its three undrawn facings already are.
 
 ## 2026-10-27 — a walker's look is drawn in five facings and laid at the cars' grid
 
@@ -44,8 +81,8 @@ unchanged (eight facings anticlockwise from up, eight walk columns); what change
 pavement, a hop off the end of a route, an officer's to their post — had swept the atlas under it once and held every
 way it crossed. It now holds, at the walker's rung (PER-25, `WalkingGround.TheStraightAhead`):
 
-- **the ways the world reads its body on**, as far either side of it as it would set off into (`PlansAheadM`) — a
-  walker standing in a lane holds the lane round it as it goes;
+- **the ways the world reads its body on**, as far past it as it would set off into (`PlansAheadM`) on the side it walks
+  along each (2026-10-29) — a walker standing in a lane holds the lane under it as it goes;
 - **the way it lands on**, from where the body is abeam of it to where it lands, as far past both, once the edge of
   the way is inside its plan's reach. A walk back lands on its own way; a hop lands on its route's last way or one
   joined at its end that the place stands on (`WhereTheHopLands`) — a zebra's paint, for an ordered walk over it.

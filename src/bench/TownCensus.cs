@@ -11,6 +11,7 @@ using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Terrain;
+using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
 
@@ -135,6 +136,7 @@ internal static class TownCensus
         Console.WriteLine($"  roads          {plan.Roads.Count,7}  {plan.Roads.Segments.Length} arcs, {roadLengthM / 1000f:F2} km, " +
                           $"{Mean(plan.Roads.WidthM):F2} m wide, {OneWay(plan)} of them one way");
         Console.WriteLine($"  junctions      {plan.Junctions.Count,7}  {lit} lit, {JunctionsWith(plan, 2)} with no fork, " +
+                          $"{Seamless(plan, config)} only carrying lanes on, " +
                           $"{JunctionsWith(plan, 1)} dead ends, {plan.JunctionCorners.Count} kerb corners, " +
                           $"reach {Mean(plan.Junctions.RadiusM):F2} m");
         Console.WriteLine($"  bridges        {plan.Bridges.Count,7}  paved areas {plan.PavedAreas.Count}");
@@ -186,14 +188,14 @@ internal static class TownCensus
         // apron and a crew in each (AMB-2, SRV-2, SRV-3). They are what the town has room for — a building
         // with fewer bays near it than the apron asks for stands fewer, and one with none stands none.
         var uses = BuildingUses.Of(plan);
-        var wanted = ServiceBuildings.OfEachUse(plan);
+        int Wanted(BuildingUse use) => ServiceBuildings.Serving(use, plan, config.CityGen).Count;
         var services = uses.Hospitals.Count + uses.PoliceStations.Count + uses.Depots.Count;
         var apron = (services * config.Service.ApronBays) + (uses.Depots.Count * config.Evacuator.YardSlots);
         Console.WriteLine(
             $"  plus an apron of {config.Service.ApronBays} vehicles, {config.Service.CrewPerVehicle} crew aboard " +
-            $"each (SRV-3), at each of the map's {plan.Districts.Count} districts' hospitals " +
-            $"({uses.Hospitals.Count} of {wanted}), police stations ({uses.PoliceStations.Count} of {wanted}) and " +
-            $"depots ({uses.Depots.Count} of {wanted}, with a yard) — {apron} bays held off the town");
+            $"each (SRV-3), at the hospitals ({uses.Hospitals.Count} of {Wanted(BuildingUse.Hospital)}), police stations " +
+            $"({uses.PoliceStations.Count} of {Wanted(BuildingUse.PoliceStation)}) and depots ({uses.Depots.Count} of " +
+            $"{Wanted(BuildingUse.Depot)}, with a yard) serving the map's {plan.Districts.BuiltCount} districts — {apron} bays held off the town");
         Console.WriteLine();
 
         Networks(plan, config);
@@ -392,6 +394,28 @@ internal static class TownCensus
     /// </summary>
     static int BuildingsAskedFor(CityPlan plan) => plan.Zones.Planned;
 
+    /// <summary>
+    /// How many junctions are no box but lanes carried on (TER-5k), how many of those fork or merge, and where the first
+    /// of those stands.
+    /// </summary>
+    static string Seamless(CityPlan plan, SimConfig config)
+    {
+        var lanes = plan.Paving(config).Lanes;
+        var arms = plan.Ground.ArmsPerJunction();
+        var found = 0;
+        var forking = 0;
+        var firstM = Vector2.Zero;
+        for (var junction = 0; junction < plan.Junctions.Count; junction++)
+        {
+            if (!lanes.IsSeamless(junction)) continue;
+
+            found++;
+            if (arms[junction] > 2 && forking++ == 0) firstM = plan.Junctions.CentreM[junction];
+        }
+
+        return forking == 0 ? $"{found}" : $"{found} ({forking} forking or merging, the first at {firstM.X:F0},{firstM.Y:F0})";
+    }
+
     static int JunctionsWith(CityPlan plan, int arms)
     {
         var atEach = new int[plan.Junctions.Count];
@@ -476,7 +500,7 @@ internal static class TownCensus
         var footStarted = Stopwatch.GetTimestamp();
         var pavement = PavementLanes.Of(plan, config);
         var crossed = CrossingWays.Of(plan, pavement, config);
-        var foot = FootGraph.Build(pavement, crossed, config);
+        var foot = FootGraph.Build(pavement.EndedAtTheCrossings(crossed, config), crossed, config);
         var footElapsed = Stopwatch.GetElapsedTime(footStarted);
 
         var walkStarted = Stopwatch.GetTimestamp();
@@ -543,7 +567,7 @@ internal static class TownCensus
     /// </remarks>
     static void Courses(CityPlan plan, SimConfig config)
     {
-        var courses = PavementLanes.Of(plan.Paving(config).Perimeter(config), config);
+        var courses = PavementLanes.Of(plan, config);
         for (var lane = 0; lane < courses.Count; lane++)
         {
             var rings = courses.RingsOf(lane);
@@ -1011,6 +1035,7 @@ internal static class TownCensus
 
         var atABend = 0;
         var atARing = 0;
+        var carriedOn = 0;
         var atAFork = 0;
         var longestM = 0f;
         for (var lane = 0; lane < roads.LaneCount; lane++)
@@ -1022,11 +1047,13 @@ internal static class TownCensus
             var node = roads.LaneToJunction[lane];
             if (arms[node] <= 2) atABend++;
             else if (onARing[node]) atARing++;
+            else if (roads.IsSeamless(node)) carriedOn++;
             else atAFork++;
         }
 
-        Console.WriteLine($"  one way out    {atABend + atARing + atAFork,7}  lanes the node offers one movement; " +
+        Console.WriteLine($"  one way out    {atABend + atARing + carriedOn + atAFork,7}  lanes the node offers one movement; " +
                           $"{atABend} at a junction of two arms, {atARing} entering a roundabout, " +
+                          $"{carriedOn} carried on through a fork or a merge, " +
                           $"{atAFork} at a junction whose other movements were refused as too tight; " +
                           $"longest lane {longestM:F0} m");
     }

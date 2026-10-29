@@ -179,6 +179,9 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// <summary>The car bodies' sheets from and past, and the height their tilt is seen from (<see cref="CameraView.CarTilt"/>).</summary>
     Vector4 _carTilt;
 
+    /// <summary>The figures a selected unit's ring is drawn from, at each frame's zoom (<see cref="RingLook.At"/>).</summary>
+    ViewFigures _ringFigures = new();
+
     float _propLeastPx;
 
     uint _shownParts = GroundParts.All;
@@ -313,7 +316,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
             {
                 Surface.Track => TrackTexture(vk),
                 Surface.Kerb or Surface.Edging => GpuTexture.Load(vk, surfaceTextures[texture]),
-                _ => GpuTexture.LoadLooks(vk, surfaceTextures[texture]),
+                _ => GpuTexture.LoadLooks(vk, surfaceTextures[texture], ProjectPaths.GroundSurfaceLooksAfter(texture)),
             };
         }
 
@@ -441,6 +444,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _propCull = new Vector4(0f, looks.FirstPropSheet, looks.FirstPropSheet + looks.Props.Count, 0f);
         _carTilt = new Vector4(
             looks.FirstCarSheet, looks.FirstCarSheet + (2 * looks.Cars.SheetCount), view.CarTiltEyeHeightM, 0f);
+        _ringFigures = view;
         _fanTable.Upload<uint>(
             looks.Fans, PipelineStageFlags2.VertexShaderBit | PipelineStageFlags2.FragmentShaderBit, AccessFlags2.UniformReadBit);
         _propLeastPx = propLeastPx;
@@ -693,7 +697,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _cameras[image].Span<CameraView>()[0] = view with
         {
             SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, PropCull = _propCull,
-            CarTilt = _carTilt, Patches = _mesh.Patches,
+            CarTilt = _carTilt, Rings = RingLook.At(_ringFigures, view.ClipPerM, view.UiPx), Patches = _mesh.Patches,
         };
         WriteTheGround((int)image);
         WrittenBytes = _written + sizeof(CameraView);

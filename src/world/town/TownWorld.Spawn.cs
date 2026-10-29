@@ -82,19 +82,18 @@ internal sealed partial class TownWorld
 
             var positionM = _plan.Spawns.PositionM[spawn];
 
-            // The showroom's rings past the last walker look stand nobody, so no look walks twice (PER-30).
+            // The showroom stands every person look once, the uniforms with the walkers (PER-30): the showroom names
+            // each to wear it. Anywhere else, round the walkers and never past them, as the fleet's own wrap does: the
+            // uniforms share the sheet list with them (<see cref="PersonCatalog.Count"/>), and nobody wears one who
+            // was not named to (SRV-3a).
             var onShow = ShowroomPlan.ShowsEachLookOnce(_plan.Name);
-            if (onShow && variants >= PersonCatalog.Shared.Count) continue;
+            if (onShow && variants >= PersonCatalog.Shared.SheetCount) continue;
 
-            // Round the walkers and never past them, as the fleet's own wrap does: the uniforms share
-            // the sheet list with them (<see cref="PersonCatalog.Count"/>), and nobody wears one who was
-            // not named to (SRV-3a).
             var person = People.Add(
-                onShow ? RingStartM(positionM) : positionM, _plan.Spawns.HeadingRad[spawn], _config.Person.MassKg,
-                _config.PersonRadiusM, (byte)(variants % PersonCatalog.Shared.Count), new Rng(_agentSeed, (ulong)spawn),
+                positionM, _plan.Spawns.HeadingRad[spawn], _config.Person.MassKg, _config.PersonRadiusM,
+                (byte)(onShow ? variants : variants % PersonCatalog.Shared.Count), new Rng(_agentSeed, (ulong)spawn),
                 PersonFleet.DrawsReckless(_agentSeed, (ulong)spawn, _config.Driving.RecklessShare));
             variants++;
-            if (onShow) GiveItItsRing(person, positionM);
 
             // Where on the pavement the plan stood it, found while the map is built (the root decision log, 2026-10-13).
             _placeOf[person] = _walking.PlaceNearest(positionM);
@@ -330,8 +329,9 @@ internal sealed partial class TownWorld
             if (_townParks && !_tours[car]) continue;
 
             // A car whose wheel is already held over has somebody deciding for it, which is the whole of
-            // what this rule exists to supply. Handing it a lane as well would lay a line nothing drives.
-            if (Cars.Driven[car] || Cars.Broken[car] || WheelIsHeldOver(car))
+            // what this rule exists to supply. Handing it a lane as well would lay a line nothing drives. So has
+            // one in manual mode, waiting for the player's next order (CTL-4): only the reset hands it back.
+            if (Cars.Driven[car] || Cars.Broken[car] || WheelIsHeldOver(car) || IsUnderOrders(car))
             {
                 _refusedALane[car] = false;
                 continue;

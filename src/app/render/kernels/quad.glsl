@@ -19,7 +19,15 @@ layout(set = 0, binding = 0) uniform Camera {
     vec4 turning;
     // The car bodies' sheets from and past, and the height their tilt on their springs is seen from (CameraView.CarTilt).
     vec4 carTilt;
+    // How a selected unit's ring is drawn (CameraView.Rings, RingLook): its two hues and its edge's, each four bytes, then
+    // its width and the edge's in interface pixels as two halves.
+    uvec4 rings;
 } camera;
+
+// SpriteInstance.RingShift: the sheet's half-word carries the ring above every slot (SpriteRing).
+const uint QUAD_RING_SHIFT = 14u;
+const uint QUAD_SHEET_MASK = (1u << QUAD_RING_SHIFT) - 1u;
+const uint QUAD_RING_SELECTED = 1u;
 
 // The town's own metres to clip. **The turn is applied here and nowhere else**: the quad is built about its own heading
 // in the town's axes, and turning the offset turns the built quad with it.
@@ -53,6 +61,13 @@ layout(location = 3) flat out uint outFans;
 layout(location = 4) out vec2 outLocal;
 layout(location = 6) flat out float outTurns;
 layout(location = 7) flat out float outLook;
+// A ring round the picture (SpriteRings): its cell on its page, from and to; its width, its edge's outer width, both in
+// interface pixels, and how far an interface pixel is on the page along the quad and across it — widths of nought for
+// everything not ringed; then its hue and its edge's.
+layout(location = 5) flat out vec4 outRingCell;
+layout(location = 8) flat out vec4 outRing;
+layout(location = 9) flat out vec4 outRingHue;
+layout(location = 10) flat out vec4 outEdgeHue;
 
 // A prop smaller on screen than the frame draws one (ViewFigures.PropLeastPx): every corner put past the far plane, so
 // nothing of it is rasterised.
@@ -68,8 +83,15 @@ vec2 quadTiltRad(uint id) {
 }
 
 // The quad's corner for this vertex: cell (column, row) of a grid of (columns, rows) of the sheet, tinted; `id` is the
-// body's own (SpriteInstance.Id).
+// body's own (SpriteInstance.Id). A sheet that carries a ring is grown by the ring's widths, so its band stands outside
+// the picture, and its cell is read past its own edges there, where the fragment stage takes it as nothing.
 void quadEmit(vec2 centreM, vec2 halfSizeM, float headingRad, vec2 cell, vec2 grid, vec4 tint, uint sheet, uint id) {
+    uint ring = sheet >> QUAD_RING_SHIFT;
+    sheet &= QUAD_SHEET_MASK;
+    outRingCell = vec4(0.0);
+    outRing = vec4(0.0);
+    outRingHue = vec4(0.0);
+    outEdgeHue = vec4(0.0);
     if (quadTooSmall(halfSizeM, sheet)) {
         gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
         outUv = vec3(0.0);
@@ -84,7 +106,25 @@ void quadEmit(vec2 centreM, vec2 halfSizeM, float headingRad, vec2 cell, vec2 gr
 
     // A triangle strip's four corners, in the order the strip wants them.
     vec2 corner = vec2(float(gl_VertexIndex & 1), float((gl_VertexIndex >> 1) & 1));
-    vec2 fromCentreM = (corner * 2.0 - 1.0) * halfSizeM;
+    vec2 side = corner * 2.0 - 1.0;
+    vec2 grownM = halfSizeM;
+    vec2 cellAt = corner;
+    SheetPlace place = sheets.place[sheet];
+    if (ring != 0u) {
+        vec2 widthsPx = unpackHalf2x16(camera.rings.w);
+        float outerPx = widthsPx.x + widthsPx.y;
+        float pxPerM = abs(camera.clipPerM.x) * camera.uiPx.x * 0.5;
+        grownM = halfSizeM + vec2(outerPx / pxPerM);
+        cellAt = 0.5 + side * grownM / (2.0 * halfSizeM);
+        vec2 cellUv = place.originScale.zw / grid;
+        vec2 cellFrom = place.originScale.xy + cell * cellUv;
+        outRingCell = vec4(cellFrom, cellFrom + cellUv);
+        outRing = vec4(widthsPx.x, outerPx, cellUv / (2.0 * halfSizeM * pxPerM));
+        outRingHue = unpackUnorm4x8(ring == QUAD_RING_SELECTED ? camera.rings.x : camera.rings.y);
+        outEdgeHue = unpackUnorm4x8(camera.rings.z);
+    }
+
+    vec2 fromCentreM = side * grownM;
 
     // A car body tilted on its springs (CAR-56, BodyTilt): the plane its corners sink and rise to, as an eye
     // camera.carTilt.z over its middle sees it. The corner is drawn where that eye sees it and its w is how far off the eye
@@ -102,8 +142,7 @@ void quadEmit(vec2 centreM, vec2 halfSizeM, float headingRad, vec2 cell, vec2 gr
     vec2 across = vec2(-along.y, along.x);
     gl_Position = toClip(centreM + along * fromCentreM.x + across * fromCentreM.y) * depth;
 
-    SheetPlace place = sheets.place[sheet];
-    vec2 uv = (cell + corner) / grid;
+    vec2 uv = (cell + cellAt) / grid;
     outUv = vec3(place.originScale.xy + uv * place.originScale.zw, place.layerSize.x);
     outTint = tint;
     outLight = place.layerSize.w;

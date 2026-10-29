@@ -16,7 +16,7 @@
     "soviet",
     "panel block"
   ],
-  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge",
+  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine room as a raised box, ventilation shafts and a low parapet round the edge",
   "chimneys": [[-16.3, -5.84], [-11.16, 3.86], [16.48, 2.62], [3.61, -4.32]],
   "potWidthM": 0.8
 }

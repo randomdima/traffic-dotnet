@@ -14,6 +14,7 @@ layout(set = 0, binding = 0) uniform Camera {
     vec4 propCull;
     vec4 turning;
     vec4 carTilt;
+    uvec4 rings;
     // Where the town's origin is in the field and how many lives it has lived; then one over a cloud's width, where in
     // the field a shadow begins and where it is deepest, and the light it takes there (CloudShadow).
     vec4 cloudField;

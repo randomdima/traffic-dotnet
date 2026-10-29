@@ -1,0 +1,55 @@
+{
+ "id": "walkers_photo_b-v1",
+ "ts": "2026-10-29T12:36:10",
+ "op": "edit",
+ "name": "walkers_photo_b",
+ "file": ".tmp/gen/frames/walkers_photo_b-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.025978,
+ "usage": {
+  "prompt_tokens": 2867,
+  "completion_tokens": 158,
+  "total_tokens": 3025,
+  "cost": 0.025978,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.025978,
+   "upstream_inference_prompt_cost": 0.021238,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Image 1 is finished art from the same 2D city game: people standing, seen from in front and high above. Match its style, finish, camera and proportions exactly — draw none of its people.\nImage 2 is a photo of a real person, the one below. Draw each as the same person as in their photo — face, hair, build, clothes, colours, prints and anything carried, unless their line below says otherwise — and take nothing else from the photo: not its pose, camera, light or background.\n\nMake one image: one person for the game, alone in the middle of the picture. Each stands still, the whole body facing south — straight down the picture, towards its bottom edge — arms relaxed at the sides, feet side by side, a relaxed neutral expression, head level. The camera is in front and high above, looking down at about 55 degrees: the top of the head and the tops of the shoulders show plainly, the face is seen from above and a little shortened, the legs shorter on the picture than the body above them, the feet tucked just under the hem. Looking down shortens a body top to bottom only; it never makes it wider. Every figure has an ordinary average build — neither thin nor stocky, shoulders their natural width. The whole body is visible. Each is centred in its cell, well apart from its neighbours, never touching. All at one scale: a person 1.8 m tall fills about 70 % of the cell's height, shorter people smaller in proportion.\n\nStyle: game sprite art with a light pixel-art feel — clean simplified shapes, bold readable silhouettes, a limited palette with flat shading in two or three tones per colour, crisp hard edges. Leave small details out: no fabric texture, no stitching, no tiny patterns; faces simple, eyes, brows and mouth a few marks. Each must read clearly when shown only 60 pixels tall. Not photographic, not soft painting, not chibi: natural adult proportions. Summer in a Black Sea port city.\n\nThe people, in order:\n1. 1.8 m tall. A man of about 35 with short dark-brown hair, a short full dark beard and thin dark-framed glasses, in a long-sleeved dark burgundy button-up shirt tucked in, a black leather belt, slim black trousers and black leather shoes. Both hands empty, nothing carried.\n\nEverything outside the figures is fully transparent: no background, no ground, no shadow, nothing half-transparent. No text, letters, numbers, labels, grid lines or frames anywhere, but for a print a person's clothes are said to carry.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "04ce2b7789e4dcdb",
+   "ext": "png",
+   "frame": "walkers_cast_b-v2",
+   "was": ".tmp/gen/frames/walkers_cast_b-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "1d3359aa1f3e46af",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/photos/person_4.png",
+   "private": true
+  }
+ ],
+ "cells": [
+  "shirt_burgundy"
+ ]
+}

@@ -3,6 +3,23 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-29 — a stop is the speed that keeps to it, and a line never runs beside the lane its leg ends on
+
+- **Every stop term is solved for the speed on its own profile** (`CarFollower.StopMps`: line end, place, reach,
+  grant, waiting to pass, wait-at): `v = √((b·lead)² + 2bd) − b·lead`, where the term was `√(2b(d − v·lead))` read at the
+  speed the car was doing. Read that way the target falls by `b·lead / v` for every m/s more, past one below `b·lead`
+  (2.5 m/s for the reach's two leads), and the pedal, closing the gap in a tick, overshot it both ways: throttle and brake
+  swapping every two to four ticks over the last metre of a stop, the body pitching with each (CAR-56), and a car let go
+  mid-swap dipping under `StopSpeedMps` and drawing its plan back to the room to pull away (TER-4c.1,
+  `PlansInATownTests` on Laid). Both read the same at a car doing what its stop allows, so the grant and reach tests
+  stand. Swaps under 3 m/s over a minute: Laid 84 → 26, Test 15 → 3; `--bench drive --map Test` corner 42 → 41 %, reach
+  43 → 45 %, no hard braking either side. **The corner approach still reads its lead and lookahead at the car's speed**,
+  so the residue is the corners' (tech debt).
+- **A line is not run on beside the lane its leg ends on** (CAR-53, `RoadGraph.OnBesideTheRoute`, `CarFleet.RouteEndsOn`):
+  carried on beside it, the car moves across wherever it gets the room — past the place. A police car sent to the mouth
+  of the inner lane of a two-lane street turned in on the outer one and moved across 300 m on, behind the wreck it was
+  closing (SRV-9); now it moves across before the junction and turns in onto the lane it closes.
+
 ## 2026-10-25 — a car stands on damped springs, and the loads and the tilt are that body's state
 
 **The owner: "cars have N wheels, each a damped spring at a point; all of that decides the tilt and the load — no
@@ -345,7 +362,7 @@ The tyres went 53.8 → 47.3 µs a tick on Odesa (`--bench age`).
 
 ## 2026-10-11 — a driver leads by what it reads stale, and pedals for the step it cannot see
 
-With the world a step ahead (`WorldLayer.StepsAhead`), a command acts one step after the one it was read off, and
+With the world a step ahead (`SimFigures.WorldStepsAhead`), a command acts one step after the one it was read off, and
 nothing in the driver accounted for it.
 
 - **The reaction lead is what a driver reads stale** (`SimConfig.CarReactionS`, S-2): a grant as old as the claims

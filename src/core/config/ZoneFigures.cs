@@ -17,19 +17,19 @@ internal sealed class ZoneFigures
 
     public ZoneDefaults OldTown { get; init; } = new()
     {
-        Frontage = 0.95f, FrontSpreadM = 0.2f, SkewDeg = 1f, Variety = 0.9f, Growth = 0.2f,
+        Frontage = 0.95f, FrontSpreadM = 0.2f, SkewDeg = 1f, Variety = 0.9f, Interior = 0.1f, Growth = 0.2f,
         Looks = new() { Apartments = 0.75f, Retail = 0.15f, Office = 0.1f },
     };
 
     public ZoneDefaults Residential { get; init; } = new()
     {
-        Frontage = 0.6f, FrontSpreadM = 1.5f, SkewDeg = 3f, Variety = 0.6f, Interior = 0.05f, Growth = 0.4f,
+        Frontage = 0.6f, FrontSpreadM = 1.5f, SkewDeg = 3f, Variety = 0.6f, Interior = 0.12f, Growth = 0.4f,
         Looks = new() { Apartments = 0.6f, House = 0.3f, Retail = 0.1f },
     };
 
     public ZoneDefaults HighRise { get; init; } = new()
     {
-        Frontage = 0.3f, FrontM = 12f, FrontSpreadM = 4f, SkewDeg = 5f, Variety = 0.3f, Interior = 0.12f, Growth = 0.5f,
+        Frontage = 0.3f, FrontM = 12f, FrontSpreadM = 4f, SkewDeg = 5f, Variety = 0.3f, Interior = 0.18f, Growth = 0.5f,
         Looks = new() { Tower = 0.6f, Apartments = 0.3f, Retail = 0.1f },
     };
 
@@ -47,7 +47,7 @@ internal sealed class ZoneFigures
 
     public ZoneDefaults Industrial { get; init; } = new()
     {
-        Frontage = 0.4f, FrontM = 6f, FrontSpreadM = 4f, SkewDeg = 4f, Variety = 0.5f, Interior = 0.15f, Growth = 0.3f,
+        Frontage = 0.4f, FrontM = 6f, FrontSpreadM = 4f, SkewDeg = 4f, Variety = 0.5f, Interior = 0.22f, Growth = 0.3f,
         Looks = new() { Industrial = 0.7f, Shed = 0.2f, Office = 0.1f },
     };
 

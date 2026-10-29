@@ -158,6 +158,7 @@ internal sealed class TownRenderer : IDisposable
         _looks = looks;
         _carTilt = new Vector4(
             looks.FirstCarSheet, looks.FirstCarSheet + (2 * looks.Cars.SheetCount), view.CarTiltEyeHeightM, 0f);
+        _ringFigures = view;
         var standing = looks.Standing.Instances;
         var count = Math.Min(standing.Length, Math.Max(1, Room.Standing));
         if (count == 0) return;
@@ -178,6 +179,9 @@ internal sealed class TownRenderer : IDisposable
 
     /// <summary>The car bodies' sheets from and past, and the height their tilt is seen from (<see cref="CameraView.CarTilt"/>).</summary>
     Vector4 _carTilt;
+
+    /// <summary>The figures a selected unit's ring is drawn from, at each frame's zoom (<see cref="RingLook.At"/>).</summary>
+    ViewFigures _ringFigures = new();
 
     /// <summary>
     /// <b>The engine's own tables drawn where its kernels wrote them</b> (<see cref="IEngineDraw"/>), from the next frame on —
@@ -266,7 +270,8 @@ internal sealed class TownRenderer : IDisposable
         var counts = _spriteCounts;
         var camera = view with
         {
-            SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, CarTilt = _carTilt, Patches = _mesh.Patches,
+            SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, CarTilt = _carTilt,
+            Rings = RingLook.At(_ringFigures, view.ClipPerM, view.UiPx), Patches = _mesh.Patches,
         };
         MemoryMarshal.Write(_camera, in camera);
         WrittenBytes = CameraBytes + ((long)(counts.Under + counts.Over + counts.Above) * size)
@@ -378,7 +383,7 @@ internal sealed class TownRenderer : IDisposable
             }
             else
             {
-                Looks(FirstSurfaceTexture + surface, path);
+                Looks(FirstSurfaceTexture + surface, path, ProjectPaths.GroundSurfaceLooksAfter(surface));
             }
         }
 
@@ -403,18 +408,33 @@ internal sealed class TownRenderer : IDisposable
         }
     }
 
-    /// <summary>A surface's looks, a layer each and each its own chain, as the desktop lays them (<c>GpuTexture.LoadLooks</c>).</summary>
-    static void Looks(int slot, string path)
+    static void Squares(string path, int widthPx, int heightPx)
     {
-        var (widthPx, heightPx) = ImageHeader.Measure(path);
         if (heightPx % widthPx != 0)
         {
             throw new InvalidDataException($"{path} is {widthPx}x{heightPx}: a surface's looks are squares stacked top to bottom.");
         }
+    }
 
-        var all = new Texel[widthPx * heightPx];
-        Texels.Decode(path, all);
-        var layers = heightPx / widthPx;
+    /// <summary>
+    /// A surface's looks, a layer each and each its own chain, and those of <paramref name="after"/> laid after them in
+    /// the same array, as the desktop lays them (<c>GpuTexture.LoadLooks</c>).
+    /// </summary>
+    static void Looks(int slot, string path, string? after)
+    {
+        var (widthPx, heightPx) = ImageHeader.Measure(path);
+        Squares(path, widthPx, heightPx);
+        var (laterWidthPx, laterHeightPx) = after is null ? (widthPx, 0) : ImageHeader.Measure(after);
+        if (after is not null) Squares(after, laterWidthPx, laterHeightPx);
+        if (laterWidthPx != widthPx)
+        {
+            throw new InvalidDataException($"{after} is {laterWidthPx} wide and {path} {widthPx}: an array's layers are one size.");
+        }
+
+        var all = new Texel[widthPx * (heightPx + laterHeightPx)];
+        Texels.Decode(path, all.AsSpan(0, widthPx * heightPx));
+        if (after is not null) Texels.Decode(after, all.AsSpan(widthPx * heightPx));
+        var layers = (heightPx + laterHeightPx) / widthPx;
         for (var layer = 0; layer < layers; layer++)
         {
             var chain = MipChain.Build(all.AsSpan(layer * widthPx * widthPx, widthPx * widthPx).ToArray(), widthPx, widthPx);

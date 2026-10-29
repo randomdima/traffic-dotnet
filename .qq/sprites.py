@@ -29,7 +29,8 @@ used, using any tile joins them all into the surface's picture, its looks stacke
 remotegen keeps the ids a frame draws in its record (`--cells`) and every picture it sends by content hash, so `cut`
 needs nothing but the frame's id. A kept frame asked from a layout carries its cells in that layout's PNG (a `cells`
 text chunk) and is cut by it, fitted and clipped, so a variant kept from one can be cut again (raw_assets/index.md,
-rule 6).
+rule 6). A clip is the exception to a frame staying scratch: `keep` puts it beside its record, and `cut` reads it from
+there once `.tmp/` is wiped (rule 2).
 """
 
 from __future__ import annotations
@@ -58,6 +59,9 @@ CUTS, COMPARE = GEN / "cuts", GEN / "compare"
 
 RAW = Path("raw_assets")
 KEPT_FRAMES, KEPT_INPUTS = RAW / "_frames", RAW / "_inputs"
+#: Photos of real people a frame was asked from: kept by hash in the frame's record, `private`, and never copied into
+#: git (the owner, 2026-10-28).
+PHOTOS = GEN / "photos"
 LEGACY = RAW / "legacy.txt"
 VARIANTS = "variants.jsonl"
 SOURCE = ".src.json"
@@ -231,6 +235,19 @@ def parse_args():
     parser.add_argument("--shots", default="",
                         help="cut: a clip's shots by number from 0, one per facing front to back (0,3,4,5,6) — where a "
                              "shot went wrong and another holds its facing; left out, its last five")
+    parser.add_argument("--mirror", default="",
+                        help="cut: a clip's shots by number from 0 the camera took round the walker's right side, "
+                             "mirrored into the left side the sheet draws (1,2,3)")
+    parser.add_argument("--split", default="",
+                        help="cut: a clip's cuts its shots are not found at, by frame — N, or A-B for a camera that "
+                             "swept from one facing to the next, its frames A..B-1 in neither shot (68-72)")
+    parser.add_argument("--scale", default="",
+                        help="cut: a walker clip's drawn facings (0 back .. 4 front) to scale further, F=K "
+                             "comma-separated (3=0.965): a size measured by eye where the cut's rules miss it, from a "
+                             "head outlined in every facing (`qq props sizes`)")
+    parser.add_argument("--unsized", action="store_true",
+                        help="cut: a walker clip's frames at the size the clip drew them — no facing scaled, no drift "
+                             "held still, --scale ignored")
     parser.add_argument("--full", action="store_true", help="trace: print every prompt whole")
     return parser.parse_args()
 
@@ -765,28 +782,52 @@ def cut_walker_clip(base, fid, rec, a):
         cli.fail(f"{fid} is a clip: `--as` names the look each of its {cols * rows} tile(s) walks, '-' for none")
     import numpy as np
 
-    frames, fps = _walkers.clip_frames(base / rec["file"])
+    kept = kept_clip(base, fid, rec)
+    frames, fps = _walkers.clip_frames(kept if kept.is_file() else base / rec["file"])
     shots = _walkers.orbit_shots(frames, fps)
+    if a.split:
+        try:
+            shots = _walkers.split_shots(shots, [tuple(int(n) for n in s.split("-")) for s in a.split.split(",") if s])
+        except ValueError as e:
+            cli.fail(f"{fid}: --split {a.split!r}: {e}")
     picked = [int(s) for s in a.shots.split(",") if s] or None
+    mirrored = [int(s) for s in a.mirror.split(",") if s]
+    if any(not 0 <= s < len(shots) for s in mirrored):
+        cli.fail(f"{fid}: --mirror names a shot past its {len(shots)}")
+    # A shot the camera took round the walker's right side is, mirrored, the left side the sheet draws.
+    flipped = np.zeros(len(frames), bool)
+    for s in mirrored:
+        flipped[shots[s][0]:shots[s][1]] = True
     cycle_s = tuple(float(s) for s in a.cycle.split("-")) if a.cycle else _walkers.ORBIT_CYCLE_S
+    try:
+        rescale = {int(f): float(k) for f, k in (s.split("=") for s in a.scale.split(",") if s)}
+    except ValueError:
+        cli.fail(f"--scale is F=K comma-separated, a drawn facing and its factor: {a.scale!r}")
+    if any(not 0 <= f < _walkers.FACINGS or not 0.5 <= k <= 1.5 for f, k in rescale.items()):
+        cli.fail(f"--scale names facings 0..{_walkers.FACINGS - 1}, each by a factor of 0.5..1.5: {a.scale!r}")
     th, tw = frames[0].shape[0] // rows, frames[0].shape[1] // cols
 
     def keyed(rgb):
         key, _ = border_colour(rgb)
-        return _walkers.despilled(chroma_key(rgb.astype(np.int16), key))
+        return _walkers.despilled(chroma_key(rgb.astype(np.int16), key), key)
 
     out = base / CUTS / fid
     out.mkdir(parents=True, exist_ok=True)
     print(f"{fid}: {len(shots)} shots from frames {[s for s, _ in shots]} at {fps:g} fps -> {_sim.rel(base, out)}")
     for t, (i, height_m) in looks.items():
         x, y = t % cols * tw, t // cols * th
-        tile = [f[y:y + th, x:x + tw] for f in frames]
+        tile = [f[y:y + th, x:x + tw][:, ::-1] if flipped[n] else f[y:y + th, x:x + tw] for n, f in enumerate(frames)]
         try:
-            block, info = _walkers.cut_clip(tile, fps, keyed, height_m, picked, shots, cycle_s)
+            block, info = _walkers.cut_clip(tile, fps, keyed, height_m, picked, shots, cycle_s, rescale,
+                                            sized=not a.unsized)
         except ValueError as e:
             cli.fail(f"{fid} {i}: {e}")
         png = PngImagePlugin.PngInfo()
         tiled = {"tile": [t % cols, t // cols], "grid": [cols, rows]} if cols * rows > 1 else {}
+        tiled |= {"mirrored": mirrored} if mirrored else {}
+        tiled |= {"split": a.split} if a.split else {}
+        tiled |= {"rescale": {str(f): k for f, k in rescale.items()}} if rescale and not a.unsized else {}
+        tiled |= {"unsized": True} if a.unsized else {}
         png.add_text("cut", json.dumps({"frame": fid, **tiled, **{k: v for k, v in info.items() if k != "flags"}}))
         block.save(out / f"{i}.png", pnginfo=png)
         _walkers.preview(block, info, out / f"{i}_walk.gif", i)
@@ -1348,7 +1389,7 @@ def unkept_lineage(base):
                 todo.append(inp["frame"])
             else:
                 inputs.add(f"{inp['sha']}.{inp['ext']}")
-    return sorted([p for p in (base / KEPT_FRAMES).glob("*.json") if p.stem not in frames]
+    return sorted([p for p in (base / KEPT_FRAMES).iterdir() if p.stem not in frames]
                   + [p for p in (base / KEPT_INPUTS).iterdir() if p.name not in inputs])
 
 
@@ -1362,14 +1403,24 @@ def keep_lineage(base, fid):
             continue
         seen.add(f)
         rec = frame_record(base, f)
+        for inp in rec.get("inputs", []):
+            if is_private(inp):
+                inp["private"] = True
         target = base / KEPT_FRAMES / f"{f}.json"
         if not target.exists():
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(json.dumps(rec, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
             written.append(_sim.rel(base, target))
+        if rec.get("op") == "video" and not (clip := kept_clip(base, f, rec)).exists():
+            if not (base / rec["file"]).is_file():
+                cli.fail(f"{f}'s clip is gone from {rec['file']}: its lineage cannot be kept")
+            shutil.copyfile(base / rec["file"], clip)
+            written.append(_sim.rel(base, clip))
         for inp in rec.get("inputs", []):
             if inp.get("frame"):
                 todo.append(inp["frame"])
+                continue
+            if is_private(inp):
                 continue
             kept = base / KEPT_INPUTS / f"{inp['sha']}.{inp['ext']}"
             if kept.exists():
@@ -1831,9 +1882,12 @@ def trace(base, a):
         r = frame_record(base, f)
         print(f"  frame {f}: {r['op']} {r['model']} {json.dumps(r.get('settings', {}))} ${r.get('costUsd', '?')} "
               f"{r['ts']}")
+        if r.get("op") == "video":
+            print(f"    clip: {_sim.rel(base, kept_clip(base, f, r))}")
         for inp in r.get("inputs", []):
             print(f"    {inp['role']}: " + (f"frame {inp['frame']}" if inp.get("frame")
-                                             else f"{inp['sha']}.{inp['ext']} (was {inp['was']})"))
+                                             else f"{inp['sha']}.{inp['ext']} (was {inp['was']})"
+                                             + (", a private photo, not kept" if is_private(inp) else "")))
             if inp.get("frame"):
                 todo.append(inp["frame"])
         prompt = r["prompt"] if a.full else r["prompt"][:240].replace("\n", " ") + ("..." if len(r["prompt"]) > 240 else "")
@@ -1927,6 +1981,11 @@ def audit(base) -> list[str]:
     return sorted(set(problems))
 
 
+def is_private(inp) -> bool:
+    """A frame's input that was a photo of a real person (PHOTOS)."""
+    return bool(inp.get("private")) or (not inp.get("frame") and Path(inp.get("was", "")).is_relative_to(PHOTOS))
+
+
 def lineage_holes(base, fid):
     holes, todo, seen = [], [fid], set()
     while todo:
@@ -1938,10 +1997,13 @@ def lineage_holes(base, fid):
         if not kept.is_file():
             holes.append(f"{_sim.rel(base, kept)}: missing, so a kept variant traces to nothing")
             continue
-        for inp in json.loads(kept.read_text(encoding="utf-8")).get("inputs", []):
+        rec = json.loads(kept.read_text(encoding="utf-8"))
+        if rec.get("op") == "video" and not kept_clip(base, f, rec).is_file():
+            holes.append(f"{_sim.rel(base, kept_clip(base, f, rec))}: missing, so a kept variant cannot be cut again")
+        for inp in rec.get("inputs", []):
             if inp.get("frame"):
                 todo.append(inp["frame"])
-            elif not (base / KEPT_INPUTS / f"{inp['sha']}.{inp['ext']}").is_file():
+            elif not is_private(inp) and not (base / KEPT_INPUTS / f"{inp['sha']}.{inp['ext']}").is_file():
                 holes.append(f"{f}: its {inp['role']} {inp['sha']}.{inp['ext']} is not in {KEPT_INPUTS}")
     return holes
 
@@ -1997,6 +2059,12 @@ def family(asset_rel: str) -> tuple[str, str, str]:
 
 def grid(figures, asset_rel: str) -> float:
     return figures[family(asset_rel)[0]]
+
+
+def kept_clip(base, fid, rec) -> Path:
+    """Where a clip a kept variant was cut from lives in git, beside its record: the one frame that is not scratch,
+    since a walker is cut again from its clip and a clip is not asked twice alike (the owner, 2026-10-29)."""
+    return base / KEPT_FRAMES / f"{fid}{Path(rec['file']).suffix}"
 
 
 def frame_record(base, fid):

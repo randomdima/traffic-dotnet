@@ -14,7 +14,7 @@ namespace TrafficSimulation.App.Hud;
 /// <remarks>
 /// <para>
 /// <b>Nothing about the selection is written on the town</b> (CTL-1). What stands at the unit is the mark
-/// and only the mark — the brackets and the path (<see cref="SelectionMark"/>, <see cref="SelectionPath"/>)
+/// and only the mark — the ring and the path (<see cref="Render.SpriteRings"/>, <see cref="SelectionPath"/>)
 /// — because a shape says <em>which</em> one without covering the road it is about to drive down. Words
 /// take room, and the room they take is the town.
 /// </para>
@@ -24,7 +24,7 @@ namespace TrafficSimulation.App.Hud;
 /// </para>
 /// <para>
 /// <b>It does not need the unit on the picture.</b> Somebody indoors or riding in a car is not drawn and
-/// wears no brackets (PHY-7), and a unit the camera has been panned off has nothing at it either — this
+/// wears no ring (PHY-7), and a unit the camera has been panned off has nothing at it either — this
 /// still says what it is doing and where.
 /// </para>
 /// <para>

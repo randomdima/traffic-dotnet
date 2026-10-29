@@ -41,18 +41,21 @@ internal sealed class PersonCatalog
     {
         Variants = variants;
         Count = walkers;
-        Paramedic = IndexOf("paramedic_red");
-        Police = IndexOf("police_navy");
-        Recovery = IndexOf("recovery_yellow");
+        _paramedicLooks = UniformsNamed(ParamedicIdPrefix);
+        _policeLooks = UniformsNamed(PoliceIdPrefix);
+        _recoveryLooks = UniformsNamed(RecoveryIdPrefix);
 
-        int IndexOf(string id)
+        int[] UniformsNamed(string prefix)
         {
+            var looks = new List<int>();
             for (var entry = walkers; entry < variants.Length; entry++)
             {
-                if (variants[entry].Id == id) return entry;
+                if (variants[entry].Id.StartsWith(prefix, StringComparison.Ordinal)) looks.Add(entry);
             }
 
-            throw new InvalidDataException($"Service.json names no variant with the id '{id}'.");
+            return looks.Count > 0
+                ? [.. looks]
+                : throw new InvalidDataException($"Service.json names no variant whose id starts '{prefix}'.");
         }
     }
 
@@ -69,12 +72,27 @@ internal sealed class PersonCatalog
     /// <summary>And how many looks there are altogether, which is what the sheet list is laid for.</summary>
     public int SheetCount => Variants.Length;
 
-    /// <summary>Which uniform an ambulance's crew wears, a police car's, and an evacuator's (SRV-3a).</summary>
-    public int Paramedic { get; }
+    /// <summary>
+    /// <b>The paramedic look the <paramref name="nth"/> member of an ambulance crew wears</b> (SRV-3a): every
+    /// service-list look whose id starts <see cref="ParamedicIdPrefix"/>, in the list's order, in turn — as
+    /// <see cref="PoliceLook"/> and <see cref="RecoveryLook"/> are a police car's and an evacuator's.
+    /// </summary>
+    public int ParamedicLook(int nth) => _paramedicLooks[nth % _paramedicLooks.Length];
 
-    public int Police { get; }
+    public int PoliceLook(int nth) => _policeLooks[nth % _policeLooks.Length];
 
-    public int Recovery { get; }
+    public int RecoveryLook(int nth) => _recoveryLooks[nth % _recoveryLooks.Length];
+
+    readonly int[] _paramedicLooks;
+    readonly int[] _policeLooks;
+    readonly int[] _recoveryLooks;
+
+    /// <summary>What a paramedic look's id starts with: the service list says which looks a crew has, by naming them.</summary>
+    const string ParamedicIdPrefix = "paramedic";
+
+    const string PoliceIdPrefix = "police";
+
+    const string RecoveryIdPrefix = "recovery";
 
     /// <summary>
     /// The looks, read once. <b>It is data and not a service</b> — immutable, on disk, and the same for

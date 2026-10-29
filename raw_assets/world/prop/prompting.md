@@ -33,3 +33,21 @@ rule 4). 203 kept, 3 dropped.
 - **Gaps inside one drawing split it**: crates and kegs stacked with clear gaps were found as several drawings; `cut`
   now closes gaps up to 32 px when it finds more drawings than ids (`props_d_street_goods-v1`).
 - **Generic symbols creep in**: a recycling sign on the paper bank (`bank_paper-v1`, score 3) despite "no logos".
+
+## The intercity road's barriers (2026-10-26) — `props_street_guardrail`, 2 frames, $0.035
+
+Twelve looks under `street/guardrail/`, planned apart from the town's ([guardrail_plan.md](guardrail_plan.md)), the brief
+`townprops brief`'s with the plant lines swapped for barrier ones: a section lies along the width, "cut straight and
+square … the beam reaching right to it", the beam along the bottom edge and the posts behind it.
+
+- **Sections butt cleanly as asked**: every rail came back square-ended and in line, posts near the quarter points, so
+  4 m and 2 m sections run on without a step (`guardrail_4m-v1`, `guardrail_2m-v1`, score 4).
+- **A long thin thing comes back deeper than asked, and asking harder makes it worse**: rails asked 0.45 m deep came
+  back 0.53–0.56 m (`-v1`); told they were 25 % too deep, they came back 0.66–0.71 m (`props_street_guardrail-v2`).
+  The double-sided median came back 0.96–1.06 m of 0.6 both times (`guardrail_median_4m-v1`, score 3). Take the depth
+  the first frame draws.
+- **A concrete barrier is drawn in three-quarter view** — its front face and sloped ends showing like a brick
+  (`props_street_guardrail-v1` cell 4); "its outline is a long thin rectangle with square ends, the top ridge a lighter
+  line along its middle" drew it from above (`concrete_median_4m-v1`, score 3).
+- **A drum is drawn as a cone, side-on** (`-v1` cell 11) until described as rings: "concentric rings, the orange top in
+  the middle, a white band ring round it and the black base ring outside" (`traffic_drum-v1`, score 4).

@@ -173,7 +173,8 @@ public class InspectorTests(StandingTown town) : IClassFixture<StandingTown>
         pick.Click(atM);
         var pinned = new EngineLayers.Picks(default, AWagon.Pointed);
         Frame(overlay, world, switches, pick, atM, AWagon);
-        for (var pass = 0; pass < 2; pass++) Frame(overlay, world, switches, pick, atM, pinned);
+        // Warmed past tier-up, as StatusPanelTests' panel is: a recompile in the measured window is charged to this thread.
+        for (var pass = 0; pass < 256; pass++) Frame(overlay, world, switches, pick, atM, pinned);
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var pass = 0; pass < 16; pass++) Frame(overlay, world, switches, pick, atM, pinned);

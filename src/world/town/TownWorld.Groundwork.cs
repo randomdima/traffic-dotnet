@@ -142,6 +142,7 @@ internal sealed partial class TownWorld
             // with the town rather than the first time something asks.
             var footAt = Stopwatch.GetTimestamp();
             PavementLanes = PavementLanes.Of(plan, config);
+            OpenWatch.Passed("town: pavement lanes");
 
             // <b>The town's zebras, once</b> (TER-6): where the walk is crossed is where the road is crossed,
             // so the walk that is cut at them, the lanes that carry them and the bands under them are all read
@@ -154,7 +155,9 @@ internal sealed partial class TownWorld
             Bars = StopBars.Lay(plan.Paving(config).Lanes, Crossings.Lay(plan, config, ends.HeldM), config, Zebras);
             Signals = SignalService.Build(plan, Roads, Zebras, config);
             Heads = SignalHeads.Place(Bars, Zebras, Signals, config);
+            OpenWatch.Passed("town: zebras, bars and signals");
             CrossingWays = CrossingWays.Of(plan, PavementLanes, Zebras, config);
+            PavementLanes = PavementLanes.EndedAtTheCrossings(CrossingWays, config);
             Foot = FootGraph.Build(PavementLanes, CrossingWays, config);
             FootMs = Stopwatch.GetElapsedTime(footAt).TotalMilliseconds;
             yield return OpenWatch.Passed("town: pavement");

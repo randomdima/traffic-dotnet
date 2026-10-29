@@ -135,6 +135,33 @@ public class PointCellsTests
         }
     }
 
+    /// <summary>
+    /// <b>An extent named changes no answer</b>: a set filed over a window of part of the town, with points both in it and
+    /// out of it, answers every question as the set filed without one.
+    /// </summary>
+    [Fact]
+    public void ASetFiledOverAWindowAnswersAsOneFiledWithout()
+    {
+        var draw = new Rng(11, 1);
+        var (plain, pointsM) = Scattered(ref draw, 600);
+        var windowed = new PointCells(Level, new Vector2(AcrossM * 0.25f), new Vector2(AcrossM * 0.75f));
+        foreach (var pointM in pointsM) windowed.Add(pointM);
+
+        var (plainNear, windowedNear) = (new List<int>(), new List<int>());
+        for (var ask = 0; ask < 300; ask++)
+        {
+            var atM = Somewhere(ref draw);
+            var reachM = draw.NextFloat(1f, 2000f);
+
+            Assert.Equal(plain.AnyWithin(atM, reachM), windowed.AnyWithin(atM, reachM));
+            Assert.Equal(plain.NearestSq(atM), windowed.NearestSq(atM));
+            Assert.Equal(plain.Nearest(atM), windowed.Nearest(atM));
+            plain.Within(atM, reachM, plainNear);
+            windowed.Within(atM, reachM, windowedNear);
+            Assert.Equal(plainNear, windowedNear);
+        }
+    }
+
     static (PointCells Cells, List<Vector2> PointsM) Scattered(ref Rng draw, int count)
     {
         var cells = new PointCells(Level);

@@ -50,6 +50,7 @@ internal sealed class PersonFleet
         RouteCount = new int[capacity];
         RouteTaken = new int[capacity];
         RouteRunsOut = new bool[capacity];
+        Hopping = new bool[capacity];
         RoutesLaid = new uint[capacity];
         RouteToM = new float[capacity];
         OnWay = new int[capacity];
@@ -233,6 +234,17 @@ internal sealed class PersonFleet
     /// </remarks>
     public bool[] RouteRunsOut { get; }
 
+    /// <summary>
+    /// <b>Whether the walker has walked its chain out and is on the hop off the end of it</b>, kept until the chain is
+    /// laid again.
+    /// </summary>
+    /// <remarks>
+    /// <b>Kept rather than read off where the body stands</b>: a hop to a goal standing off the way and a little back
+    /// along it takes the body back short of the chain's end, and read again from there the walker would be walking the
+    /// way — a stride on towards the end, then the hop back, for good.
+    /// </remarks>
+    public bool[] Hopping { get; }
+
     /// <summary>How many times each walker's chain has been cleared to be laid again — what a walk kept down it is checked against.</summary>
     public uint[] RoutesLaid { get; }
 
@@ -326,6 +338,7 @@ internal sealed class PersonFleet
         RouteCount[person] = 0;
         RouteTaken[person] = 0;
         RouteRunsOut[person] = false;
+        Hopping[person] = false;
         RouteToM[person] = 0f;
         OnWay[person] = NoWay;
         OnWayM[person] = 0f;
@@ -401,6 +414,7 @@ internal sealed class PersonFleet
         RouteCount[person] = 0;
         RouteTaken[person] = 0;
         RouteRunsOut[person] = false;
+        Hopping[person] = false;
         RouteToM[person] = 0f;
         OnWay[person] = NoWay;
         OnWayM[person] = 0f;

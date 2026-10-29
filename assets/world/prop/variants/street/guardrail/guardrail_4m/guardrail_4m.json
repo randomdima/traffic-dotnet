@@ -1,0 +1,8 @@
+{
+  "id": "guardrail_4m",
+  "sprite": "guardrail_4m.webp",
+  "kind": 2,
+  "footprintM": [4.0, 0.557],
+  "turns": true,
+  "describe": "new galvanised steel W-beam crash barrier section, 4 m long: a narrow bright silver-grey steel beam runs the whole length along the bottom edge, its corrugated profile showing as two thin parallel ridges along it; just behind it two small square steel posts, each with a short spacer block joining it to the beam, one a quarter of the way in from each end; both ends cut straight and square, the beam reaching right to them, so sections join end to end"
+}

@@ -190,7 +190,8 @@ public class StatusPanelClaimsTests(StandingTown town) : IClassFixture<StandingT
         var run = new RunState();
         var figures = Measured();
 
-        for (var pass = 0; pass < 2; pass++) Fill(panel, world, quads, run, figures, watching);
+        // Warmed past tier-up, as StatusPanelTests' panel is: a recompile in the measured window is charged to this thread.
+        for (var pass = 0; pass < 256; pass++) Fill(panel, world, quads, run, figures, watching);
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var pass = 0; pass < 64; pass++) Fill(panel, world, quads, run, figures, watching);

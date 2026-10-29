@@ -319,44 +319,42 @@ internal static class Theme
 
     public static readonly Vector4 RulerTape = new(1f, 0.95f, 0.35f, 1f);
 
-    /// <summary>The brackets round the selected unit — the chrome's own accent, so the one mark standing on the town reads as the interface talking rather than as something the town is doing.</summary>
-    public static readonly Vector4 SelectionMark = Accent;
+    /// <summary>The ring round the selected unit: a green no part of the town's chrome wears, so it reads as "picked" and as nothing else.</summary>
+    public static readonly Vector4 SelectionMark = new(0.3f, 0.72f, 0.28f, 1f);
 
     /// <summary>
-    /// The brackets round a car a second driver has the wheel of (CTL-5d). <b>The selection's own shape in
+    /// The ring round a car a second driver has the wheel of (CTL-5d). <b>The selection's own shape in
     /// a hue of its own</b>: it is the same question — which car is this one about — asked by somebody else,
     /// so a different shape would read as a different kind of thing rather than as a different hand.
     /// </summary>
     public static readonly Vector4 SecondHandMark = new(1f, 0.78f, 0.22f, 1f);
 
     /// <summary>
-    /// What a mark on a car nobody picked out is outlined in. <b>A mark the reader did not ask for lands on
-    /// whatever colour that car is painted</b>, and the town's own palette holds every hue a mark could be
-    /// — so the shape is cut out of the picture rather than tinted into it.
+    /// What a ring round a unit is edged in. <b>A ring lands on whatever the unit stands on</b> — a green one on a lawn,
+    /// an amber one on a sandy verge — and the town's own palette holds every hue a ring could be, so the band is cut
+    /// out of the picture rather than tinted into it.
     /// </summary>
     public static readonly Vector4 MarkOutline = new(0.05f, 0.05f, 0.07f, 0.9f);
 
     /// <summary>
-    /// The box a drag lays over the town (CTL-1b), as the wash inside it and the line round it. The
-    /// same accent the brackets wear, since it is the same question being asked of several units at
-    /// once — and a wash light enough that what is inside it stays the thing being looked at.
+    /// The box a drag lays over the town (CTL-1b), as the wash inside it and the line round it, in the chrome's
+    /// accent — and a wash light enough that what is inside it stays the thing being looked at.
     /// </summary>
     public static readonly Vector4 SelectionBox = new(Accent.X, Accent.Y, Accent.Z, 0.14f);
 
     public static readonly Vector4 SelectionBoxEdge = Accent;
 
     /// <summary>
-    /// The selected unit's own path (CTL-1a), in the same accent the brackets wear: the line and the unit
-    /// it runs out of are one answer to one question, and a colour of its own would read as a third layer
-    /// standing beside the two the switches already draw.
+    /// The selected unit's own path (CTL-1a), in the chrome's accent: a colour of its own would read as a third
+    /// layer standing beside the two the switches already draw.
     /// </summary>
     public static readonly Vector4 SelectionPath = Accent;
 
     /// <summary>
-    /// And the mark on the end of it. <b>The one green in the interface</b>, because it is the only thing
-    /// the chrome draws that is an <em>end</em> rather than a way — brighter and far bolder than the
-    /// walking network's hairline web (<see cref="WalkingNodes"/>), which is what keeps the two apart with
-    /// both on screen.
+    /// And the mark on the end of it, green as the selection's ring is (<see cref="SelectionMark"/>): the unit and where
+    /// it is going are one answer, told apart by shape — a ring round the picture, brackets round the goal's box.
+    /// Brighter and far bolder than the walking network's hairline web (<see cref="WalkingNodes"/>), which is what keeps
+    /// the two apart with both on screen.
     /// </summary>
     public static readonly Vector4 SelectionGoal = new(0.25f, 1f, 0.38f, 1f);
 

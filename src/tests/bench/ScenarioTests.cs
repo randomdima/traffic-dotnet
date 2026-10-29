@@ -80,7 +80,8 @@ public class ScenarioTests(ScenarioTests.AtRest atRest) : IClassFixture<Scenario
     public void EveryScenarioMapCarriesClaimsOfItsOwn(string map)
     {
         var watching = Scenarios.For(Standing(map), Config);
-        var ownClaims = Array.Exists(watching, watch => watch is not TownWatch);
+        // A town that sends trains owes the rail's claims whatever map it is (Scenarios.For), so those are no map's own.
+        var ownClaims = Array.Exists(watching, watch => watch is not TownWatch and not RailWatch);
 
         // The suite's own town is a place and is on no menu, so the catalogue has no row for it and reads it
         // as a scenario by default; what it is laid for is to be a city, which is exactly the branch below.

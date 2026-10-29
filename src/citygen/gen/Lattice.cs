@@ -28,11 +28,11 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </remarks>
 internal static class Lattice
 {
-    /// <summary>How much of a block a street's own stub may be, before the junction it would make is too near the last one.</summary>
-    const float ShortestStubInBlocks = 0.15f;
-
-    /// <summary>How near the place its lattice line crosses a road a stub meets a node already there rather than one of its own.</summary>
-    const float StubWeldM = 5f;
+    /// <summary>
+    /// How far past the arms' least angle a turned stub is turned, so it meets the road clear of the bound rather than on
+    /// it, where a float's rounding decides GEN-13. A tolerance, not a figure of the town.
+    /// </summary>
+    const float PastTheBoundRad = 0.01f;
 
     /// <summary>
     /// <b>Where along a road a stub leaving a lattice point on a heading meets it</b>, squarely enough to be a junction at
@@ -48,7 +48,7 @@ internal static class Lattice
         var meetsRad = MathF.Acos(Math.Clamp(MathF.Abs(Vector2.Dot(heading, along)), 0f, 1f));
         if (meetsRad >= apartRad) return crossedM;
 
-        var turnRad = apartRad - meetsRad + 0.01f;
+        var turnRad = apartRad - meetsRad + PastTheBoundRad;
         if (turnRad > (MathF.PI * 0.5f) - apartRad) return null;
 
         // Turned the way that opens it from the road: toward the road's normal on the side the heading meets it from.
@@ -68,10 +68,9 @@ internal static class Lattice
         SimConfig config, ulong seed)
     {
         var streets = new List<(int From, int To, bool Straight)>();
-        var weldM = config.CityGen.DistrictJunctionsApartLeastM;
         for (var district = 0; district < districts.Count; district++)
         {
-            PlaceOne(layout, partition, districts, district, paths, corridors, ground, weldM, config.ArmsApartMinRad, seed, streets);
+            PlaceOne(layout, partition, districts, district, paths, corridors, ground, config, seed, streets);
         }
 
         return streets;
@@ -155,29 +154,44 @@ internal static class Lattice
     }
 
     /// <summary>
-    /// And the streets themselves, offered in the order they were found once every path stands, against the nodes the
-    /// settling left (<see cref="TownLayout.SettleTheNodes"/>). A link whose two ends fell into one cluster is no road and
-    /// is refused where every other refusal is (<see cref="TownLayout.Join"/>).
+    /// And the streets themselves (<see cref="Settled"/>), offered in the order they were found once every path stands —
+    /// each cut where a road joined after the paths crossed it (<see cref="TownLinks.JoinWhatWasLeft"/>) as the two halves
+    /// that meet it there — and refused where every other refusal is (<see cref="TownLayout.Join"/>).
     /// </summary>
-    public static void Lay(TownLayout layout, List<(int From, int To, bool Straight)> streets, int[] moved)
+    public static void Lay(TownLayout layout, List<(int From, int To, bool Straight)> settled)
     {
+        foreach (var (from, to, straight) in settled) layout.Join(from, to, RoadClass.Street, straight: straight);
+    }
+
+    /// <summary>
+    /// The streets placed, on the nodes the settling left (<see cref="TownLayout.SettleTheNodes"/>), in the order they were
+    /// found — each one whose ends were never stood or fell into one cluster left out, as no road.
+    /// </summary>
+    public static List<(int From, int To, bool Straight)> Settled(List<(int From, int To, bool Straight)> streets, int[] moved)
+    {
+        var settled = new List<(int, int, bool)>(streets.Count);
         foreach (var (from, to, straight) in streets)
         {
-            if (from < 0 || to < 0) continue;
+            if (from < 0 || to < 0 || moved[from] == moved[to]) continue;
 
-            layout.Join(moved[from], moved[to], RoadClass.Street, straight: straight);
+            settled.Add((moved[from], moved[to], straight));
         }
+
+        return settled;
     }
 
     static void PlaceOne(
         TownLayout layout, Partition partition, Districts districts, int district, Paths paths, int[] corridors,
-        GroundShapes ground, float weldM, float apartRad, ulong seed, List<(int From, int To, bool Straight)> streets)
+        GroundShapes ground, SimConfig config, ulong seed, List<(int From, int To, bool Straight)> streets)
     {
+        var (weldM, apartRad) = (config.CityGen.DistrictJunctionsApartLeastM, config.ArmsApartMinRad);
+        var (stubWeldM, shortestStubInBlocks) = (config.CityGen.StubWeldM, config.CityGen.ShortestStubInBlocks);
         var plan = districts[district];
         var along = Heading.Unit(plan.BearingRad);
         var across = Heading.RightOf(along);
         var originM = partition.CentreM[district];
-        var reach = (int)MathF.Ceiling(MathF.Sqrt(partition.AreaM2[district]) * 2f / plan.BlockTightestM) + 1;
+        // As far as the district's furthest ground, so a long strip is laid to its ends.
+        var reach = (int)MathF.Ceiling(partition.ReachM[district] / plan.BlockTightestM) + 1;
 
         var side = (reach * 2) + 1;
         var node = new int[side * side];
@@ -217,7 +231,7 @@ internal static class Lattice
         // <b>From one point toward the next along the lattice, over the district's own ground</b>: a street where the next
         // point stands and nothing lies between — laid from the lesser of the two, so once — and a stub onto the first
         // district road whose corridor lies between, where one does, whether or not the next point stands beyond it. Never
-        // onto an intercity road (GEN-68), and nothing where the walk leaves the district first.
+        // onto an intercity road (GEN-68) nor a bridgehead (GEN-14a), and nothing where the walk leaves the district first.
         void Walk(int u, int v, int du, int dv)
         {
             var from = node[Slot(u, v)];
@@ -244,9 +258,9 @@ internal static class Lattice
 
                 // <b>A road ending on the lattice's next point stands in for it</b> (TownLinks.Inside): the point is in that
                 // road's own corridor, so no node of the lattice stands there and the lattice's line never crosses the road.
-                if (paths.EndNear(path, PointM(u + du, v + dv), StubWeldM) is var end and >= 0)
+                if (paths.EndNear(path, PointM(u + du, v + dv), stubWeldM) is var end and >= 0)
                 {
-                    if (!paths.OnAnIntercity(end)) found.Add((from, end));
+                    if (!paths.OnAnIntercity(end) && !paths.AtABridgehead(end)) found.Add((from, end));
 
                     return;
                 }
@@ -257,8 +271,8 @@ internal static class Lattice
                 var line = paths.All[path].Line;
                 if (StubOnto(line, fromM, toward / spanM, spanM * 2f, apartRad) is not { } crossedM) return;
 
-                var onto = paths.NodeAt(path, crossedM, StubWeldM, weldM);
-                if (onto >= 0 && !paths.OnAnIntercity(onto) && Vector2.Distance(layout.NodeM[onto], fromM) >= plan.BlockTightestM * ShortestStubInBlocks)
+                var onto = paths.NodeAt(path, crossedM, stubWeldM, weldM);
+                if (onto >= 0 && !paths.OnAnIntercity(onto) && !paths.AtABridgehead(onto) && Vector2.Distance(layout.NodeM[onto], fromM) >= plan.BlockTightestM * shortestStubInBlocks)
                 {
                     found.Add((from, onto));
                 }

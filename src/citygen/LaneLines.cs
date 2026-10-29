@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
@@ -74,9 +75,10 @@ internal sealed class LaneLines
         bool[] laneIsBay, byte[] laneLevel, float[] laneLengthM, int[] laneArcOffsets, ArcSeg[] laneArcs, int firstRoadside,
         float[] roadsideInTheBoxAtStartM, float[] roadsideInTheBoxAtEndM, RoadsideLanes.Taper[] tapers,
         int[] connectorAt, int[] connectorToLane, LaneTurn[] connectorKind,
-        int[] connectorArcOffsets, ArcSeg[] connectorArcs, float[] connectorLengthM)
+        int[] connectorArcOffsets, ArcSeg[] connectorArcs, float[] connectorLengthM, bool[] seamless)
     {
         JunctionCount = junctionCount;
+        _seamless = seamless;
         FirstRoadside = firstRoadside;
         _roadsideInTheBoxAtStartM = roadsideInTheBoxAtStartM;
         _roadsideInTheBoxAtEndM = roadsideInTheBoxAtEndM;
@@ -126,6 +128,15 @@ internal sealed class LaneLines
 
     /// <summary>Whether any lane of the town is driven on a level of its own.</summary>
     public bool Levelled => _bridgeheads.Length > 0;
+
+    readonly bool[] _seamless;
+
+    /// <summary>
+    /// <b>Whether a junction is lanes carried on and nothing else</b> (TER-5k): what meets there forks and merges and
+    /// crosses nothing, so it is no box — no station, no bar, no light, no break in the paint, and every movement over it
+    /// straight on.
+    /// </summary>
+    public bool IsSeamless(int junction) => _seamless[junction];
 
     static bool[] Bridgeheads(int junctionCount, int[] fromJunction, int[] toJunction, byte[] level)
     {
@@ -515,13 +526,22 @@ internal sealed class LaneLines
                 config, connectorAt, connectorToLane, connectorKind, connectorArcOffsets, connectorArcs,
                 connectorLengthM);
 
+        // Classified after the lanes were shared and the lines drawn, which still read a slip as the turn it is (GEN-68).
+        var seamless = Seamless(ground, laneToJunction, laneLevel, connectorAt, connectorToLane, connectorArcOffsets, connectorArcs);
+        for (var lane = 0; lane < laneToJunction.Count; lane++)
+        {
+            if (!seamless[laneToJunction[lane]]) continue;
+
+            for (var connector = connectorAt[lane]; connector < connectorAt[lane + 1]; connector++) connectorKind[connector] = LaneTurn.Straight;
+        }
+
         // <b>Lane zero is laid after every lane a movement joins</b> (<see cref="IsRoadside"/>): joined to nothing, it
         // takes no part in the junctions above, and the lanes before it number as they would without it.
         var firstRoadside = laneRoad.Count;
         var inTheBoxAtStartM = new List<float>();
         var inTheBoxAtEndM = new List<float>();
         var eased = new RoadsideLanes.Runs(easedAt, easedToLane, easedArcOffsets, easedArcs);
-        var tapers = Eased(eased, laneWidthM, laneLevel);
+        var tapers = Eased(eased, laneWidthM, laneLevel, laneRoad);
         if (roads.RoadsideWithM.Length > 0)
         {
             var roadsides = RoadsideLanes.Of(
@@ -566,7 +586,7 @@ internal sealed class LaneLines
             [.. laneToJunction], [.. laneForward], [.. laneReverse], [.. laneOverOneLine], [.. laneCrossesToPass], [.. laneIsBay],
             [.. laneLevel], [.. laneLengthM], wholeOffsets, wholeArcs, firstRoadside, [.. inTheBoxAtStartM], [.. inTheBoxAtEndM],
             tapers, connectorAt, connectorToLane, connectorKind,
-            connectorArcOffsets, connectorArcs, connectorLengthM);
+            connectorArcOffsets, connectorArcs, connectorLengthM, seamless);
 
         void AddLane(
             int road, float laneM, int fromKerb, int fromJunction, int toJunction, bool forward,
@@ -804,13 +824,19 @@ internal sealed class LaneLines
 
                 var carriedOnRad = arrivingRad + CarriedOnRad(arriving.Curvature, (starts.StartM - arriving.EndM).Length());
                 var turnRad = Spline.WrapRad(starts.HeadingRad - carriedOnRad);
-                var turn = MathF.Abs(turnRad) <= straightRad
-                    ? LaneTurn.Straight
-                    : MathF.Sign(turnRad) == MathF.Sign(config.RoadSideSign)
-                        ? LaneTurn.NearSide
-                        : LaneTurn.FarSide;
+
+                // Off an intercity road onto its slip, or off the slip onto it, is the kerb lane's however shallow (GEN-68):
+                // read as straight on, the slip would fork the kerb lane off and the road carry on in the rest. A turn
+                // sharp enough to read as one is one, as at the terminal an intercity road arriving at another ends on.
+                var slipping = MathF.Abs(turnRad) <= straightRad && Slipping(roads, laneRoad[lane], laneRoad[leaving]);
+                var turn = slipping ? LaneTurn.NearSide
+                    : MathF.Abs(turnRad) <= straightRad
+                        ? LaneTurn.Straight
+                        : MathF.Sign(turnRad) == MathF.Sign(config.RoadSideSign)
+                            ? LaneTurn.NearSide
+                            : LaneTurn.FarSide;
                 turns[slot] = turn;
-                bearsToTheKerb[slot] = turnRad * config.RoadSideSign >= 0f;
+                bearsToTheKerb[slot] = slipping || turnRad * config.RoadSideSign >= 0f;
                 kerbwardM[slot] = Spline.Cross(Heading.Unit(arrivingRad), starts.StartM - arriving.EndM) * config.RoadSideSign;
                 uTurns[slot] = MathF.Abs(turnRad) >= MathF.PI - straightRad;
                 if (uTurns[slot]) continue;
@@ -899,7 +925,7 @@ internal sealed class LaneLines
     /// The eased lines as the bands they pave (<see cref="Tapers"/>): each as wide as the narrower of its two lanes and on
     /// the level a connector between them would be (<see cref="ConnectorLevel"/>).
     /// </summary>
-    static RoadsideLanes.Taper[] Eased(RoadsideLanes.Runs eased, List<float> laneWidthM, List<byte> laneLevel)
+    static RoadsideLanes.Taper[] Eased(RoadsideLanes.Runs eased, List<float> laneWidthM, List<byte> laneLevel, List<int> laneRoad)
     {
         var tapers = new RoadsideLanes.Taper[eased.ToLane.Length];
         for (var lane = 0; lane + 1 < eased.At.Length; lane++)
@@ -908,7 +934,8 @@ internal sealed class LaneLines
             {
                 var onto = eased.ToLane[line];
                 var level = laneLevel[lane] == laneLevel[onto] ? laneLevel[lane] : CityPlan.RoadArrays.Ground;
-                tapers[line] = new RoadsideLanes.Taper(eased.ArcsOf(line).ToArray(), MathF.Min(laneWidthM[lane], laneWidthM[onto]), level);
+                tapers[line] = new RoadsideLanes.Taper(
+                    eased.ArcsOf(line).ToArray(), MathF.Min(laneWidthM[lane], laneWidthM[onto]), level, laneRoad[lane]);
             }
         }
 
@@ -948,6 +975,123 @@ internal sealed class LaneLines
     /// <summary>How many lanes a road is driven in the way one of its lanes runs.</summary>
     static int LanesOfItsWay(CityPlan.RoadArrays roads, int road, bool forward) =>
         forward ? roads.LanesWithTheRoad(road) : roads.LanesAgainstTheRoad(road);
+
+    /// <summary>Whether a movement is between an intercity road and one of its slip roads (<see cref="Gen.RoadClass.Slip"/>).</summary>
+    static bool Slipping(CityPlan.RoadArrays roads, int one, int other) =>
+        roads.Class.Length > 0
+        && ((roads.Class[one] == Gen.RoadClass.Slip && roads.Class[other] == Gen.RoadClass.Intercity)
+            || (roads.Class[one] == Gen.RoadClass.Intercity && roads.Class[other] == Gen.RoadClass.Slip));
+
+    /// <summary>
+    /// <b>Which junctions only carry lanes on</b> (TER-5k): every road meeting there unwalked, and no two of its movements
+    /// crossing each other or a track at ground level — but for two leaving one lane or landing on one, which is a fork
+    /// and a merge and the whole of what such a node does.
+    /// </summary>
+    /// <remarks>
+    /// <b>Unwalked and not merely uncrossed</b>: a walked road's walk is cut at every end it has at a node that forks
+    /// (<see cref="KerbEnds"/>), so no walk runs past such a node without crossing something there.
+    /// </remarks>
+    static bool[] Seamless(
+        GroundPieces ground, List<int> laneToJunction, List<byte> laneLevel, int[] connectorAt, int[] connectorToLane,
+        int[] connectorArcOffsets, ArcSeg[] connectorArcs)
+    {
+        var roads = ground.Roads;
+        var seamless = new bool[ground.Junctions.Count];
+        if (roads.Unwalked.Length == 0) return seamless;
+
+        var arms = ground.ArmsPerJunction();
+        for (var junction = 0; junction < seamless.Length; junction++)
+        {
+            seamless[junction] = arms[junction] >= 2 && !ground.Junctions.RunsOff(junction);
+        }
+
+        for (var road = 0; road < roads.Count; road++)
+        {
+            if (roads.SegmentsOf(road).Length == 0 || !roads.IsWalked(road)) continue;
+
+            seamless[roads.FromJunction[road]] = seamless[roads.ToJunction[road]] = false;
+        }
+
+        var movements = new Dictionary<int, List<(int Connector, int From)>>();
+        for (var lane = 0; lane < laneToJunction.Count; lane++)
+        {
+            var junction = laneToJunction[lane];
+            if (!seamless[junction]) continue;
+
+            if (!movements.TryGetValue(junction, out var at)) movements[junction] = at = [];
+            for (var connector = connectorAt[lane]; connector < connectorAt[lane + 1]; connector++) at.Add((connector, lane));
+        }
+
+        Span<SplineCrossing> crossing = stackalloc SplineCrossing[1];
+        var reachM = new Dictionary<int, float>();
+        for (var junction = 0; junction < seamless.Length; junction++)
+        {
+            if (!seamless[junction]) continue;
+
+            if (!movements.TryGetValue(junction, out var at) || at.Count == 0)
+            {
+                seamless[junction] = false;
+                continue;
+            }
+
+            var centreM = ground.Junctions.CentreM[junction];
+            var reach = 0f;
+            for (var one = 0; one < at.Count && seamless[junction]; one++)
+            {
+                var oneArcs = ArcsOf(at[one].Connector);
+                if (oneArcs.Length > 0) reach = MathF.Max(reach, Vector2.Distance(oneArcs[0].StartM, centreM) + Spline.TotalLengthM(oneArcs));
+
+                for (var other = one + 1; other < at.Count; other++)
+                {
+                    if (at[one].From == at[other].From || connectorToLane[at[one].Connector] == connectorToLane[at[other].Connector]) continue;
+                    if (Spline.CrossingsM(oneArcs, ArcsOf(at[other].Connector), 0f, 0f, crossing) == 0) continue;
+
+                    seamless[junction] = false;
+                    break;
+                }
+            }
+
+            if (seamless[junction]) reachM[junction] = reach;
+        }
+
+        var rails = ground.Rails;
+        Span<ArcSeg> chord = stackalloc ArcSeg[1];
+        for (var track = 0; track < rails.Count && reachM.Count > 0; track++)
+        {
+            var points = rails.TrackOf(track);
+            for (var point = 0; point + 1 < points.Length; point++)
+            {
+                if (rails.Level[rails.PointOffsets[track] + point] != CityPlan.RoadArrays.Ground) continue;
+
+                var (fromM, toM) = (points[point], points[point + 1]);
+                var stepM = toM - fromM;
+                chord[0] = new ArcSeg(fromM, MathF.Atan2(stepM.Y, stepM.X), stepM.Length(), 0f);
+                foreach (var (junction, reach) in reachM)
+                {
+                    var centreM = ground.Junctions.CentreM[junction];
+                    if (!seamless[junction] || Vector2.Min(fromM, toM).X > centreM.X + reach || Vector2.Max(fromM, toM).X < centreM.X - reach
+                        || Vector2.Min(fromM, toM).Y > centreM.Y + reach || Vector2.Max(fromM, toM).Y < centreM.Y - reach)
+                    {
+                        continue;
+                    }
+
+                    foreach (var (connector, from) in movements[junction])
+                    {
+                        if (laneLevel[from] != CityPlan.RoadArrays.Ground || laneLevel[connectorToLane[connector]] != CityPlan.RoadArrays.Ground) continue;
+                        if (Spline.CrossingsM(chord, ArcsOf(connector), 0f, 0f, crossing) == 0) continue;
+
+                        seamless[junction] = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return seamless;
+
+        ReadOnlySpan<ArcSeg> ArcsOf(int connector) =>
+            connectorArcs.AsSpan(connectorArcOffsets[connector], connectorArcOffsets[connector + 1] - connectorArcOffsets[connector]);
+    }
 
     /// <summary>The most lanes that set off from any one node.</summary>
     static int MostLanesAtANode(int[] outOffsets)
@@ -1207,10 +1351,12 @@ internal sealed class LaneLines
         }
 
         // <b>A junction at a time, on as many threads as there are</b>: a connector is one junction's, so each junction's
-        // pairs read and write lines of its own alone, in the order they always were.
+        // pairs read and write lines of its own alone, in the order they always were. The busiest are begun first: a
+        // junction's pairs are the square of its turns, and the one begun last is the stage's tail.
         var radiusM = config.JunctionTurnRoomM;
         var junctions = new List<int>[across.Count];
         across.Values.CopyTo(junctions, 0);
+        Array.Sort(junctions, static (one, other) => other.Count.CompareTo(one.Count));
         InChunks.Over(junctions.Length, static () => 0, (_, junction) => TurnedApart(junctions[junction]));
 
         void TurnedApart(List<int> turns)
@@ -1223,7 +1369,7 @@ internal sealed class LaneLines
                     if (MathF.Abs(Spline.WrapRad(poses[a].From.HeadingRad - poses[b].From.HeadingRad)) < uTurnRad) continue;
 
                     var clearM = (widthM[a] + widthM[b]) * 0.5f;
-                    var (bestA, bestB, bestM) = (lines[a], lines[b], Apart(lines[a], lines[b]));
+                    var (bestA, bestB, bestM) = (lines[a], lines[b], Apart(lines[a], lines[b], clearM));
                     if (bestM >= clearM) continue;
 
                     // The latest turn that leaves them a lane apart, tried from turning at the corner back to turning at once.
@@ -1231,7 +1377,7 @@ internal sealed class LaneLines
                     {
                         if (Sooner(a, (float)step / SoonerSteps) is not { } lineA || Sooner(b, (float)step / SoonerSteps) is not { } lineB) continue;
 
-                        var apartM = Apart(lineA, lineB);
+                        var apartM = Apart(lineA, lineB, clearM);
                         if (apartM <= bestM) continue;
 
                         (bestA, bestB, bestM) = (lineA, lineB, apartM);
@@ -1280,32 +1426,78 @@ internal sealed class LaneLines
             return MathF.Sign(turnedRad);
         }
 
-        // How near two lines come, nought where they cross. The other's points are read once and not once a point of the
-        // first, and the nearest is a root taken once: a root keeps the order of what it is taken of.
-        static float Apart(ArcSeg[] one, ArcSeg[] other)
+        // How near two lines come, nought where they cross — or, where that is no nearer than enoughM, some reach no nearer:
+        // a pair that far apart is clear, and no caller reads more of it. The other's points are read once and not once a
+        // point of the first, and the nearest is a root taken once: a root keeps the order of what it is taken of.
+        // A run of the other's points that cannot hold one nearer than the nearest found, or than enoughM, is passed over:
+        // every distance it would have given is no nearer, so the nearest of the rest is the same minimum, to the bit,
+        // wherever it is under enoughM. Walked whole, a traced square's pairs were most of a city's street stage.
+        static float Apart(ArcSeg[] one, ArcSeg[] other, float enoughM)
         {
+            if (FurtherApartThan(one, other, enoughM)) return enoughM;
+
             Span<SplineCrossing> found = stackalloc SplineCrossing[2];
             if (Spline.CrossingsM(one, other, 0f, 0f, found) > 0) return 0f;
 
             var otherM = new List<Vector2>();
-            foreach (var otherArc in other)
+            var runs = new List<(int From, int To, Vector2 MiddleM, float ReachM)>();
+            foreach (var arc in other)
             {
-                for (var alongOtherM = 0f; alongOtherM <= otherArc.LengthM; alongOtherM += StrideM) otherM.Add(otherArc.PointAtM(alongOtherM));
+                var from = otherM.Count;
+                for (var alongOtherM = 0f; alongOtherM <= arc.LengthM; alongOtherM += StrideM) otherM.Add(arc.PointAtM(alongOtherM));
+
+                for (var run = from; run < otherM.Count; run += PointsARun)
+                {
+                    var to = Math.Min(run + PointsARun, otherM.Count);
+                    var middle = (run + to) / 2;
+                    runs.Add((run, to, otherM[middle], (Math.Max(middle - run, to - 1 - middle) + 1) * StrideM));
+                }
             }
 
+            var points = CollectionsMarshal.AsSpan(otherM);
+            var enoughM2 = enoughM * enoughM;
             var nearestM2 = float.PositiveInfinity;
-            foreach (var oneArc in one)
+            foreach (var arc in one)
             {
-                for (var alongOneM = 0f; alongOneM <= oneArc.LengthM; alongOneM += StrideM)
+                for (var alongOneM = 0f; alongOneM <= arc.LengthM; alongOneM += StrideM)
                 {
-                    var atM = oneArc.PointAtM(alongOneM);
-                    foreach (var pointM in otherM) nearestM2 = MathF.Min(nearestM2, Vector2.DistanceSquared(atM, pointM));
+                    var atM = arc.PointAtM(alongOneM);
+                    foreach (var (from, to, middleM, reachM) in runs)
+                    {
+                        var offM = Vector2.Distance(atM, middleM) - reachM;
+                        if (offM > 0f && offM * offM >= MathF.Min(nearestM2, enoughM2)) continue;
+
+                        foreach (var pointM in points[from..to]) nearestM2 = MathF.Min(nearestM2, Vector2.DistanceSquared(atM, pointM));
+                    }
                 }
             }
 
             return MathF.Sqrt(nearestM2);
         }
+
+        // Every point of an arc stands within half its length of its middle; a stride more covers the rounding of where
+        // the points it is walked at land.
+        static bool FurtherApartThan(ArcSeg[] one, ArcSeg[] other, float reachM)
+        {
+            foreach (var oneArc in one)
+            {
+                foreach (var otherArc in other)
+                {
+                    var offM = Vector2.Distance(oneArc.PointAtM(oneArc.LengthM * 0.5f), otherArc.PointAtM(otherArc.LengthM * 0.5f))
+                        - ((oneArc.LengthM + otherArc.LengthM) * 0.5f) - StrideM;
+                    if (offM < reachM) return false;
+                }
+            }
+
+            return true;
+        }
     }
+
+    /// <summary>
+    /// How many of a line's points one bound is kept for when two turns are measured (<see cref="OnTheirOwnSides"/>): a
+    /// run whose bound stands further than the nearest found is passed over whole.
+    /// </summary>
+    const int PointsARun = 16;
 
     /// <summary>
     /// The stride two turns' lines are walked at when reading how near they come (<see cref="OnTheirOwnSides"/>): the

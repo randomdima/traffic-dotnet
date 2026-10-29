@@ -31,12 +31,16 @@ internal sealed class CarFleet
 
     readonly CarBuilds _builds;
 
+    readonly float _fuseJitterShare;
+
     readonly DrivenLine[] _line;
 
-    public CarFleet(int capacity, int arcsPerCar, CarBuilds builds)
+    /// <param name="fuseJitterShare"><see cref="DrivePatienceFigures.FuseJitterShare"/>.</param>
+    public CarFleet(int capacity, int arcsPerCar, CarBuilds builds, float fuseJitterShare)
     {
         _arcsPerCar = arcsPerCar;
         _builds = builds;
+        _fuseJitterShare = fuseJitterShare;
         PositionM = new Vector2[capacity];
         HeadingRad = new float[capacity];
         Forward = new Vector2[capacity];
@@ -773,20 +777,13 @@ internal sealed class CarFleet
         Reroutes[car] = 0;
 
         // Drawn from the car's own stream, so the jitter is the town's seed and not the clock's.
-        FuseJitter[car] = Draw[car].NextFloat(1f - FuseJitterShare, 1f + FuseJitterShare);
+        FuseJitter[car] = Draw[car].NextFloat(1f - _fuseJitterShare, 1f + _fuseJitterShare);
         BacksIntoBays[car] = backsIntoBays;
         LineIsReverse[car] = false;
         Pass[car] = Control.Overtake.None;
         BackRoomM[car] = float.NaN;
         return car;
     }
-
-    /// <summary>
-    /// How far either side of a bound a car's own fuse falls. A fifth: enough that two cars jammed
-    /// against one another give up on different ticks, and not so much that a bound stops meaning what
-    /// it says.
-    /// </summary>
-    const float FuseJitterShare = 0.2f;
 
     /// <summary>A car that is on no lane at all — parked, or shoved off the network and recovering.</summary>
     public const int NoLane = -1;

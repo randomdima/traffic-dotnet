@@ -16,7 +16,7 @@
     "soviet",
     "khrushchyovka"
   ],
-  "describe": "five-storey Soviet brick or panel block, flat roof of dark grey bitumen membrane, 3 stairwell exit hatches and vent stacks evenly along the ridge line, TV antennas",
+  "describe": "five-storey Soviet brick or panel block, flat roof of dark grey bitumen membrane, 3 stairwell exit boxes and vent stacks evenly along the roof's length, TV antennas",
   "chimneys": [[-22.6, -0.8], [-10.6, -0.8], [-5.0, -0.8], [5.1, -0.8], [10.8, -0.8], [22.6, -0.8]],
   "potWidthM": 0.6
 }

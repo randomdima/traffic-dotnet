@@ -81,6 +81,13 @@ internal static class ProjectPaths
         ];
     }
 
+    /// <summary>
+    /// <b>The looks laid after a surface's own in its array</b> (GEN-75): the shoulder beside a road with no walk after the
+    /// walk's — or none. Indexed as <see cref="GroundSurfaceFiles"/> is.
+    /// </summary>
+    public static string? GroundSurfaceLooksAfter(int surface) =>
+        surface == 2 ? Path.Combine(Assets, "world", "terrain", "ground", "surfaces", "shoulder" + Sheet) : null;
+
     /// <summary>The shore along every bank, the ground's sixth surface: after the track's strip in the order they are filed.</summary>
     public static string ShoreSurfaceFile() =>
         Path.Combine(Assets, "world", "terrain", "ground", "surfaces", "shore" + Sheet);

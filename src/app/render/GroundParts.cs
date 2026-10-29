@@ -21,6 +21,12 @@ internal enum GroundPart : byte
 
     /// <summary>The railway's sleepers and rails at grade, over its bed and under the roads and walks that cross it (RAIL-3).</summary>
     Track,
+
+    /// <summary>
+    /// The gravel beside a road with no walk (GEN-75): a part of its own and before the walk, since filing a part by band
+    /// reorders it (<see cref="GroundBands"/>) and the shoulder would be drawn over the walk where the two meet.
+    /// </summary>
+    RoadShoulder,
     Walk,
     WalkKerb,
     Water,
@@ -87,7 +93,7 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Names =
     [
-        "Grass", "Ballast", "Track shoulders", "Railway track", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Carriageway", "Bridge roads",
+        "Grass", "Ballast", "Track shoulders", "Railway track", "Road shoulder", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Carriageway", "Bridge roads",
         "Paved slabs", "Town kerb", "Paint", "Rails", "Bridges over roads",
     ];
 
@@ -98,7 +104,7 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Words =
     [
-        "grass", "ballast", "shoulders", "track", "walk", "walk-kerb", "water", "decks", "carriageway", "bridge-roads", "slabs", "kerb", "paint",
+        "grass", "ballast", "shoulders", "track", "road-shoulder", "walk", "walk-kerb", "water", "decks", "carriageway", "bridge-roads", "slabs", "kerb", "paint",
         "rails", "overpasses",
     ];
 

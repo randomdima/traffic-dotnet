@@ -23,7 +23,8 @@ namespace TrafficSimulation.CityGen;
 /// on a quarter of its roads and a deck on none of them. <b>A bay answers too</b> (GEN-53): the ground of a
 /// space is parking, whatever tarmac it is part of.
 /// </remarks>
-internal readonly record struct RoadGround(bool Deck, bool Crossing, bool Bay);
+/// <param name="Walked">Whether a deck here is a walked road's (GEN-75): the margin of one with no walk is no walk either.</param>
+internal readonly record struct RoadGround(bool Deck, bool Crossing, bool Bay, bool Walked);
 
 internal sealed partial class GroundShapes
 {
@@ -92,10 +93,11 @@ internal sealed partial class GroundShapes
         var deck = false;
         var crossing = false;
         var bay = false;
+        var walked = false;
         var count = Math.Min(found, near.Length);
         for (var index = 0; index < count; index++)
         {
-            Weigh(near[index], alongM[index], pointM, ref deck, ref crossing, ref bay);
+            Weigh(near[index], alongM[index], pointM, ref deck, ref crossing, ref bay, ref walked);
         }
 
         // The index answered with more roads than there was room for, so what it gave back is part of the
@@ -110,14 +112,14 @@ internal sealed partial class GroundShapes
 
                 var arcs = _pieces.Roads.SegmentsOf(road);
                 var atM = Spline.ProjectM(arcs, pointM, _roadLengthM[road] * 0.5f, _roadLengthM[road]);
-                Weigh(road, atM, pointM, ref deck, ref crossing, ref bay);
+                Weigh(road, atM, pointM, ref deck, ref crossing, ref bay, ref walked);
             }
         }
 
-        return new RoadGround(deck, crossing, bay);
+        return new RoadGround(deck, crossing, bay, walked);
     }
 
-    void Weigh(int road, float atM, Vector2 pointM, ref bool deck, ref bool crossing, ref bool bay)
+    void Weigh(int road, float atM, Vector2 pointM, ref bool deck, ref bool crossing, ref bool bay, ref bool walked)
     {
         if (_pieces.Roads.LevelOf(road) != CityPlan.RoadArrays.Ground) return;
 
@@ -148,6 +150,7 @@ internal sealed partial class GroundShapes
             if (atM < _deckFromM[run] || atM > _deckToM[run] || acrossM > _deckHalfM[run]) continue;
 
             deck = true;
+            walked |= _pieces.Roads.IsWalked(road);
         }
     }
 

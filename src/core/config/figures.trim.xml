@@ -43,5 +43,8 @@
     <type fullname="TrafficSimulation.Core.Config.TrainFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.WindFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.ZoneFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.ZoneDefaults" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.LookShares" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.BlockFigures" preserve="all" />
   </assembly>
 </linker>

@@ -193,19 +193,19 @@ public class ServiceVehicleTests(ServiceVehicleTests.AtRest atRest) : IClassFixt
 
         // <b>Read off the vehicles and not off who is sitting in one</b> (SRV-3): a crew rides in a crew seat, and
         // asked of the wheel alone every officer in the town reads as a walker somebody handed a uniform to.
-        var expected = new int[world.People.Count];
-        Array.Fill(expected, NoUniform);
+        // A service's uniforms are its looks whose id starts with its name, worn in turn down the crews.
+        var expected = new string?[world.People.Count];
         for (var car = 0; car < world.Cars.Count; car++)
         {
             var uniform = world.Cars.Variant[car] switch
             {
-                var variant when CarCatalog.Shared.IsAmbulance(variant) => looks.Paramedic,
-                var variant when CarCatalog.Shared.IsPolice(variant) => looks.Police,
-                var variant when CarCatalog.Shared.IsEvacuator(variant) => looks.Recovery,
-                _ => NoUniform,
+                var variant when CarCatalog.Shared.IsAmbulance(variant) => "paramedic",
+                var variant when CarCatalog.Shared.IsPolice(variant) => "police",
+                var variant when CarCatalog.Shared.IsEvacuator(variant) => "recovery",
+                _ => null,
             };
 
-            if (uniform == NoUniform) continue;
+            if (uniform is null) continue;
 
             var driver = world.Containment.DriverOf(car);
             if (driver >= 0) expected[driver] = uniform;
@@ -220,17 +220,16 @@ public class ServiceVehicleTests(ServiceVehicleTests.AtRest atRest) : IClassFixt
         for (var person = 0; person < world.People.Count; person++)
         {
             var wearing = world.People.Variant[person];
-            if (expected[person] == NoUniform)
+            if (expected[person] is not { } service)
             {
                 Assert.True(wearing < looks.Count, "a walker was handed a service uniform");
                 continue;
             }
 
-            Assert.Equal(looks.Variants[expected[person]].Id, looks.Variants[wearing].Id);
+            Assert.True(wearing >= looks.Count, $"a {service} crew wears a walker's look");
+            Assert.StartsWith(service, looks.Variants[wearing].Id, StringComparison.Ordinal);
         }
     }
-
-    const int NoUniform = -1;
 
     /// <summary>
     /// SRV-2: <b>a building with no bay near it stands nothing</b>, and what does stand is within a walk of

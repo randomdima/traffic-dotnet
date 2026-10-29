@@ -4,6 +4,43 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-29 — a bar and the lane line stop on one line parallel to the band in front of them
+
+A band is laid square to the walk that placed it (WLK-10), so it is deep along its own axis wherever along the arm
+it stands, and its near edge is struck along that axis and never along the lane behind it. **Everything held
+behind a band is now struck off that same edge**: a bar stands where its lane crosses the line a setback behind it,
+laid parallel to it, and the lane line stops where its run crosses the line a setback and a bar behind it
+(`Crossings.BehindM`). Before, the bar was the edge's middle projected onto the lane and laid square to the lane, and
+the line was the band's middle projected onto the run less a fixed reach — three frames, which parted by however
+far a line stood off the band's middle times the skew between it and the band: a run 1.8 m off a lane where the arm
+bent 6° stopped 7 cm past the bar (fixture, road 71), and a bar's gap read 4 cm off its setback. Struck off one
+line the two tests that weighed those gaps hold to the arithmetic's rounding. **The lane is still asked which edge
+the traffic meets first**, a sign and not a bearing. A bar stood back behind another band's paint keeps its lane's
+bearing.
+
+## 2026-10-27 — a node whose movements cross nothing is lanes carried on, and no junction
+
+**The owner asked for a junctionless connection** (TER-5k): "When entering or exiting a road does not require any
+regulation or blocking. Main example is intercity road. When lanes and connectors never cross … pure lane continuation,
+seamless forks. No stoplines or other junction logic. Lane intersection includes pedestrian or rail." A slip road's node
+was a junction short of its light: a zero-depth station filed at each end (`KerbEnds.Cut`) put bars on the intercity and
+slip lanes, the lane lines broke there, the slip was ranked a near-side turn under the road's straight, and a car ran
+the whole box rule over a twenty-metre join.
+
+- **Worked out, not authored**: every road at the node unwalked, no two movements' lines crossing but two off one lane
+  or onto one, and no track crossing any at ground level (`LaneLines.Seamless`). Unwalked rather than "no zebra
+  painted", because a walk past a node that forks is cut there (`KerbEnds`) and the stations are read after the lanes.
+- **Ranked straight after the lanes are shared**: classified by angle alone a 25° slip is straight on, and two
+  straight-ons off one arm are a fork that sends the kerb lane off whole (GEN-68's own entry) — so the lanes are still
+  shared as the turns they are and only the kind is written straight afterwards.
+- **A merge is the claims' at one rung** — offered three ways (one rung, an acceleration lane beside the kerb lane, the
+  slip still giving way), the owner said to implement it, and one rung is what was built: nothing new is taught to the
+  cars, and whoever asked first keeps the ground where the two converge. The acceleration lane stays in
+  [tech-debt](../../../../docs/tech-debt.md).
+- **The paint runs on through to the one arm laid the same** (`CentrelineRuns.Across`), and through none where two are.
+- **Measured** (Saltbay): 8 nodes carry lanes on, the 4 that fork or merge being its slips' (the other 4 bridgeheads);
+  those carry no bar or arrow, and the other 4 are two-armed; `--bench stuck --seconds 180` gave up no drive leg.
+
 ## 2026-10-16 — a car short of a box plans none of one it could not get out of
 
 **What the stuck probe found** (Odesa, 300 s): every ring of cars left standing at the end was two cars at one box.
@@ -842,22 +879,12 @@ crosses, the same list on every street but a welded one.
 registry of bands: two constructions of a band would disagree about a corner the week after either moved.
 The paint is laid from the crossings; the bars and the lane line's trim from the stations.
 
-**A bar with nothing in front of it falls back to the kerb end.** A station stands `Road.FootNodeClearM` out
+**A bar with nothing in front of it falls back to the kerb end.** A station stands half a zebra out
 from where the kerb ends, so a bar left at a station the paint has gone from holds a carriageway's width out
 from its box. The second answer carries the kerb end at those arms, flagged as bearing no paint, and the road
 takes it as a band of no depth — one figure, and the setback, the bar and the trim come out right without any
 of them learning a second case. **Which leaves the dashes running under the stripes of a welded crossing**,
 as they must: a run trimmed towards a band in its own middle is cut from both ends and no line is left.
-
-## 2026-09-18 — a band's near edge is struck along the band's own axis and not along the lane behind it
-
-A crossing's near edge was struck by stepping half the band's depth along **the lane's direction at the
-lane's own end**, which is the band's own axis only where the arm has straightened by its junction. A band is
-laid square to the walk that placed it (WLK-10), so which way it is deep holds wherever the paint stands;
-struck along the lane, the step goes partly across the band and the bar lands out of its gap — 0.58 m once a
-crossing stood tens of metres from the arm's end. **The lane is still asked which edge the traffic meets
-first**, which is a sign and not a bearing and costs nothing however the arm bends. Two fitted test bounds
-on the fixture grew with it; neither is a figure the claim leans on.
 
 ## 2026-09-16 — an arm's paint is one bundle, and `Crossings` is where it stands
 

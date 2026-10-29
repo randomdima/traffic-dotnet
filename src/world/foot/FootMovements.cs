@@ -117,7 +117,7 @@ internal sealed class FootMovements
     /// <summary>Lays every turn through every place in the town. Build-time only — it allocates freely.</summary>
     public static FootMovements Lay(CityPlan plan, SimConfig config)
     {
-        var walks = WalkLines.Of(plan.Paving(config).Perimeter(config), config);
+        var walks = WalkLines.Of(plan, config);
         return Lay(FootWays.Lay(plan, config, walks), walks, config);
     }
 

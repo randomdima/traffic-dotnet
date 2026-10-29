@@ -1,0 +1,4 @@
+{"variant": "polo_green-v6", "frame": "walkorbit_polo_green-v2", "cell": 1, "pxPerM": 231.667, "score": 4, "status": "candidate", "ts": "2026-10-28T13:49:38"}
+{"variant": "polo_green-v7", "frame": "walkorbit_polo_green-v3", "cell": 1, "pxPerM": 233.889, "score": 4, "status": "candidate", "ts": "2026-10-28T16:29:29"}
+{"variant": "polo_green-v8", "frame": "walkorbit_polo_green-v3", "cell": 1, "recutOf": "polo_green-v7", "pxPerM": 236.667, "score": 4, "status": "candidate", "ts": "2026-10-28T16:42:20"}
+{"variant": "polo_green-v9", "frame": "walkorbit_polo_green-v3", "cell": 1, "recutOf": "polo_green-v8", "pxPerM": 239.444, "score": 4, "status": "used", "ts": "2026-10-28T21:38:55"}

@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen;
 
@@ -23,12 +24,16 @@ internal sealed partial class GroundShapes
     Rings _water;
     Rings _shore;
     Rings _rail;
+    Rings _plazas;
 
     /// <summary>Whether the railway's ballast covers a point or stands within reach of it (RAIL-4, RAIL-5).</summary>
     public bool RailWithin(Vector2 pointM, float reachM) => _rail.Within(pointM, reachM);
 
-    /// <summary>A set of closed rings, the box each of them fits in, and the edges of each long one by cell and of every other by row.</summary>
-    readonly record struct Rings(CityPlan.RingArrays Of, Vector2[] LeastM, Vector2[] MostM, EdgeCells?[] Cells, EdgeRows?[] Rows)
+    /// <summary>
+    /// A set of closed rings, the box each of them fits in, the edges of each long one by cell and of every other by row, and
+    /// the rings themselves by the rows of the main grid their boxes span (<see cref="BoxRows"/>).
+    /// </summary>
+    readonly record struct Rings(CityPlan.RingArrays Of, Vector2[] LeastM, Vector2[] MostM, EdgeCells?[] Cells, EdgeRows?[] Rows, BoxRows ByRow)
     {
         /// <summary>The fewest points a ring is filed by cell at: past them, a walk of its edges costs more than finding the few near a point.</summary>
         public const int FiledFrom = 256;
@@ -39,7 +44,7 @@ internal sealed partial class GroundShapes
         /// </summary>
         public bool Covers(Vector2 pointM)
         {
-            for (var ring = 0; ring < Of.Count; ring++)
+            foreach (var ring in ByRow.At(pointM.Y))
             {
                 if (pointM.X < LeastM[ring].X || pointM.X > MostM[ring].X) continue;
                 if (pointM.Y < LeastM[ring].Y || pointM.Y > MostM[ring].Y) continue;
@@ -49,7 +54,7 @@ internal sealed partial class GroundShapes
             return false;
         }
 
-        public static Rings Boxed(CityPlan.RingArrays rings, float cellM)
+        public static Rings Boxed(CityPlan.RingArrays rings, GridLevel level)
         {
             var leastM = new Vector2[rings.Count];
             var mostM = new Vector2[rings.Count];
@@ -67,11 +72,11 @@ internal sealed partial class GroundShapes
 
                 leastM[ring] = least;
                 mostM[ring] = most;
-                if (rings.RingOf(ring).Length >= FiledFrom) cells[ring] = new EdgeCells(rings.RingOf(ring), least, most, cellM);
-                else rows[ring] = new EdgeRows(rings.RingOf(ring), least.Y, most.Y, cellM);
+                if (rings.RingOf(ring).Length >= FiledFrom) cells[ring] = new EdgeCells(rings.RingOf(ring), least, most, level.CellM);
+                else rows[ring] = new EdgeRows(rings.RingOf(ring), least.Y, most.Y, level.CellM);
             }
 
-            return new Rings(rings, leastM, mostM, cells, rows);
+            return new Rings(rings, leastM, mostM, cells, rows, new BoxRows(leastM, mostM, level));
         }
 
         /// <summary>
@@ -81,20 +86,27 @@ internal sealed partial class GroundShapes
         /// </summary>
         public bool Within(Vector2 pointM, float reachM)
         {
-            for (var ring = 0; ring < Of.Count; ring++)
+            // A row either side as well, a row being far wider than anything a float rounds the reach by; each ring asked
+            // once, at the first of these rows it is filed in.
+            var (first, last) = (ByRow.RowOf(pointM.Y - reachM) - 1, ByRow.RowOf(pointM.Y + reachM) + 1);
+            for (var row = first; row <= last; row++)
             {
-                if (pointM.X < LeastM[ring].X - reachM || pointM.X > MostM[ring].X + reachM) continue;
-                if (pointM.Y < LeastM[ring].Y - reachM || pointM.Y > MostM[ring].Y + reachM) continue;
-
-                var edgeM = Of.RingOf(ring);
-                if (Cells[ring] is { } cells)
+                foreach (var ring in ByRow.In(row))
                 {
-                    if (cells.Inside(edgeM, pointM) || cells.Near(edgeM, pointM, reachM)) return true;
+                    if (Math.Max(ByRow.RowOf(LeastM[ring].Y), first) != row) continue;
+                    if (pointM.X < LeastM[ring].X - reachM || pointM.X > MostM[ring].X + reachM) continue;
+                    if (pointM.Y < LeastM[ring].Y - reachM || pointM.Y > MostM[ring].Y + reachM) continue;
 
-                    continue;
+                    var edgeM = Of.RingOf(ring);
+                    if (Cells[ring] is { } cells)
+                    {
+                        if (cells.Inside(edgeM, pointM) || cells.Near(edgeM, pointM, reachM)) return true;
+
+                        continue;
+                    }
+
+                    if (Rows[ring]!.Inside(edgeM, pointM) || Rows[ring]!.Near(edgeM, pointM, reachM)) return true;
                 }
-
-                if (Rows[ring]!.Inside(edgeM, pointM) || Rows[ring]!.Near(edgeM, pointM, reachM)) return true;
             }
 
             return false;
@@ -109,6 +121,73 @@ internal sealed partial class GroundShapes
                 : 0f;
             return (pointM - (fromM + (runM * alongM))).Length();
         }
+    }
+
+    /// <summary>
+    /// <b>Rings filed by the rows of the main grid their boxes span</b> (SIM-8): a point asks only the rings whose box
+    /// reaches its own height, rather than every ring the town has — every piece of railway, on every ask about the ground.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every ring the box test would keep, and the box test still asked</b>: a row is the floor of a height scaled by the
+    /// grid, which rounds monotonically, so a height inside a box is in a row the box spans — and whether any ring covers a
+    /// point does not hang on the order they are asked in.
+    /// </remarks>
+    internal sealed class BoxRows
+    {
+        readonly GridLevel _level;
+        readonly int _firstRow;
+        readonly int[] _start;
+        readonly int[] _rings;
+
+        public BoxRows(Vector2[] leastM, Vector2[] mostM, GridLevel level)
+        {
+            _level = level;
+            var (first, last) = (int.MaxValue, int.MinValue);
+            for (var ring = 0; ring < leastM.Length; ring++)
+            {
+                if (leastM[ring].Y > mostM[ring].Y) continue;
+
+                first = Math.Min(first, RowOf(leastM[ring].Y));
+                last = Math.Max(last, RowOf(mostM[ring].Y));
+            }
+
+            if (first > last)
+            {
+                (_start, _rings) = ([0], []);
+                return;
+            }
+
+            _firstRow = first;
+            _start = new int[last - first + 2];
+            for (var ring = 0; ring < leastM.Length; ring++)
+            {
+                if (leastM[ring].Y > mostM[ring].Y) continue;
+
+                for (var row = RowOf(leastM[ring].Y); row <= RowOf(mostM[ring].Y); row++) _start[row - first + 1]++;
+            }
+
+            for (var row = 0; row < _start.Length - 1; row++) _start[row + 1] += _start[row];
+
+            _rings = new int[_start[^1]];
+            var filled = new int[_start.Length - 1];
+            for (var ring = 0; ring < leastM.Length; ring++)
+            {
+                if (leastM[ring].Y > mostM[ring].Y) continue;
+
+                for (var row = RowOf(leastM[ring].Y) - first; row <= RowOf(mostM[ring].Y) - first; row++) _rings[_start[row] + filled[row]++] = ring;
+            }
+        }
+
+        public int RowOf(float yM) => _level.CellOf(yM);
+
+        /// <summary>The rings whose boxes span a row of the main grid, none off the rows any box spans.</summary>
+        public ReadOnlySpan<int> In(int row)
+        {
+            var at = row - _firstRow;
+            return (uint)at < (uint)(_start.Length - 1) ? _rings.AsSpan(_start[at], _start[at + 1] - _start[at]) : [];
+        }
+
+        public ReadOnlySpan<int> At(float yM) => In(RowOf(yM));
     }
 
     /// <summary>
@@ -155,13 +234,21 @@ internal sealed partial class GroundShapes
 
         int Row(float yM) => Math.Clamp((int)MathF.Floor((yM - _leastY) / _cellM), 0, _rows - 1);
 
+        /// <summary>
+        /// The edges filed in the row a height stands in: every edge a ray along that height can cross, for a caller
+        /// counting the crossings with arithmetic of its own (<see cref="Zones.ZoneTree"/>).
+        /// </summary>
+        public ReadOnlySpan<int> At(float yM)
+        {
+            var row = Row(yM);
+            return _edges.AsSpan(_start[row], _start[row + 1] - _start[row]);
+        }
+
         public bool Inside(ReadOnlySpan<Vector2> ringM, Vector2 pointM)
         {
             var inside = false;
-            var row = Row(pointM.Y);
-            for (var at = _start[row]; at < _start[row + 1]; at++)
+            foreach (var here in At(pointM.Y))
             {
-                var here = _edges[at];
                 var a = ringM[here];
                 var b = ringM[here == 0 ? ringM.Length - 1 : here - 1];
                 if (a.Y > pointM.Y == b.Y > pointM.Y) continue;
@@ -360,8 +447,9 @@ internal sealed partial class GroundShapes
         _slabMinM = plan.PavedAreas.MinM;
         _slabSizeM = plan.PavedAreas.SizeM;
 
-        _water = Rings.Boxed(plan.Water.Outline, config.Grid.Main.CellM);
-        _shore = Rings.Boxed(plan.Water.Shore, config.Grid.Main.CellM);
-        _rail = Rings.Boxed(plan.Rails.Ballast, config.Grid.Main.CellM);
+        _water = Rings.Boxed(plan.Water.Outline, config.Grid.Main);
+        _shore = Rings.Boxed(plan.Water.Shore, config.Grid.Main);
+        _rail = Rings.Boxed(plan.Rails.Ballast, config.Grid.Main);
+        _plazas = Rings.Boxed(plan.Plazas, config.Grid.Main);
     }
 }

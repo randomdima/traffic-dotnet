@@ -45,8 +45,12 @@ internal sealed partial class TownWorld
         Cars.ToTheBoxM[car] = progressM >= mouthM ? 0f : mouthM - (progressM + Cars.BuildOf(car).NoseAheadOfAxleM);
     }
 
-    /// <summary>A movement with no ground under it is not a movement: two lanes meeting at a point have no box.</summary>
-    bool HasABox(int movement) => movement != RoadGraph.NoConnector && _roads.ConnectorLengthM(movement) > 0f;
+    /// <summary>
+    /// A movement with no ground under it is not a movement: two lanes meeting at a point have no box, and nor does a
+    /// join that only carries its lane on (TER-5k).
+    /// </summary>
+    bool HasABox(int movement) =>
+        movement != RoadGraph.NoConnector && _roads.ConnectorLengthM(movement) > 0f && !_roads.CarriesOn(movement);
 
     /// <summary>
     /// Where on its line the box this car's line enters begins — the end of the lane it is running down — or false where

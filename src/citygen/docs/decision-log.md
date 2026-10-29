@@ -1,5 +1,342 @@
 # CityGen — decision log
 
+## 2026-10-29 — a welded crossing is halved along the road
+
+**A road crossed once midway** (WLK-10a) had its two stations averaged in the metres of one kerb's lane, and halved
+there the middle slid towards whichever end that lane bends tighter at: 0.69 m on a 56 m street of the fixture
+bending 61°. **It is halved along the road's own line** and dropped onto the lane (`KerbEnds.Midway`).
+
+## 2026-10-27 — a bridgehead nothing else meets is a joint, and a span is the one arc of its path
+
+**The owner asked for bridges that are no junction**: "Bridge on its own is not a junction - it needs no connectors or
+separation. And the road arc should be smoth along - meaning not hard curvature change. Only when it has junctions close
+to its exits it might look different." Each bridgehead was a junction of two arms with a box the width of its widest
+road round it — a 21 m movement between the deck's lanes and the land's — and an intercity road's span over a railway
+was the chord between its ends, the roads either side leaving on the chord and turning back onto their path at the class
+floor.
+
+- **A bridgehead its span and one road of as many lanes meet is a joint** (`NodeSizes.Joint`): the lanes stand off it
+  `BridgeheadStandoffM` (0.5 m), lane onto lane, and the layout refuses any other road there (`TownLayout.JointTakes`) —
+  a lane of a wider road had nowhere to end in half a metre, and two of `Twinford`'s lanes and one of `Highmoor`'s were
+  left with no way off. One whose span is refused is a junction again.
+- **The node stays** rather than the deck becoming a stretch of one road: a level is a road's and a lane's (PHY-1a), so a
+  span over a road or a railway has to change level somewhere, and a connector on both channels is where. Over water,
+  where nothing changes level, the joint is the same so both kinds are one rule.
+- **A span is the one arc of its path** between its bridgeheads, turning as the path does there, never tighter than its
+  class bends; a river is crossed straight and so is its span. The road carrying it on leaves on the arc's tangent.
+- **A road carried over an intercity road comes down nowhere within its span's reach of another**: with no box round
+  the bridgehead, the road on from it started on the other road's ground, and `Twinford` lost an overpass for it.
+
+## 2026-10-27 — a bypassed town's intercity roads pass it edge to edge, and are met only at interchanges
+
+**The owner asked for intercity roads a car passes the town on without stopping**: "They should not stop in the middle
+of the city … intercity lanes should allow fast passage over the city without stops … no regulated junctions on it. And
+enters exits attached only on closest road lane, so that other lanes can pass by", and "connect to intercity roads under
+some angle, not 90+ degrees, so cars can keep speed". The roads between districts met the bypass at tees and
+crossroads, lit by the same draw as any junction, a turn across it made from the inner lane (GEN-68). Shown the first
+diamonds, the owner asked again: "not every connection needs to be crossing … they can have simple exits to the side
+without crossing the intercity. also if districts need to connect - they can connect with bridge over it, without
+nessessary connection to the intercity itself", "make them smaller 2x", and "intercity is still being cut in the middle
+- it must enter and exit the city as a smooth spline".
+
+- **No ring and no roads in to it**: the brief's ways in are paired into roads passing the town edge to edge, each
+  touching the circle round the solid middle on its own bearing and running on near its tangent to edges
+  `IntercitySpanDeg` (160°) apart. A ring with roads ending on it was cut wherever a road met it, and open wherever a
+  piece would not draw. Paired adjacent and spanning only their share of the land, the roads doubled back on themselves
+  in hairpins; spanning near half a turn, they cross, and **one crossing another is carried over it** and meets it
+  nowhere (`Crossings.OverARoad`) — no interchange between intercity roads.
+- **A curve that cannot be drawn is routed round that place on the next try** (`Routes.Bar`): a road edge to edge crosses
+  more rivers than one to the core, and every try of `Highmoor`'s found the same two crossings too near each other to turn
+  between.
+- **Three kinds of meeting**: an access on one side, two slip roads meeting the way on that side and crossing nothing; an
+  access that crosses, both sides' accesses and a road carried over between their terminals; and a road between districts
+  carried over and meeting nothing. **The first a piece of the roads between districts is given crosses, and one on every
+  intercity road**: an access on one side is left by that way alone, and nothing routes a car back past the map's edge, so
+  a piece met only on one side could not reach the rest of the town (`ACityCanBeDrivenRound`: 87 of `Saltbay`'s lanes),
+  and an intercity road met on one side only could not be driven onto ahead of its first slip.
+- **An interchange is half the size it was**: its terminal 20 m off the road's line (`InterchangeOffsetM`, was 40) and its
+  slips turned at a slip road's own speed (`SlipDesignSpeedMps` 14 m/s, the arterial's 22 before), some 130 m end to end
+  where it was 260; accesses `InterchangesApartLeastM` 500 m apart, was 1 km.
+- **Slip roads and roads carried over are laid before the roads between districts** (`Paths.Close`): a district road
+  arriving at a terminal at a skew was laid first and the slip lying against it refused, leaving the access one way.
+- **An access lays both its slip roads, and an access that crosses all four, or none**, and **no node stands on the
+  intercity road a locality either side of a terminal** (`Paths.Keep`): `Saltbay`'s one road was split for length a
+  stride from where a road was carried over it, and the settling stood the span's end on the intercity road.
+- **The slip road is a class of its own** (`RoadClass.Slip`) rather than a flag: what it joins is what a class says
+  (GEN-67), and the lanes, the lights, the roundabouts and the car parks each ask it.
+- **Its movement off and onto the intercity road is the kerb lane's, read as a turn to the kerb side** (`LaneLines`)
+  however shallow. Read by its angle, a slip under `TurnStraightToleranceDeg` is straight on, and two straight-ons from
+  one arm are a fork that sends the kerb lane off whole. Only where it would read as straight on: a sharper turn at a
+  terminal is the turn it is.
+- **Every other movement at a slip's node is banned** rather than left to the reversal rule (TER-5f): the slip's partner
+  is the intercity arm lying furthest round from it.
+- **A slip road is two legs**: one leaving at `SlipLeavesDeg` (25°) off the road's line where it leaves, found by walking
+  along the curve rather than read off the bearing at the terminal — on a 579 m curve, chords read off the terminal left
+  one side at 36° and the other at 14° — and one along the road into its terminal, so it arrives square to the town's
+  road. Laid as straight chords, the arms at the terminal stood 58° apart on a curve, under GEN-13. Its corner is kept
+  clear of each end's own box and not the larger of the two's, which dropped it at a terminal beside a wide node.
+- **The node a slip leaves stands its arms out** (`SimConfig.SlipStandoffM`) until the slip's lane clears the
+  intercity road's carriageway, so no lane starts on another; GEN-13 lets a slip lie that near its road.
+- **The verge holds the slip roads** (`TownGen.Barriers`): with the districts' edge at the old corridor, the slip legs
+  were refused against the district roads along it.
+- **A road to a terminal comes in square**, through a point straight out from the intercity road
+  (`TownLinks.ApproachTo`): a district edge run on to a terminal at a skew stood its arm under 60° off a slip's.
+- **A terminal planned on one side is given a road in on the other** (`TownLinks.FarSides`) wherever a district fronts
+  it, so both ways are met there.
+- **A span reaches past the road under it by its own end's box again** (`TownGen.OverHalfSpanM`, some 32 m either side
+  of the line where it was 20): the owner, shown a bridge over an intercity road, read it as a junction — its ends came
+  down at the kerbs of the road under it, each a box unpainted, and before the stretch under it was kept clear of nodes
+  (`Paths.Keep`) one end had been settled onto the intercity road itself. The intercity road it crosses stands no node a
+  locality past either end.
+- **A road carried over keeps only an access's reach from one**, not the accesses' own spacing: an access spaced from
+  `Saltbay`'s two crossings by 500 m found nowhere left on its one road.
+- **Accesses stay clear of every bridge and railway span**; the nodes a road stands with, its ends and bridgeheads, keep
+  the old junction spacing from one.
+- **An intercity road crosses a railway on a span carried over it** in a bypassed town: a level crossing is a stop.
+- **Only a bypassed town is interchanged.** The suite's city and the fixture are built alike to their edge and keep
+  their junctions on their intercity roads, which their cases stage crossings, closures and lights on.
+
+## 2026-10-27 — a generated city set beside real ones, and a town that fills its map and thins to its edge
+
+**The owner asked for the generated cities compared with how real cities look, and the mismatches fixed**
+(`CityRealism-Plan.md`). Set beside the traced `OdesaOsm` by a probe of their built form (`--bench form`), the three
+briefs filled their maps edge to edge with districts of one size, built a third to a half of the frontage they laid,
+cored on an empty intercity junction, and stood a hospital, a police station and a depot in every district. **The
+owner chose**, asked in as many words:
+
+- **The town fills the map, less densely toward its edge, its districts unalike and none packed to the brim** (GEN-76).
+  The owner first chose the roster to size the town and the rest of the map to be country; seen laid, that put each
+  town in a corner of a mostly empty map, and the owner turned it round: "Map should use all space, it just can be less
+  dense in edges", with the building count free to rise ("its effect on performance is minimal").
+- **Intercity roads bypass the centre** rather than become its streets: they keep four lanes, one smooth curve, no walk
+  and nothing in the verge (GEN-63, GEN-75), and the town's own roads carry on inward.
+- **Services serve a catchment of districts** rather than one each (GEN-56), a police beat staying a district (`SRV-5`).
+- **The rail loop was a test and goes** (RAIL-11): railways are laid as real ones are.
+
+Choices made under the first:
+
+- **A district's fill is authored as a falloff from the core, never as a density** (`TownSolidShare`, `TownEdgeFill`):
+  a share of what the district's kind builds, so what a town stands is read off it (`--bench form`) and the roster's
+  building count is only a ceiling. Scaled to each map by the way from the core to its furthest land, so the port and
+  the city grade alike.
+- **The thinning is split between wider blocks and gaps on the streets** (`TownSparseBlockShare`), half each. Thinned
+  by gaps alone, `Highmoor` laid 103 000 roads to stand its buildings on and opened in 177 s; with the blocks widened,
+  84 000 and 151 s — and an edge of long lanes with houses spaced along them is what a town's outskirts look like.
+- **Only the rim is left to the country**: a district given up inside the town could part the districts beyond it from
+  the rest, and the network keeps only its largest piece (GEN-69).
+- **The districts kept are cut again on their own**, so the inner, outer and old-town kinds are the town's and not the
+  map's, and each district's draws stay keyed on where it stands (GEN-11).
+- **The suite's city and the fixture are built alike to their edge** (`districts.country` false, or no building planned):
+  their cases stage rail crossings, car parks and bridges on a whole town of streets with a few dozen buildings.
+
+Choices made under the bypass (GEN-63):
+
+- **It is laid in the connectors' stage, before any district**, round the solid middle (`TownSolidShare` of the way to
+  the furthest dry ground) rather than read off the districts: a bypass laid after the districts would cut through
+  them, and the districts are cut round it instead (GEN-64).
+- **Its routes are barred from the ground well inside its circle** (`BypassInsideShare`), so a road round a river
+  goes round the town and not through it.
+- **The core stands a block or two off the water** (`CoreOffWaterBestM` 150 m, was 400), weighed against the map's
+  middle at one to one. It moves the suite's towns too: their roads still run through it.
+- **A link joining what was left keeps the waterfront's clearance** (GEN-71, `TownLinks.OffTheShore`): the layout
+  asks only that a carriageway stand off the water itself, and a planned road is kept off the shore by the barriers;
+  with the core at the bank, one link was laid along the shore on the suite's seed 0xDEADBEEF.
+- **And so does every road's line, away from its ends** (`RoadLines.OffTheGround`, `WaterRules.Ashore`): a loose
+  district's street bowing toward a bank stood its walk on the shore, which the chord the layout asks about never
+  showed. Its ends are spared, the one node a town stands at a bank being a bridgehead.
+
+Choices made under the rest of the plan:
+
+- **A district's blocks are its kind's** (GEN-74, `CityGenFigures.OldTownBlocks` and the rest): every district drew 95–170
+  m, stretched up to 2.2 times, so an old town's block was two to four times a real one and a suburb's too square.
+  `BlockSpacingAlongMinM` stays as the block distance is reckoned in — a walk, a trip, a service's home — and is no
+  longer what any district is laid at. Measured on the three briefs, the median block fell from 133–143 m a side to
+  71–100 m (`OdesaOsm` 87 m), and the old town's ground covered rose from 22–24 % to 25–27 % (`OdesaOsm` 37 %).
+- **A block's fronts keep one building line** (`ZoneBuildings.Along`): how far back and how far turned is drawn once a
+  ring rather than once a building, so two neighbours no longer stand metres apart off the same kerb. It is shared
+  with the traced map, whose zone fidelity (`--bench zones`) stays at 89 % fit and 0.440 correlation.
+- **Parks, civic grounds and the high street are whole blocks** (GEN-77, `BlockUses`), chosen once the walk has made
+  the blocks — zones added after the streets, which a generated town's zones were never before. Accessibility or a
+  district's own share was weighed for the high street and the simpler rule taken: a block of the old town or the
+  housing fronting a road between districts.
+- **Services serve catchments** (GEN-56): spread by taking the most central built district and then each time the one
+  furthest from every one chosen, rather than grouping the districts first — no clustering to tune, and every district
+  near one. `Twinford` stands 3 hospitals, 9 police stations and 6 depots where it stood 73 of each.
+- **No car park of the town's own stands in a suburb** (GEN-53): bays cut into a street of houses were the most visible
+  car parks nobody's door was near.
+- **Two rivers of a map keep `RiversApartLeastM` apart** (GEN-62), and the briefs ask for fewer: `Twinford`'s two
+  rivers ran 250 m apart into the sea with a strip district between, and `Highmoor` laid four parallel ones.
+- **No shipped brief loops its railway** (RAIL-11 stays a brief's option): the owner's word, "the loop was a test and
+  can be dropped".
+
+The second pass (2026-10-27, "continue"):
+
+- **A town is thicker along its roads in, and grades out unevenly** (GEN-76, `TownExtent.Reach`): graded by straight
+  distance, every town came out a disc. A district beside a road into the town counts `TownRoadwardShare` nearer, and
+  each district's distance is moved by a draw (`TownEdgeJitterShare`). The bypass is no road in: counted, a ring of
+  districts grew along it.
+- **The housing, the estates, the works and the old town build more behind their frontage** (`ZoneFigures`
+  `Interior`): the residential ground covered went from 20 % to 24 %, the estates' from 15 % to 27 %, the works' from
+  13 % to 22 % (`OdesaOsm` 27, 28 and 22). The traced zones measure their own share, so they are not moved.
+- **A port's core stands at its harbour** (GEN-63): where there is a sea, the core's best distance off the water is
+  measured off the sea and not off the river upstream of it — `Twinford` had grown 1.5 km inland, its coast bare.
+- **And on dry ground** (`CoreLandLeastShare` of `CoreLandReachM` round it): at the harbour, `Saltbay`'s core fell into
+  the wedge between its river, a tributary and the coast, and the ring, the river and the railway cut what was left of
+  it into two districts that laid no street.
+- **A port's roads come in over its land** (`Connectors.Intercities`): spread round the whole map, a bearing out
+  through the sea was tried a dozen times turned and never laid, and `Saltbay` and `Twinford` each lost roads.
+- **A district too narrow for its blocks' long side lays them the other way round** (`Districts.Plan`): its short spacing
+  then cuts its narrow way, which is what left the narrow districts with no street.
+- **An industrial block is 120–180 m** (was 150–230): a coarser lattice than its district's width laid no street.
+- **A catchment's service is handed on** to its nearest district standing none of that use, a few at most, where the
+  one chosen has no kerb straight enough for its yard.
+- **A generated park is planted** (`BlockParkGrowth`, a zone setting on the park and not the kind's default), so the
+  traced parks keep their own.
+- **A road in reaching an open stretch of the bypass is its continuation** (`Connectors.Intercities`): the stretch is cut
+  back to where it was reached, on the side of an end no road has taken, and the road runs onto it on its bearing. Met
+  in a T instead, the end past it was pruned (GEN-5a) and left a two-arm corner between the two roads as sharp as they
+  met at, which no car turns — `Highmoor`'s north was reachable only from off the map. Met only at its ends instead,
+  `Saltbay` laid none of its roads.
+- **No path runs further than `JoinedRoadLongestM` between two nodes, and no run is joined longer** (`Paths.Close`,
+  `ThroughRoads`): a road in across the country met nothing for 7 km, past the 6.5 km the ribbon atlas files a way in.
+- **A generated district builds behind its frontage only inside a block** (`ZoneBuildings.Behind`, `Blocks`), its works
+  and the country's kinds excepted: its zone is the whole district, reaching past its outermost street, and buildings
+  stood in the strip between it and an intercity road with no way to them. A traced zone is measured, and laid as before.
+- **A hole in the driven ground is a block where any piece of its edge runs along a lane at its middle**, and not only
+  at its ends (`LaneShell.AlongAKerb`, `KerbEnds.Under.LaneMidway`): a block whose four sides the shell merged into four
+  straights, corner to corner, stood every end in a corner's box past the lanes' own ends, read as running along no
+  kerb, and was paved over whole.
+
+## 2026-10-26 — an intercity road has no walk, and nothing in its verge
+
+**The owner asked that intercity roads carry no sidewalk, no car park and no building beside them, visibly** (GEN-75;
+the walk's own rule is terrain's, at the owner's word). Choices made under it:
+
+- **Which roads are walked is the plan's** (`RoadArrays.Unwalked`), not read off the class: a bridge's class is
+  `Bridge` whatever it carries, so the span of an intercity road is flagged when the path lays it.
+- **The walk turns a corner onto an intercity road on the turn to the kerb side only**: the far-side turn crosses the
+  carriageway, and a walk struck off it stood at the far kerb. **And it runs on round the crossing at a mouth a zebra is
+  painted across, and not at all at one without**: without it the zebra's end landed on the rounded tip of the corner's
+  walk, a metre wide; run a walk further, it was a dead end walkers looped round, and at a mouth with no zebra a dead
+  end with nothing to reach (the owner, 2026-10-27). **There
+  the walk is a straight way onto the zebra and off it, with no junction** (the owner: "no forking"): the lane walked
+  towards the end only sets off over the paint and ends where it does, the one walked back only arrives off it, and no
+  turn stands there (`CrossingWays.EndsOn`, `PavementLanes.EndedAtTheCrossings`). A crossing finds the end within two
+  setbacks past its middle, or three where the walk's two lanes disagree, and treats neither lane as ending where they
+  still do — one ended and one run on would leave the run-on lane no turn back. A mouth has a zebra
+  where every kerb the road has there is turned onto — a divided road's carriageway is one-way and has one kerb.
+- **The walk and its lanes are struck off two shells there** (the owner: "the sidewalk pavement can be shorter, following
+  actual lanes"): an offset rounds a band's end at the distance moved, so one band long enough for the lanes to pass the
+  zebra left the walk a walk's width past it. The walk's band ends at the zebra's middle (`Paving.Walked`) and its
+  rounded end still covers the lanes to the zebra's far edge; the lanes' band runs on to that edge
+  (`Paving.WalkedCourses`). A second merge of the walked roads, laid only where a town has roads with no walk: 60 ms of
+  Saltbay's pavement lanes (260 to 320 ms).
+- **A zebra across an intercity road is painted only where the walk stands at both its ends**, which is a crossroads on
+  it; a junction's far side with nothing walked gets none.
+- **The verge is a clearance off the road's own line** (`UnwalkedVergeM`, 15 m) and not a barrier the partition cuts:
+  the district stays as cut, and what would have stood in the verge is not stood there.
+
+**And, the owner: "intercity should be full 4 lanes without downsizing" and "must be smooth — meaning no junctions
+changing its curvature"** (GEN-63). The brief's `minorShare` is gone and every intercity road is two lanes each way.
+A road between two of a path's nodes aimed each end at the first point it passed, so two pieces met at a junction on
+two bearings; each now leaves on the path's own tangent for an approach.
+
+**At the core, the owner: "its not a merge — it should be one road", and the road "should have been a smooth curve to
+begin with — it is placed before the rest of the city, just create a nice spline".** Two roads ending at the core
+cornered at its junction (Saltbay's at 90°), and joining two laid routes into one there was mending a road after the
+fact. So the two roads entering half the count apart are one route, edge to core to edge, and every intercity road is
+drawn along its route as one cubic Hermite spline (`RouteSpline`) rather than its route's corners rounded one by one.
+Choices made under it:
+
+- **Through as few of the route's corners as keep it clear**: its ends, its crossings and the core, and another only
+  where the curve strays or bends too tight — the route's corner nearest there, none nearer either end of the piece
+  than half the radius. One taken in that the curve bends too tight beside is taken out for good. Saltbay, Twinford,
+  Highmoor and the fixture lay every road their briefs ask for.
+- **A crossing's line is held for its approach, and a radius past it is the route's own corner**, which the curve
+  leaves on the crossing's line when it is taken in. Held for the whole of approach and radius, the curve had no room to
+  turn between two crossings near each other and Saltbay's core pair would not draw; so a crossing whose radius past
+  its approach is not clear is offered to no route, and a route takes no crossing within a radius of the last.
+- **An end at the map's edge enters square to it**, and an end on another road does not bend where it ends: the chord's
+  tangent there bent a short first piece tighter than the class.
+- **Its line is as few points as keep it within `IntercityChordToleranceM` of the curve**, steps growing gradually, and
+  the road stage rounds each of an intercity road's corners at the circle through it and its two neighbours rather than
+  at the floor: one arc a point, where points every 20 m each rounded at the floor overflowed a car's line
+  (`CarFleetLineTests`). The corner each end's lead straight ends at is still rounded at the floor, so the road leaves
+  its junction or its bridge straight.
+- **The suite's city no longer bridges its river**: its one entry that crossed it would have to turn tighter than the
+  class 150 m in from the map's edge. GEN-14a's bridgehead checks ask the fixture, which bridges its own.
+
+## 2026-10-26 — a plan laid faster and to the same bits
+
+**The owner asked for an open's seconds measured and cut** (`MapLoad-Plan.md`). Every change here leaves the plan
+digest `--bench load` prints equal on Saltbay, Twinford, Highmoor and OdesaOsm; a faster way that moved it was not
+taken.
+
+- **The car-park book keeps its refusals, and a ranking for each draw** (`CarParks.SiteBook`). A refused site stayed
+  the furthest from every car park and every later car park walked past it: Highmoor's car parks were 14.4 s, now
+  1.7. Kept per site and side's rank, because that is all a bay's ground is a question of, and a draw's ranking drops
+  only what refused that draw, so the site taken is the one the single ranking took.
+- **Two turns' nearness skips what cannot be nearer** (`LaneLines.OnTheirOwnSides`): a run of sixteen points whose
+  bound stands further than the nearest found, or than the clearance, is passed over. The answer is the same minimum
+  to the bit wherever a caller reads it; OdesaOsm's street stage went from 7.6 s to 1.0. **Not the exact distance
+  between the arcs**, which would be faster still and move the digest.
+- **A partition's settle finds each cell's middle in parallel and sums in order** (`Partition.CutRegion`): the sums are
+  what the middles come out of, so they stay on one thread in the cells' order, and the middles are filed in an array
+  over their own box rather than hashed by square. Highmoor's authored stage went from 4.6 s to 2.1.
+- **A question asked of every piece or every place reads only what can answer it.** `KerbEnds.Under` takes the lanes'
+  reach and the index's working set once for the holes `LaneShell.Of` weighs; each was a walk over every lane a piece,
+  and Highmoor's ground stage went from 4.7 s to 3.0. `ZoneTree` files each zone ring's edges by the grid's rows
+  (`GroundShapes.EdgeRows`) and counts crossings with its own arithmetic, so the props and buildings that ask it stay
+  on the bits the whole walk gave. The ground's water, shore and ballast rings are filed by the main grid's rows their
+  boxes span (`GroundShapes.BoxRows`), where every ask about the ground tested every ring's box — 5 % of an open's CPU.
+  A service's building finds its face station off the stations filed by cell (`BuildingStage.OffTheRank`) rather than
+  off all of them, and Highmoor's buildings stage went from 1.5 s to 0.9.
+
+## 2026-10-26 — the generator reviewed: one answer to each question, streams keyed apart, the repair hung on the streets
+
+**The owner asked for the city builder reviewed and what it found fixed.** What was decided, beyond the bugs mended:
+
+- **A repair link hangs a junction on every street to come it crosses** (GEN-69, GEN-72; `TownLinks.JoinWhatWasLeft`,
+  `TownLayout.JoinThrough`). The lattice is placed against the paths before the layout says which planned roads it
+  refused, so the link joining what was left crossed lattice streets that were then refused as they were laid, and the
+  district it ran through was cut by a road none of its streets reached. Laid after the streets instead, a link joins
+  pieces of the town but not of the roads between districts — `Saltbay` came out in three such networks — so it is
+  laid before them, cut into pieces at each crossing, a crossing a stride off a street's end passing through that end,
+  every piece asked before any is laid; and never at a bridgehead, where a straight cannot leave on the span's line.
+- **Which piece is the town is one answer** (`TownLayout.MainPiece`): the most roads of the pieces holding an intercity
+  road. The deletion had kept the most nodes, so a piece the repair left out could outgrow the town and take its
+  intercity roads with it.
+- **The demand is routed over the roads and not over the districts** (GEN-67, `Demand`): a place is where a road ends or
+  another lands on it, a district is where its demand starts and ends and no way through. Between districts, the two
+  halves of a crossroads were two parallel links of which the shorter carried everything, and a road in from an
+  intercity road or across a district joined a district to itself and could never be widened.
+- **What a town keeps of its frontage is counted off systematically** (GEN-54, `ZoneBuildings.Keeping.Kept`): each
+  building at its share, in an order keyed on its place, over what would stand and nothing else. Drawn one by one, the
+  count overran by chance and was cut off the last rings walked, and the share was spread over buildings the ground
+  then refused.
+- **A thing's own stream under a stage's is keyed on a mixed key** (GEN-11, `Streams.Keyed`): PCG32's first draw is the
+  high bits of the seed and the stream together, so a stream XORed with a district's or a ring's number began on the
+  same draw as its neighbours' — every district of the suite's town drew its blocks wide together. The districts,
+  regions, rings and zones are keyed on where they stand or on their number mixed, so one recut or one district more
+  moves nothing else.
+- **A district's blocks are not held to its own narrow way**: holding them to three rows across laid streets in every
+  district but one of all three shipped cities, and its shorter blocks turned a run the join refused into a two-arm
+  junction at a corner no car can turn, which left `Twinford` undrivable. A narrow district laying no street is the
+  [tech-debt](../../../docs/tech-debt.md) entry instead.
+- **A district the cut leaves too big is halved, one too small given away** (GEN-65): the middles settle to districts
+  near one size, not one size, and a long region cut into twenty-eight still kept one over the largest; a stray piece
+  given whole to a neighbour now goes only where that stays under it.
+- **The railways of one town share a bearing and keep apart where they can, but the brief's count wins** (GEN-63): a
+  looped line's way out leaves on its bearing turned by the loop, so every line inland of a coast crosses it, and a hard
+  spacing laid `Twinford` one railway of two. Where no draw stands apart the first dry one is laid
+  ([tech-debt](../../../docs/tech-debt.md)).
+- **A route is found as far off the water and the track again as its thinned line may stray** (`RouteToleranceM`): the
+  search held cell centres clear and the line thinned to a whole cell off them, so a laid line could enter the shore
+  strip the search had kept it out of.
+- **A piece of a run that cannot be offered again is put back as it stood** (`ThroughRoads`, `TownLayout.Restore`):
+  dropped, the town came apart after the one deletion that would have found it.
+- **The generator's tuning figures are `CityGenFigures`**, each with its rule, rather than constants in the stages.
+
 ## 2026-10-26 — a generated city is its brief, laid in three stages, and the wheel is gone
 
 **The owner asked for the cities and their generation reworked**, the traced map aside: the old cities dropped; a sea
@@ -27,7 +364,8 @@ a file too; regenerating live and saving to the brief; and the requirements and 
   sites, and a road in to every piece not yet reaching an intercity road — then their lanes by a gravity demand routed
   over them. **Planned and laid are two answers to one question, so the layout is asked again after it answers**
   (`TownLinks.JoinWhatWasLeft`, GEN-69): once the paths are closed and before any street is laid, each piece the
-  intercity network was left without gets the shortest straight district road the layout takes to it. Planning
+  intercity network was left without gets the shortest straight district road the layout takes to it, hung on the
+  streets it crosses (the entry above). Planning
   against the layout's refusals alone left 2, 5 and 9 networks on `Saltbay`, `Twinford` and `Highmoor` and two
   of the suite's four seeds split; the plan still holds what it can — a link lands square on the road it meets and
   apart from every other landing there, two crossings of parallel tracks or two arms of a river are one link, a
@@ -193,8 +531,8 @@ looks evenly, and the renderer draws that look at its own size. The band, its to
 
 ## 2026-10-22 — the showroom stands still, and the car picked out runs through its lamps
 
-**The owner asked for the showroom to be a map for reviewing the assets and their animations, with no actors on it**,
-and for the car picked out, unless it is being driven, to loop its lamps two seconds a state.
+**The owner asked for the showroom to be a map for reviewing the assets and their animations**, and for the car picked
+out, unless it is being driven, to loop its lamps two seconds a state.
 
 - **Its cars run no round** (CAR-8, `TownWorld._showroom`): each stands where it was parked until a hand or an order
   drives it. Its walkers walk rings of their own (the walker's log, 2026-10-28).

@@ -10,7 +10,7 @@ namespace TrafficSimulation.Core.Geometry;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Sparse, and linked rather than listed</b>: a cell is one head in a dictionary and a point is a link to
+/// <b>Sparse, and linked rather than listed</b>: a cell is one head in a <see cref="CellTable"/> and a point is a link to
 /// the point filed before it in the same cell, so the memory is the points' whatever extent they are spread
 /// over, and adding one allocates nothing past the growth of two lists.
 /// </para>
@@ -22,10 +22,30 @@ namespace TrafficSimulation.Core.Geometry;
 /// </remarks>
 internal sealed class PointCells(GridLevel level)
 {
-    /// <summary>Keyed as <see cref="GridLevel.KeyOf(int, int)"/>: a tuple key hashes through a combiner on every ask.</summary>
-    readonly Dictionary<long, int> _lastIn = [];
+    readonly CellTable _lastIn = new();
     readonly List<int> _filedBefore = [];
     readonly List<Vector2> _pointM = [];
+
+    /// <summary>The cells the points are known to fall in, held as an array rather than in the table; none where the caller named no extent.</summary>
+    readonly GridWindow _window;
+
+    /// <summary>Each cell of the window's last point one up, so a fresh array is every cell empty.</summary>
+    readonly int[] _lastInWindowUp = [];
+
+    /// <summary>
+    /// <b>For points known to stand inside <paramref name="leastM"/>–<paramref name="mostM"/></b>, whose cells are an array
+    /// read along a row rather than a table read anywhere: a nearest found rings of cells out reads hundreds of them. A
+    /// point outside is filed in the table as before, so the answers are the same whatever the extent.
+    /// </summary>
+    public PointCells(GridLevel level, Vector2 leastM, Vector2 mostM)
+        : this(level)
+    {
+        _window = GridWindow.Over(level, leastM, mostM);
+        _lastInWindowUp = new int[_window.Count];
+    }
+
+    int LastIn(int x, int y) =>
+        _window.Holds(x, y) ? _lastInWindowUp[_window.IndexOf(x, y)] - 1 : _lastIn[GridLevel.KeyOf(x, y)];
 
     public int Count => _pointM.Count;
 
@@ -42,9 +62,11 @@ internal sealed class PointCells(GridLevel level)
             return point;
         }
 
-        var cell = level.KeyOf(pointM);
-        _filedBefore.Add(_lastIn.TryGetValue(cell, out var last) ? last : -1);
-        _lastIn[cell] = point;
+        var (x, y) = level.CellOf(pointM);
+        _filedBefore.Add(LastIn(x, y));
+        if (_window.Holds(x, y)) _lastInWindowUp[_window.IndexOf(x, y)] = point + 1;
+        else _lastIn.Set(GridLevel.KeyOf(x, y), point);
+
         return point;
     }
 
@@ -61,9 +83,7 @@ internal sealed class PointCells(GridLevel level)
         {
             for (var atX = x - rings; atX <= x + rings; atX++)
             {
-                if (!_lastIn.TryGetValue(GridLevel.KeyOf(atX, atY), out var point)) continue;
-
-                for (; point >= 0; point = _filedBefore[point])
+                for (var point = LastIn(atX, atY); point >= 0; point = _filedBefore[point])
                 {
                     if (Vector2.DistanceSquared(_pointM[point], atM) < reachM * reachM) return true;
                 }
@@ -88,9 +108,7 @@ internal sealed class PointCells(GridLevel level)
         {
             for (var atX = x - rings; atX <= x + rings; atX++)
             {
-                if (!_lastIn.TryGetValue(GridLevel.KeyOf(atX, atY), out var point)) continue;
-
-                for (; point >= 0; point = _filedBefore[point])
+                for (var point = LastIn(atX, atY); point >= 0; point = _filedBefore[point])
                 {
                     if (Vector2.DistanceSquared(_pointM[point], atM) <= reachM * reachM) into.Add(point);
                 }
@@ -127,9 +145,7 @@ internal sealed class PointCells(GridLevel level)
                 for (var atX = x - ring; atX <= x + ring; atX += step)
                 {
                     cellsRead++;
-                    if (!_lastIn.TryGetValue(GridLevel.KeyOf(atX, atY), out var point)) continue;
-
-                    for (; point >= 0; point = _filedBefore[point])
+                    for (var point = LastIn(atX, atY); point >= 0; point = _filedBefore[point])
                     {
                         best = MathF.Min(best, Vector2.DistanceSquared(_pointM[point], atM));
                     }
@@ -205,9 +221,7 @@ internal sealed class PointCells(GridLevel level)
                 for (var atX = x - ring; atX <= x + ring; atX += step)
                 {
                     cellsRead++;
-                    if (!_lastIn.TryGetValue(GridLevel.KeyOf(atX, atY), out var point)) continue;
-
-                    for (; point >= 0; point = _filedBefore[point]) Keep(point);
+                    for (var point = LastIn(atX, atY); point >= 0; point = _filedBefore[point]) Keep(point);
                 }
             }
 

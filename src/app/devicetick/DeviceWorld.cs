@@ -24,7 +24,7 @@ namespace TrafficSimulation.App.DeviceTick;
 /// tyre pass beside every walker's footing, the tow bars' trailing wheels and every wheel spent, the bars' pull where a
 /// bar is up, the solver's step, the covers where the claims want them, and the view and its counts written straight
 /// into memory the host reads. The step is submitted by <see cref="Begin"/> and waited for by the next tick's
-/// (<see cref="Finish"/>), so the device steps while the host decides (<see cref="WorldLayer.StepsAhead"/>). Nothing the
+/// (<see cref="Finish"/>), so the device steps while the host decides (<see cref="SimFigures.WorldStepsAhead"/>). Nothing the
 /// host writes for the device is written while a step is in flight.
 /// </para>
 /// <para>

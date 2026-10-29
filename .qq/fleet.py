@@ -97,7 +97,7 @@ def parse_args():
                              "wheels: a review sheet of those cars, or the whole fleet, each flank's edge magnified "
                              "with its axles ticked, against the tyre shadow the art draws under the sill")
     parser.add_argument("--out", default=".tmp/gen/wheels.png", help="wheels: where the review sheet goes")
-    parser.add_argument("--plan", default=".tmp/gen/fleet_plan.md", help="the plan file, inside the project")
+    parser.add_argument("--plan", default="raw_assets/agents/car/fleet_plan.md", help="the plan file, inside the project")
     parser.add_argument("--batch", type=cli.counting, default=1, metavar="INT", help="which `## batch <N>` section")
     parser.add_argument("--cars", type=lambda s: [i for i in s.split(",") if i], default=None, metavar="IDS",
                         help="in place of --batch: these planned cars, whichever batch each is in, in this order — a "

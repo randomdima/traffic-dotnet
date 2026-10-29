@@ -184,7 +184,9 @@ internal static class PropStage
                 var drawn = Drawn(looks, kind, draw.NextFloat(), out var look);
                 var outU = draw.NextFloat();
                 var runs = draw.NextFloat() < config.CityGen.PropRunShare;
-                var count = 2 + draw.NextInt(runMost - 1);
+
+                // Two to the most a run lays, and one where that most is one — on one draw either way.
+                var count = Math.Min(runMost, 2 + draw.NextInt(Math.Max(runMost - 1, 1)));
                 if (stationM >= lengthM || !drawn) continue;
 
                 var reachM = looks.GirthM[look] * 0.5f;
@@ -274,6 +276,11 @@ internal static class PropStage
     /// strip. <b>And grows only as thickly as its own zone does</b> (GEN-58): one reaching over a zone's edge into ground
     /// that grows thinner than its heart's is kept at the share the two growths stand in, so a car park beside a wood
     /// grows nothing of it. A member that does not stand is not a prop, as anywhere else.
+    /// <para>
+    /// <b>Each heart draws its clump on a stream of its own, keyed on where it stands</b> (GEN-11): which hearts stood is
+    /// what the ground answered, so one stream walked heart by heart spent what the ground answered, and a heart more or
+    /// fewer anywhere redrew every clump after it.
+    /// </para>
     /// </remarks>
     static void Clumps(
         int firstHeart, int hearts, Thickets thickets, Func<Vector2, float> growth, GroundShapes ground, GenClaims claims,
@@ -282,6 +289,7 @@ internal static class PropStage
         var most = Math.Max(config.CityGen.PropClumpMost, 0);
         var reachM = config.CityGen.PropClumpReachM;
         var apartM = config.CityGen.PropApartM;
+        var clumpSeed = ((ulong)draw.NextUint() << 32) | draw.NextUint();
         var candidates = new Candidates(
             ground, claims, scatter, config.Terrain.GroundStepM, standOffM: config.CityGen.PropWildStandOffM, growth);
         for (var heart = firstHeart; heart < hearts; heart++)
@@ -289,13 +297,14 @@ internal static class PropStage
             var heartM = scatter.CentreM[heart];
             var heartRadiusM = scatter.RadiusM[heart];
             var heartGrowth = growth(heartM);
-            var members = draw.NextInt((int)MathF.Round(most * thickets.At(heartM) / Thickets.Thickest) + 1);
+            var own = new Rng(clumpSeed, ConnectionPoints.Keyed(heartM, heartM));
+            var members = own.NextInt((int)MathF.Round(most * thickets.At(heartM) / Thickets.Thickest) + 1);
             for (var member = 0; member < members; member++)
             {
-                var look = looks.DrawNoWider(PropKind.WildNature, draw.NextFloat(), 2f * heartRadiusM);
-                var towards = Heading.Unit(draw.NextFloat() * MathF.Tau);
-                var outU = draw.NextFloat();
-                var keptU = draw.NextFloat();
+                var look = looks.DrawNoWider(PropKind.WildNature, own.NextFloat(), 2f * heartRadiusM);
+                var towards = Heading.Unit(own.NextFloat() * MathF.Tau);
+                var outU = own.NextFloat();
+                var keptU = own.NextFloat();
                 if (look < 0) continue;
 
                 var memberRadiusM = looks.GirthM[look] * 0.5f;
@@ -392,6 +401,7 @@ internal static class PropStage
         bool Stands(GroundShapes.Scan scan, Vector2 atM, float reachM) =>
             ground.At(scan, atM) == Ground.Grass
             && (standOffM <= 0f || !ground.PavingWithin(scan, atM, standOffM))
+            && !ground.InAVerge(scan, atM, reachM)
             && ground.IsAll(scan, atM, reachM, stepM, Ground.Grass)
             && claims.IsFree(atM, reachM);
     }

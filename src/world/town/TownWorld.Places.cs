@@ -165,6 +165,7 @@ internal sealed partial class TownWorld
         var lanesNearBayLane = new int[]?[lanes];
         _bayLaneLeastM = new Vector2[lanes];
         _bayLaneMostM = new Vector2[lanes];
+        _roads.LayTheLayingIndex();
         InChunks.Over(
             lanes, () => new BayReach(_roads.NewLaneScan(), lanes),
             (reach, bayLane) => lanesNearBayLane[bayLane] = LanesNearTheBaysOff(bayLane, reach));

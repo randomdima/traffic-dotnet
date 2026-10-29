@@ -186,28 +186,35 @@ public class RoadSplineTests
 
         Assert.True(
             strict < loose,
-            $"a town of strict districts ran {strict:P2} past its own chords against {loose:P2} for a town "
+            $"a town of strict districts laid {strict:P2} of its streets on curves against {loose:P2} for a town "
             + "of loose ones");
     }
 
     /// <summary>
-    /// How far a town's roads run past the straight line between their own two ends, as a share: nought
-    /// where every road is a straight and larger the more they wander.
+    /// How much of a town's streets is laid on curves, as a share of their length: nought where every street is laid
+    /// in straights and larger the more they wander. <b>Streets alone, and curves and not corners</b>: a road between
+    /// districts follows the edge the partition cut, which no district's strictness draws, and a straight street joined
+    /// round a block's corner runs past its own chord without wandering at all — which, with blocks sized by kind
+    /// (GEN-74), a strict town of larger blocks does the more.
     /// </summary>
     static float StraightShare(CityPlan plan)
     {
-        var overM = 0f;
-        var chordM = 0f;
+        var curvedM = 0f;
+        var lengthM = 0f;
         for (var road = 0; road < plan.Roads.Count; road++)
         {
-            var arcs = plan.Roads.SegmentsOf(road);
-            if (arcs.Length == 0) continue;
+            if (plan.Roads.Class[road] != RoadClass.Street) continue;
 
-            var runM = Vector2.Distance(arcs[0].StartM, arcs[^1].EndM);
-            overM += Spline.TotalLengthM(arcs) - runM;
-            chordM += runM;
+            foreach (var arc in plan.Roads.SegmentsOf(road))
+            {
+                lengthM += arc.LengthM;
+                if (MathF.Abs(arc.Curvature) >= StraightCurvature) curvedM += arc.LengthM;
+            }
         }
 
-        return chordM == 0f ? 0f : overM / chordM;
+        return lengthM == 0f ? 0f : curvedM / lengthM;
     }
+
+    /// <summary>Below this curvature an arc is a straight: a radius of 10 km, straighter than any street bends.</summary>
+    const float StraightCurvature = 1e-4f;
 }

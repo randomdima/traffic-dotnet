@@ -83,6 +83,8 @@ internal sealed class TownSprites
     /// <summary>The frame's people and cars, refilled every frame (<see cref="TownWorld.CarsIn"/>); each laid once a roster's capacity.</summary>
     int[] _peopleInView = [];
 
+    PersonSprites.Depth[] _walkerDepths = [];
+
     int[] _carsInView = [];
 
     /// <summary>One frame's width over its height, per slot. Only a walker's quad is shaped by it; a car's is its own footprint.</summary>
@@ -226,7 +228,8 @@ internal sealed class TownSprites
 
         for (var variant = 0; variant < props.Count; variant++)
         {
-            sheets[firstBuilding + buildings.Count + variant] = SheetSource.File(props.Variants[variant].SpritePath);
+            sheets[firstBuilding + buildings.Count + variant] =
+                SheetSource.File(props.Variants[variant].SpritePath) with { OutlineArtPx = config.View.PropOutlineArtPx };
         }
 
         var firstFanLook = firstBuilding + buildings.Count + props.Count;
@@ -398,13 +401,21 @@ internal sealed class TownSprites
 
         // Who may be in the frame, off the solver's grids rather than out of the whole town (TownWorld.CarsIn).
         if (_peopleInView.Length < world.People.Capacity) _peopleInView = new int[world.People.Capacity];
+        if (_walkerDepths.Length < world.People.Capacity) _walkerDepths = new PersonSprites.Depth[world.People.Capacity];
         if (_carsInView.Length < world.Cars.Capacity) _carsInView = new int[world.Cars.Capacity];
         var reachM = (viewSpanM * 0.5f) + new Vector2(CarReachM);
         var people = world.PeopleIn(viewCentreM - reachM, viewCentreM + reachM, _peopleInView);
         var cars = world.CarsIn(viewCentreM - reachM, viewCentreM + reachM, _carsInView);
 
+        var wagons = world.World.View.Wagons;
+        var ringWords = SpriteRings.Length(world.People.Capacity, world.Cars.Capacity, wagons.Length);
+        if (_rings.Length < ringWords) _rings = new uint[ringWords];
+        SpriteRings.Mark(world, _rings.AsSpan(0, ringWords));
+        var rings = new SpriteRings(_rings, world.People.Capacity, world.Cars.Capacity);
+
         var overCount = PersonSprites.Fill(
-            world.People, people, People, Aspects, FirstDownSheet, viewCentreM, viewSpanM, over);
+            world.People, people, People, Aspects, FirstDownSheet, config.Person.DrawnStandingBelowMps, viewCentreM,
+            viewSpanM, over, _walkerDepths, rings);
 
         // <b>The cars parted by level once</b>, in the order they were listed, so each level's five passes walk its own
         // cars rather than every car eight times over asking each which it is on.
@@ -412,12 +423,11 @@ internal sealed class TownSprites
         var onTheGround = world.Levelled ? _carsOnTheGround.AsSpan(0, ground) : cars;
         var onTheLevelAbove = _carsAbove.AsSpan(0, aboveCars);
         overCount += FillCars(
-            world.Cars, world.Hitches, world.World.View.Wagons, onTheGround, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM,
-            over[overCount..], CarSprites.EveryLevel);
+            world.Cars, world.Hitches, wagons, onTheGround, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM,
+            over[overCount..], CarSprites.EveryLevel, rings);
 
         // The trains over the cars: a car on the crossing a train is on is under it.
-        overCount += TrainSprites.Fill(
-            world.World.View.Wagons, Rolling, FirstTrainSheet, viewCentreM, viewSpanM, onABridge: false, over[overCount..]);
+        overCount += TrainSprites.Fill(wagons, Rolling, FirstTrainSheet, viewCentreM, viewSpanM, onABridge: false, over[overCount..], rings);
 
         // The heads last of all: a signal hangs over the carriageway, so nothing driving under it passes
         // in front of it.
@@ -430,15 +440,17 @@ internal sealed class TownSprites
 
         var aboveCount = world.Levelled
             ? FillCars(
-                world.Cars, world.Hitches, world.World.View.Wagons, onTheLevelAbove, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM, above,
-                CarSprites.EveryLevel)
+                world.Cars, world.Hitches, wagons, onTheLevelAbove, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM, above,
+                CarSprites.EveryLevel, rings)
             : 0;
 
         // And the wagons on a bridge over the bridge, as the cars on one are (RAIL-8).
-        aboveCount += TrainSprites.Fill(
-            world.World.View.Wagons, Rolling, FirstTrainSheet, viewCentreM, viewSpanM, onABridge: true, above[aboveCount..]);
+        aboveCount += TrainSprites.Fill(wagons, Rolling, FirstTrainSheet, viewCentreM, viewSpanM, onABridge: true, above[aboveCount..], rings);
         return (overCount, aboveCount);
     }
+
+    /// <summary>Which units wear a ring (<see cref="SpriteRings"/>), marked afresh each frame; laid the town's length the first time.</summary>
+    uint[] _rings = [];
 
     /// <summary>
     /// The cars listed, parted into those on the ground and those on the level above (<see cref="CarFleet.LevelOf"/>),
@@ -472,7 +484,7 @@ internal sealed class TownSprites
     /// <param name="leastPartM">The narrowest tyre or glow this frame draws; a pass whose widest is narrower is not walked at all.</param>
     public int FillCars(
         CarFleet cars, TowHitches hitches, ReadOnlySpan<WagonView> wagons, ReadOnlySpan<int> drawn, SimConfig config, float elapsedS,
-        Vector2 viewCentreM, Vector2 viewSpanM, float leastPartM, Span<SpriteInstance> into, int level)
+        Vector2 viewCentreM, Vector2 viewSpanM, float leastPartM, Span<SpriteInstance> into, int level, SpriteRings rings = default)
     {
         // The exhausts' smoke (CAR-54) is the device's alone (SmokeSprites): this fill draws none, and the device's
         // emit draws it ahead of the tyres. The tyres before the bodies, so a car's own bodywork is drawn over them and
@@ -481,7 +493,7 @@ internal sealed class TownSprites
             ? 0
             : CarSprites.FillTyres(cars, drawn, RubberSheet, leastPartM, viewCentreM, viewSpanM, into, level);
 
-        written += CarSprites.Fill(cars, drawn, Cars, FirstCarSheet, viewCentreM, viewSpanM, into[written..], level);
+        written += CarSprites.Fill(cars, drawn, Cars, FirstCarSheet, viewCentreM, viewSpanM, into[written..], level, rings);
 
         // The arm over both bodies: it stands on the truck's deck and its fork is above the nose of what it
         // is holding, so a tow drawn under either of them is an arm running through a car (EVA-5).
@@ -662,7 +674,7 @@ internal static class CarSprites
     /// </summary>
     public static int Fill(
         CarFleet cars, ReadOnlySpan<int> drawn, CarCatalog catalogue, int firstSheet, Vector2 viewCentreM,
-        Vector2 viewSpanM, Span<SpriteInstance> into, int level = EveryLevel)
+        Vector2 viewSpanM, Span<SpriteInstance> into, int level = EveryLevel, SpriteRings rings = default)
     {
         var sheetCount = catalogue.SheetCount;
         if (sheetCount <= 0) return 0;
@@ -679,17 +691,18 @@ internal static class CarSprites
             var broken = cars.Broken[car];
             var sheet = (broken ? sheetCount : 0) + variant;
 
-            var centreM = cars.PositionM[car];
             ref readonly var build = ref cars.BuildOf(car);
             var halfSizeM = new Vector2(build.LengthM, build.WidthM) * 0.5f;
             if (broken) halfSizeM *= catalogue.Variants[variant].WreckScale;
+
+            var centreM = cars.PositionM[car];
             var reachM = halfSizeM.Length();
             var offset = centreM - viewCentreM;
             if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
 
             into[written++] = new SpriteInstance(
                 centreM, halfSizeM, SpriteCell.Whole, SpriteTint.Plain, (uint)(firstSheet + sheet), cars.HeadingRad[car],
-                BodyTilt.Id(cars.TiltRad[car]));
+                BodyTilt.Id(cars.TiltRad[car]), rings.OfCar(car));
         }
 
         return written;

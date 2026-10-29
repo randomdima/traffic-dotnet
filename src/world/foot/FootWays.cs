@@ -120,7 +120,7 @@ internal sealed class FootWays
     public static FootWays Lay(CityPlan plan, SimConfig config) =>
         // One merge for the boundary the points are struck off and the courses the ways are taken from: a
         // second one would be a second answer about the same ground.
-        Lay(plan, config, WalkLines.Of(plan.Paving(config).Perimeter(config), config));
+        Lay(plan, config, WalkLines.Of(plan, config));
 
     /// <summary>The same, off courses somebody already holds — which everything laid over the ways needs too.</summary>
     public static FootWays Lay(CityPlan plan, SimConfig config, WalkLines walks) =>

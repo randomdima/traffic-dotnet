@@ -1,0 +1,8 @@
+{
+  "id": "delineator_post",
+  "sprite": "delineator_post.webp",
+  "kind": 2,
+  "footprintM": [0.15, 0.304],
+  "turns": true,
+  "describe": "white plastic roadside delineator post seen from above: a small white post top with a black band across it and an orange reflector on its front"
+}

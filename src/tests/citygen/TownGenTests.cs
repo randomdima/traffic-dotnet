@@ -51,7 +51,7 @@ public class TownGenTests
             foreach (var road in roads)
             {
                 var keptM = (road.Line.Nearest(atM).AwayM);
-                Assert.True(keptM > TownGen.CorridorM(Config, road.Lanes), $"district {partition.Label[cell]} holds an intercity road at {atM}");
+                Assert.True(keptM > TownGen.CorridorM(Config, LayoutEdge.MostLanes), $"district {partition.Label[cell]} holds an intercity road at {atM}");
             }
         }
     }
@@ -74,8 +74,9 @@ public class TownGenTests
 
     /// <summary>
     /// <b>No road carries more lanes than its class allows, and none more than four</b> (GEN-67): a district's own street
-    /// one each way, a road between districts one or two, an intercity road two or one — and every road the same each
-    /// way but a one-way street.
+    /// one each way, a road between districts one or two — and every road the same each way but a one-way street. <b>An
+    /// intercity road carries two each way and never fewer</b> (GEN-63), and so does a bridge carrying one, which no
+    /// class says but its walk (<see cref="CityPlan.RoadArrays.IsWalked"/>).
     /// </summary>
     [Theory]
     [MemberData(nameof(Seeds))]
@@ -92,11 +93,57 @@ public class TownGenTests
 
             var most = roads.Class[road] is RoadClass.Street or RoadClass.CarPark or RoadClass.Roundabout ? 1 : LayoutEdge.MostLanes;
             Assert.InRange(Math.Max(with, against), 1, most);
+            if (roads.Class[road] == RoadClass.Intercity || !roads.IsWalked(road))
+            {
+                Assert.True(
+                    with == LayoutEdge.MostLanes && against == LayoutEdge.MostLanes,
+                    $"intercity road {road} ({roads.Class[road]}) carries {with} and {against} lanes");
+            }
             four += with + against == 4 ? 1 : 0;
         }
 
         Assert.True(four > 0, "no road of the town carries four lanes, so the intercity roads and the busiest district roads were not widened");
     }
+
+    /// <summary>
+    /// <b>An intercity road runs straight through every junction on it</b> (GEN-63): where two pieces of intercity road
+    /// meet, they leave the junction on opposite bearings, each on a straight, so the box turns it by nothing and changes
+    /// its curvature by nothing — <b>the core included</b>, which the first two roads to reach run through as one.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void AnIntercityRoadRunsStraightThroughItsJunctions(ulong seed)
+    {
+        var roads = Towns.LaidFrom(seed).Roads;
+        var ends = new Dictionary<int, List<ArcSeg>>();
+        for (var road = 0; road < roads.Count; road++)
+        {
+            if (roads.IsWalked(road) || roads.SegmentsOf(road).Length == 0) continue;
+
+            var arcs = roads.SegmentsOf(road);
+            Leaving(roads.FromJunction[road], arcs[0]);
+            var last = arcs[^1];
+            Leaving(roads.ToJunction[road], new ArcSeg(last.EndM, last.HeadingAtRad(last.LengthM) + MathF.PI, last.LengthM, -last.Curvature));
+        }
+
+        foreach (var (junction, leaving) in ends)
+        {
+            if (leaving.Count != 2) continue;
+
+            var turnedDeg = MathF.Abs(Spline.WrapRad(leaving[0].HeadingRad - leaving[1].HeadingRad - MathF.PI)) * 180f / MathF.PI;
+            Assert.True(turnedDeg < StraightThroughDeg, $"an intercity road turns {turnedDeg:F1}° through junction {junction}");
+            Assert.All(leaving, arc => Assert.Equal(0f, arc.Curvature));
+        }
+
+        void Leaving(int junction, ArcSeg arc)
+        {
+            if (!ends.TryGetValue(junction, out var list)) ends[junction] = list = [];
+            list.Add(arc);
+        }
+    }
+
+    /// <summary>How far off straight on through a junction a road may leave it, which is a float's worth of a turn.</summary>
+    const float StraightThroughDeg = 0.5f;
 
     /// <summary><b>A district's own street never meets an intercity road</b> (GEN-68).</summary>
     [Theory]

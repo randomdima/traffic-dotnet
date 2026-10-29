@@ -73,13 +73,15 @@ movement starts at, reaching out under the pavement corner beside the mouth.
 
 **TER-7b** `P0` **The ground is a stack of layers, and a layer struck off the town's own boundary is one region
 of it.** The town is drawn bottom to top — the grass over the whole world, then the railway's track (`RAIL-3`), then
-the pavement and the kerb along its outer face, then the water and the decks, then the driven ground at its own size and
-the slabs, then the town's own kerb, then the paint, then the rails — and **the pavement and the driven ground are each the ground
-within one distance of the kerb**, filled as the shape it is. The boundary is computed once (`LaneShell`)
-and each of the two is it moved by a figure (`GroundRings`), so a layer has an edge that is a line rather
-than whatever a heap of overlapping pieces happened to leave. **A layer reaches the boundary and encloses
-every layer inside it**, so what the order states is the difference between two of them and no layer is
-cut to leave room for the next. **A bridge over other roads is a level of its own, and the same stack again
+the shoulder, then the pavement and the kerb along its outer face, then the water and the decks, then the driven ground
+at its own size and the slabs, then the town's own kerb, then the paint, then the rails — and **the driven ground is the
+ground within one distance of the kerb, the pavement the ground within one distance of the kerb of the roads that are
+walked, and the shoulder the ground within one distance of the kerb of those that are not** (GEN-75), each filled as the
+shape it is. **A layer is struck off the ground it belongs to, never struck wider and cut back**: each boundary is
+computed once (`LaneShell` — the whole driven ground's, the walked roads', the unwalked roads') and each layer is one of
+them moved by a figure (`GroundRings`), so a layer has an edge that is a line rather than whatever a heap of overlapping
+pieces happened to leave. **A layer reaches the boundary it is struck off and encloses the driven ground inside it**,
+so what the order states is the difference between two of them and no layer is cut to leave room for the next. **A bridge over other roads is a level of its own, and the same stack again
 over the first** (PHY-1a): the ground's boundary is struck from what is driven on the ground and the level
 above's from what is driven on it, and its decks, its carriageway, its kerb and its paint are drawn over the
 bodies on the ground and under the bodies on it. The two meet at a bridgehead, where the ground runs on under
@@ -126,11 +128,11 @@ second copy of the ground it stands on.
 ## The pavement
 
 **TER-3c** `P6` A town is laid with a **pavement**: a band of preferred walkable ground running the whole
-length of every carriageway on both sides, touching the kerb, turning the corner of every junction and
-wrapping every lot. **It is the kerb line moved off itself** — the driven ground's own boundary
-(`LaneShell`) moved by `SimConfig.WalkOuterM` and filled whole (`GroundRings.Walk`) — and the carriageway is
-laid back over what it covers, so the band is what the carriageway leaves of it: the two strips either side
-of every street, round every corner the boundary turns.
+length of every walked carriageway on both sides — every one but an intercity road's (GEN-75) — touching the kerb,
+turning the corner of every junction and wrapping every lot. **It is the kerb line moved off itself** — the walked
+roads' own boundary (`LaneShell`, `Paving.Walked`) moved by `SimConfig.WalkOuterM` and filled whole
+(`GroundRings.Walk`) — and the carriageway is laid back over what it covers, so the band is what the carriageway
+leaves of it: the two strips either side of every street, round every corner the boundary turns.
 
 **It is laid once, as a step of its own (`Paving`), and the picture and the answer both read that one
 laying.** Worked out a second time by whoever needed it, a band widened in the picture and not in the answer

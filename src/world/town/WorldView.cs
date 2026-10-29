@@ -71,7 +71,7 @@ internal struct CarView
 }
 
 /// <summary>One walker as the world's last step left it.</summary>
-/// <remarks>24 B, a whole number of the 8 B std430 aligns the device's row to for its <c>vec2</c>s.</remarks>
+/// <remarks>32 B, a whole number of the 8 B std430 aligns the device's row to for its <c>vec2</c>s.</remarks>
 [StructLayout(LayoutKind.Sequential)]
 internal struct WalkerView
 {
@@ -83,6 +83,15 @@ internal struct WalkerView
 
     /// <inheritdoc cref="CarView.OverlapM"/>
     public float OverlapM;
+
+    /// <summary>
+    /// How far it has walked: each step's speed times its length, summed by the world while it is out of any container —
+    /// what its gait is drawn off (<c>PersonFleet.DistanceWalkedM</c>). <b>The world's sum and copied</b>, so the
+    /// host's fill and the device's emit draw one stride.
+    /// </summary>
+    public float DistanceWalkedM;
+
+    public float Unused;
 }
 
 /// <summary>One rail vehicle as the world's last step left it (TRN-7): where it is, how it points and moves, and what it shows.</summary>

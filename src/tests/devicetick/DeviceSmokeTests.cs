@@ -39,12 +39,12 @@ public class DeviceSmokeTests(Lavapipe device) : IClassFixture<Lavapipe>
         world.LayTheSmoke();
         var loop = new SimLoop<TownWorld>(town, Config);
 
-        // Where each car stood as each step left it: the view of a step is the town's a tick later (WorldLayer.StepsAhead).
+        // Where each car stood as each step left it: the view of a step is the town's a tick later (SimFigures.WorldStepsAhead).
         var stoodM = new Dictionary<long, Vector2[]>();
         for (var tick = 1; tick <= Ticks; tick++)
         {
             loop.Advance();
-            stoodM[tick - WorldLayer.StepsAhead] = town.Cars.PositionM.AsSpan(0, town.Cars.Count).ToArray();
+            stoodM[tick - SimFigures.WorldStepsAhead] = town.Cars.PositionM.AsSpan(0, town.Cars.Count).ToArray();
         }
 
         var (heads, points) = world.ReadTheSmoke();
@@ -77,7 +77,7 @@ public class DeviceSmokeTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     /// <summary>
     /// A car's smoke is aged off the moment of the view the host shows — the step before the newest
-    /// (<see cref="WorldLayer.StepsAhead"/>) — so its newest puff leaves the pipe where the car is drawn and not a step
+    /// (<see cref="SimFigures.WorldStepsAhead"/>) — so its newest puff leaves the pipe where the car is drawn and not a step
     /// ahead of it.
     /// </summary>
     [Fact]
@@ -98,7 +98,7 @@ public class DeviceSmokeTests(Lavapipe device) : IClassFixture<Lavapipe>
             // A track begun at the newest step has no step before it to show.
             if (heads[car].Count < 2) continue;
 
-            Assert.Equal(Ticks - WorldLayer.StepsAhead, (long)MathF.Round(heads[car].ShownS / dtS));
+            Assert.Equal(Ticks - SimFigures.WorldStepsAhead, (long)MathF.Round(heads[car].ShownS / dtS));
             tracked++;
         }
 
@@ -160,7 +160,7 @@ public class DeviceSmokeTests(Lavapipe device) : IClassFixture<Lavapipe>
         {
             var wagon = Array.FindIndex(wagons, w => w.IsInWorld && looks.Rolling.Vehicles[w.Look].Kind == kind);
             Assert.True(wagon >= 0, $"no {kind} stood in the world");
-            sprites.Emit(wagons[wagon].PositionM, new Vector2(4f, 2f), 40f, town.ElapsedS);
+            sprites.Emit(town, wagons[wagon].PositionM, new Vector2(4f, 2f), 40f);
             var puffs = 0;
             foreach (var instance in sprites.Over) puffs += instance.Sheet == looks.SmokeSheet ? 1 : 0;
             return puffs;
@@ -220,7 +220,7 @@ public class DeviceSmokeTests(Lavapipe device) : IClassFixture<Lavapipe>
         var forward = new Vector2(cos, sin);
         var stackM = looks.Rolling.Vehicles[view.Look].ExhaustsM[0];
         var stackAtM = view.PositionM + (forward * stackM.X) + (new Vector2(-forward.Y, forward.X) * stackM.Y);
-        sprites.Emit(stackAtM, new Vector2(30f, 30f), 40f, town.ElapsedS);
+        sprites.Emit(town, stackAtM, new Vector2(30f, 30f), 40f);
 
         var (nearestM, puffs) = NearestHalfThickM(sprites.Over, looks.SmokeSheet, stackAtM);
         Assert.True(puffs > 0, $"a diesel at {view.VelocityMps.Length():F1} m/s drew no smoke");
@@ -256,7 +256,7 @@ public class DeviceSmokeTests(Lavapipe device) : IClassFixture<Lavapipe>
         for (var tick = 0; tick < ticks; tick++)
         {
             loop.Advance();
-            sprites.Emit(pot.AtM, new Vector2(6f, 6f), 80f, town.ElapsedS);
+            sprites.Emit(town, pot.AtM, new Vector2(6f, 6f), 80f);
             var (nearestM, puffs) = NearestHalfThickM(sprites.Over, looks.SmokeSheet, pot.AtM);
             Assert.True(puffs > 0, $"the pot at {pot.AtM} burning drew no smoke");
             Assert.True(

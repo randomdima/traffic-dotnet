@@ -37,7 +37,7 @@ the build rather than the run. The browser head (`traffic-dotnet.web.csproj`) al
 naga-cli`), which takes the same kernels on from SPIR-V to WGSL.
 
 ```
-dotnet build
+dotnet build traffic-dotnet.csproj
 qq tests
 dotnet run --project traffic-dotnet.csproj -- --map Saltbay
 ```
@@ -245,8 +245,8 @@ follows is only which command reads it.
 **A generated city is its brief, `towns/briefs/<Map>.json`, and is laid off it when it is opened**
 ([citygen](src/citygen/docs/requirements.md#a-generated-town), `GEN-60`): an extent, a seed for the town and one per
 stage where it wants its own, and every parameter of each stage — the sea (which edge, how far in), the rivers (how
-many a kilometre, their bearing, width, meander and tributaries), the connectors (intercity roads, the share of them
-minor, railways and their tracks), the districts (the share laid as grids), the streets (the share of their junctions
+many a kilometre, their bearing, width, meander and tributaries), the connectors (intercity roads, railways and
+their tracks), the districts (the share laid as grids), the streets (the share of their junctions
 left unregulated) and the roster. Three stages lay it: the water, then the intercity roads and railways and the bridges
 they take, then the districts cut round all of them, the roads between districts and every district's own streets.
 No file stands between the brief and the town. Three ship:

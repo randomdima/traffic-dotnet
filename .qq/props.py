@@ -16,6 +16,14 @@ the opening's outer rim. A roof's fan is a round grille with blades behind it;
 a louvred or square vent, or a twin unit a few texels across, is not one. Nothing else here (lamp kinds, mirror,
 audit) applies to either.
 
+**A walker look's props are outlines, measured and never installed** (an id under assets/agents/person/variants/ with
+`--cell F,C`: drawn facing F, 0 back to 4 front, walk column C of the look's kept variant, at its own density). `seed`
+outlines the head off the silhouette above where the shoulders begin; from a high camera the face lies over the shoulders
+and the neck behind the head, so the seed's bottom edge is only a start — put it on the jaw (the chin under a beard, the
+skull's base from behind) with `move` and `bow`, looking at `show --pad 30`. `--by` moves 20 texels at most a call.
+`sizes` tables the head's width and height in centimetres over every cell outlined. The lamp rules below (a lens's
+shape, NOT A LENS, overlaps) do not apply to a head.
+
 **What a prop is for.** The game lights a prop when its lamp is on, so a prop is the lens the art drew, all of it and
 nothing else: a brake lights red over its lens, an indicator blinks amber over its own. Every prop is:
 
@@ -231,12 +239,17 @@ VARIANTS = "assets/agents/car/variants"
 TRAINS = "assets/agents/train/variants"
 PREFABS = "assets/world/building/prefabs"
 ROOFS = "assets/world/building/variants"
+#: A walker look's props are outlines laid round a part of one drawn cell of its kept variant (`--cell`), measured and
+#: never installed: a head, to see how one look's size holds from facing to facing and frame to frame.
+PEOPLE = "assets/agents/person/variants"
 ID = re.compile(r"^[a-z0-9_]{1,40}$")
 #: How far from each end of the body its lamps can be, in metres: the end a show draws.
 END_M = 0.8
 #: The lamp fittings of a car file, as prop kinds; `rear` is the older files' tail-and-brake lamp.
 KINDS = {"head": "head", "indicator": "ind", "brake": "brake", "rear": "brake", "reverse": "reverse"}
 EDITS = ("move", "bow", "split", "drop")
+#: What a walker look's cell takes: its outline seeded, looked at, edited and stepped back.
+WALKER_ACTIONS = ("seed", "show", "snap", *EDITS, "undo")
 #: Two props sharing fewer texels than this, both sides together, only touch: their rounded rims meet, or two lenses
 #: traced from patches side by side share the half texel each outline stands over its own.
 OVERLAP_PX = 12
@@ -271,15 +284,27 @@ def main():
     if not folder.is_relative_to(base / ".tmp"):
         cli.fail(f"props are worked on under .tmp/ and kept by `install`: {_sim.rel(base, folder)} is not")
     folder.mkdir(parents=True, exist_ok=True)
-    car = load_car(base, a.car)
+    walker = (base / PEOPLE / a.car).is_dir()
+    if walker and a.action == "sizes":
+        return sizes(base, folder, a.car)
+    if walker and a.action not in WALKER_ACTIONS:
+        cli.fail(f"{a.car} is a walker look: its outlines are measured, never cut or installed — "
+                 f"{', '.join(WALKER_ACTIONS)}, or sizes")
+    if walker != (a.cell is not None):
+        cli.fail("--cell F,C names a cell of a walker look's kept variant, and only of one")
+    car = load_walker(base, a.car, a.cell) if walker else load_car(base, a.car)
     car["pull"] = a.pull
     if car["fans_only"] and a.action == "mirror":
-        cli.fail(f"{a.car} is {car['what']}: its props are fans, drawn once, and nothing of it is mirrored")
-    doc_path = folder / f"{a.car}.json"
+        cli.fail(f"{a.car} is {car['what']}: its props are drawn once, and nothing of it is mirrored")
+    doc_path = folder / f"{car['id']}.json"
     if a.action == "seed":
         if doc_path.exists() and not a.force:
             cli.fail(f"{_sim.rel(base, doc_path)} exists: `--force` to seed over it (`undo` steps back)")
-        if car["fans_only"]:
+        if walker:
+            doc, line = seeded_head(car)
+            notes = [line]
+            said = "seeded, the head outlined off the silhouette above the neck: look at it on the art and correct it"
+        elif car["fans_only"]:
             doc = seeded_fans(car)
             notes = traced_fans(doc, car)
             said = (f"seeded, every fan found traced from its hub: look at each, `remove` one that is none, and trace "
@@ -337,9 +362,10 @@ def main():
         if len(a.at) > 1:
             cli.fail("--at frames one texel; several are for trace and divide")
         a.at = a.at[0]
-    if car["fans_only"] and any(p["kind"] != FAN for p in doc["props"]):
-        cli.fail(f"{a.car} is {car['what']}, whose only props are fans: "
-                 f"{', '.join(p['name'] for p in doc['props'] if p['kind'] != FAN)} is not one")
+    only = car.get("only", FAN)
+    if car["fans_only"] and any(p["kind"] != only for p in doc["props"]):
+        cli.fail(f"{a.car} is {car['what']}, whose only props are {only}s: "
+                 f"{', '.join(p['name'] for p in doc['props'] if p['kind'] != only)} is not one")
     if car["fans_only"] and a.action == "install":
         return install_fans(base, doc_path, doc, car)
     names = {p["name"] for p in doc["props"]}
@@ -398,7 +424,7 @@ def main():
                                      f"e{a.edge}" if a.edge is not None else None,
                                      f"at{a.at[0]:g}_{a.at[1]:g}" if a.at else None,
                                      a.end if a.end != "both" and not a.prop and not a.at else None) if t)
-    out = folder / (f"{a.car}_{tag}_show.png" if tag else f"{a.car}_show.png")
+    out = folder / (f"{car['id']}_{tag}_show.png" if tag else f"{car['id']}_show.png")
     report(doc, car, [one] if one else near(doc, car, a.at, a.pad + AT_NEAR_PX) if a.at else
            [p for p in doc["props"] if a.end in ("both", fit.end_of(doc, car, p))], a.reach)
     if one is not None and "points" in one and a.action != "trace":
@@ -422,16 +448,22 @@ def parse_args():
         formatter_class=Help,
     )
     parser.add_argument("action", choices=["seed", "find", "trace", "show", "snap", "axis", "move", "bow", "split", "drop",
-                                           "divide", "remove", "undo", "cut", "install", "restore", "mirror", "audit"],
+                                           "divide", "remove", "undo", "cut", "install", "restore", "mirror", "audit",
+                                           "sizes"],
                         help="seed and trace every lamp it can, list each end's lens patches, trace one prop off the "
                              "art, look, pull onto the part, refit the axes, edit a part, divide a housing in two, "
                              "step back, cut, install "
                              "into the game, restore the lamps kept for the sprite's picture, mirror the authored "
-                             "side's lamp art onto the copy side, or audit installed cars' lamps against their art")
+                             "side's lamp art onto the copy side, or audit installed cars' lamps against their art; "
+                             "a walker look: seed a cell's head, look and edit it, and list every outlined cell's size")
     parser.add_argument("car", help="the car's id, a folder under assets/agents/car/variants/, a rail vehicle's "
                                     "under assets/agents/train/variants/, or a roof's: a prefab's under "
                                     "assets/world/building/prefabs/<look>/ or a civic roof's under "
-                                    "assets/world/building/variants/; audit: car ids comma-separated, or all")
+                                    "assets/world/building/variants/; a walker look's under "
+                                    "assets/agents/person/variants/, with --cell; audit: car ids comma-separated, or all")
+    parser.add_argument("--cell", type=lambda t: tuple(int(v) for v in pair(t, 0, 7)), default=None, metavar="F,C",
+                        help="a walker look's cell of its kept variant: drawn facing F (0 back .. 4 front) and walk "
+                             "column C (0 the stance)")
     parser.add_argument("--prop", default=None, help="the prop of this name: shown close up, snapped, or edited")
     parser.add_argument("--into", default=None, metavar="NAME",
                         help="divide: the new prop the smaller half becomes (a part of that name is replaced)")
@@ -754,6 +786,103 @@ def load_car(base, car):
     return out
 
 
+def load_walker(base, look, cell):
+    """One drawn cell of a walker look's kept variant, as a car is loaded: `cell` is (facing, column) of the variant's
+    block — facings back, back and left side, left side, front and left side, front — at the variant's own density."""
+    import numpy as np
+    from PIL import Image
+
+    folder = base / PEOPLE / look
+    src = folder / f"{look}.src.json"
+    if not src.is_file():
+        cli.fail(f"no {_sim.rel(base, src)}: the look's kept variant is read from its trace")
+    variant = json.loads(src.read_text(encoding="utf-8"))["variant"]
+    picture = Image.open(base / variant)
+    info = json.loads(picture.text["cut"])
+    (cw, ch), (r, c) = info["cellPx"], cell
+    if not (0 <= r < info["facings"] and 0 <= c < info["frames"]):
+        cli.fail(f"--cell {r},{c} is off {look}'s block of {info['facings']} facings by {info['frames']} columns")
+    rgba = np.asarray(picture.convert("RGBA").crop((c * cw, r * ch, (c + 1) * cw, (r + 1) * ch))).astype(np.float32) / 255
+    ppm = float(info["pxPerM"])
+    out = {"id": f"{look}_f{r}c{c}", "file": {}, "rgba": rgba, "ppm": ppm, "variant": variant,
+           "end": int(round(END_M * ppm)), "folder": folder, "fans_only": True, "only": OUTLINE,
+           "what": "a walker's cell", "walker": (look, r, c)}
+    a = rgba[..., 3:4]
+    out["colour"] = colour = rgba[..., :3] * a + np.array(fit.GROUND, np.float32) * (1 - a)
+    out["dark"] = np.clip((fit.DARK_VAL_NONE - colour.max(-1)) / (fit.DARK_VAL_NONE - fit.DARK_VAL_FULL), 0, 1)
+    out["classes"] = trace.classes(out)
+    return out
+
+
+def seeded_head(car):
+    """A walker cell's props file with its head outlined off the figure's silhouette: everything above where the
+    shoulders begin (HEAD_ROWS, SHOULDER_WIDER, NECK_ROWS). A first outline to look at and correct, as a lamp's seed
+    is."""
+    import numpy as np
+
+    solid = car["rgba"][..., 3] > 0.5
+    ys = np.flatnonzero(solid.any(1))
+    top, h = int(ys[0]), int(ys[-1] - ys[0] + 1)
+
+    def across(y):
+        xs = np.flatnonzero(solid[y])
+        return int(xs[-1] - xs[0] + 1) if len(xs) else 0
+
+    widest = max(range(top, top + max(1, round(h * HEAD_ROWS))), key=across)
+    neck = next((y for y in range(widest, top + round(h * NECK_ROWS)) if across(y) > SHOULDER_WIDER * across(widest)),
+                top + round(h * NECK_ROWS))
+    head = solid.copy()
+    head[neck:] = False
+    doc = {"car": car["id"], "sprite": sprite_cut_on(car), "axisY": {e: body_middle(car, e) for e in ("rear", "front")},
+           "props": []}
+    fitted = trace.outlined(trace.closed(head))
+    if fitted is not None:
+        doc["props"].append({"name": "head", "kind": OUTLINE, "mirror": False, "points": fit.rounded(fitted[0])})
+    return doc, f"  head: the silhouette above row {neck}, where the shoulders begin ({across(neck)} px across, the " \
+                f"head's widest row {widest} {across(widest)} px)"
+
+
+def sizes(base, folder, look):
+    """Every outlined cell of a walker look under `folder`: its head's width and height, a row a facing and a column a
+    walk column, then each facing's spread and every facing's stance against the median stance."""
+    import numpy as np
+
+    names = ("back", "back-left", "left", "front-left", "front")
+    found = {}
+    for path in sorted(folder.glob(f"{look}_f[0-9]c[0-9].json")):
+        r, c = int(path.stem[-3]), int(path.stem[-1])
+        doc = load(path)
+        p = next((q for q in doc["props"] if q["name"] == "head" and "points" in q), None)
+        if p is not None:
+            found[r, c] = head_size(doc, load_walker(base, look, (r, c)), p)
+    if not found:
+        cli.fail(f"no outlined cell of {look} under {_sim.rel(base, folder)}: `qq props seed {look} --cell F,C` first")
+    print(f"{look}: head width x height, cm, by facing (rows) and walk column (columns, 0 the stance)")
+    stances = {r: found[r, 0] for r in range(5) if (r, 0) in found}
+    for r, name in enumerate(names):
+        row = [found.get((r, c)) for c in range(8)]
+        got = [s for s in row if s]
+        if not got:
+            continue
+        cells = "  ".join(f"{s[2]:4.1f}x{s[3]:4.1f}" if s else "    -    " for s in row)
+        ws, hs = [s[2] for s in got], [s[3] for s in got]
+        print(f"  {name:<10} {cells}   spread w {max(ws) / min(ws) - 1:+.0%} h {max(hs) / min(hs) - 1:+.0%}")
+    if len(stances) > 1:
+        mw, mh = np.median([s[2] for s in stances.values()]), np.median([s[3] for s in stances.values()])
+        print("  stance against the facings' median: " + ", ".join(
+            f"{names[r]} w {s[2] / mw - 1:+.0%} h {s[3] / mh - 1:+.0%}" for r, s in stances.items()))
+    return 0
+
+
+def head_size(doc, car, p):
+    """A walker's outline as (width, height) in texels and in centimetres at its variant's density."""
+    import numpy as np
+
+    ys, xs = np.nonzero(fit.coverage(fit.rings(doc, car, p)[:1], car["rgba"].shape[:2]) > 0.5)
+    w, h = float(xs.max() - xs.min() + 1), float(ys.max() - ys.min() + 1)
+    return w, h, w / car["ppm"] * 100, h / car["ppm"] * 100
+
+
 def sprite_cut_on(car):
     """The picture a props file is cut on: the variant it was made from, and its size in texels."""
     h, w = car["rgba"].shape[:2]
@@ -801,8 +930,14 @@ BEACON_KINDS = ("beacon_red", "beacon_blue", "beacon_amber")
 #: A rail vehicle's fan: the round opening it turns in, drawn once wherever it stands across the roof, read off the art
 #: as a disc from its hub (`--lens=disc`).
 FAN = "fan"
+#: A walker's outline of a part of its figure (`seeded_head`), drawn once and only measured.
+OUTLINE = "outline"
 #: The props drawn once, never mirrored.
-ONCE_KINDS = (*BEACON_KINDS, FAN)
+ONCE_KINDS = (*BEACON_KINDS, FAN, OUTLINE)
+#: A walker's head (`seeded_head`): its width is the widest row in the top HEAD_ROWS share of the figure, and it ends
+#: where a row below runs SHOULDER_WIDER times that — from a camera high in front or at a diagonal the head lies over
+#: the shoulders with no narrower neck between (`tee_print`), so the narrowest row took them in — or at NECK_ROWS.
+HEAD_ROWS, SHOULDER_WIDER, NECK_ROWS = 0.10, 1.3, 0.32
 
 
 def trace_prop(doc, car, name, seeds, by):
@@ -886,7 +1021,8 @@ def seeded(car):
     props, names = [], {}
     for lamp in d.get("lamps", []):
         (xm, ym), (sx, sy) = lamp["atM"], lamp["sizeM"]
-        if ym > 1e-3:
+        # A beacon is lit off the bar fitted to the roof (`qq beacons`), not cut from the art as a lens.
+        if ym > 1e-3 or lamp["fitting"].startswith("beacon"):
             continue
         kind = KINDS.get(lamp["fitting"], lamp["fitting"])
         name = kind if kind in ("head", "brake", "reverse") else f"{kind}_{'front' if xm > 0 else 'rear'}"
@@ -1141,7 +1277,7 @@ def report(doc, car, props, reach):
             gap = "/".join("-" if g is None else f"{g:.2f}" for g in gaps)
             frame = "/".join(f"{fit.framed(car, r):.0%}" for r in sides)
             ys, xs = np.nonzero(fit.coverage(sides[:1], car["rgba"].shape[:2]) > 0.5)
-            past = cell_overrun(xs, ys) if len(xs) else None
+            past = cell_overrun(xs, ys) if len(xs) and "walker" not in car else None
             print(f"  {p['name']:<12} {len(per):>2} pts  edge contrast{' by frame' if pull == 'frame' else ''} "
                   f"{sum(per[i] for i in free) / len(free):.2f}"
                   + (f", copy {twin:.2f}" if twin is not None else "")
@@ -1150,6 +1286,9 @@ def report(doc, car, props, reach):
                   + (f"  own axisY {at[0]:.2f} mirrorDx {at[1]:+.2f}" if "axisY" in p or "mirrorDx" in p else "")
                   + f"  {area:.0f} px" + (f"  NOT A LENS: {wrong}" if wrong else "")
                   + (f"  PAST THE CELL (install refuses): {past}" if past else ""))
+            if "walker" in car:
+                w, h, wcm, hcm = head_size(doc, car, p)
+                print(f"      size {w:.0f} x {h:.0f} px, {wcm:.1f} x {hcm:.1f} cm")
             if spare := fit.spare_vertex(doc, car, p, like, reach):
                 j, sides = spare
                 print(f"      SPARE v{j}: the edge joining its neighbours off its rim "

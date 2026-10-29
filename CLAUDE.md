@@ -30,6 +30,12 @@ the build's own `bin/` and `obj/`.
   under `raw_assets/` at the same path, and that variant's frame record holds the prompt, model and
   inputs. Generate with the remotegen skill, cut, keep and install with `qq sprites`; the rules are
   [raw_assets/index.md](raw_assets/index.md), and `qq checks` fails an image that traces to nothing.
+  **A generation's shape is the owner's** (remotegen's core rule): its model, its settings, a clip's duration and how
+  many generations one asset is made from — one frame a sheet, **one 5 s video a walker look**. A longer clip, a second
+  call for the same asset or another model is asked first and generated only on a yes, never tried to see.
+  **Every unit, building and prop look stands once on the showroom** (`--map Showroom`), and **a change to the art is not
+  finished until a captioned shot of the showroom shows it** — a new kind of look included, which the showroom is
+  extended to stand (raw_assets/index.md, rule 8).
 - **Numbers.** On `SimConfig`, authored in the nested groups and derived on the root. **A literal in
   behaviour code is a defect.**
 - **Figures flow one way, and only one.** What is *authored* is a raw physical or geometric term — a
@@ -141,7 +147,7 @@ size is checked against the figure that decides it, never against the record tha
 run had anything to say is the instruments' to report, not a gate's.
 
 ```
-dotnet build
+dotnet build traffic-dotnet.csproj
 dotnet run --project traffic-dotnet.csproj -- --map Saltbay
 dotnet run --project traffic-dotnet.csproj -- --shot .tmp/town.png --map Test --caption
 dotnet run --project traffic-dotnet.csproj -- --sheet .tmp/junctions.json

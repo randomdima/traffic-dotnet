@@ -83,6 +83,7 @@ internal sealed partial class GroundShapes
         LayTheRoads(pieces, config);
         LayTheShell(paving, config);
         LayTheShapes(paving, config);
+        LayTheVerges(pieces, config);
         _ownScan = NewScan();
     }
 
@@ -105,6 +106,9 @@ internal sealed partial class GroundShapes
         /// never asked lays neither.
         /// </summary>
         internal ChainIndex.Scan? Kerb { get; set; }
+
+        /// <summary>The roads with no walk's, made on this scan's first ask of a verge (<see cref="InAVerge"/>).</summary>
+        internal ChainIndex.Scan? Unwalked { get; set; }
     }
 
     /// <summary>A scan of this ground's own indexes, for a caller that means to ask off its own thread.</summary>
@@ -145,6 +149,11 @@ internal sealed partial class GroundShapes
     /// <b>The ballast is under the walk</b> (RAIL-3): a pavement crossing a track at grade is pavement over the whole of
     /// it, as a carriageway is road.
     /// </para>
+    /// <para>
+    /// <b>A deck's margin is walk on a walked road, or where a walk is struck over it</b> (GEN-75) — a corner's walk run
+    /// on past a bridgehead; beside an intercity road's carriageway elsewhere it is the structure's and answers road, as
+    /// the shoulder beside it off the deck is no walk either.
+    /// </para>
     /// </remarks>
     public Ground At(Vector2 pointM) => At(_ownScan, pointM);
 
@@ -167,10 +176,11 @@ internal sealed partial class GroundShapes
         if (_carriageway.Encloses(pointM)) return Ground.Road;
         if (SlabReaches(pointM)) return Ground.Parking;
         if (_rail.Covers(pointM) && !_walk.Encloses(pointM)) return Ground.Rail;
-        if (roads.Deck) return Ground.Sidewalk;
+        if (roads.Deck) return roads.Walked || _walk.Encloses(pointM) ? Ground.Sidewalk : Ground.Road;
         if (_water.Covers(pointM)) return Ground.Water;
         if (_shore.Covers(pointM)) return Ground.Sidewalk;
-        if (_walk.Encloses(pointM)) return Ground.Sidewalk;
+        if (_walk.Encloses(pointM) || _plazas.Covers(pointM)) return Ground.Sidewalk;
+        if (_shoulder.Encloses(pointM)) return Ground.Shoulder;
 
         return Ground.Grass;
     }
@@ -222,6 +232,43 @@ internal sealed partial class GroundShapes
     public bool IsAll(Scan scan, Vector2 centreM, Vector2 axis, Vector2 halfExtentM, float stepM, Ground ground) =>
         IsAll(scan, centreM, axis, halfExtentM, stepM, ground, ground);
 
+    /// <summary>
+    /// <b>Whether a building's box stands wholly on grass and off every paving</b> (GEN-2b, GEN-2c, GEN-54), and out of
+    /// every verge (GEN-75) — the one answer every stage that stands a building asks — round its walls a step apart and
+    /// at its middle.
+    /// </summary>
+    /// <remarks>
+    /// <b>The walls and not the whole floor</b>: what a building is held off — a street, a walk, a car park, the water, the
+    /// railway — runs on past any box it reaches, so one that reaches a box crosses its wall. The paving is read off the
+    /// boundary itself (<see cref="PavingWithin(Scan, Vector2, float)"/>) and not off the ground's answer, so the front
+    /// wall clears a walk by the distance that walk was struck at and the back of a deep building stays out of the street
+    /// behind it.
+    /// </remarks>
+    public bool HoldsABuilding(Scan scan, Vector2 centreM, Vector2 along, Vector2 halfM, float stepM)
+    {
+        if (!Clear(centreM)) return false;
+
+        var across = Heading.RightOf(along);
+        Span<Vector2> corners =
+        [
+            centreM - (along * halfM.X) - (across * halfM.Y), centreM + (along * halfM.X) - (across * halfM.Y),
+            centreM + (along * halfM.X) + (across * halfM.Y), centreM - (along * halfM.X) + (across * halfM.Y),
+        ];
+        for (var side = 0; side < corners.Length; side++)
+        {
+            var (fromM, toM) = (corners[side], corners[(side + 1) % corners.Length]);
+            var steps = Math.Max(1, (int)MathF.Ceiling(Vector2.Distance(fromM, toM) / stepM));
+            for (var step = 0; step < steps; step++)
+            {
+                if (!Clear(Blend.Lerp(fromM, toM, step / (float)steps))) return false;
+            }
+        }
+
+        return true;
+
+        bool Clear(Vector2 atM) => Is(scan, atM, Ground.Grass) && !PavingWithin(scan, atM, 0f) && !InAVerge(scan, atM, 0f);
+    }
+
     /// <summary>And of either of two grounds.</summary>
     public bool IsAll(
         Vector2 centreM, Vector2 axis, Vector2 halfExtentM, float stepM, Ground ground, Ground orGround) =>
@@ -251,7 +298,7 @@ internal sealed partial class GroundShapes
 
     /// <summary>
     /// <b>Whether any of the town's paving stands within reach of a point</b> — the walk's outer face, a
-    /// slab, or the shore the water is set in. What a prop asks to be <em>well clear</em> of (GEN-6b).
+    /// slab, a plaza (<see cref="CityPlan.Plazas"/>), or the shore the water is set in. What a prop asks to be <em>well clear</em> of (GEN-6b).
     /// </summary>
     /// <remarks>
     /// <b>Off the boundary and not off the road records</b> (TER-7b, <see cref="GroundRings.PavedWithin(Vector2, float)"/>).
@@ -270,7 +317,8 @@ internal sealed partial class GroundShapes
     bool PavingWithin(ChainIndex.Scan? kerb, Vector2 pointM, float reachM) =>
         Layers.PavedWithin(kerb, pointM, reachM)
         || SlabWithin(pointM, reachM)
-        || _shore.Within(pointM, reachM);
+        || _shore.Within(pointM, reachM)
+        || _plazas.Within(pointM, reachM);
 
     /// <summary>
     /// Whether one point is the ground given, <b>and on the map at all</b>. It is the whole of GEN-2b as

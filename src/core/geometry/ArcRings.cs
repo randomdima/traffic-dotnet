@@ -663,29 +663,53 @@ internal sealed class ArcRings
     /// </summary>
     int Places(out int[] arrivingAt, out int[] leavingAt)
     {
-        var at = new Dictionary<long, List<int>>(_kept.Count * 2);
-        var standing = new List<Vector2>();
+        var at = new PlaceCells(_weldLevel, _kept.Count * 2);
         arrivingAt = new int[_kept.Count];
         leavingAt = new int[_kept.Count];
 
         for (var stretch = 0; stretch < _kept.Count; stretch++)
         {
-            arrivingAt[stretch] = Place(_weldLevel, at, standing, _kept[stretch].EndM, null);
+            arrivingAt[stretch] = Place(at, _kept[stretch].EndM, null);
         }
 
         // A start is offered the places an end already stands at before any of its own: a walk arrives
         // at a place to leave it, and a place with nothing to take up is one an arrival is waiting at.
-        var waiting = new int[standing.Count];
+        var waiting = new int[at.Count];
         foreach (var place in arrivingAt) waiting[place]++;
 
         for (var stretch = 0; stretch < _kept.Count; stretch++)
         {
-            var place = Place(_weldLevel, at, standing, _kept[stretch].StartM, waiting);
+            var place = Place(at, _kept[stretch].StartM, waiting);
             leavingAt[stretch] = place;
             if (place < waiting.Length) waiting[place]--;
         }
 
-        return standing.Count;
+        return at.Count;
+    }
+
+    /// <summary>
+    /// The places made so far, filed by the weld level's cell each stands in and, within a cell, in the order they were made
+    /// — the order <see cref="Place"/> breaks a tie by.
+    /// </summary>
+    sealed class PlaceCells(GridLevel level, int capacity)
+    {
+        readonly CellChains _cells = new(capacity);
+
+        public GridLevel Level => level;
+
+        public List<Vector2> StandingM { get; } = [];
+
+        public int Count => StandingM.Count;
+
+        public int FirstIn(int cellX, int cellY) => _cells.FirstIn(cellX, cellY);
+
+        public int After(int place) => _cells.After(place);
+
+        public int Add(int cellX, int cellY, Vector2 pointM)
+        {
+            StandingM.Add(pointM);
+            return _cells.Add(cellX, cellY);
+        }
     }
 
     /// <summary>
@@ -708,12 +732,10 @@ internal sealed class ArcRings
     /// nowhere while another has two ways on.
     /// </para>
     /// </remarks>
-    static int Place(
-        GridLevel level, Dictionary<long, List<int>> at, List<Vector2> standing, Vector2 pointM,
-        int[]? waiting)
+    static int Place(PlaceCells at, Vector2 pointM, int[]? waiting)
     {
-        var (cellX, cellY) = level.CellOf(pointM);
-        var reach = level.CellsWithin(WeldM);
+        var (cellX, cellY) = at.Level.CellOf(pointM);
+        var reach = at.Level.CellsWithin(WeldM);
         var bestSq = WeldM * WeldM;
         var best = -1;
         var bestWaiting = 0;
@@ -721,11 +743,9 @@ internal sealed class ArcRings
         {
             for (var x = -reach; x <= reach; x++)
             {
-                if (!at.TryGetValue(GridLevel.KeyOf(cellX + x, cellY + y), out var here)) continue;
-
-                foreach (var place in here)
+                for (var place = at.FirstIn(cellX + x, cellY + y); place >= 0; place = at.After(place))
                 {
-                    var offSq = Vector2.DistanceSquared(standing[place], pointM);
+                    var offSq = Vector2.DistanceSquared(at.StandingM[place], pointM);
                     if (offSq > WeldM * WeldM) continue;
 
                     var waits = waiting is not null && place < waiting.Length && waiting[place] > 0 ? 1 : 0;
@@ -738,14 +758,7 @@ internal sealed class ArcRings
             }
         }
 
-        if (best >= 0) return best;
-
-        var key = GridLevel.KeyOf(cellX, cellY);
-        if (!at.TryGetValue(key, out var cell)) at[key] = cell = [];
-
-        cell.Add(standing.Count);
-        standing.Add(pointM);
-        return standing.Count - 1;
+        return best >= 0 ? best : at.Add(cellX, cellY, pointM);
     }
 
     /// <summary>

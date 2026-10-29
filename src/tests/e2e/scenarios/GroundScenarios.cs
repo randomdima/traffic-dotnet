@@ -91,32 +91,30 @@ internal static class GroundScenarios
             Expected: "bridge.png"),
 
         new(
-            Name: "city-odesa",
+            Name: "city-saltbay",
             Group: "wider",
-            Map: "Odesa",
-            Subject: "A whole hand-traced city, 3 km across: two grids on their own bearings, an "
-                     + "orbital ring tying them together, and the sea to the east as the ground legal "
-                     + "to nobody. A city is asked this one question only — a detailed question asked "
-                     + "of whatever a city happens to contain is a different question every time "
-                     + "somebody edits it.",
-            // Wide enough that the 3000 x 2304 m map is inside the frame with a margin: a city
+            Map: "Saltbay",
+            Subject: "A whole generated city, 3 km across: districts on their own bearings, the "
+                     + "intercity roads and a railway joining them, a river into the sea to the east, "
+                     + "and the sea as the ground legal to nobody. A city is asked this one question "
+                     + "only — a detailed question asked of whatever a city happens to contain is a "
+                     + "different question every time somebody edits it.",
+            // Wide enough that the 3000 x 2300 m map is inside the frame with a margin: a city
             // photographed with its edge outside the picture cannot answer "no street stops in open
             // ground".
             FrameWidthM: 3120f, FinestFeatureM: 7f,
             AtM: null, Seconds: 10, Ui: ["none"],
             Expect:
             [
-                "It reads as a city rather than as a lattice: two districts on different bearings, "
-                + "tied together by a ring.",
-                "The ring turns on the roads between its junctions, not at the junctions themselves.",
-                "No street simply stops in open ground: every one runs to a junction or a turning "
-                + "head.",
+                "It reads as a city rather than as a lattice: districts on different bearings, "
+                + "joined by roads between them.",
+                "No street simply stops in open ground: each ends at a junction, a turning head or the map's edge.",
+                "Every road crossing the river crosses it on a bridge, and none runs along under the water.",
                 "Nothing is built on the water, and the coastline is a boundary rather than a hole in "
                 + "the map.",
-                "Buildings and planting follow the streets everywhere — no district is bare, none is "
+                "Buildings follow the streets in every district — no district is bare, none is "
                 + "piled up.",
                 "The whole map is covered by ground, with no bare patch anywhere inside it.",
-            ],
-            Expected: "city-odesa.png"),
+            ]),
     ];
 }

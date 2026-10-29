@@ -134,8 +134,8 @@ public class ConnectionPointTests
     [Fact]
     public void ABridgeLeavesAlongItsOwnChordAndIsNotJittered()
     {
-        var ground = Towns.Of(Towns.City).Ground;
-        Assert.True(ground.Bridges.Count > 0, "the suite's own city bridged nothing to ask about");
+        var ground = Towns.Of(Towns.Fixture).Ground;
+        Assert.True(ground.Bridges.Count > 0, "the fixture bridged nothing to ask about");
 
         foreach (var road in ground.Bridges.Road)
         {
@@ -155,7 +155,7 @@ public class ConnectionPointTests
     [Fact]
     public void ARoadAndTheBridgeItCarriesOnMeetAtTheirBridgeheadAsOneStraight()
     {
-        var ground = Towns.Of(Towns.City).Ground;
+        var ground = Towns.Of(Towns.Fixture).Ground;
         var roads = ground.Roads;
         var asked = 0;
         foreach (var bridge in ground.Bridges.Road)
@@ -180,7 +180,7 @@ public class ConnectionPointTests
             }
         }
 
-        Assert.True(asked > 0, "the suite's own city landed no bridge on a road alone");
+        Assert.True(asked > 0, "the fixture landed no bridge on a road alone");
 
         // The way a road's own line leaves a junction it ends at.
         Vector2 Leaving(int road, int junction)

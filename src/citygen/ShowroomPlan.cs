@@ -7,21 +7,30 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>The showroom</b>: one big car park with every car look parked in it once — the fleet's and the service vehicles'
-/// — every building look stood once in rows all round it, and a yard of sidings along its foot with every rolling-stock
-/// look standing on it once. The map the art and its animations are looked at in: parked, the car picked out putting its
-/// lamps through their states (CAR-14.9), driven by hand, and the town it would stand in.
+/// — every person look stood once in a row down its middle, every building look stood once in rows all round it, and a
+/// yard of sidings along its foot with every rolling-stock look standing on it once. The map the art is looked at in:
+/// standing, the car picked out putting its lamps through their states (CAR-14.9), driven or walked by hand, and the
+/// town it would stand in.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The car park is a loop with ranks of bays down both kerbs of its long sides</b> — the idle ring's shape
 /// (<see cref="IdlePlan.Loop"/>) drawn out wide — every bay the bay every town lays (GEN-53): a lane wide, square to
-/// the kerb, a node a lead off each end. A car spawn stands on every bay, so the town parks each look there
-/// (<c>TownWorld.StandCar</c>), and the bays past the last look stand empty. <b>Nobody else is on it</b>: no pavement,
-/// and its cars run no round (CAR-8) — each stands where it was parked until a hand or an order drives it.
+/// the kerb, a node a lead off each end. <b>Its ground is its road, its bays and the island inside the loop paved as
+/// walk</b> (<see cref="Island"/>): no slab is paved round them and no pavement laid along them. A car spawn stands on
+/// every bay, so the town parks each look there
+/// (<c>TownWorld.StandCar</c>), and the bays past the last look stand empty. Its cars run no round (CAR-8) — each stands
+/// where it was parked until a hand or an order drives it.
 /// </para>
 /// <para>
-/// <b>Every walker look walks a ring of its own</b> down the middle of the car park (PER-30, <see cref="WithWalkers"/>),
-/// round and round, so its walk is seen in every facing its sheet draws; the rings past the last look stand empty.
+/// <b>Every person look stands once, still, facing the camera</b> (PER-30, <see cref="WithPeople"/>), the walkers' and
+/// the uniforms' alike, in one row on the island between the inner ranks — as many places as <see cref="ArtSizes.PersonLooks"/> says
+/// there are looks, so the row is centred whatever the catalogue holds.
+/// </para>
+/// <para>
+/// <b>Every prop look stands once in a field of its own</b> (<see cref="PropField"/>), between the yard and the
+/// buildings: a row or more to each kind, the looks smallest first, each at the girth the town lays it at
+/// (<see cref="ArtSizes.Props"/>).
 /// </para>
 /// <para>
 /// <b>What it shows is whatever the looks are</b>, which is the run's to say (<c>--fleet</c>, or the shipped list): the
@@ -64,17 +73,23 @@ internal static class ShowroomPlan
     /// <summary>How many bays the car park has, which is the most looks it shows.</summary>
     public const int Slots = BaysARank * Ranks;
 
-    /// <summary>How many walker looks the showroom shows at most, each round a ring of its own (PER-30).</summary>
-    public const int WalkerSlots = 8;
+    /// <summary>From one person look's place to the next along the row (PER-30): a body's width and room to walk past it.</summary>
+    const float PersonSpacingM = 2.5f;
 
-    /// <summary>The ground between two neighbouring walkers' rings.</summary>
-    const float RingGapM = 3f;
+    /// <summary>The heading a person look stands at: down the map, so its sheet's front row is the one drawn.</summary>
+    const float FacingTheCameraRad = MathF.PI * 0.5f;
+
+    /// <summary>How far round a corner of the loop one chord of the island's ring turns.</summary>
+    const float IslandChordTurnRad = 0.05f;
 
     /// <summary>The grass between two buildings side by side in a row.</summary>
     const float BuildingGapM = 3f;
 
     /// <summary>The grass between one row and the next, and between the car park and the first.</summary>
     const float RowGapM = 6f;
+
+    /// <summary>The grass between two props side by side in the field, and between one of its rows and the next.</summary>
+    const float PropGapM = 1.5f;
 
     /// <summary>The grass between the outermost row and the edge of the map.</summary>
     const float EdgeM = 20f;
@@ -92,16 +107,20 @@ internal static class ShowroomPlan
     /// </summary>
     public static bool ShowsEachLookOnce(string name) => string.Equals(name, Name, StringComparison.Ordinal);
 
-    public static CityPlan Lay(SimConfig config, BuildingSizes sizes)
+    public static CityPlan Lay(SimConfig config, ArtSizes art)
     {
         var lot = new Lot(config);
-        var rows = Rows(Footings(sizes), lot.HalfM + new Vector2(RowGapM), config);
+        var rows = Rows(Footings(art.Buildings), lot.HalfM + new Vector2(RowGapM), config);
 
-        // The yard along the map's foot, under the rows, its sidings a double line's spacing apart.
+        // The yard along the map's foot, under the rows, its sidings a double line's spacing apart; the props' field
+        // between the yard and the rows, as wide as the rows are.
         var yardM = config.Rail.BallastWidthM + ((Sidings - 1) * config.Rail.TrackSpacingM) + RowGapM;
+        var field = PropField(art.Props, 2f * rows.ExtentM.X);
+        var fieldM = field.DepthM > 0f ? field.DepthM + RowGapM : 0f;
         var worldSizeM = new Vector2(
-            MathF.Ceiling(2f * (rows.ExtentM.X + EdgeM)), MathF.Ceiling((2f * (rows.ExtentM.Y + EdgeM)) + yardM));
+            MathF.Ceiling(2f * (rows.ExtentM.X + EdgeM)), MathF.Ceiling((2f * (rows.ExtentM.Y + EdgeM)) + yardM + fieldM));
         var centreM = new Vector2(worldSizeM.X * 0.5f, worldSizeM.Y - rows.ExtentM.Y - EdgeM);
+        var fieldFromM = new Vector2(centreM.X - rows.ExtentM.X, EdgeM + yardM);
 
         var loop = IdlePlan.Loop(centreM, lot.LoopHalfM, lot.CornerM);
         var bays = Bays(loop, lot, config);
@@ -112,7 +131,7 @@ internal static class ShowroomPlan
             WorldSizeM = worldSizeM,
 
             // No pavement: the buildings are pictures of themselves, and a kerb laid for nobody is ground the picture
-            // would have to explain. The walker looks on show walk rings of their own (PER-30), on no way of a network.
+            // would have to explain. The person looks on show stand on no way of a network (PER-30).
             PavementWidthM = 0f,
             Junctions = Junctions(loop, bays, config),
             JunctionCorners = new CityPlan.JunctionCornerArrays
@@ -122,18 +141,38 @@ internal static class ShowroomPlan
             Roads = Roads(loop, bays, config),
             Bridges = new CityPlan.BridgeArrays { Road = [], FromM = [], ToM = [], DeckWidthM = [], PavementWidthM = [] },
             CarParks = bays.CarParks,
-            PavedAreas = new CityPlan.PavedAreaArrays { MinM = [centreM - lot.HalfM], SizeM = [2f * lot.HalfM] },
+            PavedAreas = CityPlan.PavedAreaArrays.None,
+            Plazas = Island(loop),
             Crosswalks = new CityPlan.CrosswalkArrays { CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [] },
             ParkingLots = new CityPlan.ParkingLotArrays
             {
                 CentreM = [], Axis = [], HalfExtentM = [], SpaceOffsets = [0], SpacePositionM = [], SpaceHeadingRad = [],
             },
             Buildings = rows.Buildings(centreM),
-            Props = CityPlan.PropArrays.None,
-            Spawns = WithWalkers(bays.Spawns, centreM, config),
+            Props = field.At(fieldFromM),
+            Spawns = WithPeople(bays.Spawns, centreM, art.PersonLooks),
             Water = CityPlan.WaterArrays.None,
             Rails = RailLines.Lay(Yard(worldSizeM, config), worldSizeM, config),
         };
+    }
+
+    /// <summary>
+    /// <b>The island inside the loop, paved as walk</b> (<see cref="CityPlan.Plazas"/>): the loop's own centreline as one
+    /// ring, so its edge lies under the carriageway all the way round and the paving reaches the inner kerb everywhere.
+    /// </summary>
+    static CityPlan.RingArrays Island(List<ArcSeg>[] loop)
+    {
+        var pointM = new List<Vector2>();
+        foreach (var road in loop)
+        {
+            foreach (var piece in road)
+            {
+                var steps = Math.Max(1, (int)MathF.Ceiling(MathF.Abs(piece.Curvature) * piece.LengthM / IslandChordTurnRad));
+                for (var step = 0; step < steps; step++) pointM.Add(piece.PointAtM(piece.LengthM * step / steps));
+            }
+        }
+
+        return new CityPlan.RingArrays { Offsets = [0, pointM.Count], PointM = [.. pointM] };
     }
 
     /// <summary>
@@ -208,23 +247,73 @@ internal static class ShowroomPlan
     /// <summary>The bays as their lines, the car parks they make, and a car spawn on each.</summary>
     sealed record Laid(List<ArcSeg> Lines, CityPlan.CarParkArrays CarParks, CityPlan.SpawnArrays Spawns);
 
-    /// <summary>
-    /// <b>The walkers' rings</b> (PER-30): a row of <see cref="WalkerSlots"/> down the middle of the car park, between its
-    /// inner ranks, after the cars — a person spawn at each ring's centre.
-    /// </summary>
-    static CityPlan.SpawnArrays WithWalkers(CityPlan.SpawnArrays cars, Vector2 centreM, SimConfig config)
+    /// <summary>The props' field, laid from its own corner: each look once, where it stands in the field, and how deep it is.</summary>
+    sealed record Field(PropSizes Props, List<(int Look, Vector2 AtM)> Stood, float DepthM)
     {
-        var spacingM = (2f * config.Person.ShowroomRingM) + RingGapM;
-        var kind = new byte[cars.Count + WalkerSlots];
+        /// <summary>The field as the plan's props, its corner at <paramref name="fromM"/>: each upright, on no kerb.</summary>
+        public CityPlan.PropArrays At(Vector2 fromM) => new()
+        {
+            CentreM = [.. Stood.Select(stood => fromM + stood.AtM)],
+            RadiusM = [.. Stood.Select(stood => Props.GirthM[stood.Look] * 0.5f)],
+            BodyRadiusM = [.. Stood.Select(stood => Props.BodyM[stood.Look] * 0.5f)],
+            BearingRad = new float[Stood.Count],
+            Kind = [.. Stood.Select(stood => (byte)Props.Kind[stood.Look])],
+            Look = [.. Stood.Select(stood => (ushort)stood.Look)],
+        };
+    }
+
+    /// <summary>
+    /// <b>Every prop look once</b>, in rows at most <paramref name="widthM"/> long and centred across it: each kind
+    /// starting a row of its own, its looks smallest first, every one its girth and <see cref="PropGapM"/> from the next,
+    /// every row as deep as its largest.
+    /// </summary>
+    static Field PropField(PropSizes props, float widthM)
+    {
+        var stood = new List<(int Look, Vector2 AtM)>(props.Count);
+        var (alongM, rowM, rowDepthM, rowFrom) = (0f, 0f, 0f, 0);
+        PropKind? kind = null;
+        foreach (var look in Enumerable.Range(0, props.Count).OrderBy(look => props.Kind[look]).ThenBy(look => props.GirthM[look]))
+        {
+            var girthM = props.GirthM[look];
+            if (kind != props.Kind[look] || alongM + girthM > widthM)
+            {
+                if (kind is not null) CentreTheRow();
+                (rowM, alongM, rowDepthM, rowFrom) = (rowM + rowDepthM + (kind is null ? 0f : PropGapM), 0f, 0f, stood.Count);
+                kind = props.Kind[look];
+            }
+
+            stood.Add((look, new Vector2(alongM + (girthM * 0.5f), rowM + (girthM * 0.5f))));
+            alongM += girthM + PropGapM;
+            rowDepthM = MathF.Max(rowDepthM, girthM);
+        }
+
+        if (kind is not null) CentreTheRow();
+        return new Field(props, stood, rowM + rowDepthM);
+
+        void CentreTheRow()
+        {
+            var shiftM = new Vector2((widthM - (alongM - PropGapM)) * 0.5f, 0f);
+            for (var at = rowFrom; at < stood.Count; at++) stood[at] = (stood[at].Look, stood[at].AtM + shiftM);
+        }
+    }
+
+    /// <summary>
+    /// <b>The people's row</b> (PER-30): a place for each of the <paramref name="looks"/> down the middle of the car park,
+    /// between its inner ranks, centred on it, after the cars — a person spawn at each, facing the camera.
+    /// </summary>
+    static CityPlan.SpawnArrays WithPeople(CityPlan.SpawnArrays cars, Vector2 centreM, int looks)
+    {
+        var kind = new byte[cars.Count + looks];
         var positionM = new Vector2[kind.Length];
         var headingRad = new float[kind.Length];
         cars.Kind.CopyTo(kind, 0);
         cars.PositionM.CopyTo(positionM, 0);
         cars.HeadingRad.CopyTo(headingRad, 0);
-        for (var walker = 0; walker < WalkerSlots; walker++)
+        for (var look = 0; look < looks; look++)
         {
-            kind[cars.Count + walker] = IdlePlan.SpawnKindPerson;
-            positionM[cars.Count + walker] = centreM + new Vector2((walker - ((WalkerSlots - 1) * 0.5f)) * spacingM, 0f);
+            kind[cars.Count + look] = IdlePlan.SpawnKindPerson;
+            positionM[cars.Count + look] = centreM + new Vector2((look - ((looks - 1) * 0.5f)) * PersonSpacingM, 0f);
+            headingRad[cars.Count + look] = FacingTheCameraRad;
         }
 
         return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad, AtTheKerb = cars.AtTheKerb };

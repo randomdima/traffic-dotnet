@@ -27,7 +27,7 @@ and whatever the generator made of them — and what this engine owes a town is 
 for itself. Editing a brief, adding a city or retuning the generator is when somebody runs it.
 
 **Nor is `exam`.** It drives the engine end to end through one staged scenario a card, and every card is
-expected to pass — but it is a whole town driven for a minute and a half, run when a change can have moved
+expected to pass — but it is a whole town driven for two minutes, run when a change can have moved
 how traffic meets rather than on every commit, as the frames are.
 
 `--changed` reads the working tree against HEAD and names the tiers those files can have moved

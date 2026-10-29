@@ -60,10 +60,17 @@ public class CrossingWaysTests
     /// off the paint may take either.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Which lane a connection came from is read off the lines themselves</b> and not off how far its
     /// point stands from the kerb: a course is the whole shape's own offset (WLK-1), so at a corner it
     /// stands nearer or further off the boundary than the figure it was struck at, while the point still
     /// stands on the line it was dropped onto.
+    /// </para>
+    /// <para>
+    /// <b>But for a walk that ends past the crossing</b> (GEN-75, <see cref="CrossingWays.EndsOn"/>): it runs straight
+    /// onto the paint, so the crossing is set off from the one lane walked towards that end and arrives on the one
+    /// walked back.
+    /// </para>
     /// </remarks>
     [Fact]
     public void ACrossingIsSetOffFromEveryLaneOfTheWalkAndArrivesOnEveryOne()
@@ -71,19 +78,55 @@ public class CrossingWaysTests
         var config = SimConfig.Shipped();
         var plan = Towns.Of(Towns.Fixture);
         var pavement = PavementLanes.Of(plan, config);
-        var foot = FootGraph.Build(pavement, CrossingWays.Of(plan, pavement, config), config);
+        var ways = CrossingWays.Of(plan, pavement, config);
+        var foot = FootGraph.Build(pavement.EndedAtTheCrossings(ways, config), ways, config);
         var courses = Courses(pavement, config);
         var every = new List<int>();
         for (var lane = 0; lane < pavement.Count; lane++) every.Add(lane);
 
+        var endsM = new List<Vector2>();
+        for (var lane = 0; lane < pavement.Count; lane++)
+        {
+            for (var ring = 0; ring < pavement.RingsOf(lane).Length; ring++)
+            {
+                foreach (var (alongM, _) in ways.EndsOn(lane, ring))
+                {
+                    endsM.Add(Spline.SampleAt(pavement.RingsOf(lane)[ring], alongM).PositionM);
+                }
+            }
+        }
+
+        var weldM = config.Network.FootGraphNodeWeldM;
         var asked = 0;
         for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
             if (foot.KindOf(edge) != FootEdgeKind.Crossing) continue;
 
             asked++;
-            Assert.Equal(every, LanesAt(foot, courses, foot.EdgesIn(foot.FromNode(edge)), leaving: false));
-            Assert.Equal(every, LanesAt(foot, courses, foot.EdgesOut(foot.ToNode(edge)), leaving: true));
+            var setOffFrom = foot.EdgesIn(foot.FromNode(edge));
+            var arrivesOn = foot.EdgesOut(foot.ToNode(edge));
+            Lanes(LanesAt(foot, courses, setOffFrom, leaving: false), AtAnEnd(setOffFrom, leaving: false));
+            Lanes(LanesAt(foot, courses, arrivesOn, leaving: true), AtAnEnd(arrivesOn, leaving: true));
+        }
+
+        void Lanes(List<int> lanes, bool atAnEnd)
+        {
+            if (atAnEnd) Assert.Single(lanes);
+            else Assert.Equal(every, lanes);
+        }
+
+        bool AtAnEnd(ReadOnlySpan<int> connections, bool leaving)
+        {
+            foreach (var connection in connections)
+            {
+                var onTheWalkM = foot.AnchorM(leaving ? foot.ToNode(connection) : foot.FromNode(connection));
+                foreach (var endM in endsM)
+                {
+                    if (Vector2.Distance(onTheWalkM, endM) <= weldM) return true;
+                }
+            }
+
+            return false;
         }
 
         // The staging and not the claim: a fixture the walk crosses nowhere would ask nothing, and pass.
@@ -262,10 +305,11 @@ public class CrossingWaysTests
 
     /// <summary>
     /// A reach no lane of a pavement answers within: a junction stands half the walk's own width off the
-    /// kerb, so every course of it passes half a lane away — further than this — while the paint's own end
+    /// kerb, so every course of it passes half a lane away — or, where a zebra starts at a tight corner's kerb
+    /// end, a course rounding that corner a fifth of a metre away — further than this, while the paint's own end
     /// still stands on the boundary and the mouths are unmoved.
     /// </summary>
-    const float OutOfReachM = 0.5f;
+    const float OutOfReachM = 0.1f;
 
     /// <summary>How many stretches of a town's crossings are paint, which is two to a zebra that was laid.</summary>
     static int Paint(CrossingWays ways)
@@ -287,7 +331,8 @@ public class CrossingWaysTests
     /// <remarks>
     /// <b>Weighed against the same town laid without them</b> rather than against the rings, because what is
     /// being asked is what the cut did: a reading that lost a stretch of kerb or laid one twice parts
-    /// company with the town that has no crossings on it by exactly that much.
+    /// company with the town that has no crossings on it by exactly that much. <b>Both off the walk ended at
+    /// the crossings</b> (<see cref="PavementLanes.EndedAtTheCrossings"/>), which is the walk the town is parted on.
     /// </remarks>
     [Fact]
     public void PartingTheWalkForAJunctionKeepsEveryMetreOfIt()
@@ -296,9 +341,10 @@ public class CrossingWaysTests
         var plan = Towns.Of(Towns.Fixture);
         var pavement = PavementLanes.Of(plan, config);
         var ways = CrossingWays.Of(plan, pavement, config);
+        var ended = pavement.EndedAtTheCrossings(ways, config);
 
-        var uncut = FootGraph.Build(pavement, CrossingWays.None, config);
-        var crossed = FootGraph.Build(pavement, ways, config);
+        var uncut = FootGraph.Build(ended, CrossingWays.None, config);
+        var crossed = FootGraph.Build(ended, ways, config);
 
         // The lines themselves and not the straights between their ends: a connection is the curve that joins
         // two poses (WLK-14), so it covers more ground than the chord it bridges.
@@ -307,6 +353,82 @@ public class CrossingWaysTests
 
         Assert.True(crossed.EdgeCount > uncut.EdgeCount, "the crossings parted nothing");
         Assert.InRange(Math.Abs(Walked(crossed) - Walked(uncut) - waysM), 0d, LineTolerance.JoinedM);
+    }
+
+    /// <summary>
+    /// <b>A walk ending past a crossing runs straight onto it and does not fork</b> (GEN-75): where the lane walked
+    /// towards the end stops, it arrives alone and every way on is onto paint; where the lane walked back starts, it
+    /// leaves alone and every way in is off paint — nothing runs on past the crossing or turns back there.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every way, and not one</b>: a corner crossed twice is one place (WLK-3), and its walker chooses a zebra.
+    /// </remarks>
+    [Fact]
+    public void AWalkEndingPastACrossingRunsStraightOntoIt()
+    {
+        var config = SimConfig.Shipped();
+        var plan = Towns.Of(Towns.Fixture);
+        var pavement = PavementLanes.Of(plan, config);
+        var ways = CrossingWays.Of(plan, pavement, config);
+        var foot = FootGraph.Build(pavement.EndedAtTheCrossings(ways, config), ways, config);
+        var weldM = config.Network.FootGraphNodeWeldM;
+
+        var asked = 0;
+        for (var lane = 0; lane < pavement.Count; lane++)
+        {
+            for (var ring = 0; ring < pavement.RingsOf(lane).Length; ring++)
+            {
+                foreach (var (alongM, _) in ways.EndsOn(lane, ring))
+                {
+                    var atM = Spline.SampleAt(pavement.RingsOf(lane)[ring], alongM).PositionM;
+                    for (var node = 0; node < foot.NodeCount; node++)
+                    {
+                        if (Vector2.Distance(foot.AnchorM(node), atM) > weldM) continue;
+
+                        asked++;
+                        var ontoThePaint = foot.EdgesIn(node).Length == 1 && AllOf(foot.EdgesOut(node), edge => OntoPaint(foot, edge));
+                        var offThePaint = foot.EdgesOut(node).Length == 1 && AllOf(foot.EdgesIn(node), edge => OffPaint(foot, edge));
+                        Assert.True(
+                            ontoThePaint || offThePaint,
+                            $"the walk ending at the crossing at {atM.X:F1},{atM.Y:F1} forks: {foot.EdgesIn(node).Length} ways " +
+                            $"in and {foot.EdgesOut(node).Length} out");
+                    }
+                }
+            }
+        }
+
+        // The staging and not the claim: a fixture with no walk ending at a crossing would ask nothing, and pass.
+        Assert.True(asked > 0, "no walk in the fixture ends at a crossing");
+
+        static bool AllOf(ReadOnlySpan<int> edges, Func<int, bool> holds)
+        {
+            foreach (var edge in edges)
+            {
+                if (!holds(edge)) return false;
+            }
+
+            return true;
+        }
+
+        static bool OntoPaint(FootGraph foot, int edge)
+        {
+            foreach (var next in foot.EdgesOut(foot.ToNode(edge)))
+            {
+                if (foot.KindOf(next) == FootEdgeKind.Crossing) return true;
+            }
+
+            return false;
+        }
+
+        static bool OffPaint(FootGraph foot, int edge)
+        {
+            foreach (var before in foot.EdgesIn(foot.FromNode(edge)))
+            {
+                if (foot.KindOf(before) == FootEdgeKind.Crossing) return true;
+            }
+
+            return false;
+        }
     }
 
     /// <summary>

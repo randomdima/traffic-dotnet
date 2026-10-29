@@ -1,0 +1,4 @@
+{"variant": "paramedic_c-v5", "frame": "walkorbit_paramedic_c-v1", "cell": 1, "pxPerM": 260.795, "score": 4, "status": "candidate", "ts": "2026-10-28T13:47:22"}
+{"variant": "paramedic_c-v6", "frame": "walkorbit_paramedic_c-v3", "cell": 1, "pxPerM": 254.545, "score": 4, "status": "candidate", "ts": "2026-10-28T16:31:03"}
+{"variant": "paramedic_c-v7", "frame": "walkorbit_paramedic_c-v3", "cell": 1, "recutOf": "paramedic_c-v6", "pxPerM": 269.318, "score": 4, "status": "candidate", "ts": "2026-10-28T16:48:56"}
+{"variant": "paramedic_c-v8", "frame": "walkorbit_paramedic_c-v3", "cell": 1, "recutOf": "paramedic_c-v7", "pxPerM": 271.023, "score": 4, "status": "used", "ts": "2026-10-28T21:38:32"}

@@ -64,7 +64,7 @@ internal sealed class SimFigures
     public float AgentDecisionIntervalS { get; init; } = 0.1f;
 
     /// <summary>
-    /// <b>How many steps the world runs ahead of what the actors read of it</b> (<c>WorldLayer.StepsAhead</c>): a command
+    /// <b>How many steps the world runs ahead of what the actors read of it</b> (the world layer's view): a command
     /// acts on the world this many steps after the one it was read off.
     /// </summary>
     /// <remarks>The world layer's shape and not a tuning: it keeps one view ahead, so this is not authored.</remarks>
@@ -221,6 +221,10 @@ internal sealed class ViewFigures
     /// <summary>How far onto the shore the ground beside it fades out — the grass from its outer edge, the water from its
     /// own — in place of a line struck along either edge (GEN-2c).</summary>
     public float ShoreFadeM { get; init; } = 1.5f;
+
+    /// <summary>How far out past the outer edge of a road's shoulder its gravel fades out over the grass (GEN-75), in place
+    /// of a line, as a shore's edge (<see cref="ShoreFadeM"/>) and a track's ballast's (<see cref="BallastFadeM"/>) are.</summary>
+    public float ShoulderFadeM { get; init; } = 0.5f;
 
     /// <summary>How wide a patch of each surface is, about (<c>GroundPatches</c>): the widest lumps of worn or kept lawn,
     /// the finest an eighth of it. A walk is a few metres across, so its patches are short enough to change along one.</summary>
@@ -404,6 +408,29 @@ internal sealed class ViewFigures
     /// each a pixel or less, blended into the ground under them at a cost the picture does not show.
     /// </summary>
     public float PropLeastPx { get; init; } = 1.5f;
+
+    /// <summary>
+    /// How wide the dark line round every prop — standing or scenery — is, in its picture's own pixels
+    /// (<see cref="ArtPixelsPerMetre"/>), so a bush reads against the lawn it stands on; nought lays none. Laid into the
+    /// picture as it is packed (<c>SheetOutline</c>), so it widens on screen with the zoom.
+    /// </summary>
+    public float PropOutlineArtPx { get; init; } = 1f;
+
+    /// <summary>
+    /// How wide the ring round a selected unit's picture is (CTL-1): the wider of this many interface pixels and
+    /// <see cref="SelectionRingM"/> of the town at the zoom, then the dark edge outside it,
+    /// <see cref="SelectionRingEdgePx"/> at any zoom. Drawn by the unit's own sprite (<c>SpriteRings</c>), so it follows
+    /// the very frame on screen.
+    /// </summary>
+    /// <remarks>
+    /// A ring of pixels alone is bold beside a figure a few pixels tall and a hairline beside one the zoom has made two
+    /// hundred tall, between the picture's own dark fringe and its edge.
+    /// </remarks>
+    public float SelectionRingPx { get; init; } = 2f;
+
+    public float SelectionRingM { get; init; } = 0.02f;
+
+    public float SelectionRingEdgePx { get; init; } = 1f;
 
     /// <summary>
     /// How far the zoom moves, as a factor, before the debug layers lay the town's graphs again: they are laid at the

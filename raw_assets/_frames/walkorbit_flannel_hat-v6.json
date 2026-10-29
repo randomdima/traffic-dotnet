@@ -1,0 +1,28 @@
+{
+ "id": "walkorbit_flannel_hat-v6",
+ "ts": "2026-10-29T00:26:21",
+ "op": "video",
+ "name": "walkorbit_flannel_hat",
+ "file": ".tmp/gen/frames/walkorbit_flannel_hat-v6.mp4",
+ "model": "heygen/heygen-video-1",
+ "settings": {
+  "resolution": "480p",
+  "aspect_ratio": "3:4",
+  "duration": 5
+ },
+ "costUsd": 0.05,
+ "usage": {
+  "cost": 0.05,
+  "is_byok": false
+ },
+ "prompt": "Five one-second shots joined by instant hard cuts, each from its own fixed camera. The woman is walking from the very first moment and walks on the spot the whole time, never turning, always facing the same way. Within a shot the camera is locked to her: it never zooms, pans, tilts or circles, so she stays the same size in the same place in the picture. Every camera stands high above, looking down on her head, at the same distance, and goes round her left side only: shot 1 from the front, as in the first frame; shot 2 front-left, she faces towards us and to the picture's left; shot 3 her left side, she faces the picture's left; shot 4 back-left, she faces away from us and to the picture's left; shot 5 straight behind. Quick, short, even steps, three every second, never a run. Drawn throughout in the first frame's style, with its dark outlines and flat colours, never a soft 3D render. Flat chroma-key blue background.",
+ "inputs": [
+  {
+   "role": "first frame",
+   "sha": "8e6ac1bd965395a4",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/walkorbit_flannel_hat.png"
+  }
+ ]
+}

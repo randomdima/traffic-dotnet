@@ -59,15 +59,17 @@ namespace TrafficSimulation.World.Foot;
 internal sealed class CrossingWays
 {
     /// <summary>A town whose walk crosses nothing, which is what a town with no paint on it hands over.</summary>
-    public static readonly CrossingWays None = new([], []);
+    public static readonly CrossingWays None = new([], [], []);
 
     readonly Walked[] _ways;
     readonly float[][][] _partedM;
+    readonly (float AlongM, float Way)[][][] _endsOnM;
 
-    CrossingWays(Walked[] ways, float[][][] partedM, int refused = 0)
+    CrossingWays(Walked[] ways, float[][][] partedM, (float AlongM, float Way)[][][] endsOnM, int refused = 0)
     {
         _ways = ways;
         _partedM = partedM;
+        _endsOnM = endsOnM;
         Refused = refused;
     }
 
@@ -150,6 +152,14 @@ internal sealed class CrossingWays
         lane >= _partedM.Length || ring >= _partedM[lane].Length ? [] : _partedM[lane][ring];
 
     /// <summary>
+    /// <b>Where a walk ending past a crossing runs straight onto its paint</b> (GEN-75): on one ring of one lane, the cut
+    /// its connection onto or off the paint stands at, and which way along the ring the walk's end lies from it. The walk
+    /// is ended there and not turned back (<see cref="PavementLanes.EndedAtTheCrossings"/>), so it does not fork.
+    /// </summary>
+    public ReadOnlySpan<(float AlongM, float Way)> EndsOn(int lane, int ring) =>
+        lane >= _endsOnM.Length || ring >= _endsOnM[lane].Length ? [] : _endsOnM[lane][ring];
+
+    /// <summary>
     /// <b>The junctions the paint a town's own kerb ends ask for wants</b> (WLK-10,
     /// <see cref="KerbEnds.CrossedM"/>) — where the walk crosses, which is not always where its traffic is
     /// held (WLK-10a).
@@ -188,12 +198,14 @@ internal sealed class CrossingWays
 
         var courses = new KerbLines[pavement.Count];
         var parting = new List<float>[pavement.Count][];
+        var endsOn = new List<(float AlongM, float Way)>[pavement.Count][];
         for (var lane = 0; lane < pavement.Count; lane++)
         {
             var rings = pavement.RingsOf(lane);
             courses[lane] = KerbLines.Of(rings, pavement.LooseOf(lane), config);
             parting[lane] = new List<float>[rings.Length];
-            for (var ring = 0; ring < rings.Length; ring++) parting[lane][ring] = [];
+            endsOn[lane] = new List<(float, float)>[rings.Length];
+            for (var ring = 0; ring < rings.Length; ring++) (parting[lane][ring], endsOn[lane][ring]) = ([], []);
         }
 
         var reading = new Reading(pavement, courses, boundary, walk, config);
@@ -288,11 +300,12 @@ internal sealed class CrossingWays
         {
             ways.AddRange(through[at]);
             unjoined += unjoinedAt[at];
-            File(parting, places[at]);
+            File(parting, endsOn, places[at]);
             merged += places[at].Mouths.Count - 1;
         }
 
-        return new CrossingWays([.. ways], Sorted(parting, config.Network.FootGraphNodeWeldM), refused)
+        var endsOnM = Array.ConvertAll(endsOn, rings => Array.ConvertAll(rings, ends => ends.ToArray()));
+        return new CrossingWays([.. ways], Sorted(parting, config.Network.FootGraphNodeWeldM), endsOnM, refused)
         {
             Unjoined = unjoined,
             Unreached = unreached,
@@ -355,6 +368,16 @@ internal sealed class CrossingWays
         /// off is left out of this junction and of nothing else.
         /// </summary>
         public bool[] Reaches { get; set; } = [];
+
+        /// <summary>
+        /// <b>Which lanes' walk ends past the place</b> (GEN-75), and which way along the ring that end lies — nought
+        /// where it does not: the lane walked towards it runs onto the paint and nowhere else, and the one walked back
+        /// from it comes off the paint and from nowhere else (<see cref="EndsOn"/>).
+        /// </summary>
+        public float[] EndsWay { get; set; } = [];
+
+        /// <summary>Whether a lane whose walk ends past the place is the one walked towards that end, and not back from it.</summary>
+        public bool[] ToAnEnd { get; set; } = [];
     }
 
     /// <summary>
@@ -475,19 +498,23 @@ internal sealed class CrossingWays
             {
                 if (!place.Reaches[lane]) continue;
 
-                if (owned[lane] is not { } stretch)
+                // Where the walk ends past the place, the lane walked towards that end only sets off over the paint
+                // and the one walked back from it is only arrived on: the walk runs straight onto the paint (GEN-75).
+                var endsHere = place.EndsWay[lane] != 0f;
+                var setsOff = !endsHere || place.ToAnEnd[lane];
+                var arrivedOn = !endsHere || !place.ToAnEnd[lane];                if (owned[lane] is not { } stretch)
                 {
-                    unjoined += 2;
+                    unjoined += (setsOff ? 1 : 0) + (arrivedOn ? 1 : 0);
                     continue;
                 }
 
-                unjoined += Laid(ways, reading.OntoThePaint(stretch.Walked, mouth.SetsOffM, mouth.SetsOffRad), walkM);
+                if (setsOff) unjoined += Laid(ways, reading.OntoThePaint(stretch.Walked, mouth.SetsOffM, mouth.SetsOffRad), walkM);
+                if (!arrivedOn) continue;
 
                 // Off the paint is onto it walked backwards: down the lane's course from where it hands over
                 // leaving, and turned round.
                 var off = reading.OntoThePaint(
-                    stretch.Back, mouth.ArrivesM, Spline.WrapRad(mouth.ArrivesRad + MathF.PI));
-                unjoined += Laid(ways, off is null ? null : Reversed(off), walkM);
+                    stretch.Back, mouth.ArrivesM, Spline.WrapRad(mouth.ArrivesRad + MathF.PI));                unjoined += Laid(ways, off is null ? null : Reversed(off), walkM);
             }
 
             // And from this crossing onto every other at the same place, which is how a walker takes the
@@ -544,7 +571,7 @@ internal sealed class CrossingWays
         return new ArcSeg(fromM, Trig.Atan2(run.Y, run.X), run.Length(), 0f);
     }
 
-    static void File(List<float>[][] parting, Place place)
+    static void File(List<float>[][] parting, List<(float AlongM, float Way)>[][] endsOn, Place place)
     {
         for (var lane = 0; lane < place.Arriving.Length; lane++)
         {
@@ -552,8 +579,15 @@ internal sealed class CrossingWays
             // exactly as the move laid it.
             if (!place.Reaches[lane]) continue;
 
-            parting[lane][place.Arriving[lane].Ring].Add(place.Arriving[lane].AlongM);
-            parting[lane][place.Leaving[lane].Ring].Add(place.Leaving[lane].AlongM);
+            // <b>Nor at the meeting past which its walk ends</b> (GEN-75): the walk ends at the other, where it runs
+            // onto the paint or off it.
+            var way = place.EndsWay[lane];
+            if (way == 0f || !place.ToAnEnd[lane]) parting[lane][place.Leaving[lane].Ring].Add(place.Leaving[lane].AlongM);
+            if (way == 0f || place.ToAnEnd[lane]) parting[lane][place.Arriving[lane].Ring].Add(place.Arriving[lane].AlongM);
+            if (way == 0f) continue;
+
+            var ends = place.ToAnEnd[lane] ? place.Arriving[lane] : place.Leaving[lane];
+            endsOn[lane][ends.Ring].Add((ends.AlongM, way));
         }
     }
 
@@ -640,12 +674,45 @@ internal sealed class CrossingWays
         /// keeps the setback outside all of them: kept from the mouths that did answer, the point could stand
         /// level with one that did not.
         /// </para>
+        /// <para>
+        /// <b>The lanes agree whether the walk ends past the place</b> (GEN-75): one taken to end there and the other run
+        /// on would leave the first with no turn to come back by, so the walk's end is looked for a setback further
+        /// where they part, and where they still part neither is taken to end there.
+        /// </para>
         /// </remarks>
         public int HandsOver(Place place, Mouth[] mouths, out float offM)
+        {
+            var setbackM = config.Road.FootConnectorAlongM;
+            var unreached = Meet(place, mouths, setbackM * 2f, out offM);
+            if (Agree(place)) return unreached;
+
+            unreached = Meet(place, mouths, setbackM * 3f, out offM);
+            return Agree(place) ? unreached : Meet(place, mouths, 0f, out offM);
+
+            static bool Agree(Place place)
+            {
+                var ends = 0;
+                var reached = 0;
+                for (var lane = 0; lane < place.Reaches.Length; lane++)
+                {
+                    if (!place.Reaches[lane]) continue;
+
+                    reached++;
+                    if (place.EndsWay[lane] != 0f) ends++;
+                }
+
+                return ends == 0 || ends == reached;
+            }
+        }
+
+        /// <summary>The place's meetings on every lane, a walk ending within <paramref name="endReachM"/> of one taken to end there.</summary>
+        int Meet(Place place, Mouth[] mouths, float endReachM, out float offM)
         {
             var arriving = new Meeting[courses.Length];
             var leaving = new Meeting[courses.Length];
             var reaches = new bool[courses.Length];
+            var endsWay = new float[courses.Length];
+            var towards = new bool[courses.Length];
             var unreached = 0;
             offM = 0f;
             for (var lane = 0; lane < courses.Length; lane++)
@@ -653,20 +720,27 @@ internal sealed class CrossingWays
                 // Which of a lane's two cuts a walk reaches first is which way that lane is walked (WLK-8).
                 var setbackM = config.Road.FootConnectorAlongM;
                 var withTheRing = pavement.RunsWithTheRing(lane);
+                var (arrivesStepM, leavesStepM) = withTheRing ? (-setbackM, setbackM) : (setbackM, -setbackM);
                 var reachedM = -1f;
                 var leftM = -1f;
                 reaches[lane] = true;
                 foreach (var at in place.Mouths)
                 {
                     var standsAtM = mouths[at].CentreM;
-                    var arrived = HandsOver(lane, standsAtM, withTheRing ? -setbackM : setbackM, out var arrives, out var arrivesOffM);
-                    var leftOff = HandsOver(lane, standsAtM, withTheRing ? setbackM : -setbackM, out var left, out var leftOffM);
+                    var arrived = HandsOver(lane, standsAtM, arrivesStepM, endReachM, out var arrives, out var arrivesOffM, out var fromAnEnd);
+                    var leftOff = HandsOver(lane, standsAtM, leavesStepM, endReachM, out var left, out var leftOffM, out var toAnEnd);
                     if (!arrived || !leftOff)
                     {
                         reaches[lane] = false;
                         unreached++;
                         offM = MathF.Max(offM, MathF.Min(arrivesOffM, leftOffM));
                         break;
+                    }
+
+                    if (fromAnEnd != toAnEnd)
+                    {
+                        endsWay[lane] = MathF.Sign(toAnEnd ? leavesStepM : arrivesStepM);
+                        towards[lane] = toAnEnd;
                     }
 
                     Furthest(place.CentreM, arrives, ref arriving[lane], ref reachedM);
@@ -677,6 +751,8 @@ internal sealed class CrossingWays
             place.Arriving = arriving;
             place.Leaving = leaving;
             place.Reaches = reaches;
+            place.EndsWay = endsWay;
+            place.ToAnEnd = towards;
             return unreached;
         }
 
@@ -1046,26 +1122,95 @@ internal sealed class CrossingWays
         /// <b>which way the walk runs there</b> — the course's own heading where the lane is walked with its
         /// ring and the other way about where it is walked against it (WLK-8).
         /// </summary>
-        bool HandsOver(int lane, Vector2 centreM, float stepM, out Meeting met, out float offM)
+        /// <param name="endReachM">How near the place a walk's end ahead is taken to be its end; nought for none.</param>
+        /// <param name="atAnEnd">Whether the walk ends past where it is handed over, so nothing runs on past it.</param>
+        bool HandsOver(int lane, Vector2 centreM, float stepM, float endReachM, out Meeting met, out float offM, out bool atAnEnd)
         {
             met = default;
             offM = float.PositiveInfinity;
+            atAnEnd = false;
 
             // <b>Whose pavement this is, is asked where the course passes the junction</b> and not at the
             // point a setback along it lands on: the setback says where to hand over, and a lane pushed back
             // from a tight corner by its own rounding still runs past the place (WLK-15).
-            if (!CourseAlong(lane, centreM, 0f, out var beside, out _)) return false;
+            if (!CourseAlong(lane, centreM, 0f, out var beside, out var besideStation)) return false;
 
             offM = Vector2.Distance(beside.PositionM, centreM);
             if (offM > config.Road.CrossingMeetsTheWalkWithinM) return false;
+            if (besideStation.Line >= pavement.RingsOf(lane).Length) return false;
+
+            // <b>A place nearer a walk's end than the course passes it is beside that end</b> (GEN-75): a zebra starting at
+            // the kerb end of a corner the walk ends round stands over the stretch the course turns back across.
+            if (BesideAnEnd(lane, besideStation, centreM, out var endOn, out var endStation))
+            {
+                (centreM, besideStation) = (endOn.PositionM, endStation);
+            }
+
             if (!CourseAlong(lane, centreM, stepM, out var on, out var station)) return false;
             if (station.Line >= pavement.RingsOf(lane).Length) return false;
 
-            var headingRad = pavement.RunsWithTheRing(lane)
-                ? on.HeadingRad
-                : Spline.WrapRad(on.HeadingRad + MathF.PI);
-            met = new Meeting(station.Line, station.AlongM, on.PositionM, headingRad);
+            // <b>A walk ending within a setback past the landing runs onto the paint and no further</b> (GEN-75): the
+            // stretch beyond would be walked only to turn back. This side's meeting stands at the paint's edge, as far
+            // as the connection onto the paint runs down the lane before it leaves it (WLK-16) — the paint is set off
+            // from a quarter of its depth either side of its middle — and is no cut of the walk (EndsOn).
+            if (endReachM > 0f && station.Line == besideStation.Line && EndsAhead(lane, besideStation, MathF.Sign(stepM), endReachM))
+            {
+                var edgeM = MathF.Sign(stepM) * MathF.Min(config.Road.CrossingDepthM * 0.5f, MathF.Abs(stepM));
+                if (!CourseAlong(lane, centreM, edgeM, out on, out station)) return false;
+
+                atAnEnd = true;
+            }
+
+            // <b>Never past the end of the walk</b> (GEN-75): a setback landing where the course has left it is handed
+            // over at the walk's end, on the junction's side of it, where the walk turns back.
+            foreach (var (fromM, toM) in pavement.GapsOf(lane, station.Line))
+            {
+                if (station.AlongM <= fromM || station.AlongM >= toM) continue;
+
+                var endM = besideStation.Line == station.Line && besideStation.AlongM >= toM ? toM : fromM;
+                station = new KerbLines.Station(station.Line, endM);
+                on = Spline.SampleAt(pavement.RingsOf(lane)[station.Line], endM);
+                break;
+            }
+
+            met = new Meeting(station.Line, station.AlongM, on.PositionM, Walked(on.HeadingRad));
             return true;
+
+            float Walked(float ringHeadingRad) =>
+                pavement.RunsWithTheRing(lane) ? ringHeadingRad : Spline.WrapRad(ringHeadingRad + MathF.PI);
+        }
+
+        /// <summary>Whether one lane's walk ends within <paramref name="reachM"/> of a station, the way along its ring <paramref name="way"/> points.</summary>
+        bool EndsAhead(int lane, KerbLines.Station from, float way, float reachM)
+        {
+            foreach (var (fromM, toM) in pavement.GapsOf(lane, from.Line))
+            {
+                if (way > 0f && fromM >= from.AlongM && fromM - from.AlongM <= reachM) return true;
+                if (way < 0f && toM <= from.AlongM && from.AlongM - toM <= reachM) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Whether a station stands where nobody walks one lane's course (GEN-75), and the end of the walk nearer
+        /// <paramref name="nearM"/> if it does.
+        /// </summary>
+        bool BesideAnEnd(int lane, KerbLines.Station station, Vector2 nearM, out SplineSample on, out KerbLines.Station end)
+        {
+            (on, end) = (default, station);
+            foreach (var (fromM, toM) in pavement.GapsOf(lane, station.Line))
+            {
+                if (station.AlongM <= fromM || station.AlongM >= toM) continue;
+
+                var ring = pavement.RingsOf(lane)[station.Line];
+                var (from, to) = (Spline.SampleAt(ring, fromM), Spline.SampleAt(ring, toM));
+                var nearerTo = Vector2.DistanceSquared(to.PositionM, nearM) < Vector2.DistanceSquared(from.PositionM, nearM);
+                (on, end) = nearerTo ? (to, new KerbLines.Station(station.Line, toM)) : (from, new KerbLines.Station(station.Line, fromM));
+                return true;
+            }
+
+            return false;
         }
     }
 

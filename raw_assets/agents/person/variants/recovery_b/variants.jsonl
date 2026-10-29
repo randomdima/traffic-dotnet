@@ -1,0 +1,3 @@
+{"variant": "recovery_b-v5", "frame": "walkorbit_recovery_b-v1", "cell": 1, "pxPerM": 259.77, "score": 4, "status": "candidate", "ts": "2026-10-28T13:51:22"}
+{"variant": "recovery_b-v6", "frame": "walkorbit_recovery_b-v1", "cell": 1, "recutOf": "recovery_b-v5", "pxPerM": 256.322, "score": 4, "status": "candidate", "ts": "2026-10-28T16:52:29"}
+{"variant": "recovery_b-v7", "frame": "walkorbit_recovery_b-v1", "cell": 1, "recutOf": "recovery_b-v6", "pxPerM": 249.425, "score": 4, "status": "used", "ts": "2026-10-28T21:39:18"}

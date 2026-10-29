@@ -577,6 +577,11 @@ public class PedestrianNodesTests
     /// boundary nearest the node, which in the crotch of a fork is a different kerb and so a different way
     /// round (WLK-9).
     /// </para>
+    /// <para>
+    /// <b>Only of a way the node hands over</b> (<see cref="FootConnectors.HandsOver"/>): two nodes the merge made
+    /// one place hand nothing over between them (WLK-3), and the pair struck for the way they dropped stands for no
+    /// walk — in an acute crotch, round the tip and down the other street.
+    /// </para>
     /// </remarks>
     [Fact]
     public void TheRoadPairStandsDownTheKerbAndTheJunctionPairBackAlongIt()
@@ -597,13 +602,15 @@ public class PedestrianNodesTests
             var outward = nodes.OutwardUnitAt(node / 2);
             var downTheKerb = Vector2.Dot(at.Direction, outward) >= 0f ? at.Direction : -at.Direction;
             var atM = at.PositionM;
-            var roadM = Along(kerbs, connectors.PointM(node, FootConnectorKind.Road, 0), atM, downTheKerb);
-            var junctionM = Along(kerbs, connectors.PointM(node, FootConnectorKind.Junction, 0), atM, downTheKerb);
+            foreach (var (kind, down) in (ReadOnlySpan<(FootConnectorKind, float)>)[(FootConnectorKind.Road, 1f), (FootConnectorKind.Junction, -1f)])
+            {
+                if (!connectors.HandsOver(node, kind)) continue;
 
-            Assert.True(
-                roadM > 0f && junctionM < 0f,
-                $"the node at {atM.X:F0},{atM.Y:F0} reaches {roadM:F2} m down its kerb and {junctionM:F2} m " +
-                "back along it");
+                var alongM = Along(kerbs, connectors.PointM(node, kind, 0), atM, downTheKerb);
+                Assert.True(
+                    alongM * down > 0f,
+                    $"the {kind} pair of the node at {atM.X:F0},{atM.Y:F0} stands {alongM:F2} m down its kerb");
+            }
         }
 
         Assert.True(stood > 0, "the fixture town stands no pedestrian node at all");

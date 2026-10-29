@@ -1,0 +1,6 @@
+{"variant": "flannel_hat-v1", "frame": "walkorbit_flannel_hat-v3", "cell": 1, "pxPerM": 283.333, "score": 3, "status": "candidate", "ts": "2026-10-28T20:31:55"}
+{"variant": "flannel_hat-v2", "frame": "walkorbit_flannel_hat-v3", "cell": 1, "recutOf": "flannel_hat-v1", "pxPerM": 252.381, "score": 3, "status": "candidate", "ts": "2026-10-28T21:00:02"}
+{"variant": "flannel_hat-v3", "frame": "walkorbit_flannel_hat-v3", "cell": 1, "recutOf": "flannel_hat-v2", "pxPerM": 252.381, "score": 3, "status": "candidate", "ts": "2026-10-28T21:38:03"}
+{"variant": "flannel_hat-v4", "frame": "walkorbit_flannel_hat-v3", "cell": 1, "recutOf": "flannel_hat-v3", "pxPerM": 252.381, "score": 3, "status": "candidate", "ts": "2026-10-29T00:17:02"}
+{"variant": "flannel_hat-v5", "frame": "walkorbit_flannel_hat-v6", "cell": 1, "pxPerM": 236.905, "score": 4, "status": "candidate", "ts": "2026-10-29T00:27:54"}
+{"variant": "flannel_hat-v6", "frame": "walkorbit_flannel_hat-v7", "cell": 1, "pxPerM": 240.476, "score": 4, "status": "used", "ts": "2026-10-29T00:51:02"}

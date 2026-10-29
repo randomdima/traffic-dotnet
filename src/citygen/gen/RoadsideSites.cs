@@ -35,7 +35,7 @@ internal static class RoadsideSites
         TownLayout layout, SimConfig config, int road, float standoffM, float curvatureMax, List<Site> into)
     {
         var edge = layout.Edges[road];
-        if (edge.Class is RoadClass.Bridge or RoadClass.Roundabout or RoadClass.CarPark or RoadClass.Intercity) return;
+        if (edge.Class is RoadClass.Bridge or RoadClass.Roundabout or RoadClass.CarPark or RoadClass.Intercity or RoadClass.Slip || edge.Over) return;
 
         var line = layout.LineOf(road);
         if (line.Length == 0) return;

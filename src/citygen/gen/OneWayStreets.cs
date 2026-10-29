@@ -160,14 +160,15 @@ internal static class OneWayStreets
     static bool HoldsItsBends(TownLayout layout, SimConfig config, int edge, RoadFlow flow)
     {
         var line = layout.LineOf(edge);
-        var halfM = config.LaneOffsetM * config.RoadSideSign;
+        var road = layout.Edges[edge];
         var moved = new ArcSeg[line.Length];
-        Spline.OffsetInto(line, flow == RoadFlow.WithTheRoad ? halfM : -halfM, moved);
+        Spline.OffsetInto(line, RoadStage.DrivenHalfM(config, flow, RoadStage.WidthM(config, flow, road.Lanes)), moved);
 
-        var floorM = RoadLines.FloorRadiusM(config, layout.Edges[edge].Class);
+        // Asked as curvature against the floor's, so a straight's none passes without a reciprocal of it.
+        var mostCurvature = 1f / RoadLines.FloorOf(config, road);
         foreach (var arc in moved)
         {
-            if (MathF.Abs(arc.Curvature) > 1e-6f && 1f / MathF.Abs(arc.Curvature) < floorM) return false;
+            if (MathF.Abs(arc.Curvature) > mostCurvature) return false;
         }
 
         return true;

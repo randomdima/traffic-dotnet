@@ -48,7 +48,7 @@ internal readonly record struct ConnectionPoint(Vector2 AtM, Vector2 DrivenUnit,
 /// </para>
 /// <para>
 /// <b>Two kinds of link take their bearing rather than drawing one</b> (GEN-14a, GEN-19): a bridge is one
-/// straight span and a ring piece is one arc of one circle, and both are settled before anything here runs.
+/// arc of its path and a ring piece is one arc of one circle, and both are settled before anything here runs.
 /// Jittering a bridgehead would be jittering off a deck that cannot move.
 /// </para>
 /// <para>
@@ -130,9 +130,12 @@ internal static class ConnectionPoints
 
         var ring = Ringed(ground, road, atFrom, out var curvature);
         var nodeM = ground.Junctions.CentreM[junction];
-        var settled = ring || Array.IndexOf(ground.Bridges.Road, road) >= 0;
-        if (!settled && !roads.IsLaidStraight(road) && FarBridgehead(ground, junction, out var farM)
-            && CarriesOn(nodeM, towardM, farM, out var onTheSpanM))
+        var deck = Array.IndexOf(ground.Bridges.Road, road) >= 0;
+        if (deck && !ring) curvature = SpanCurvature(ground, road, atFrom);
+
+        var settled = ring || deck;
+        if (!settled && !roads.IsLaidStraight(road) && FarBridgehead(ground, junction, out var farM, out var spanCurvature)
+            && CarriesOn(nodeM, towardM, farM, spanCurvature, out var onTheSpanM))
         {
             towardM = onTheSpanM;
             settled = true;
@@ -146,26 +149,36 @@ internal static class ConnectionPoints
 
     /// <summary>
     /// The other end of the first bridge landing at <paramref name="junction"/>, in the plan's order of roads —
-    /// the order <c>RoadLines</c> files them in when it asks the same of the layout.
+    /// the order <c>RoadLines</c> files them in when it asks the same of the layout — and the span's bend leaving it.
     /// </summary>
-    static bool FarBridgehead(GroundPieces ground, int junction, out Vector2 farM)
+    static bool FarBridgehead(GroundPieces ground, int junction, out Vector2 farM, out float curvature)
     {
         var roads = ground.Roads;
         foreach (var bridge in ground.Bridges.Road)
         {
             if (bridge < 0) continue;
 
-            var other = roads.FromJunction[bridge] == junction ? roads.ToJunction[bridge]
-                : roads.ToJunction[bridge] == junction ? roads.FromJunction[bridge]
-                : -1;
-            if (other < 0) continue;
+            var atFrom = roads.FromJunction[bridge] == junction;
+            if (!atFrom && roads.ToJunction[bridge] != junction) continue;
 
-            farM = ground.Junctions.CentreM[other];
+            farM = ground.Junctions.CentreM[atFrom ? roads.ToJunction[bridge] : roads.FromJunction[bridge]];
+            curvature = SpanCurvature(ground, bridge, atFrom);
             return true;
         }
 
-        farM = default;
+        (farM, curvature) = (default, 0f);
         return false;
+    }
+
+    /// <summary>
+    /// <b>How a span bends leaving one of its bridgeheads</b> (GEN-14a): a span is laid as the one arc of its path between
+    /// its two ends, and the far end leaves it the other way round. Any other deck — a road carried over between two
+    /// junctions, laid through places of its own — leaves on its chord.
+    /// </summary>
+    static float SpanCurvature(GroundPieces ground, int road, bool atFrom)
+    {
+        var arcs = ground.Roads.SegmentsOf(road);
+        return arcs.Length != 1 ? 0f : atFrom ? arcs[0].Curvature : -arcs[0].Curvature;
     }
 
     /// <summary>
@@ -173,21 +186,22 @@ internal static class ConnectionPoints
     /// (<see cref="CarriesOn"/>): nearer it than square across it, by half. A street meeting the bridge's end
     /// across it is a junction's arm and keeps its own bearing.
     /// </summary>
-    const float CarriesOnWithinRad = MathF.PI / 4f;
+    public const float CarriesOnWithinRad = MathF.PI / 4f;
 
     /// <summary>
     /// <b>Whether a road leaving a bridgehead carries the bridge on</b> (GEN-14a), and if so the place it aims at
-    /// instead of its own: the far bridgehead mirrored through this one. So the road leaves on the span's own line,
-    /// unjittered, the two meet at the bridgehead as one straight, and whatever turn the road owes is taken on the
-    /// bank rather than inside the bridgehead.
+    /// instead of its own: one on the span's own tangent there, carried on past the bridgehead. So the road leaves on the
+    /// line the span arrives on, unjittered, the two meet at the bridgehead as one line, and whatever turn the road owes
+    /// is taken on the bank rather than inside the bridgehead.
     /// </summary>
     /// <remarks>
     /// <b>Asked of the road alone</b> — its own chord against the span — and never of the node's other arms, so the
     /// layout that lays a road and the plan that reads it back answer alike whatever was laid at the node after it.
     /// </remarks>
-    public static bool CarriesOn(Vector2 nodeM, Vector2 towardM, Vector2 farBridgeheadM, out Vector2 onTheSpanM)
+    /// <param name="spanCurvature">How the span bends leaving this bridgehead for the far one.</param>
+    public static bool CarriesOn(Vector2 nodeM, Vector2 towardM, Vector2 farBridgeheadM, float spanCurvature, out Vector2 onTheSpanM)
     {
-        var onward = Chord(farBridgeheadM, nodeM);
+        var onward = -Tangent(nodeM, farBridgeheadM, spanCurvature);
         onTheSpanM = nodeM + (onward * Vector2.Distance(nodeM, towardM));
         return Vector2.Dot(Chord(nodeM, towardM), onward) >= MathF.Cos(CarriesOnWithinRad);
     }
@@ -259,7 +273,7 @@ internal static class ConnectionPoints
     /// <paramref name="towardM"/></b>: the chord turned back by half the sweep the arc makes over it, which
     /// at nought curvature is the chord itself.
     /// </summary>
-    static Vector2 Tangent(Vector2 nodeM, Vector2 towardM, float curvature)
+    public static Vector2 Tangent(Vector2 nodeM, Vector2 towardM, float curvature)
     {
         var chord = Chord(nodeM, towardM);
         if (curvature == 0f) return chord;
@@ -412,8 +426,8 @@ internal static class ConnectionPoints
     /// <summary>
     /// <b>Whether this road circulates on a roundabout, and what its lead bends at</b> (GEN-19): a ring piece
     /// is one arc of the circle its roundabout was sized as, and leaves along that circle's tangent. A bridge
-    /// is the other road whose bearing is settled before its arms are drawn (GEN-14a), and it leaves square
-    /// along its own straight chord, so it needs no bend of its own and is asked about at the call site.
+    /// is the other road whose bearing is settled before its arms are drawn (GEN-14a), and it leaves along its own
+    /// arc (<see cref="SpanCurvature"/>), which is asked about at the call site.
     /// </summary>
     /// <remarks>
     /// <b>The ring's bend is the piece's own and is never fitted to its nodes.</b> A ring piece is laid as one

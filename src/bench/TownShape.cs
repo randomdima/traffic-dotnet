@@ -5,6 +5,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Statics;
+using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
 
@@ -786,8 +787,9 @@ internal static class TownShape
         var buildings = plan.Zones.Planned;
         if (buildings == 0) return 0;
 
-        return config.CarParksFor(buildings)
-               + (ServiceBuildings.Uses.Length * ServiceBuildings.OfEachUse(buildings, plan.Districts));
+        var yards = 0;
+        foreach (var use in ServiceBuildings.Uses) yards += ServiceBuildings.Serving(use, buildings, plan.Districts, config.CityGen).Count;
+        return config.CarParksFor(buildings) + yards;
     }
 
     static int ArmsAt(CityPlan plan, int count)

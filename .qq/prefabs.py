@@ -18,6 +18,7 @@ import json
 import re
 from pathlib import Path
 
+import sprites
 from common import cli, paths
 
 PREFABS = Path("assets/world/building/prefabs")
@@ -144,9 +145,8 @@ def q(v):
     return "/".join(f"{v[int(len(v) * p)]:g}" for p in (0.25, 0.5, 0.75))
 
 
-#: The frame remotegen returns, the room planned round each drawing in it, and the art grid (`ArtPixelsPerMetre`):
-#: what a frame of n roofs can draw each at.
-SHEET_PX, GAP_PX, GRID = (1536, 1024), 24, 31.5
+#: The frame remotegen returns and the room planned round each drawing in it: what a frame of n roofs can draw each at.
+SHEET_PX, GAP_PX = sprites.SHEET_PX, sprites.GAP_PX
 #: And the wider room round each in a frame of fewer than nine: the model paints nothing within some 25 px of the
 #: picture's edge (raw_assets/world/building/prompting.md).
 BIG_GAP_PX = 64
@@ -166,13 +166,14 @@ def sheets(base, out, left):
             continue
         look = d["look"].lower() if "look" in d else "civic" if d["id"] in CIVIC else "ordinary"
         groups.setdefault(look, []).append((d["id"], d["footprintM"]))
+    grid = sprites.art.read_figures(base)["ArtPixelsPerMetre"]
     prefix = "redo" if left else "roofs"
     frames, pool = [], []
     for look in sorted(groups):
-        tail = plan(prefix, look, groups[look], frames)
+        tail = plan(prefix, look, groups[look], frames, grid)
         pool += tail
     if pool:
-        if leftover := plan(prefix, "mixed", pool, frames):
+        if leftover := plan(prefix, "mixed", pool, frames, grid):
             # Too few for a frame of their own: the last frame takes them, as many as a 4x4 holds.
             name, ids, _ = frames.pop()
             ids = ids + leftover
@@ -183,13 +184,14 @@ def sheets(base, out, left):
     target = paths.resolve_in_root(out, base)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    under = sum(1 for _, ids, s in frames if s < GRID for _ in ids)
+    under = sum(1 for _, ids, s in frames if s < grid for _ in ids)
     print(f"{len(frames)} frames, {under} roofs under the grid -> {paths.display(target)}")
     return 0
 
 
-def plan(prefix, look, roofs, frames):
-    """Lays one group's frames into `frames`; returns what is left too few for one."""
+def plan(prefix, look, roofs, frames, grid):
+    """Lays one group's frames into `frames`, held to `grid` px/m (`ArtPixelsPerMetre`); returns what is left too few
+    for one."""
     rest = sorted(roofs, key=lambda r: -scale_of([r], 3, 3))
     letter = 0
 
@@ -199,14 +201,14 @@ def plan(prefix, look, roofs, frames):
         letter += 1
 
     while len(rest) >= 2:
-        if len(rest) >= 16 and scale_of(rest[:16], 4, 4) >= GRID:
+        if len(rest) >= 16 and scale_of(rest[:16], 4, 4) >= grid:
             k = 16
-        elif len(rest) >= 9 and scale_of(rest[:9], 3, 3) >= GRID * BIG_SHARE:
+        elif len(rest) >= 9 and scale_of(rest[:9], 3, 3) >= grid * BIG_SHARE:
             k = 9
         else:
             k = next((k for k in (8, 6, 4, 3) if len(rest) >= k
-                      and few_scale(rest[:k]) >= GRID * BIG_SHARE), 2)
-            if any(scale_of([r], 3, 3) >= GRID for r in rest[:k]):
+                      and few_scale(rest[:k]) >= grid * BIG_SHARE), 2)
+            if any(scale_of([r], 3, 3) >= grid for r in rest[:k]):
                 # A small roof may not go fewer than nine to a frame: nine if there are, else the pool takes them.
                 if len(rest) < 9:
                     break

@@ -1,45 +1,45 @@
 {
- "variant": "raw_assets/world/terrain/ground/surfaces/pavement_a1/pavement_a1-v3.png",
+ "variant": "raw_assets/world/terrain/ground/surfaces/pavement_c1/pavement_c1-v1.png",
  "variants": [
-  "raw_assets/world/terrain/ground/surfaces/pavement_a1/pavement_a1-v3.png",
-  "raw_assets/world/terrain/ground/surfaces/pavement_a2/pavement_a2-v3.png",
-  "raw_assets/world/terrain/ground/surfaces/pavement_b1/pavement_b1-v3.png",
-  "raw_assets/world/terrain/ground/surfaces/pavement_b2/pavement_b2-v3.png"
+  "raw_assets/world/terrain/ground/surfaces/pavement_c1/pavement_c1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/pavement_c2/pavement_c2-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/pavement_d1/pavement_d1-v1.png",
+  "raw_assets/world/terrain/ground/surfaces/pavement_d2/pavement_d2-v1.png"
  ],
  "looks": [
   [
    [
-    "pavement_a1",
+    "pavement_c1",
     false
    ],
    [
-    "pavement_a2",
+    "pavement_c2",
     false
    ],
    [
-    "pavement_a2",
+    "pavement_c2",
     true
    ],
    [
-    "pavement_a1",
+    "pavement_c1",
     true
    ]
   ],
   [
    [
-    "pavement_b1",
+    "pavement_d1",
     false
    ],
    [
-    "pavement_b2",
+    "pavement_d2",
     false
    ],
    [
-    "pavement_b2",
+    "pavement_d2",
     true
    ],
    [
-    "pavement_b1",
+    "pavement_d1",
     true
    ]
   ]

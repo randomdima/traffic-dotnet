@@ -61,8 +61,8 @@ internal static class Roundabouts
             if (float.IsNaN(radiusM)) continue;
             if (!RoomFor(layout, blockTightestM, water, config, node, arms, radiusM, extentM, marginM)) continue;
 
-            layout.RingOut(node, radiusM, Curvature(radiusM, config));
-            laidM.Add(layout.NodeM[node]);
+            // A ring refused keeps no ground from the next candidate.
+            if (layout.RingOut(node, radiusM, Curvature(radiusM, config))) laidM.Add(layout.NodeM[node]);
         }
 
         // Every node a ring was opened out of is left standing with nothing at it, and this is what drops
@@ -94,6 +94,10 @@ internal static class Roundabouts
     /// <b>Every arm one lane each way</b>: the ring is laid one lane wide (GEN-67), and an arm of two arriving at it would
     /// lose one at its mouth.
     /// </para>
+    /// <para>
+    /// <b>Nor an interchange's terminal</b>: its slip roads and the road carried over the intercity road arrive square on
+    /// lines the interchange settles (GEN-68), which a ring would cut back.
+    /// </para>
     /// </remarks>
     static bool DistrictRoadsMeetHere(TownLayout layout, List<int> arms)
     {
@@ -103,7 +107,7 @@ internal static class Roundabouts
         foreach (var arm in arms)
         {
             var road = layout.Edges[arm];
-            if (road.Class is RoadClass.Bridge or RoadClass.Roundabout or RoadClass.Intercity || road.Lanes > 1) return false;
+            if (road.Class is RoadClass.Bridge or RoadClass.Roundabout or RoadClass.Intercity or RoadClass.Slip || road.Over || road.Lanes > 1) return false;
 
             betweenDistricts |= road.Class == RoadClass.Arterial;
         }
@@ -164,7 +168,8 @@ internal static class Roundabouts
     /// <item><b>Every other junction in the town stands clear of the whole circle</b>, on the same
     /// terms.</item>
     /// <item><b>Every road the node does not carry stands clear of it</b> (GEN-49), measured as the ground
-    /// it is drawn on rather than as the chord it was joined along.</item>
+    /// it may stray over — the straights through the places it passes, widened by the bound its wander was
+    /// drawn inside — rather than as the chord between its ends.</item>
     /// </list>
     /// </summary>
     static bool RoomFor(
@@ -209,10 +214,23 @@ internal static class Roundabouts
             var fromM = layout.NodeM[edge.From];
             var toM = layout.NodeM[edge.To];
             var strayM = RoadLines.WanderM(blockTightestM, edge, (fromM + toM) * 0.5f, config);
-            if (OffM(centreM, fromM, toM) < radiusM + RoadLines.FootprintM(config, edge) + strayM) return false;
+            if (OffM(centreM, fromM, edge.ThroughM, toM) < radiusM + RoadLines.FootprintM(config, edge) + strayM) return false;
         }
 
         return true;
+    }
+
+    /// <summary>How far a point stands off the straights from one end through the places a road passes to the other.</summary>
+    static float OffM(Vector2 pointM, Vector2 fromM, Vector2[] throughM, Vector2 toM)
+    {
+        var (offM, lastM) = (float.PositiveInfinity, fromM);
+        foreach (var atM in throughM)
+        {
+            offM = MathF.Min(offM, OffM(pointM, lastM, atM));
+            lastM = atM;
+        }
+
+        return MathF.Min(offM, OffM(pointM, lastM, toM));
     }
 
     static bool StandsNearOne(List<Vector2> laidM, Vector2 atM, float apartM)

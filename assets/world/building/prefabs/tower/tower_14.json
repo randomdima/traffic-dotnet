@@ -16,7 +16,7 @@
     "soviet",
     "panel block"
   ],
-  "describe": "tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge",
+  "describe": "tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine room as a raised box, ventilation shafts and a low parapet round the edge",
   "chimneys": [[-18.68, -1.31], [13.04, -1.31], [-18.68, 9.69], [13.04, 9.69]],
   "potWidthM": 0.7
 }

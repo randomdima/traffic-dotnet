@@ -14,7 +14,8 @@ namespace TrafficSimulation.World.Rail;
 internal sealed class TrackChords
 {
     readonly float _cellM;
-    readonly Dictionary<(int X, int Y), List<int>> _cells = [];
+    readonly CellTable _cellOf = new();
+    readonly List<List<int>> _inCell = [];
     readonly List<int> _near = [];
 
     /// <summary>The track each chord is of, where along it the chord starts, and the chord.</summary>
@@ -43,10 +44,21 @@ internal sealed class TrackChords
                 }
 
                 var seg = new ArcSeg(lineM[point], Trig.Atan2(runM.Y, runM.X), lengthM, 0f);
-                foreach (var cell in Cells(Vector2.Min(seg.StartM, seg.EndM), Vector2.Max(seg.StartM, seg.EndM)))
+                var ((fromX, fromY), (toX, toY)) = (CellOf(Vector2.Min(seg.StartM, seg.EndM)), CellOf(Vector2.Max(seg.StartM, seg.EndM)));
+                for (var y = fromY; y <= toY; y++)
                 {
-                    if (!_cells.TryGetValue(cell, out var list)) _cells[cell] = list = [];
-                    list.Add(Chords.Count);
+                    for (var x = fromX; x <= toX; x++)
+                    {
+                        var key = GridLevel.KeyOf(x, y);
+                        var cell = _cellOf[key];
+                        if (cell < 0)
+                        {
+                            _cellOf.Set(key, cell = _inCell.Count);
+                            _inCell.Add([]);
+                        }
+
+                        _inCell[cell].Add(Chords.Count);
+                    }
                 }
 
                 Chords.Add(new Chord(track, atM, seg));
@@ -88,23 +100,22 @@ internal sealed class TrackChords
     {
         _near.Clear();
         var bowM = piece.Curvature == 0f ? 0f : piece.LengthM;
-        var (leastM, mostM) = (Vector2.Min(piece.StartM, piece.EndM) - new Vector2(bowM), Vector2.Max(piece.StartM, piece.EndM) + new Vector2(bowM));
-        foreach (var cell in Cells(leastM, mostM))
+        var ((fromX, fromY), (toX, toY)) = (
+            CellOf(Vector2.Min(piece.StartM, piece.EndM) - new Vector2(bowM)), CellOf(Vector2.Max(piece.StartM, piece.EndM) + new Vector2(bowM)));
+        for (var y = fromY; y <= toY; y++)
         {
-            if (!_cells.TryGetValue(cell, out var list)) continue;
-
-            foreach (var chord in list)
+            for (var x = fromX; x <= toX; x++)
             {
-                if (!_near.Contains(chord)) _near.Add(chord);
+                var cell = _cellOf[GridLevel.KeyOf(x, y)];
+                if (cell < 0) continue;
+
+                foreach (var chord in _inCell[cell])
+                {
+                    if (!_near.Contains(chord)) _near.Add(chord);
+                }
             }
         }
     }
 
-    IEnumerable<(int X, int Y)> Cells(Vector2 leastM, Vector2 mostM)
-    {
-        for (var y = (int)MathF.Floor(leastM.Y / _cellM); y <= (int)MathF.Floor(mostM.Y / _cellM); y++)
-        {
-            for (var x = (int)MathF.Floor(leastM.X / _cellM); x <= (int)MathF.Floor(mostM.X / _cellM); x++) yield return (x, y);
-        }
-    }
+    (int X, int Y) CellOf(Vector2 pointM) => ((int)MathF.Floor(pointM.X / _cellM), (int)MathF.Floor(pointM.Y / _cellM));
 }

@@ -4,9 +4,9 @@
   "widthM": 16400,
   "heightM": 12600,
   "seeds": { "town": 1 },
-  "rivers": { "perKm": 0.3, "bearingDeg": 30, "widthM": 70, "meander": 0.05, "widthSpread": 0.3, "tributaries": 6 },
-  "connectors": { "intercityRoads": 6, "minorShare": 0.5, "railways": 3, "railTracks": 2, "railLoopDeg": 0 },
+  "rivers": { "perKm": 0.15, "bearingDeg": 30, "widthM": 70, "meander": 0.05, "widthSpread": 0.3, "tributaries": 6 },
+  "connectors": { "intercityRoads": 6,"railways": 3, "railTracks": 2, "railLoopDeg": 0 },
   "districts": { "gridShare": 0.5 },
   "streets": { "unregulatedShare": 0.2 },
-  "roster": { "buildings": 72000, "people": 18000, "cars": 15600 }
+  "roster": { "buildings": 197000, "people": 18000, "cars": 15600 }
 }

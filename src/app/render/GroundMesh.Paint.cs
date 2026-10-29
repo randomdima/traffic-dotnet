@@ -232,8 +232,8 @@ internal sealed partial class GroundMesh
 
     /// <summary>
     /// <b>The bar a driver holds at</b> (TER-6), across every lane that arrives at an arm carrying a
-    /// crossing (<see cref="StopBars"/>): one lane wide, square across the way that lane is driven, and a
-    /// thickness of paint deep.
+    /// crossing (<see cref="StopBars"/>): one lane wide, square across its <see cref="StopBars.Approach"/> — parallel
+    /// to the band in front of it — and a thickness of paint deep.
     /// </summary>
     /// <remarks>
     /// <b>The one mark here that is laid straight</b>, a bar being painted across a line rather than down

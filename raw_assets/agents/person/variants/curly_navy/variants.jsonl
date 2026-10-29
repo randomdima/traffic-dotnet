@@ -1,0 +1,3 @@
+{"variant": "curly_navy-v6", "frame": "walkorbit_curly_navy-v2", "cell": 1, "pxPerM": 244.505, "score": 4, "status": "candidate", "ts": "2026-10-28T13:44:30"}
+{"variant": "curly_navy-v7", "frame": "walkorbit_curly_navy-v2", "cell": 1, "recutOf": "curly_navy-v6", "pxPerM": 251.648, "score": 4, "status": "candidate", "ts": "2026-10-28T16:42:20"}
+{"variant": "curly_navy-v8", "frame": "walkorbit_curly_navy-v2", "cell": 1, "recutOf": "curly_navy-v7", "pxPerM": 251.099, "score": 4, "status": "used", "ts": "2026-10-28T21:37:57"}

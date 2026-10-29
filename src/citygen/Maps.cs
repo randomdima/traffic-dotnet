@@ -62,7 +62,7 @@ internal static class Maps
     static readonly (string Name, Func<SimConfig, ArtSizes, CityPlan> Lay)[] Laid =
     [
         (IdlePlan.Name, static (config, _) => IdlePlan.Lay(config)),
-        (ShowroomPlan.Name, static (config, art) => ShowroomPlan.Lay(config, art.Buildings)),
+        (ShowroomPlan.Name, static (config, art) => ShowroomPlan.Lay(config, art)),
         (ExamPlan.Name, static (config, _) => ExamPlan.Lay(config)),
         (Fixture, static (config, art) => TownPlan.Lay(FixtureBrief, config, art)),
     ];
@@ -164,9 +164,10 @@ internal static class Maps
     /// pattern that costs is repetition rather than revisiting.
     /// </para>
     /// <para>
-    /// <b>The figures and the brief are part of the name.</b> A plan lays its pavement against the configuration it was
-    /// first asked with (<see cref="CityPlan.Paving"/>), so a town laid under other figures is a different town and is laid
-    /// again — and so is a brief whose parameters or seeds were changed, under the name it had.
+    /// <b>The figures, the brief and the art are part of the name.</b> A plan lays its pavement against the configuration it
+    /// was first asked with (<see cref="CityPlan.Paving"/>), so a town laid under other figures is a different town and is
+    /// laid again — and so is a brief whose parameters or seeds were changed, under the name it had, and a town asked of
+    /// another catalogue's art, whose looks its props would otherwise name.
     /// </para>
     /// </remarks>
     /// <param name="sizes">
@@ -199,7 +200,7 @@ internal static class Maps
     static IEnumerable<string> Planning(string name, TownBrief? brief, SimConfig config, ArtSizes sizes, Action<CityPlan> made)
     {
         var key = brief?.Json();
-        if (_kept is { } kept && kept.Is(name, key, config))
+        if (_kept is { } kept && kept.Is(name, key, config, sizes))
         {
             made(kept.Plan);
             yield break;
@@ -210,15 +211,20 @@ internal static class Maps
 
         // A reference is written whole, so a reader takes the town before or the town after and never half
         // of either. Two callers laying the same map at once lay it twice, which is what they did anyway.
-        _kept = new Kept(name, key, config, laying.Made);
+        _kept = new Kept(name, key, config, sizes, laying.Made);
         made(laying.Made);
     }
 
-    /// <summary>The town most recently laid, against the name, the brief and the figures it was laid from.</summary>
-    sealed record Kept(string Name, string? Brief, SimConfig Config, CityPlan Plan)
+    /// <summary>The town most recently laid, against the name, the brief, the figures and the art it was laid from.</summary>
+    /// <remarks>
+    /// <b>The art is compared by reference</b>: <see cref="ArtSizes"/>' fields are arrays and a class, so its equality is
+    /// "the same catalogue's reading" — what a plan's <c>PropArrays.Look</c> indexes into.
+    /// </remarks>
+    sealed record Kept(string Name, string? Brief, SimConfig Config, ArtSizes Sizes, CityPlan Plan)
     {
-        public bool Is(string name, string? brief, SimConfig config) =>
-            ReferenceEquals(Config, config) && string.Equals(Name, name, StringComparison.Ordinal) && string.Equals(Brief, brief, StringComparison.Ordinal);
+        public bool Is(string name, string? brief, SimConfig config, ArtSizes sizes) =>
+            ReferenceEquals(Config, config) && Sizes == sizes && string.Equals(Name, name, StringComparison.Ordinal)
+            && string.Equals(Brief, brief, StringComparison.Ordinal);
     }
 
     static Kept? _kept;

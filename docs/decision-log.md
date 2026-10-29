@@ -491,7 +491,7 @@ tick's decisions, the claims and the routes onto the device ([goals.md](goals.md
   and never a body, so which row a body is is the world's alone. The town keeps only the furniture (`StaticBodies`), to
   find where a body may be put down; the world keeps what its tyres write on the ground. Handing the world a body table
   the town had filled instead left the town holding the managed world's live solver.
-- **The world runs a step ahead of what the actors read** (`WorldLayer.StepsAhead`), at the owner's word: "implement
+- **The world runs a step ahead of what the actors read** (`SimFigures.WorldStepsAhead`), at the owner's word: "implement
   processing pipeline, so they run concurrently — CPU actors dont usually change decisions each tick anyway". A tick
   waited on its step whole — a 12-car town took 3.9 ms a tick on the device against 0.02 managed, nearly all of it the
   submit's round trip — and the device idled through the decisions as the host did through the step. Now a step waits
@@ -534,7 +534,9 @@ it was not the town.
   its own, both are gone before the marks are laid, and a point's place rides in its entry's column until its cell is
   sorted, so the place table is gone altogether. The atlas is the same to the bit.
 - **The world is laid before the ground** (`LaidTown.Lay`): the mesh's 171 MB stood under the atlas's peak, and laid
-  after it, it is laid in what the atlas freed.
+  after it, it is laid in what the atlas freed. **Where the device files the atlas, the ground is laid beside the
+  world** (2026-10-26, `GroundMesh.BuildAside`): that peak is not the host's, and Highmoor's open on the desktop no
+  longer waits the mesh's 5 s after the world, its peak resident 3.0 GB. A page has one thread and lays them in turn.
 - **A grid of nothing covers one cell** (`BucketGrid.Over`): a car park's bays in a town with none were three words
   a cell of the whole town.
 - **The atlas files the walk only where it is read**, and a piece reads only the rows it reaches, which are the roads

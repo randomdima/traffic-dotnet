@@ -1,0 +1,8 @@
+{
+  "id": "guardrail_end_flare",
+  "sprite": "guardrail_end_flare.webp",
+  "kind": 2,
+  "footprintM": [2.0, 0.745],
+  "turns": true,
+  "describe": "flared terminal end of a W-beam crash barrier, 2 m long: at the left end the galvanised beam lies along the bottom edge, cut straight and square to join a run; towards the right it curves smoothly away up to the top edge and ends in a rounded steel fishtail end cap; one post behind it at the middle"
+}

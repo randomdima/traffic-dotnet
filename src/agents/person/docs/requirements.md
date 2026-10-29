@@ -21,12 +21,16 @@ of its feet**, so it is shoved and thrown like any body and braces against nothi
 
 **PER-6** `P5` While inside a building the only available action is exiting it.
 
-**PER-30** `P9` **On the showroom every walker look walks once, round a ring of its own** (`ShowroomPlan`,
-`TownWorld.WalkTheRing`): it is where the art is looked at, as its cars and trains are, and a walk is only seen walking.
-The rings stand in a row down the middle of the car park, each `SimConfig.Person.ShowroomRingM` out from its
-centre, and a look on show takes no trip and claims no ground: it aims a lead round its ring at each decision
-(`ShowroomRingLeadDeg`), so in a lap it is drawn in every facing its sheet has. Under a hand it walks where the hand
-says (`CTL-6`); let go, it takes its ring up again from wherever it was left.
+**PER-30** `P9` **On the showroom every person look stands once, still, facing the camera** (`ShowroomPlan`,
+`TownWorld.StandOnShow`) — the walkers' and the uniforms' alike: it is where the art is looked at, as its cars and
+trains are. The looks stand in one row down the middle of the car park, as many places as there are looks, and a
+look on show takes no trip, claims no ground and decides nothing of its own. Under a hand it walks where the hand
+says (`CTL-6`); let go, it stands wherever it was left.
+
+**PER-31** `P6` **A walker is drawn over every walker whose feet are further up its picture than its own, and a body
+lying down under every one standing** (`PersonSprites.Depth`). A standing walker is a picture stood up off the ground,
+so where two overlap the nearer one is in front; a casualty lies flat on the ground (PER-18), under anybody standing on
+or beside it. How far up the picture is in the town's axes, so a turned town (`OBS-1c`) changes nothing of the order.
 
 ## Soft rules
 

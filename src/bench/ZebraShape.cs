@@ -1,7 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.World.Statics;
+using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
 

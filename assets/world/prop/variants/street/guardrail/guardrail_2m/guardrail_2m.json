@@ -1,0 +1,8 @@
+{
+  "id": "guardrail_2m",
+  "sprite": "guardrail_2m.webp",
+  "kind": 2,
+  "footprintM": [2.0, 0.529],
+  "turns": true,
+  "describe": "the same new galvanised W-beam section, 2 m long: the beam runs the whole length along the bottom edge, one square steel post with its spacer block at the middle behind it, both ends cut straight and square"
+}

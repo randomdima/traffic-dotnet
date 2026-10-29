@@ -35,7 +35,7 @@ public class CarLampTests
     /// </summary>
     static CarFleet Rolling(float curvature = 0f, float lengthM = 100f, int variant = 0)
     {
-        var fleet = new CarFleet(1, arcsPerCar: 2, CarBuilds.OfTheFleet(Config, Catalogue));
+        var fleet = new CarFleet(1, arcsPerCar: 2, CarBuilds.OfTheFleet(Config, Catalogue), Config.Patience.FuseJitterShare);
         fleet.Add(Vector2.Zero, 0f, (byte)variant, backsIntoBays: false, new Rng(1, 1));
         fleet.Driven[0] = true;
         fleet.Command[0] = DriveCommand.Idle;

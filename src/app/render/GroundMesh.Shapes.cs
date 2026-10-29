@@ -261,22 +261,37 @@ internal sealed partial class GroundMesh
     void Fade(CityPlan.RingArrays rings, Func<Vector2, Vector2, bool> unstruck, float widthM, bool inside, Surface surface)
     {
         var run = new List<Vector2>();
-        for (var ring = 0; ring < rings.Count; ring++)
-        {
-            var points = rings.RingOf(ring);
-            var insideOnTheRight = TwiceTheAreaM2(points) > 0f;
-            StrokeRing(points, unstruck, Faded(surface, widthM, ontoTheRight: inside == insideOnTheRight), run);
-        }
+        for (var ring = 0; ring < rings.Count; ring++) FadeRing(rings.RingOf(ring), unstruck, widthM, inside, surface, run);
     }
 
-    /// <summary>A fade's two sides: whole on the line, gone <paramref name="widthM"/> off it on the one side.</summary>
-    static Sides Faded(Surface surface, float widthM, bool ontoTheRight)
+    /// <inheritdoc cref="Fade(CityPlan.RingArrays, Func{Vector2, Vector2, bool}, float, bool, Surface)"/>
+    /// <param name="backM">
+    /// How far back over the ring the fade starts whole: over the crack a fill thinned off the line leaves along it
+    /// (<see cref="HiddenShare"/>), where no kerb is struck to cover it.
+    /// </param>
+    void Fade(
+        ReadOnlySpan<Vector2[]> rings, Func<Vector2, Vector2, bool> unstruck, float widthM, bool inside, Surface surface, float backM)
+    {
+        var run = new List<Vector2>();
+        foreach (var ring in rings) FadeRing(ring, unstruck, widthM, inside, surface, run, backM);
+    }
+
+    void FadeRing(
+        ReadOnlySpan<Vector2> points, Func<Vector2, Vector2, bool> unstruck, float widthM, bool inside, Surface surface, List<Vector2> run,
+        float backM = 0f)
+    {
+        var insideOnTheRight = TwiceTheAreaM2(points) > 0f;
+        StrokeRing(points, unstruck, Faded(surface, widthM, backM, ontoTheRight: inside == insideOnTheRight), run);
+    }
+
+    /// <summary>A fade's two sides: whole <paramref name="backM"/> behind the line, gone <paramref name="widthM"/> off it on the one side.</summary>
+    static Sides Faded(Surface surface, float widthM, float backM, bool ontoTheRight)
     {
         var whole = GroundVertex.Fading(surface, 1f);
         var gone = GroundVertex.Fading(surface, 0f);
         return ontoTheRight
-            ? new Sides(new Vector2(0f, widthM), whole, gone)
-            : new Sides(new Vector2(widthM, 0f), gone, whole);
+            ? new Sides(new Vector2(backM, widthM), whole, gone)
+            : new Sides(new Vector2(widthM, backM), gone, whole);
     }
 
     /// <summary>

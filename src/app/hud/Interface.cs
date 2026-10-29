@@ -494,13 +494,12 @@ internal sealed class Interface(TrimFigures trims)
             underWritten = ground.Written;
             aboveWritten = groundAbove.Written;
 
-            // Over the bodies and under every panel: the mark stands where the unit is, so it belongs with
-            // the town rather than with the furniture (CTL-1). Its path goes down first, so the brackets and
-            // the goal mark stand over the line rather than under it (CTL-1a).
+            // Over the bodies and under every panel: the path stands where the unit is going, so it belongs with
+            // the town rather than with the furniture (CTL-1a). The unit itself is ringed by the picture it is drawn
+            // as (SpriteRings, CTL-1).
             SelectionPath.Draw(ref draw, world, frame.Config, frame.Camera.PixelsPerMetre);
-            SelectionMark.Draw(ref draw, world, frame.Config, frame.Camera.PixelsPerMetre);
 
-            // Over the marks and under the panels: the box is being drawn now and the brackets say what
+            // Over the marks and under the panels: the box is being drawn now and the rings say what
             // was picked out before it (CTL-1b).
             Marquee.Draw(ref draw, frame.MarqueePx);
 
@@ -520,7 +519,7 @@ internal sealed class Interface(TrimFigures trims)
                     frame.Counting, draw.Written, world, Overlay.Relaid, claimed);
 
                 // OBS-2m: everything the interface has to say about the selection, in the opposite corner —
-                // and nothing of it on the town, where the brackets and the path stand instead (CTL-1). It
+                // and nothing of it on the town, where the ring and the path stand instead (CTL-1). It
                 // is drawn whether or not the unit is on the picture, which is half of what it is for.
                 Unit.Draw(ref draw, frame.UiPx, frame.PointerPx, world, claimed);
 

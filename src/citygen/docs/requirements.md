@@ -67,7 +67,8 @@ know is refused when it is read.
 1. **The terrain** — the sea and the rivers (GEN-62).
 2. **The connectors** — the intercity roads and the railways that cross the map, and the bridges and level crossings
    they take (GEN-63).
-3. **The town** — the districts cut from the ground those leave (GEN-64), the roads between them (GEN-67, GEN-69), the
+3. **The town** — the districts cut from the ground those leave (GEN-64), filled less toward the map's edge (GEN-76), the
+   roads between them (GEN-67, GEN-69), the
    streets inside each (GEN-72), the services, the buildings, the props and the roster.
 
 No stage moves what an earlier one laid. A connector routes round the water rather than the water moving for it, and a
@@ -91,15 +92,36 @@ district is cut round a connector rather than the connector bending for it.
 **GEN-63** `P5` **The town is reached from outside by a few intercity roads and railways, and nothing else reaches the
 map's edge.**
 
-- **An intercity road** enters past the map's edge (GEN-2b) on dry land clear of the railway, and runs to the town's
-  core — the place on dry land, inside the map, its connectors converge on — or to the first intercity road already
-  laid that it reaches. The brief says how many and what share of them carry one lane each way rather than two; they
-  enter spread round the edge.
-- **A railway** runs edge to edge (RAIL-2), passing within `RailPassesCoreM` of the core; the brief says how many and how
-  many tracks each.
+- **The core** is where the town grew up: dry land in from the map's edge, near its middle, and a block or two off its
+  river — or off its sea where it has one, its harbour (`CoreOffWaterBestM`) — on ground mostly dry round it
+  (`CoreLandLeastShare`): the old town's middle, and not a junction of roads nor a wedge between two waters.
+- **Where there is a sea, the roads enter spread round the land's edge**, a bearing out through the sea being no way in.
+- **A town graded out to the country (GEN-76) is passed and not entered**: the brief's ways in are paired into intercity
+  roads passing it, spread round the land, each **in past the map's edge and out past it again as one smooth curve that
+  nothing cuts** — touching the circle at `TownSolidShare` of the way from the core to its furthest dry ground on its own
+  bearing, running on near that circle's tangent to edges `IntercitySpanDeg` apart, and nowhere nearer the core than a
+  share of it (`BypassInsideShare`). **One crossing another is carried over it** and meets it nowhere. The town's own roads
+  meet them only at interchanges (GEN-68).
+- **An intercity road** enters past the map's edge (GEN-2b) on dry land clear of the railway, and in a town built alike to
+  its edge runs to the core, or to the first intercity road already laid that it reaches. The brief says how many ways
+  in, and every road carries two lanes each way, its bridges included — none is laid narrower; they enter spread round
+  the edge.
+- **A railway** runs edge to edge (RAIL-2), the first passing `RailPassesCoreM` off the core and each after it as far
+  again further out — on alternate sides, or all inland of it where there is a sea — every line of a town on one bearing,
+  and no nearer another than `RailLinesApartLeastM` where any draw allows; the brief says how many and how many tracks
+  each, and its count is kept over the spacing.
 - **A connector routes round what it cannot cross** — the sea always, a river only at a bridge site (GEN-70), a railway
   only at a level crossing (RAIL-1) — and **holds its line straight off every crossing for an approach**
   (`BridgeApproachM`) before it bends, no tighter than its class affords (GEN-47).
+- **An intercity road runs straight through every junction on it**: it leaves each on its own line, straight either
+  side for an approach (`BridgeApproachM`, or less of a road too short for two), so no junction it passes through turns
+  it or changes its curvature (`Paths.Through`).
+- **An intercity road is one smooth curve**, drawn along its route before anything of the town and no tighter than its
+  class (GEN-47) — never corners rounded one by one, and never mended once laid (`RouteSpline`); one that cannot be drawn
+  between two crossings is routed round that place on its next try (`Routes.Bar`). **In a town built alike to its edge,
+  the two entering half the roads apart are one road through the core**, edge to edge — never two roads
+  cornering at a junction; every other ends on the core or on the first intercity road already laid it reaches
+  (`Connectors.Intercities`). Where no pair of the two's routes draws as one curve, each is laid as a road of its own.
 - **A road that runs off the map runs on into the world beyond it**: a lane out past the edge leads somewhere the map
   does not show, and one in from it is reached from there. Nothing else the town lays ends at the edge (GEN-5a).
 
@@ -111,10 +133,31 @@ districts either side: that is a district's edge, not something it spans.
 
 **GEN-65** `P5` **A district is no bigger than a district gets, and a town grows by adding districts rather than by
 growing them** (`DistrictLargestM2`). A region is cut into as many districts as keep every one under that area, as near
-equal as its shape allows. **A region smaller than the least district (`DistrictLeastM2`) is open land** and stands no
+equal as its shape allows, and a district the cut still leaves bigger is cut in two; a piece of one district given to
+another to make it whole is given only where that stays under the area, and is open land where it does not. **A district
+the cut leaves under the least (`DistrictLeastM2`) is given to the neighbour it lies most against that stays under the
+largest**, or is open land. **A region smaller than the least district is open land** and stands no
 street of its own; it is not merged across a barrier into the district beside it. **So is a district no street of its
 own is left standing in** — one no road between districts reaches, or too narrow for its streets to be anything but
 dead ends (GEN-5a) — though it keeps its number.
+
+**GEN-76** `P5` **A town fills its map, built solid about its core and thinning out to the country at its edge**
+(`TownExtent`). Every district within `TownSolidShare` of the way from the core to the furthest land builds all its kind
+builds; past it, each builds less the further out it stands, down to `TownEdgeFill` at the furthest land. No district
+is quite full or alike: each one's fill is drawn below its place's by up to `TownFillSpread`. GEN-65 to GEN-74 are asked
+of every district built.
+
+- **The edge is sparser in its streets as well as its houses**: a district's blocks are widened by its fill to the power
+  less `TownSparseBlockShare`, and what that leaves of its thinning is gaps along its streets and fewer buildings
+  behind them.
+- **The town is thicker along its roads in**: a district beside one counts `TownRoadwardShare` nearer the core, and a
+  draw moves each district's distance by up to `TownEdgeJitterShare`.
+- **Some of the rim is the country's**: a district reaching the map's edge past the solid middle is left farmland or
+  wild (`CountryWildShare`) at up to `CountryRimShare` at the furthest land — no street, no service, no road between
+  districts; the connectors cross it. Only the rim, so no district left inside cuts the town's streets in two (GEN-69).
+- **The roster's building count is at most what stands**, never what the town is sized by.
+- **A town that plans no building is built alike to its edge**, and so is one whose brief says `districts.country` false
+  — a town laid for its streets rather than its people, as the suite's is.
 
 **GEN-66** `P6` **A district is any smooth, compact shape.** Its outline is its region's edge where it meets a barrier,
 and where it meets another district **a curve**: the cut is made in a warped plane (`DistrictBendShare`), so the edge
@@ -125,7 +168,23 @@ a square, not a sector, and not a figure symmetric about a centre.
 districts' an old town; a district whose edge runs along a railway or an intercity road for most of it
 (`DistrictIndustrialEdgeShare`) industrial; the inner districts residential; and of the outer ones, the strict a
 high-rise estate and the loose a suburb. The brief says the share of grid against loose districts (GEN-47), and **a
-district's lattice runs along its own ground's longest axis** rather than a compass bearing.
+district's lattice runs along its own ground's longest axis** rather than a compass bearing — or across it, where the
+district is too narrow for two of its blocks' long sides across, so its short spacing cuts its narrow way. **Its blocks
+are its kind's** (`CityGenFigures.OldTownBlocks` and the rest): small and near square in the old town, long and thin in
+a suburb, coarse in the works.
+
+**GEN-77** `P6` **A generated town's blocks are not all its district's kind** (`BlockUses`). Once its streets have made
+its blocks, some of each built district's are given a use of their own, as a zone of the whole block under the district's:
+
+- **A park** at `BlockParkShare` of them, and always the block nearest the core — the town's own garden — planted at
+  `BlockParkGrowth`.
+- **A school, a church or a public building and its grounds** (civic) at `BlockCivicShare`, in any district but an
+  industrial one.
+- **Shops and offices** (commercial) at `BlockCommercialShare` of the old town's and the housing's blocks that front a
+  road between districts (`BlockFrontsAShare` of their face within its corridor) — the high street.
+
+Each block's draw is keyed on where it stands (GEN-11), and the buildings and the props read the uses as they read every
+zone.
 
 **GEN-67** `P4` **A road's class says what it joins, and its lanes say how much it carries.**
 
@@ -133,14 +192,16 @@ district's lattice runs along its own ground's longest axis** rather than a comp
 |---|---|---|
 | **Street** (`RoadClass.Street`) | the streets inside one district | 1, or one way (GEN-18) |
 | **Between districts** (`RoadClass.Arterial`) | district to district, and a district to the intercity network | 1, or 2 where demand says |
-| **Intercity** (`RoadClass.Intercity`) | the town to outside (GEN-63) | 2, or 1 for the brief's minor share |
+| **Intercity** (`RoadClass.Intercity`) | the town to outside (GEN-63) | 2, the whole of its length |
+| **Slip** (`RoadClass.Slip`) | an intercity road to an interchange's terminal (GEN-68) | 1, one way |
 
 - **No road carries more than two lanes each way** (`LayoutEdge.MostLanes`), and every road the same number each way
-  but a one-way street.
+  but a one-way street and a slip road.
 - **A road between districts takes its lanes from the demand over it and never per road**: every pair of districts
   is joined by a demand that grows with both districts' areas and falls with the square of the distance between them,
-  routed over the roads between districts and along the intercity roads, and **the most-loaded share of those roads
-  (`FourLaneDistrictShare`) is laid two lanes each way**.
+  routed over the roads between districts and along the intercity roads between the junctions on them — every road a
+  way it can be driven, a road in from an intercity road and one across a district too — and **the most-loaded share of
+  those roads (`FourLaneDistrictShare`) is laid two lanes each way**.
 - **A bridge carries the lanes of the road it is a span of**, and **a junction is sized by its widest arm**
   (`SimConfig.JunctionRadiusAcrossM`).
 - **A wider road is more lanes, never wider ones** (GEN-15).
@@ -157,6 +218,53 @@ district's lattice runs along its own ground's longest axis** rather than a comp
   by the ranking (TER-5e), the street giving way. The brief's unregulated share draws among the first kind alone.
 - **A roundabout stands on a road between districts and never on an intercity road** (GEN-19), where its streets or
   another road between districts meet it.
+- **A bypassed town's intercity roads are met only at interchanges, and nothing on them stops** (GEN-63):
+  - **An access on one side**: a terminal `InterchangeOffsetM` off the intercity road's line, where a road between
+    districts ends, and two one-way slip roads (`RoadClass.Slip`) — off the kerb lane of the way on that side short of
+    the terminal, and back onto it past — each leaving the intercity road at `SlipLeavesDeg` off its line and arriving
+    square at the terminal. **An access meets that way alone and crosses nothing**; a terminal a district fronts on the
+    other side is given an access of its own there.
+  - **An access that crosses**: both sides' accesses, and a road carried over the intercity road
+    (`CityPlan.RoadArrays.Over`) between their terminals — a terminal of its own where no road reached that side. **The
+    first a piece of the roads between districts is given crosses**, and so does one on every intercity road, so what is
+    reached is left, and come back to, both ways.
+  - **A road between districts two districts face each other across** is carried over the intercity road and meets it
+    nowhere: its span reaches past the intercity road's corridor and a junction's box again either side
+    (`TownGen.OverHalfSpanM`), so where it comes down is clear of the road under it, and no node stands on that road
+    under it. It is carried over nowhere either end would stand that near another intercity road, which the road
+    carrying it on from a bridgehead that is no junction (GEN-14a) would start on. **An intercity road carried over
+    another** spans it the same.
+
+  **A slip road's movement off or onto the intercity road is the kerb lane's alone** (TER-5j), and the kerb lane carries
+  straight on as well; every other movement at its node is banned (`CityPlan.RoadArrays.BannedTurns`), so what is left
+  crosses nothing and **the node is no junction but lanes carried on** (TER-5k): no light, no bar, and the slip's merge
+  settled by the claims at the intercity road's own rung. The roads between districts end at the terminals, which are ordinary junctions, each arriving square to the
+  slip roads. Accesses stand no nearer each other than `InterchangesApartLeastM`, a road carried over no nearer either
+  than an access reaches, all clear of every bridge and railway span, and no node stands on the intercity road a
+  locality either side of a terminal. **An intercity road crosses a railway on a span carried over it**, never at a
+  level crossing. Its verge is wide enough to hold the slip roads, and the districts stand past it. A town built alike to
+  its edge (GEN-76) has no bypass, and its roads between districts meet its intercity roads at ordinary junctions.
+
+**GEN-75** `P5` **An intercity road has no walk beside it, no car park off it, and nothing built or planted in its
+verge.** It is the town's way in and out and not a street anybody lives on.
+
+- **No walk is struck along it, and none is struck and cut back** (TER-7b): the walk is the walked roads' ground moved
+  off itself (`Paving.Walked`, `CityPlan.RoadArrays.Unwalked`), every road's but an intercity road's and a bridge carrying
+  one. A walked road meeting one turns its walk round the corner on the turn to the kerb side and ends it there; **where
+  walked roads turn onto the intercity road's mouth at every kerb it has there — both of a two-way road, the one of a
+  divided road's carriageway — the walk runs on round the crossing painted across it**
+  (`RoadFigures.CrossingDepthM`) and ends just past it, covering its walkers' lanes and no more.
+  **They run straight onto that crossing and off it, with no junction there**: nothing is walked past it and nobody
+  turns back at it.
+- **It is crossed on foot only where the walk stands at both its kerbs across the zebra's whole depth** — at a
+  crossroads on it, and never at a junction whose far side has nothing walked, nor where only a corner's own rounding
+  reaches the zebra (`KerbEnds`).
+- **A shoulder stands beside it** (`RoadFigures.ShoulderWidthM`), the ground within that of its kerb, laid under the walk
+  (TER-7b); a deck's margin on a bridge carrying one is no walk but where a walk is struck over it. **Its outer edge is a
+  fade and not a line** (`ViewFigures.ShoulderFadeM`), its gravel running out into the grass as a shore's edge does
+  (GEN-2c).
+- **Nothing is built and no prop scattered within `UnwalkedVergeM` of its carriageway** (`GroundShapes.InAVerge`).
+- **No car park stands off one** (GEN-68).
 
 **GEN-69** `P4` **Every district is reached two separate ways: from the intercity network, and from each of its
 neighbours.**
@@ -168,6 +276,10 @@ neighbours.**
   a river a bridge (GEN-70) at every `DistrictLinksApartM` of the bank they face each other along.
 - **The two are separate**: a district whose only way to its neighbour is out onto the intercity road and back is not
   linked to it.
+- **What the plan could not lay is joined after**: a piece of the roads between districts the layout left without the
+  intercity network is given the shortest straight road between districts the layout takes from one of its junctions to
+  one of the network's, before any street is laid — hung on every street to come it crosses (GEN-72), never at a
+  bridgehead (GEN-14a) — and the town kept is the piece holding the intercity network (GEN-5).
 
 **GEN-70** `P5` **A bridge crosses its river short and square.** Its span runs on the river's own normal where it
 crosses, within `BridgeSkewMostDeg`, no longer than a deck is built (GEN-14a), straight, its bridgeheads on dry ground
@@ -183,8 +295,10 @@ split by water is crossed often enough to be one town. None crosses the sea (GEN
 bearing at its block spacing (GEN-74), on its own dry ground and clear of every road between districts; a street joins
 two neighbouring points where the ground between is the district's, and **where the lattice runs up against a road
 between districts it is hung off it**, at the point its line crosses that road and square enough to be a junction
-(GEN-13) — never off an intercity road (GEN-68). A road between districts ending inside a district ends on a point of
-its lattice. What is left hanging is pruned (GEN-5a).
+(GEN-13) — never off an intercity road (GEN-68) nor off a bridgehead (GEN-14a). A road between districts ending inside a
+district ends on a point of its lattice, and **one joined across a district after its lattice was placed** (GEN-69) cuts
+each street it crosses at a junction there, or meets it at its own end where that is a stride off. What is left hanging
+is pruned (GEN-5a).
 
 ### A traced town
 
@@ -488,7 +602,8 @@ four are fronted on the same terms.
   nearest thing to it. A building behind the frontage is square to its zone's bearing, or to the nearest street, and
   its way in is on that street's walk.
 - **What the zones stand is thinned to what a town plans** (`ZoneParam.Buildings`), the frontage before the ground
-  behind, and never cut off at the last rings walked: thinned ring by ring instead, a town that plans fewer buildings
+  behind, shared over what would stand and nothing else, no more kept than the plan has room for, and never cut off at
+  the last rings walked: thinned ring by ring instead, a town that plans fewer buildings
   than its frontage affords is built solid along whichever rings came first and empty everywhere else. **A town that
   names a hub thins away from it** (`ZoneParam.HubXM`, `ZoneThinFalloff`) — a generated town's is its core — so its
   middle is built solid and its edge thins out; one that names none is thinned alike everywhere.
@@ -669,18 +784,23 @@ the car park at an angle, and one down a side fronts the row of bays edge-on.
   hospital as wide as its own yard has to be on the middle of the flat to the metre, so the station the
   rank's normal reaches is slid along the flat to the middle before the building is stood on it.
 
-**GEN-56** `P5` **Every district stands one hospital, one police station and one depot, each inside it**, where
-the town plans a building at all. A district is one of the shapes the town's ground is cut into (GEN-64), and
+**GEN-56** `P5` **Every district is served by a hospital, a police station and a depot, each serving a catchment of
+districts** (`ServiceBuildings`), where the town plans a building at all: a use stands in as many districts as its
+catchment (`DistrictsPerHospital`, `DistrictsPerPoliceStation`, `DistrictsPerDepot`) divides the districts with
+streets into, rounded up — the district nearest their middle first, then each time the one furthest from every one
+already chosen — and each inside the district chosen. A district is one of the shapes the town's ground is cut into (GEN-64), and
 **the plan carries them** (`CityPlan.Districts`, `DistrictMap`), so the district a point stands in is still a question
 once the town is laid: it is what a service's beat is kept to (`SRV-5`). A traced map is one district.
 
 - **Inside it is the building's ground and not the road's.** A yard is cut only where its building's near face
-  and far face, across the rank on the side it faces, both stand in the district. A district's edge is as often
-  as not a road between districts: asked of the road alone, a yard cut into one stood its building over the road
-  in the next district, and a yard cut into one facing into the district is that district's.
+  and far face, across the rank on the side of its road it is cut on, both stand in the district — either side, and
+  the side whose ground is the district's. A district's edge is as often as not a road between districts: asked of the
+  road alone, a yard cut into one stood its building over the road in the next district.
 - **A district with no street stands nothing** (`DistrictMap.Built`), and no yard is cut for it on the roads round it.
 - **A yard is as wide as its building's frontage** (`GEN-55`), so a district none of whose kerbs runs straight
-  for that long stands no building of that service, and the census says so (`GEN-8`). No district stands two.
+  for that long stands no building of that service: **its catchment's is handed on to its nearest district standing
+  none of that use**, a few at most (`CarParks`), and only then stood nowhere, which the census says (`GEN-8`). No
+  district stands two of one use.
 
 **GEN-7** `P5` Initial state: cars start **stopped in parking spaces**, and **a person starts inside the
 building the map stood them at**, part way through a dwell (PER-11). A trip ends by walking through a door and
@@ -749,9 +869,10 @@ so a road has two bearings to satisfy and they do not agree.
   shapes settled elsewhere, so the jitter is nil for those links and a ring arm's lead bends with its own
   circle rather than leaving straight off the tangent to it. **The bend it takes is the ring piece's own** —
   the curvature the layout sized the circle at — never a circle fitted back through three of the ring's
-  nodes, which is the same figure worked out a second way. **And the road a bridge carries on into takes the
-  span's** (GEN-14a), asked of that road's own chord against the span alone, so the layout laying it and the plan
-  read back answer alike whatever was laid at the bridgehead after it.
+  nodes, which is the same figure worked out a second way. A span bends as its own one arc and leaves on that arc's
+  tangent. **And the road a bridge carries on into takes the span's** (GEN-14a), asked of that road's own chord
+  against the span alone, so the layout laying it and the plan read back answer alike whatever was laid at the
+  bridgehead after it.
 - **A road laid straight takes the chord and draws nothing** (GEN-47): each arm leaves on the chord to the
   place its road runs for. It is a fact about the road and not a kind of link, so the plan carries it per
   road (`RoadArrays.LaidStraight`) — a derivation that drew the jitter again would draw an arm the road was
@@ -802,7 +923,9 @@ driven in circles is a surface and not a street.
 **GEN-13** `P6` **A junction's arms stand square enough to be a junction.** An arm that would lie against one
 already there is refused, because two carriageways meeting at a shallow angle overlap for tens of metres
 and the fillet, the crossing and the bar on either of them are then laid over the other. What that refusal
-leaves unreachable is deleted with its own piece (GEN-8).
+leaves unreachable is deleted with its own piece (GEN-8). **A slip road may lie nearer its intercity road, or another
+slip road at the same node** (GEN-68): neither is walked, so no crossing is laid on either, and the node stands its
+arms out until the slip's lane clears the intercity road's carriageway (`SimConfig.SlipStandoffM`).
 
 **GEN-51** `P4` **A junction is a place roads meet, and a road runs between two of them.** A node two roads
 merely carry on through is not a junction: it is where the town's own arithmetic stopped a line — a spacing
@@ -829,11 +952,14 @@ turn, so a corner that cannot be drawn costs that corner and never every place t
 offered as one road is held to the ground of the roads that stayed and of the runs joined before it, because
 two joined roads could each clear the other's *pieces* and still be laid into one another.
 
-Two kinds of node stand whatever they carry, and neither is a place the town's arithmetic stopped a line:
+Three kinds of node stand whatever they carry, and none is a place the town's arithmetic stopped a line:
 
 - **A bridgehead** (GEN-14a), where the carriageway becomes a deck. A bridge is its own road between its
-  own two nodes, laid straight over the span, and is never part of a longer one.
+  own two nodes, laid as the one arc of the span, and is never part of a longer one.
 - **A ring node** (GEN-19), which is a piece of one junction laid out as a circle.
+- **A place the lanes change** (GEN-67), where a road between districts laid four lanes carries on as one of two, or
+  an intercity road as anything that is not one: the carriageway itself changes there, and a road is one width along
+  its length.
 
 And **one shape a road cannot be** leaves one node: a run that comes back where it set off has no second end
 to be a road between. It is shortened by one place and the rest of it is still joined.
@@ -875,6 +1001,9 @@ manoeuvre (GEN-4f), and nothing downstream carries a rule about how a car park i
   the street's own lane that the rank stands off, not the line the street was laid down**: a street driven one
   way carries its one lane on the half its traffic was moved onto (TER-4d), so the two sides stand off different
   metres of it and get the same kerb (`CarParks.LaneTowardM`). **A road type is never assumed here.**
+- **No car park of the town's own stands in a suburb** (GEN-74, `CarParks.Lay`): its houses park on their own plots,
+  and a rank of bays cut into a street of houses is a car park nobody's door is near. A service's yard stands
+  wherever its district is (GEN-55).
 - **The bays are counted before the place is chosen.** How much street a car park takes is its longer rank and
   the frontage a car manoeuvres over past either end of it (`SimConfig.CarParkFrontageM`), so the size of a car
   park decides which places can carry one. **A place is never taken and the bays that did not fit taken back off
@@ -1090,9 +1219,13 @@ between a bridgehead on each bank, no longer than the deck a town builds
 (`SimConfig.CityGen.BridgeDeckLongestM`), carrying that deck the whole of its length (TER-3b). Nothing else
 crosses — not a street, and not a road between districts but at its bridge. **A bridgehead is where the lanes become
 the bridge's and not a corner**: the road landing there that runs nearer the span's line than square across it leaves
-on that line, unjittered (`ConnectionPoints.CarriesOn`), through a point on it an approach out (GEN-63), so the two meet
-as one straight and whatever turn the road owes is taken on the bank — which is why a town's bridges are laid before
-the roads they carry on. A crossing these bounds refuse is a road the town does not have, and whatever that leaves unreachable
+on the span's own tangent there, unjittered (`ConnectionPoints.CarriesOn`), through a point on it an approach out
+(GEN-63), so the two meet as one line and whatever turn the road owes is taken on the bank — which is why a town's
+bridges are laid before the roads they carry on. **A bridgehead nothing else meets is no junction**
+(`NodeSizes.Joint`): the span and the one road carrying it on, of as many lanes, meet lane onto lane with
+`BridgeheadStandoffM` between them and no junction's ground, and no other road meets it there. **A span over a road
+or a railway is the one arc of its path** between its bridgeheads, turning as the path turns there, so the road runs
+over it on the curve it was routed as; a river is crossed straight and so is its span. A crossing these bounds refuse is a road the town does not have, and whatever that leaves unreachable
 is deleted with its own piece (GEN-8) rather than reached some longer way round.
 
 **GEN-14b** `P6` **A bridge crosses a river and never the sea**, because a coast has one shore inside the town

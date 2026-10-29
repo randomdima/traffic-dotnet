@@ -1,0 +1,3 @@
+{"variant": "paramedic_a-v6", "frame": "walkorbit_paramedic_a-v3", "cell": 1, "pxPerM": 264.458, "score": 4, "status": "candidate", "ts": "2026-10-28T13:46:13"}
+{"variant": "paramedic_a-v7", "frame": "walkorbit_paramedic_a-v3", "cell": 1, "recutOf": "paramedic_a-v6", "pxPerM": 270.482, "score": 4, "status": "candidate", "ts": "2026-10-28T16:47:49"}
+{"variant": "paramedic_a-v8", "frame": "walkorbit_paramedic_a-v3", "cell": 1, "recutOf": "paramedic_a-v7", "pxPerM": 273.494, "score": 4, "status": "used", "ts": "2026-10-28T21:38:21"}

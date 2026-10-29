@@ -235,14 +235,31 @@ internal sealed class KerbEnds
     /// reading <see cref="Of"/> takes, so a stretch that answers nothing here is a stretch that carries no
     /// end there.
     /// </summary>
-    public static int LaneUnder(Paving paving, SimConfig config, in ArcSeg piece, bool fromStart)
+    public static int LaneUnder(Paving paving, SimConfig config, in ArcSeg piece, bool fromStart) =>
+        new Under(paving, config).LaneOf(piece, fromStart);
+
+    /// <summary>
+    /// <b><see cref="LaneUnder"/> for a caller asking about many pieces.</b> The reach and the index's working set are
+    /// each a walk over every lane, so they are taken once here rather than once a piece. One thread at a time.
+    /// </summary>
+    internal sealed class Under(Paving paving, SimConfig config)
     {
-        Span<int> near = stackalloc int[NearOnePlace];
-        Span<float> alongM = stackalloc float[NearOnePlace];
-        var index = paving.DrivenLines(config);
-        return LaneAlong(
-            paving.Lanes, index, index.NewScan(), near, alongM,
-            ReachM(paving.Lanes) + OffTheLineM, piece, fromStart ? FirstM(piece) : LastM(piece));
+        readonly ChainIndex _index = paving.DrivenLines(config);
+        readonly float _reachM = ReachM(paving.Lanes) + OffTheLineM;
+        readonly int[] _near = new int[NearOnePlace];
+        readonly float[] _alongM = new float[NearOnePlace];
+        ChainIndex.Scan? _scan;
+
+        public int LaneOf(in ArcSeg piece, bool fromStart) => LaneAlong(
+            paving.Lanes, _index, _scan ??= _index.NewScan(), _near, _alongM, _reachM, piece,
+            fromStart ? FirstM(piece) : LastM(piece));
+
+        /// <summary>
+        /// The lane a piece runs along at its middle: a straight the shell merged from corner to corner of a block reads
+        /// as no lane's at either end, both standing past the lanes' own ends in the corners' boxes.
+        /// </summary>
+        public int LaneMidway(in ArcSeg piece) =>
+            LaneAlong(paving.Lanes, _index, _scan ??= _index.NewScan(), _near, _alongM, _reachM, piece, piece.LengthM * 0.5f);
     }
 
     /// <summary>
@@ -292,8 +309,31 @@ internal sealed class KerbEnds
             if (changes is not null) Marks(filing, changes, marks);
         }
 
-        var (further, nearer, heldM, crossedM) = Ranked(filing, marks, config.Road);
+        var walk = paving.Of.Roads.Unwalked.Length > 0 ? paving.Rings(config).WalkSides(config) : null;
+        var (further, nearer, heldM, crossedM) = Ranked(filing, marks, config.Road, walk);
         return new KerbEnds(further, nearer, heldM, crossedM);
+    }
+
+    /// <summary>
+    /// <b>Whether a walk crosses at a station</b> (GEN-75): at every one across a walked road, and across one with no
+    /// walk only where the walk stands at both of its points at both edges of the band — at a crossroads on it, and never
+    /// at a junction its far side has no road walked off.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both edges and not the middle</b>: a band starting at the kerb end stands its middle within a corner's own
+    /// rounded walk, which reaches round onto a road no walk runs on whether or not one runs on past the crossing.
+    /// </remarks>
+    static bool WalkedAcross(Reading reading, RingSides? walk, in Stand stand, float depthM)
+    {
+        if (walk is null || stand.Road < 0 || reading.Roads.IsWalked(stand.Road)) return true;
+
+        foreach (var edgeM in (ReadOnlySpan<float>)[-depthM * 0.5f, depthM * 0.5f])
+        {
+            var nodes = Nodes(reading, stand with { AlongM = stand.AlongM + edgeM });
+            if (!walk.Encloses(nodes.NearM) || !walk.Encloses(nodes.FarM)) return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -316,7 +356,7 @@ internal sealed class KerbEnds
     /// street gets one of each at every box.
     /// </remarks>
     static (Mark[] Further, Mark[] Nearer, KerbNodes[] HeldM, KerbNodes[] CrossedM) Ranked(
-        Reading reading, List<Mark> marks, RoadFigures figures)
+        Reading reading, List<Mark> marks, RoadFigures figures, RingSides? walk)
     {
         var furthest = new Dictionary<(int Road, int Junction), int>();
         for (var at = 0; at < marks.Count; at++)
@@ -337,9 +377,9 @@ internal sealed class KerbEnds
         }
 
         var stands = new List<Stand>();
-        foreach (var at in furthest.Values) stands.Add(Stands(reading, marks[at], figures.FootNodeClearM));
+        foreach (var at in furthest.Values) stands.Add(Stands(reading, marks[at], figures.CrossingDepthM * 0.5f));
 
-        var (heldM, crossedM) = Cut(reading, stands, figures);
+        var (heldM, crossedM) = Cut(reading, stands, figures, walk);
         return (further.ToArray(), nearer.ToArray(), heldM, crossedM);
     }
 
@@ -381,10 +421,11 @@ internal sealed class KerbEnds
     /// </para>
     /// </remarks>
     static (KerbNodes[] HeldM, KerbNodes[] CrossedM) Cut(
-        Reading reading, List<Stand> stands, RoadFigures figures)
+        Reading reading, List<Stand> stands, RoadFigures figures, RingSides? walk)
     {
         var twin = Twins(stands);
         var welded = new bool[stands.Count];
+        var uncrossed = new bool[stands.Count];
         var crossings = new List<(KerbNodes Nodes, int Stand)>();
         for (var at = 0; at < stands.Count; at++)
         {
@@ -393,17 +434,22 @@ internal sealed class KerbEnds
                          && MathF.Abs(SharedM(reading, stands[at], stands[other]) - stands[at].AlongM)
                          < figures.CrossedOnceBelowM;
 
-            if (!welded[at]) crossings.Add((Nodes(reading, stands[at]), at));
+            if (!welded[at])
+            {
+                uncrossed[at] = !WalkedAcross(reading, walk, stands[at], figures.CrossingDepthM);
+                if (!uncrossed[at]) crossings.Add((Nodes(reading, stands[at]), at));
+            }
 
             // Crossed once, at the first of the two the walk reaches — where the band stands on the road and in neither box.
-            else if (other > at && Midway(reading, stands[at], stands[other]) is var midway && OnItsRoad(reading, midway, figures.CrossingDepthM))
+            else if (other > at && Midway(reading, stands[at], stands[other]) is var midway && OnItsRoad(reading, midway, figures.CrossingDepthM)
+                     && WalkedAcross(reading, walk, midway, figures.CrossingDepthM))
             {
                 crossings.Add((Nodes(reading, midway), None));
             }
         }
 
         var heldM = new KerbNodes[stands.Count];
-        for (var at = 0; at < stands.Count; at++) heldM[at] = Nodes(reading, stands[at], painted: !welded[at]);
+        for (var at = 0; at < stands.Count; at++) heldM[at] = Nodes(reading, stands[at], painted: !welded[at] && !uncrossed[at]);
 
         var (crossedM, stretched) = Painted(crossings, figures);
         foreach (var (stand, band) in stretched)
@@ -553,19 +599,34 @@ internal sealed class KerbEnds
                stand.AlongM + (depthM * 0.5f) <= lanes.RoadToM(stand.Lane);
     }
 
-    /// <summary>The one station between two that stand too close to be two, on the first one's lane.</summary>
-    static Stand Midway(Reading reading, in Stand one, in Stand other) =>
-        one with
-        {
-            AlongM = (one.AlongM + SharedM(reading, one, other)) * 0.5f,
-            Cut = KerbCut.Midway,
-        };
+    /// <summary>
+    /// The one station between two that stand too close to be two, on the first one's lane — <b>midway along the road's
+    /// own line</b> and dropped square onto that lane: the two stand on lanes either side of the line, and halved in one
+    /// lane's metres the middle slides towards whichever end that lane bends tighter at.
+    /// </summary>
+    static Stand Midway(Reading reading, in Stand one, in Stand other)
+    {
+        var lanes = reading.Lanes;
+        var line = reading.Roads.SegmentsOf(one.Road);
+        var lineM = Spline.TotalLengthM(line);
+        var middleM = (Spline.ProjectM(line, At(lanes, one), lineM * 0.5f, lineM) +
+                       Spline.ProjectM(line, At(lanes, other), lineM * 0.5f, lineM)) * 0.5f;
+
+        var arcs = lanes.ArcsOf(one.Lane);
+        var laneM = lanes.LaneLengthM[one.Lane];
+        var alongM = Spline.ProjectM(arcs, Spline.SampleAt(line, middleM).PositionM, laneM * 0.5f, laneM);
+        return one with { AlongM = alongM, Cut = KerbCut.Midway };
+    }
 
     /// <summary>
     /// <b>Where a walk beside one road is cut at one box</b>: the further of the road's two kerb ends taken
     /// <paramref name="clearM"/> further out along the road, as the place on that kerb's own lane it is.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Half a zebra out, so the zebra starts at the kerb end</b> (WLK-10): the place the boundary gives the road
+    /// up is the junction's edge, and the paint, the bar behind it and the heads beside the bar follow the station.
+    /// </para>
     /// <para>
     /// <b>One station across the road and not one per kerb.</b> The two ends of a road stop at different
     /// depths into the mouth, so cutting each walk at its own kerb's end would put the two nodes of a
@@ -779,6 +840,9 @@ internal sealed class KerbEnds
             // end carry the traffic straight through, so the kerb turning there is a corner the pavement
             // turns with rather than a place the walk stops and is crossed.
             if (reading.WhereNothingForks(lane, change.AtM)) continue;
+
+            // <b>Nor is a node that only carries lanes on</b> (TER-5k): nothing there crosses anything, so nothing is held.
+            if (reading.JunctionOf(lane, change.AtM) is var junction && junction != None && reading.Lanes.IsSeamless(junction)) continue;
 
             into.Add(
                 new Mark(

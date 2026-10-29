@@ -263,8 +263,13 @@ def event_list(value: str) -> list[str]:
 
 
 def sampling(a) -> list:
-    """What perf samples on: the asked counters as one group, or cycles at the asked rate."""
-    return ["-e", "{" + ",".join(a.events) + "}", "-F", a.hz] if a.events else ["-F", a.hz]
+    """
+    What perf samples on and how it walks: the asked counters as one group, or cycles, at the asked rate. Both are
+    asked for user space by name, stacks included: at `perf_event_paranoid` 2 the kernel refuses perf's default
+    precise cycles and any call graph that would reach into the kernel ("Failure to open any events").
+    """
+    event = "{" + ",".join(a.events) + "}:u" if a.events else "cycles:u"
+    return ["-e", event, "-F", a.hz, "--call-graph", "fp", "--user-callchains"]
 
 
 def window(value: str) -> int:
@@ -323,7 +328,7 @@ def record(base: Path, a) -> Path:
         if a.no_cpu:
             time.sleep(a.seconds)
         else:
-            proc.run(["perf", "record", *sampling(a), "-g", "-p", pid, "-o", data, "--", "sleep", a.seconds], cwd=base)
+            proc.run(["perf", "record", *sampling(a), "-p", pid, "-o", data, "--", "sleep", a.seconds], cwd=base)
         if gpu:
             gpu.join()
         if counters:
@@ -378,11 +383,11 @@ def record_bench(base: Path, binary: Path, stem: Path, a) -> Path:
     try:
         if a.memory:
             # perf in the background, so the resident set can be read while the probe runs.
-            sampler = proc.spawn(["perf", "record", *sampling(a), "-g", "-p", pid, "-o", data], cwd=base)
+            sampler = proc.spawn(["perf", "record", *sampling(a), "-p", pid, "-o", data], cwd=base)
             peak = _heap.watch_rss(pid, log, stem)
             reap(sampler)
         else:
-            proc.run(["perf", "record", *sampling(a), "-g", "-p", pid, "-o", data], cwd=base, check=False)
+            proc.run(["perf", "record", *sampling(a), "-p", pid, "-o", data], cwd=base, check=False)
             peak = reap(pid)
         if gpu:
             gpu.join()

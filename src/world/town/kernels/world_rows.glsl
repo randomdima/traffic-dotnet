@@ -138,6 +138,8 @@ struct WalkerViewRow
     vec2 velocityMps;
     float headingRad;
     float overlapM;
+    float distanceWalkedM;
+    float unused;
 };
 
 #endif

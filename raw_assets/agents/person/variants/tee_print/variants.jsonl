@@ -1,0 +1,9 @@
+{"variant": "tee_print-v1", "frame": "walkorbit_tee_print-v2", "cell": 1, "pxPerM": 248.889, "score": 4, "status": "candidate", "ts": "2026-10-28T20:31:54"}
+{"variant": "tee_print-v2", "frame": "walkorbit_tee_print-v2", "cell": 1, "recutOf": "tee_print-v1", "pxPerM": 242.778, "score": 4, "status": "candidate", "ts": "2026-10-28T21:00:02"}
+{"variant": "tee_print-v3", "frame": "walkorbit_tee_print-v2", "cell": 1, "recutOf": "tee_print-v2", "pxPerM": 242.778, "score": 4, "status": "candidate", "ts": "2026-10-28T21:39:41"}
+{"variant": "tee_print-v4", "frame": "walkorbit_tee_print-v2", "cell": 1, "recutOf": "tee_print-v3", "pxPerM": 238.889, "score": 4, "status": "candidate", "ts": "2026-10-28T22:08:43"}
+{"variant": "tee_print-v5", "frame": "walkorbit_tee_print-v2", "cell": 1, "recutOf": "tee_print-v4", "pxPerM": 248.889, "score": 4, "status": "candidate", "ts": "2026-10-28T22:16:14"}
+{"variant": "tee_print-v6", "frame": "walkorbit_tee_print-v7", "cell": 1, "pxPerM": 217.222, "score": 3, "status": "candidate", "ts": "2026-10-28T22:58:27"}
+{"variant": "tee_print-v7", "frame": "walkorbit_tee_print-v7", "cell": 1, "recutOf": "tee_print-v6", "pxPerM": 217.222, "score": 3, "status": "candidate", "ts": "2026-10-28T23:03:09"}
+{"variant": "tee_print-v9", "frame": "walkorbit_tee_print-v7", "cell": 1, "pxPerM": 217.222, "score": 3, "status": "candidate", "ts": "2026-10-28T23:14:44"}
+{"variant": "tee_print-v10", "frame": "walkorbit_tee_print-v10", "cell": 1, "pxPerM": 244.444, "score": 4, "status": "used", "ts": "2026-10-29T00:59:20"}

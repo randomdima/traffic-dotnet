@@ -23,7 +23,8 @@ public class CarSpriteTests
 
     static CarFleet FleetOf(int cars)
     {
-        var fleet = new CarFleet(cars, arcsPerCar: 1, CarBuilds.OfTheFleet(Config, CarCatalog.Shared));
+        var fleet = new CarFleet(cars, arcsPerCar: 1, CarBuilds.OfTheFleet(Config, CarCatalog.Shared),
+            Config.Patience.FuseJitterShare);
         for (var car = 0; car < cars; car++)
         {
             fleet.Add(new Vector2(car * 10f, 0f), 0f, (byte)car, false, new Rng(1, (ulong)car));
@@ -360,7 +361,7 @@ public class CarSpriteTests
     static CarFleet OneEvacuator(CarCatalog catalogue, float headingRad, out CarTowBeam beam)
     {
         beam = catalogue.BeamOf(catalogue.Evacuator)!.Value;
-        var fleet = new CarFleet(2, arcsPerCar: 1, CarBuilds.OfTheFleet(Config, catalogue));
+        var fleet = new CarFleet(2, arcsPerCar: 1, CarBuilds.OfTheFleet(Config, catalogue), Config.Patience.FuseJitterShare);
         fleet.Add(new Vector2(2f, 5f), headingRad, (byte)catalogue.Evacuator, false, new Rng(1, 1));
         return fleet;
     }

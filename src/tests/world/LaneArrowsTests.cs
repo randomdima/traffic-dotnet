@@ -3,7 +3,6 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Tests.CityGen;
-using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 using Xunit;
 
@@ -257,13 +256,17 @@ public class LaneArrowsTests
         yield return atM + (along * headM);
     }
 
-    /// <summary>The lanes of the fixture, the bars on them and the zebras across them, which is what an arrow is laid off.</summary>
+    /// <summary>
+    /// The lanes of the fixture, the bars on them and the zebras across them, which is what an arrow is laid off — each
+    /// laid the one way the town lays it: the zebras off where the walk crosses, the bars off what each arm holds behind.
+    /// </summary>
     static (LaneLines Lanes, StopBars Bars, Crossings Zebras) Painted(SimConfig config)
     {
         var plan = Towns.Of(Towns.Fixture);
-        var lanes = plan.Paving(config).Lanes;
-        var crossings = Crossings.Lay(plan, config, FootConnectors.Lay(plan, config).Crossed());
-        return (lanes, StopBars.Lay(lanes, crossings, config), crossings);
+        var paving = plan.Paving(config);
+        var ends = paving.RoadEnds(config);
+        var zebras = Crossings.Lay(plan, config, ends.CrossedM);
+        return (paving.Lanes, StopBars.Lay(paving.Lanes, Crossings.Lay(plan, config, ends.HeldM), config, zebras), zebras);
     }
 
     /// <summary>How finely a branch's ribbon is walked to find how far across the lane it ever reaches.</summary>

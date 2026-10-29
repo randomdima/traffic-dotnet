@@ -88,7 +88,7 @@ internal static class BuildingStage
         var stations = AlongTheFace(paving.Rings(config), config);
         var claims = GenClaims.Over(config.Grid, worldSizeM, config.CityGen.ClaimCellM);
         var built = new Built();
-        TheServices(carParks, ranks, stations, sizes, config, ground, claims, built, new Asking(ground));
+        TheServices(carParks, ranks, stations, worldSizeM, sizes, config, ground, claims, built, new Asking(ground));
         return new Yards(built.Arrays(config.CityGen.BuildingCapacity), ranks, config);
     }
 
@@ -195,14 +195,18 @@ internal static class BuildingStage
     /// else to put a hospital.
     /// </summary>
     static void TheServices(
-        CarParks.Laid carParks, Ranks ranks, List<Station> stations, BuildingSizes sizes,
+        CarParks.Laid carParks, Ranks ranks, List<Station> stations, Vector2 worldSizeM, BuildingSizes sizes,
         SimConfig config, GroundShapes ground, GenClaims claims, Built built, Asking asking)
     {
+        var filed = new PointCells(config.Grid.Main, Vector2.Zero, worldSizeM);
+        foreach (var station in stations) filed.Add(station.AtM);
+
+        var near = new List<int>();
         foreach (var rank in ranks.All)
         {
             var use = carParks.For[rank.Park];
             if (use == BuildingUse.Ordinary) continue;
-            if (OffTheRank(stations, rank, config.CityGen.LocalityM) is not { } middle) continue;
+            if (OffTheRank(stations, filed, near, rank, config.CityGen.LocalityM) is not { } middle) continue;
 
             Stand(middle, sizes.Of(use), use, ranks, config, ground, claims, built, asking);
         }
@@ -227,11 +231,16 @@ internal static class BuildingStage
     /// with nothing wrong with it; the bound is there so a yard whose own face was swallowed stands no
     /// building rather than one across the block.
     /// </param>
-    static Station? OffTheRank(List<Station> stations, Rank rank, float withinM)
+    /// <param name="filed">
+    /// The stations by where they stand: only those within <paramref name="withinM"/> can be nearer than it, and they come
+    /// back in the stations' own order, so the first of two as near is the one a walk of every station keeps.
+    /// </param>
+    static Station? OffTheRank(List<Station> stations, PointCells filed, List<int> near, Rank rank, float withinM)
     {
         var best = -1;
         var bestM = withinM * withinM;
-        for (var at = 0; at < stations.Count; at++)
+        filed.Within(rank.TipM, withinM, near);
+        foreach (var at in near)
         {
             var awayM = stations[at].AtM - rank.TipM;
             if (Vector2.Dot(stations[at].Outward, rank.Outward) <= 0f
@@ -340,8 +349,7 @@ internal static class BuildingStage
         if (!SquareOnItsRank(ranks, asking.Ranks, station.AtM, footprintM.X * 0.5f, config)) return false;
 
         var stepM = config.Terrain.GroundStepM;
-        return ground.IsAll(asking.Ground, plot.CentreM, plot.Axis, plot.HalfM, stepM, Ground.Grass)
-               && !ReachesThePaving(ground, asking.Ground, plot.CentreM, plot.Axis, plot.HalfM, stepM);
+        return ground.HoldsABuilding(asking.Ground, plot.CentreM, plot.Axis, plot.HalfM, stepM);
     }
 
     /// <summary>The building stood on its plot: its ground and padding claimed, and the building kept.</summary>
@@ -424,35 +432,6 @@ internal static class BuildingStage
         public void Near(Vector2 atM, List<int> into) => _tips.Within(atM, _reachM, into);
     }
 
-    /// <summary>
-    /// <b>Whether any of the building would stand on the town's paving</b> — its own street's or another's.
-    /// </summary>
-    /// <remarks>
-    /// <b>Read off the boundary itself and not off the ground's answer</b>
-    /// (<see cref="GroundRings.PavedWithin(Vector2, float)"/>): what holds a building off a walk is the distance that walk was
-    /// struck at, so the front wall clears it by half a kerbstone by construction, and this is what keeps the
-    /// back of a deep building out of the street behind it.
-    /// </remarks>
-    static bool ReachesThePaving(
-        GroundShapes ground, GroundShapes.Scan scan, Vector2 centreM, Vector2 axis, Vector2 halfM, float stepM)
-    {
-        var side = Heading.RightOf(axis);
-        for (var alongM = -halfM.X; ; alongM += stepM)
-        {
-            var atAlongM = MathF.Min(alongM, halfM.X);
-            for (var acrossM = -halfM.Y; ; acrossM += stepM)
-            {
-                var atAcrossM = MathF.Min(acrossM, halfM.Y);
-                if (ground.PavingWithin(scan, centreM + (axis * atAlongM) + (side * atAcrossM), 0f)) return true;
-
-                if (atAcrossM >= halfM.Y) break;
-            }
-
-            if (atAlongM >= halfM.X) break;
-        }
-
-        return false;
-    }
 
     /// <summary>The buildings as they are stood, one list a field, gathered into the plan's arrays at the end.</summary>
     sealed class Built

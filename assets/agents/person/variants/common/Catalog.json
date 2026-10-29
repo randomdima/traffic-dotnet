@@ -1,9 +1,17 @@
 {
   "variants": [
-    "../tee_blue/tee_blue.json",
-    "../tee_red/tee_red.json",
-    "../coat_brown/coat_brown.json",
-    "../hoodie_teal/hoodie_teal.json",
-    "../ponytail_red/ponytail_red.json"
+    "../ponytail_red/ponytail_red.json",
+    "../curly_navy/curly_navy.json",
+    "../linen_grey/linen_grey.json",
+    "../sundress_yellow/sundress_yellow.json",
+    "../hoodie_black/hoodie_black.json",
+    "../blouse_bun/blouse_bun.json",
+    "../polo_green/polo_green.json",
+    "../cardigan_lilac/cardigan_lilac.json",
+    "../shirt_white/shirt_white.json",
+    "../quilted_navy/quilted_navy.json",
+    "../flannel_hat/flannel_hat.json",
+    "../tee_print/tee_print.json",
+    "../shirt_burgundy/shirt_burgundy.json"
   ]
 }

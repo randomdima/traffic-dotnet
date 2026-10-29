@@ -348,8 +348,9 @@ internal static class Conformance
         // (<see cref="Drivable.JoinedToNothing"/>) — and a road's that runs off the map (GEN-2b).
         var passedOver = Drivable.OffTheMap(plan, roads, Drivable.JoinedToNothing(plan, roads));
 
-        Assert.Null(Drivable.Offence(roads, passedOver));
-        Assert.Null(Drivable.Dangling(roads, passedOver));
+        // Said whole: a null asserted shows a long offence cut short, and the place it names is the point of it.
+        var offence = Drivable.Offence(roads, passedOver) ?? Drivable.Dangling(roads, passedOver);
+        Assert.True(offence is null, offence);
     }
 
     /// <summary>

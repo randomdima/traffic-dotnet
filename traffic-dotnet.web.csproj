@@ -85,7 +85,6 @@
       src/app/render/GroundBands.cs;
       src/app/render/IMovingEmit.cs;
       src/app/main/Game.Desktop.cs;
-      src/app/main/Game.Vulkan.cs;
       src/app/main/Program.cs;
       src/app/render/Texels.cs;
       src/agents/car/body/LampAtlasBake.cs;

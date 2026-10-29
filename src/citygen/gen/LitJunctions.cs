@@ -75,20 +75,26 @@ internal static class LitJunctions
     static int Movements(int arms) => arms * (arms - 1);
 
     /// <summary>
-    /// The nodes a roundabout's ring stands on, and those a district's own street meets (GEN-68). A car park's bays stand
-    /// on nodes nothing else meets at.
+    /// The nodes a roundabout's ring stands on, those a district's own street meets (GEN-68), and those a slip road leaves
+    /// an intercity road at, which nothing on the intercity road stops for (GEN-68). A car park's bays stand on nodes
+    /// nothing else meets at.
     /// </summary>
     static bool[] Unlightable(TownLayout layout)
     {
         var barred = new bool[layout.NodeM.Count];
+        var slips = new bool[layout.NodeM.Count];
+        var intercity = new bool[layout.NodeM.Count];
         foreach (var edge in layout.Edges)
         {
+            if (edge.Class == RoadClass.Slip) (slips[edge.From], slips[edge.To]) = (true, true);
+            if (edge.Class == RoadClass.Intercity) (intercity[edge.From], intercity[edge.To]) = (true, true);
             if (edge.Class is not (RoadClass.Roundabout or RoadClass.Street)) continue;
 
             barred[edge.From] = true;
             barred[edge.To] = true;
         }
 
+        for (var node = 0; node < barred.Length; node++) barred[node] |= slips[node] && intercity[node];
         return barred;
     }
 }

@@ -1,0 +1,28 @@
+{
+ "id": "walkorbit_tee_print-v7",
+ "ts": "2026-10-28T22:53:45",
+ "op": "video",
+ "name": "walkorbit_tee_print",
+ "file": ".tmp/gen/frames/walkorbit_tee_print-v7.mp4",
+ "model": "heygen/heygen-video-1",
+ "settings": {
+  "resolution": "480p",
+  "aspect_ratio": "3:4",
+  "duration": 5
+ },
+ "costUsd": 0.05,
+ "usage": {
+  "cost": 0.05,
+  "is_byok": false
+ },
+ "prompt": "Five one-second shots joined by instant hard cuts. The man walks forward at one steady pace the whole time and never turns, always facing the same way. The camera is fixed to him, as if on a rig that moves with him: within a shot it never zooms, pans, tilts or circles, so he stays the same size in the same place in the picture, his feet always at the same height. Only at each cut does the camera's angle change, round to his left, always high above looking down on his head, always at the same distance: shot 1 from the front, 2 front-left (mostly his front), 3 his left side, 4 back-left (mostly his back), 5 behind. Quick, short, even steps, three every second, never a run. Flat chroma-key blue background.",
+ "inputs": [
+  {
+   "role": "first frame",
+   "sha": "34567b4ae94b6701",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/walkorbit_tee_print.png"
+  }
+ ]
+}

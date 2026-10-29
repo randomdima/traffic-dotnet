@@ -5,7 +5,11 @@
  "describe": "a road's asphalt seen straight down, no paint, line or marking of any kind",
  "mosaic": 2,
  "looks": [
-  {"describe": "fresh asphalt, dark charcoal grey binder with a fine even speckle of small grey and pale stones", "tiles": 2},
-  {"describe": "worn asphalt, a shade lighter and greyer, stones more exposed, a few tiny dark oil spots and hairline cracks no longer than a hand", "tiles": 2}
+  {"look": "c", "describe": "new asphalt: deep near-black binder, a little darker than charcoal, with a coarse chip seal: tightly packed small dark grey chips about a centimetre across, embedded flat, with a few pale ones among them", "tiles": 2},
+  {"look": "d", "describe": "the same asphalt a little more used: a shade less black, the same chips, soft faint lighter bands of tone where tyres have polished it, no oil spots, no cracks", "tiles": 2}
+ ],
+ "trial": [
+  {"look": "a", "describe": "fresh asphalt, dark charcoal grey binder with a fine even speckle of small grey and pale stones", "tiles": 2},
+  {"look": "b", "describe": "worn asphalt, a shade lighter and greyer, stones more exposed, a few tiny dark oil spots and hairline cracks no longer than a hand", "tiles": 2}
  ]
 }

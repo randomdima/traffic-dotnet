@@ -196,10 +196,10 @@ internal sealed partial class SimConfig
     public float WalkerTightestTurnM => PersonWalkSpeedMps / (PersonTurnRateDegPerS * MathF.PI / 180f);
 
     /// <summary>
-    /// One walking lane, two bodies wide (<see cref="RoadFigures.WalkingLaneInPersonDiameters"/>) — the
-    /// width every stretch of pavement in the town is walked at.
+    /// One walking lane (<see cref="RoadFigures.WalkingLaneInPropDiameters"/>) — the width every stretch of
+    /// pavement in the town is walked at.
     /// </summary>
-    public float WalkingLaneWidthM => PersonDiameterM * Road.WalkingLaneInPersonDiameters;
+    public float WalkingLaneWidthM => PropDiameterM * Road.WalkingLaneInPropDiameters;
 
     /// <summary>
     /// The walk beside a carriageway: one lane each way, so two walkers passing each stay on their own
@@ -254,6 +254,9 @@ internal sealed partial class SimConfig
     /// deck drawn over them and the road on the ground meets the bridge straight.
     /// </summary>
     public float UnderTheDeckM => Road.LineRoundedM + Road.KerbWidthM;
+
+    /// <summary>How far a rail bridge's deck reaches either side of its track (RAIL-8): half its ballast and the overhang past it.</summary>
+    public float RailDeckHalfM => (Rail.BallastWidthM * 0.5f) + Rail.BridgeDeckOverhangM;
 
     /// <summary>
     /// <b>How far past the map's edge the ground of a road running off it is laid</b> (GEN-2b, TER-7b): the last
@@ -368,6 +371,28 @@ internal sealed partial class SimConfig
 
     /// <summary>How far off the arms already there a road between districts is planned (GEN-13, GEN-69).</summary>
     public float LinkArmsApartMinRad => (CityGen.ArmsApartMinDeg + CityGen.LinkArmsMarginDeg) * MathF.PI / 180f;
+
+    /// <summary>The angle a slip road leaves and joins an intercity road at (GEN-68).</summary>
+    public float SlipLeavesRad => CityGen.SlipLeavesDeg * MathF.PI / 180f;
+
+    /// <summary>
+    /// <b>How near a slip road's arm lies to the intercity road's, or to another slip's, at the node they share</b> (GEN-13):
+    /// its own angle, less what laying it takes off (<see cref="CityGenFigures.LinkArmsMarginDeg"/>).
+    /// </summary>
+    public float SlipArmsApartMinRad => (CityGen.SlipLeavesDeg - CityGen.LinkArmsMarginDeg) * MathF.PI / 180f;
+
+    /// <summary>
+    /// <b>How far along the intercity road a slip road runs to reach its terminal's offset</b> (GEN-68), at the slip's own
+    /// angle.
+    /// </summary>
+    public float SlipRunM => CityGen.InterchangeOffsetM / MathF.Tan(SlipLeavesRad);
+
+    /// <summary>
+    /// <b>The standoff of a node a slip road leaves an intercity road at</b> (GEN-46, GEN-68): far enough out along the slip's
+    /// shallow arm, at the angle it leaves on, that its lane ends clear of the intercity road's carriageway, so no lane of
+    /// either starts on the other.
+    /// </summary>
+    public float SlipStandoffM(float carriagewayM, float leavesRad) => (carriagewayM + LaneWidthM) * 0.5f / MathF.Sin(leavesRad);
 
     public float TributaryJoinLeastRad => CityGen.TributaryJoinLeastDeg * MathF.PI / 180f;
 
@@ -504,11 +529,10 @@ internal sealed partial class SimConfig
     public float CarParkAislePitchM => CarParkAisleWidthM + (2f * CarParkBayDepthM) + CityGen.CarParkIslandM;
 
     /// <summary>
-    /// <b>How far back from where an aisle's lanes end its ranks begin</b> (GEN-53a): the kerb end a zebra is struck past
-    /// (<see cref="RoadFigures.FootNodeClearM"/>) and the zebra's own depth, so the zebra lands on the walk and not
-    /// on a bay's apron.
+    /// <b>How far back from where an aisle's lanes end its ranks begin</b> (GEN-53a): the depth of the zebra struck from the
+    /// kerb end, so the zebra lands on the walk and not on a bay's apron.
     /// </summary>
-    public float CarParkRankClearM => Road.FootNodeClearM + Road.CrossingDepthM;
+    public float CarParkRankClearM => Road.CrossingDepthM;
 
     /// <summary>
     /// <b>How far a car park's entrance stands from any junction of the street it joins</b> (GEN-53a): further than two

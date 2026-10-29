@@ -112,6 +112,9 @@ internal sealed class ManagedWorld : WorldLayer
     readonly Vector2[] _declaredMps;
     readonly bool[] _inside;
 
+    /// <summary>Each walker's <see cref="WalkerView.DistanceWalkedM"/>, summed as the device's walker row sums it.</summary>
+    readonly float[] _distanceWalkedM;
+
     readonly RoadGraph _roads;
 
     /// <summary>What each car follows as last signalled, and where it was read along it (<see cref="LineReading"/>).</summary>
@@ -229,6 +232,7 @@ internal sealed class ManagedWorld : WorldLayer
         _headingRad = new float[walkerCount];
         _declaredMps = new Vector2[walkerCount];
         _inside = new bool[walkerCount];
+        _distanceWalkedM = new float[walkerCount];
         _walkerIntoMps = new Vector2[walkerCount];
         _walkerStoodAt = new Vector2[walkerCount];
         Array.Fill(_walkerStoodAt, new Vector2(float.NaN));
@@ -745,6 +749,8 @@ internal sealed class ManagedWorld : WorldLayer
             row.VelocityMps = _physics.VelocityOf(body);
             row.HeadingRad = _headingRad[person];
             row.OverlapM = _physics.OverlapOf(body);
+            if (stepped && !_inside[person]) _distanceWalkedM[person] += row.VelocityMps.Length() * _stepDtS;
+            row.DistanceWalkedM = _distanceWalkedM[person];
         }
 
         var wagons = view.Wagons;

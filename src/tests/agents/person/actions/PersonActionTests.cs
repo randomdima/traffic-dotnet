@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -102,6 +103,7 @@ public class PersonActionTests
     {
         var world = loop.World;
         var people = world.People;
+        var zebras = Crossings.Lay(Towns.Built, Config, Towns.Built.Paving(Config).RoadEnds(Config).CrossedM);
         for (var walker = 0; walker < people.Count; walker++)
         {
             if (people.Action[walker] != PersonAction.Walk || people.OnWay[walker] < 0) continue;
@@ -113,6 +115,7 @@ public class PersonActionTests
 
             var at = Spline.SampleAt(world.Roads.ArcsOf(lane), alongM);
             if ((at.PositionM - people.PositionM[walker]).Length() > NearALaneM) continue;
+            if (OnAZebra(zebras, at.PositionM, people.RadiusM[walker])) continue;
 
             var way = people.OnWay[walker];
             world.StandTheWalkerAt(walker, at.PositionM, people.HeadingRad[walker]);
@@ -120,6 +123,26 @@ public class PersonActionTests
         }
 
         throw new InvalidOperationException("no walker out on the pavement beside a street lane to put in the road");
+    }
+
+    /// <summary>
+    /// Whether a body put down at a place would stand on a zebra's band, which is walked ground and not the road
+    /// (TER-6): a zebra starts at the kerb end, so the street lane beside a walk near a junction runs under one.
+    /// </summary>
+    static bool OnAZebra(Crossings zebras, Vector2 pointM, float radiusM)
+    {
+        for (var zebra = 0; zebra < zebras.Count; zebra++)
+        {
+            var along = Vector2.Normalize(zebras.Axis[zebra]);
+            var offM = pointM - zebras.CentreM[zebra];
+            if (MathF.Abs(Vector2.Dot(offM, along)) <= (zebras.DepthM[zebra] * 0.5f) + radiusM
+                && MathF.Abs(Vector2.Dot(offM, new Vector2(-along.Y, along.X))) <= (zebras.SpanM[zebra] * 0.5f) + radiusM)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>How near a walker's pavement has to be to a lane for the lane to be the street beside it.</summary>

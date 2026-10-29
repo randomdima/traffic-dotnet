@@ -15,8 +15,8 @@ car runs.
 
 **SRV-1** `P4` Some of a town's buildings are **police stations** and some are **depots**, declared by the
 map on the terms a hospital is (AMB-1). **A building serves one use at most**, which one field settles
-rather than the order anything is read in. **Every district of a town with a building on it has one of each**
-(GEN-56).
+rather than the order anything is read in. **Every district of a town with a building on it is served by one of
+each**, each serving a catchment of districts (GEN-56).
 
 ## The vehicles
 

@@ -93,11 +93,11 @@ wide circle makes a different manoeuvre into the same bay than a small car does.
   those left, the one whose body stands over less of the street's own lanes is the one made**
   (`ParkingIn.ShapeTheWayIn`, `BayManoeuvring.WhatTheShapeTakes`) — unless a body stands on that one's ground and
   not on the other's, which is never had while it stands there. The driver's habit settles a tie (`GEN-4j`).
-- **Out of a bay there is one shape to each lane of its street**: straight out of the space, one turn, and a
+- **Out of a bay there is one shape to each lane it is worked off** (`GEN-4h`): straight out of the space, one turn, and a
   little straight along the lane the way the car will then drive it — reversing out of a space it stands nose
   first in, and driving out of one it stands backed into. **A car standing nearer a lane than its own circle
   lands past that lane's middle** by the least that lets the turn fit, and drives back onto it from there. **The
-  route is laid before the car moves**, from both lanes at once, and the lane it sets off down is the one the car
+  route is laid before the car moves**, from every lane it is worked off at once, and the lane it sets off down is the one the car
   pulls out onto; where the car cannot be got onto that one, the route is laid again from the other before it moves
   (`TownWorld.LeaveTheBay`). Of two it could make with no route to choose, the one taking less street.
 - **It is driven as it bends, at a walking pace** (`CarFollower.SteerTheManoeuvre`, `TurningPaceMps`): the wheel is
@@ -147,7 +147,8 @@ end**, and nothing turns a car round there: it stands at the end until its leg's
 
 - **It is a manoeuvre in and a manoeuvre out and nothing new** (`GEN-4f`): in off the lane the car is coming
   down, and out onto the lane running back, whichever way the place it is going to lies — the route out of the bay
-  laid from that lane alone.
+  laid from that lane alone. **So a car turns only in a bay worked off both** (`GEN-4h`), which is never one on a
+  street of more than one lane a way.
 - **The bay is held while the turn is made, and that hold is a second claim of the same kind** (`GEN-4g`). A leg
   turning keeps the place it is going to — the destination has not changed, only the way round to it — and gives
   the turning bay back the moment it is out of it. Every way a leg can end gives back both.
@@ -205,8 +206,10 @@ anything** — laid as `GEN-53` lays it ([citygen](../../../citygen/docs/require
 parted, no junction stands at a car park, and what gets a car from the street into a bay is its own manoeuvre
 (`GEN-4f`). Three consequences:
 
-- **A leg aimed at a bay is routed to its street**, the place on each lane of it the bay's mouth stands abeam
-  of (`BayStreets`), which is an ordinary route over the town's own lanes. **A bay is never a lane a route or a
+- **A leg aimed at a bay is routed to its street**, the place on each lane the bay is worked off that its mouth
+  stands abeam of (`BayStreets`), which is an ordinary route over the town's own lanes. **A bay is worked off the
+  kerb lane beside it, and off the lane across only where the street is one lane each way** (CAR-6.2b): a car
+  crosses no lane of its own way and no unbroken middle line to get into a bay or out of one. **A bay is never a lane a route or a
   tour runs down**: nothing joins one, a tour never draws one (`LaneTour`), and a car taking the lane under it
   takes the carriageway's (`RoadGraph.NearestStreetLane`).
 - **A bay is a lane of the town all the same**, so a body standing in it is laid on it like on any other

@@ -16,7 +16,8 @@ namespace TrafficSimulation.Tests.CityGen.Zones;
 [Trait(Priority.Key, Priority.P6)]
 public class ZoneTreeTests
 {
-    static readonly ZoneFigures Figures = SimConfig.Shipped().Zones;
+    static readonly SimConfig Config = SimConfig.Shipped();
+    static readonly ZoneFigures Figures = Config.Zones;
 
     /// <summary><b>The deepest zone holding a place is its zone</b>: a park inside a suburb is the park's ground, the rest the suburb's.</summary>
     [Fact]
@@ -43,7 +44,7 @@ public class ZoneTreeTests
         var zones = new TownMap.ZoneArrays.Builder();
         zones.Add(-1, ZoneKind.Town, [], [TownMap.WholeOutline(new Vector2(1000, 1000))]);
         zones.Add(0, ZoneKind.OldTown, [], [Square(100, 100, 400), Square(200, 200, 100)]);
-        var tree = new ZoneTree(zones.Arrays(), Figures);
+        var tree = new ZoneTree(zones.Arrays(), Config);
 
         Assert.Equal((TownMap.ZoneArrays.Root, 1), (tree.At(new(250, 250)), tree.At(new(150, 150))));
     }
@@ -79,7 +80,7 @@ public class ZoneTreeTests
         Assert.Equal(1f, tree[1].LookShares.Sum());
     }
 
-    static ZoneTree Tree(params Zoned.Zone[] zones) => new(Zoned.Town(1000f, 1000f, [], zones), Figures);
+    static ZoneTree Tree(params Zoned.Zone[] zones) => new(Zoned.Town(1000f, 1000f, [], zones), Config);
 
     static Vector2[] Square(float xM, float yM, float sideM) => [new(xM, yM), new(xM + sideM, yM), new(xM + sideM, yM + sideM), new(xM, yM + sideM)];
 }

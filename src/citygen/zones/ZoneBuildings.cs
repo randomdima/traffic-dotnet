@@ -27,7 +27,8 @@ namespace TrafficSimulation.CityGen.Zones;
 /// <b>How a zone builds is its own too</b>: which look is drawn by the zone's shares of them; whether the building
 /// repeats the one before it on the walk or is drawn afresh by its variety; how far its front stands off the
 /// carriageway by its front distance and spread — never nearer than the building line
-/// (<see cref="SimConfig.BuildingLineM"/>); and how far it turns off square by its skew. Its way in is on the walk's
+/// (<see cref="SimConfig.BuildingLineM"/>); and how far it turns off square by its skew, the spread and the skew drawn
+/// once a ring so a block's fronts keep one line. Its way in is on the walk's
 /// outer lane (<see cref="SimConfig.BuildingWayInM"/>) in front of it, however far back it stands. A front the walk will
 /// not seat straight — across a bend, round a block's corner, across a junction's mouth, down the side of a rank of
 /// bays — is not stood.
@@ -63,14 +64,19 @@ internal static class ZoneBuildings
     /// <summary>One building stood on a ring, before the rings are stood together.</summary>
     readonly record struct Stood(int Prefab, Vector2 CentreM, Vector2 SizeM, float HeadingRad, Vector2 EntryM);
 
+    /// <param name="behindInBlocks">
+    /// Whether a town's kinds build behind their frontage only inside a block (GEN-77): a generated district's zone is its
+    /// whole district, reaching past its outermost street to a road with no walk, the water or its edge, where a traced
+    /// zone is the outline a place's own buildings were measured in.
+    /// </param>
     public static CityPlan.BuildingArrays Lay(
         ZoneTree zones, Survey survey, BuildingStage.Yards yards, Paving paving, GroundShapes ground, BuildingSizes sizes,
-        SimConfig config) =>
-        Laid(zones, survey, yards, paving, ground, sizes, config).Buildings;
+        SimConfig config, bool behindInBlocks = false) =>
+        Laid(zones, survey, yards, paving, ground, sizes, config, behindInBlocks).Buildings;
 
     public static Laying Laid(
         ZoneTree zones, Survey survey, BuildingStage.Yards yards, Paving paving, GroundShapes ground, BuildingSizes sizes,
-        SimConfig config)
+        SimConfig config, bool behindInBlocks = false)
     {
         var (stoodByLook, refusedByLook) = (new int[ZoneParams.Looks], new int[ZoneParams.Looks]);
         var built = new Built();
@@ -82,6 +88,7 @@ internal static class ZoneBuildings
             built.Add(new Stood(-1, services.CentreM[service], services.SizeM[service], services.HeadingRad[service], services.EntryPointM[service]), services.Use[service], services.Capacity[service]);
         }
 
+        // A building the map sets down stands as the prefab nearest it, so a catalogue of none stands none of those either.
         if (sizes.PrefabM.Length == 0) return new Laying(built.Arrays(), 0, 0, 0, 0, stoodByLook, refusedByLook);
 
         var rings = paving.Rings(config);
@@ -104,7 +111,6 @@ internal static class ZoneBuildings
         var hubM = zones.Zones.Own(Map.TownMap.ZoneArrays.Root, ZoneParam.HubXM) is { } hubX && zones.Zones.Own(Map.TownMap.ZoneArrays.Root, ZoneParam.HubYM) is { } hubY
             ? new Vector2(hubX, hubY)
             : (Vector2?)null;
-        var thin = new Rng(survey.Seed, Streams.Building);
         var thinned = 0;
         StandAll(ringStood);
         var alongTheStreets = built.Count;
@@ -115,10 +121,11 @@ internal static class ZoneBuildings
         var behindStood = new Stood[builtBehind.Length][];
         if (built.Count < most)
         {
+            var blocks = behindInBlocks ? Blocks.Of(rings) : null;
             InChunks.Over(
                 builtBehind.Length,
                 () => new Working(face, ground),
-                (own, at) => behindStood[at] = Behind(builtBehind[at], survey.Seed, zones, prefabs, ground, standing, config, own));
+                (own, at) => behindStood[at] = Behind(builtBehind[at], survey.Seed, zones, prefabs, ground, standing, blocks, config, own));
             StandAll(behindStood);
         }
 
@@ -131,30 +138,42 @@ internal static class ZoneBuildings
 
         return new Laying(built.Arrays(), places, open, thinned, built.Count - alongTheStreets, stoodByLook, refusedByLook);
 
-        // Every building of each pool kept at the share the plan still has room for where it stands, stood where nothing
-        // stood before it.
+        // Every building of the pools that would stand where nothing stood before it, kept at the share the plan still has
+        // room for where it stands.
         void StandAll(Stood[][] pools)
         {
-            var left = most == int.MaxValue ? int.MaxValue : most - built.Count;
-            var keeping = Keeping.Of(pools, left, hubM, config.CityGen.ZoneThinFalloff);
+            // <b>What would stand were none thinned, and only that, is what the plan's room is shared over</b>: counted
+            // over every building offered, the ones refused below took a share the rest then went without.
+            var would = new List<Stood>();
+            var pool = new Standing(config.CityGen.ZonePartyWallM, config.Grid.Main.CellM);
             foreach (var stood in pools)
             {
                 foreach (var building in stood)
                 {
-                    if (thin.NextFloat() >= keeping.At(building.CentreM) || built.Count >= most)
-                    {
-                        thinned++;
-                        continue;
-                    }
-
                     // A way in past the map's edge is a door nobody can stand at (GEN-2b).
                     if (building.EntryM is not { X: >= 0f, Y: >= 0f } entryM || entryM.X > survey.WidthM || entryM.Y > survey.HeightM) continue;
                     if (!standing.Clear(building.CentreM, building.HeadingRad, building.SizeM)) continue;
+                    if (!pool.Clear(building.CentreM, building.HeadingRad, building.SizeM)) continue;
 
-                    standing.Add(building.CentreM, building.HeadingRad, building.SizeM);
-                    built.Add(building, BuildingUse.Ordinary, config.CityGen.BuildingCapacity);
-                    stoodByLook[(int)sizes.PrefabLook[building.Prefab]]++;
+                    pool.Add(building.CentreM, building.HeadingRad, building.SizeM);
+                    would.Add(building);
                 }
+            }
+
+            var left = most == int.MaxValue ? int.MaxValue : most - built.Count;
+            var kept = Keeping.Of(would, left, hubM, config.CityGen.ZoneThinFalloff).Kept(would, survey.Seed);
+            for (var at = 0; at < would.Count; at++)
+            {
+                if (!kept[at])
+                {
+                    thinned++;
+                    continue;
+                }
+
+                var building = would[at];
+                standing.Add(building.CentreM, building.HeadingRad, building.SizeM);
+                built.Add(building, BuildingUse.Ordinary, config.CityGen.BuildingCapacity);
+                stoodByLook[(int)sizes.PrefabLook[building.Prefab]]++;
             }
         }
     }
@@ -191,12 +210,18 @@ internal static class ZoneBuildings
     /// <b>How much of what the zones stood a town that plans fewer buildings keeps, place by place</b> (GEN-54): the same
     /// share everywhere where the town names no hub; where it names one, all of it out to a radius of the hub and beyond
     /// that a share falling as the distance to the power <see cref="CityGenFigures.ZoneThinFalloff"/> — the radius the one
-    /// at which the shares of every building offered come to what the plan has room for.
+    /// at which the shares of every building that would stand come to what the plan has room for.
     /// </summary>
     readonly record struct Keeping(Vector2? HubM, float RadiusM, float Share, float Falloff)
     {
-        /// <summary>How many times the radius is halved toward the one that keeps what the plan has room for.</summary>
+        /// <summary>
+        /// How many times the radius is halved toward the one that keeps what the plan has room for: past a float's 24 bits,
+        /// so the search's precision and not a figure of the town.
+        /// </summary>
         const int Halvings = 40;
+
+        /// <summary>The stream the one offset the kept are counted off is drawn on.</summary>
+        const ulong ThinStream = 0x7468_696E_0000_0000;
 
         public float At(Vector2 atM)
         {
@@ -206,33 +231,52 @@ internal static class ZoneBuildings
             return awayM <= RadiusM ? 1f : MathF.Pow(RadiusM / awayM, Falloff);
         }
 
-        public static Keeping Of(Stood[][] pools, int left, Vector2? hubM, float falloff)
+        public static Keeping Of(List<Stood> would, int left, Vector2? hubM, float falloff)
         {
-            var candidates = 0;
-            foreach (var stood in pools) candidates += stood.Length;
-            if (candidates <= left) return new Keeping(null, 0f, 1f, falloff);
-            if (hubM is not { } hub) return new Keeping(null, 0f, left / (float)candidates, falloff);
+            if (would.Count <= left) return new Keeping(null, 0f, 1f, falloff);
+            if (hubM is not { } hub) return new Keeping(null, 0f, left / (float)would.Count, falloff);
 
             var (leastM, mostM) = (0f, 0f);
-            foreach (var stood in pools)
-            {
-                foreach (var building in stood) mostM = MathF.Max(mostM, Vector2.Distance(building.CentreM, hub));
-            }
+            foreach (var building in would) mostM = MathF.Max(mostM, Vector2.Distance(building.CentreM, hub));
 
             for (var halving = 0; halving < Halvings; halving++)
             {
                 var keeping = new Keeping(hub, (leastM + mostM) * 0.5f, 1f, falloff);
                 var kept = 0f;
-                foreach (var stood in pools)
-                {
-                    foreach (var building in stood) kept += keeping.At(building.CentreM);
-                }
+                foreach (var building in would) kept += keeping.At(building.CentreM);
 
                 if (kept > left) mostM = keeping.RadiusM;
                 else leastM = keeping.RadiusM;
             }
 
             return new Keeping(hub, leastM, 1f, falloff);
+        }
+
+        /// <summary>
+        /// <b>Which of the buildings that would stand are kept</b>: each at its own share (<see cref="At"/>), counted off
+        /// systematically in an order keyed on each building's place (GEN-11) — so a building is kept as often as its share
+        /// says, every one within the radius is kept, and <b>no more are kept than the shares sum to</b>, which is no more
+        /// than the plan has room for. Drawn one by one instead, the count overran by chance and the overrun was cut off
+        /// the last rings walked.
+        /// </summary>
+        public bool[] Kept(List<Stood> would, ulong seed)
+        {
+            var kept = new bool[would.Count];
+            var order = new (ulong Key, int At)[would.Count];
+            for (var at = 0; at < would.Count; at++) order[at] = (ConnectionPoints.Keyed(would[at].CentreM, would[at].EntryM), at);
+
+            Array.Sort(order);
+            var share = new Rng(seed, ThinStream).NextFloat();
+            foreach (var (_, at) in order)
+            {
+                share += At(would[at].CentreM);
+                if (share < 1f) continue;
+
+                kept[at] = true;
+                share -= 1f;
+            }
+
+            return kept;
         }
     }
 
@@ -248,7 +292,7 @@ internal static class ZoneBuildings
         SimConfig config, Working own)
     {
         var figures = config.CityGen;
-        var draw = new Rng(seed, Streams.Building ^ (ulong)index);
+        var draw = new Rng(seed, Streams.Keyed(Streams.Building, (ulong)index));
         var lineM = config.BuildingLineM - config.WalkOuterM;
         var standing = new Standing(figures.ZonePartyWallM, config.Grid.Main.CellM);
         var stood = new List<Stood>();
@@ -256,6 +300,10 @@ internal static class ZoneBuildings
         var lengthM = Spline.TotalLengthM(ring);
         var cursor = default(SplineCursor);
         Before? before = null;
+
+        // <b>A street holds one building line</b>: how far back off it and how far turned its fronts stand is drawn once for
+        // the ring, as a share of each zone's spread, so a block's fronts stand in a row and two blocks differ.
+        var (backShare, skewShare) = (draw.NextFloat(-1f, 1f), draw.NextFloat(-1f, 1f));
         var alongM = 0f;
         while (alongM < lengthM)
         {
@@ -295,8 +343,8 @@ internal static class ZoneBuildings
         float Stand(int zone, ZoneSettings said, BuildingLook look, int again, Vector2 faceM, Vector2 along)
         {
             var wears = prefabs.Of(look);
-            var backM = MathF.Max(0f, said.FrontM - config.BuildingLineM) + (said.FrontSpreadM > 0f ? draw.NextFloat(-said.FrontSpreadM, said.FrontSpreadM) : 0f);
-            var skewRad = said.SkewDeg > 0f ? draw.NextFloat(-said.SkewDeg, said.SkewDeg) * (MathF.PI / 180f) : 0f;
+            var backM = MathF.Max(0f, said.FrontM - config.BuildingLineM) + (said.FrontSpreadM * backShare);
+            var skewRad = said.SkewDeg * skewShare * (MathF.PI / 180f);
             var tries = Math.Min(wears.Count, figures.ZonePrefabsTried) + (again >= 0 ? 1 : 0);
             for (var tried = 0; tried < tries; tried++)
             {
@@ -342,12 +390,19 @@ internal static class ZoneBuildings
     /// it is asked about</b>, so what the stream has spent is the places offered and never what the ground answered.
     /// </remarks>
     /// <param name="frontage">What stands along the streets, read and never written while the zones are walked.</param>
+    /// <param name="blocks">
+    /// The town's blocks where a town's kinds build behind their frontage only inside one, or none where they build
+    /// anywhere in their zone: never on the ground a district leaves between its outermost street and a road with no walk,
+    /// the water or its edge. The country's kinds and the works, whose yards stand on plots no street rings, build where
+    /// they stand either way.
+    /// </param>
     static Stood[] Behind(
-        int zone, ulong seed, ZoneTree zones, Prefabs prefabs, GroundShapes ground, Standing frontage, SimConfig config, Working own)
+        int zone, ulong seed, ZoneTree zones, Prefabs prefabs, GroundShapes ground, Standing frontage, Blocks? blocks, SimConfig config,
+        Working own)
     {
         var figures = config.CityGen;
         var said = zones[zone];
-        var draw = new Rng(seed, Streams.Behind ^ (ulong)zone);
+        var draw = new Rng(seed, Streams.Keyed(Streams.Behind, (ulong)zone));
         var meanM2 = said.BehindM2 > 0f ? said.BehindM2 : prefabs.MeanM2(said.LookShares);
         var (leastM, mostM) = zones.BoxOf(zone);
         float? bearingRad = said.BearingDeg is { } bearingDeg ? Trig.Atan2(-Trig.Cos(bearingDeg * (MathF.PI / 180f)), Trig.Sin(bearingDeg * (MathF.PI / 180f))) : null;
@@ -355,6 +410,8 @@ internal static class ZoneBuildings
         var standing = new Standing(figures.ZonePartyWallM, config.Grid.Main.CellM);
         var stood = new List<Stood>();
         var leftM2 = said.Interior * zones.AreaM2Of(zone);
+        var inBlocks = blocks is not null
+                       && said.Kind is not (ZoneKind.Town or ZoneKind.Farmland or ZoneKind.Wild or ZoneKind.Open or ZoneKind.Park or ZoneKind.Industrial);
         var offered = (int)MathF.Ceiling(leftM2 / meanM2 * figures.ZoneBehindOffered);
         for (var at = 0; at < offered && leftM2 > 0f; at++)
         {
@@ -362,6 +419,7 @@ internal static class ZoneBuildings
             var look = said.Look(draw.NextFloat());
             var prefab = prefabs.Of(look)[prefabs.Drawn(look, said.BehindM2, ref draw)];
             if (zones.At(atM) != zone || own.Face.Nearest(own, atM, figures.ZoneBehindClearM, out _, out _) is not null) continue;
+            if (inBlocks && blocks!.At(atM) < 0) continue;
             if (Walked(atM) is not var (onM, street)) continue;
 
             var sizeM = prefabs.SizeM(prefab);
@@ -388,32 +446,9 @@ internal static class ZoneBuildings
         }
     }
 
-    /// <summary>
-    /// <b>Whether a box stands wholly on grass and off every paving</b> (GEN-2b, GEN-2c, GEN-54), asked round its
-    /// walls a ground step apart and at its middle: a street is a line, so one that reaches a box crosses its wall.
-    /// </summary>
-    static bool OnClearGround(GroundShapes ground, GroundShapes.Scan scan, Vector2 centreM, Vector2 along, Vector2 sizeM, SimConfig config)
-    {
-        if (!Clear(centreM)) return false;
-
-        var across = Heading.RightOf(along);
-        var halfM = sizeM * 0.5f;
-        var stepM = config.Terrain.GroundStepM;
-        Span<Vector2> corners = [centreM - (along * halfM.X) - (across * halfM.Y), centreM + (along * halfM.X) - (across * halfM.Y), centreM + (along * halfM.X) + (across * halfM.Y), centreM - (along * halfM.X) + (across * halfM.Y)];
-        for (var side = 0; side < 4; side++)
-        {
-            var (fromM, toM) = (corners[side], corners[(side + 1) % 4]);
-            var steps = Math.Max(1, (int)MathF.Ceiling(Vector2.Distance(fromM, toM) / stepM));
-            for (var step = 0; step < steps; step++)
-            {
-                if (!Clear(Blend.Lerp(fromM, toM, step / (float)steps))) return false;
-            }
-        }
-
-        return true;
-
-        bool Clear(Vector2 atM) => ground.Is(scan, atM, Ground.Grass) && !ground.PavingWithin(scan, atM, 0f);
-    }
+    /// <summary>Whether a box stands wholly on grass and off every paving (<see cref="GroundShapes.HoldsABuilding"/>).</summary>
+    static bool OnClearGround(GroundShapes ground, GroundShapes.Scan scan, Vector2 centreM, Vector2 along, Vector2 sizeM, SimConfig config) =>
+        ground.HoldsABuilding(scan, centreM, along, sizeM * 0.5f, config.Terrain.GroundStepM);
 
     /// <summary>One thread's working set: the scans, the profile a front is seated through, and the ranks near a place.</summary>
     sealed class Working(Face face, GroundShapes ground)

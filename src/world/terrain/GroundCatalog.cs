@@ -25,6 +25,7 @@ internal readonly struct GroundCatalog
         /* Water     */ GroundRules.None,
         /* Sidewalk  */ GroundRules.Walkable | GroundRules.Preferred,
         /* Rail      */ GroundRules.None,
+        /* Shoulder  */ GroundRules.Walkable,
     ];
 
     /// <summary>

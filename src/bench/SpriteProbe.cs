@@ -60,6 +60,7 @@ internal static class SpriteProbe
         var level = world.Levelled ? CityPlan.RoadArrays.Ground : CarSprites.EveryLevel;
         var inView = new int[world.Cars.Capacity];
         var peopleInView = new int[world.People.Capacity];
+        var walkerDepths = new PersonSprites.Depth[world.People.Capacity];
         var openingM = Opening.LooksAtM(world.Roads, plan.WorldSizeM, ViewsM[0] * 0.5f);
 
         Console.WriteLine(
@@ -91,8 +92,8 @@ internal static class SpriteProbe
             var find = Us(() => world.PeopleIn(centreM - reachM, centreM + reachM, peopleInView).Length, out var walkers)
                 + Us(() => world.CarsIn(centreM - reachM, centreM + reachM, inView).Length, out var listed);
             var people = Us(() => PersonSprites.Fill(
-                world.People, peopleInView.AsSpan(0, walkers), looks.People, looks.Aspects, looks.FirstDownSheet, centreM,
-                spanM, into), out _);
+                world.People, peopleInView.AsSpan(0, walkers), looks.People, looks.Aspects, looks.FirstDownSheet,
+                config.Person.DrawnStandingBelowMps, centreM, spanM, into, walkerDepths), out _);
             var tyres = Us(() => looks.WidestTyreM < leastPartM ? 0 : CarSprites.FillTyres(
                 world.Cars, inView.AsSpan(0, listed), looks.RubberSheet, leastPartM, centreM, spanM, into, level), out _);
             var bodies = Us(() => CarSprites.Fill(

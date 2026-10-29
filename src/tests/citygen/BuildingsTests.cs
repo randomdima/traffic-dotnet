@@ -167,30 +167,39 @@ public class BuildingsTests
     }
 
     /// <summary>
-    /// <b>Every district a street stands in stands a hospital, a police station and a depot</b> (GEN-56), each inside it;
-    /// one no street stands in is open land and owed none (GEN-65).
+    /// <b>Every catchment stands its hospital, its police station and its depot</b> (GEN-56), each in a district of its
+    /// own — the one chosen, or a neighbour it was handed on to — as many of each as the town has catchments.
     /// </summary>
     [Fact]
-    public void EveryDistrictWithStreetsStandsEachService()
+    public void EveryCatchmentStandsItsService()
     {
         var plan = Plan;
-        var uses = ServiceBuildings.Uses;
-        var stood = new bool[plan.Districts.Count * uses.Length];
-        for (var building = 0; building < plan.Buildings.Count; building++)
+        foreach (var use in ServiceBuildings.Uses)
         {
-            var use = uses.IndexOf(plan.Buildings.Use[building]);
-            var district = plan.Districts.At(plan.Buildings.CentreM[building]);
-            if (use >= 0 && district >= 0) stood[(district * uses.Length) + use] = true;
-        }
-
-        for (var district = 0; district < plan.Districts.Count; district++)
-        {
-            if (!plan.Districts.Built(district)) continue;
-
-            for (var use = 0; use < uses.Length; use++)
+            var stood = new HashSet<int>();
+            for (var building = 0; building < plan.Buildings.Count; building++)
             {
-                Assert.True(stood[(district * uses.Length) + use], $"district {district} about {plan.Districts.CentreM[district]} stands no {uses[use]}");
+                if (plan.Buildings.Use[building] == use) stood.Add(plan.Districts.At(plan.Buildings.CentreM[building]));
             }
+
+            Assert.Equal(ServiceBuildings.Serving(use, plan, Config.CityGen).Count, stood.Count);
+        }
+    }
+
+    /// <summary>
+    /// <b>A service serves a catchment</b> (GEN-56): as many of a use as its catchment divides the districts with streets
+    /// into, rounded up — never one a district.
+    /// </summary>
+    [Fact]
+    public void AServiceIsWantedOnceACatchment()
+    {
+        var plan = Plan;
+        foreach (var use in ServiceBuildings.Uses)
+        {
+            var catchment = ServiceBuildings.CatchmentOf(use, Config.CityGen);
+            var wanted = (plan.Districts.BuiltCount + catchment - 1) / catchment;
+
+            Assert.Equal(wanted, ServiceBuildings.Serving(use, plan, Config.CityGen).Count);
         }
     }
 
@@ -201,7 +210,9 @@ public class BuildingsTests
     /// </summary>
     /// <remarks>
     /// <b>The rank is read off the bays and not off a count</b>: how far it reaches along the street is
-    /// where its own arms end, which is the figure that decided where a building could go.
+    /// where its own arms end, which is the figure that decided where a building could go. <b>The frontage is
+    /// read at the front wall's two ends</b> and not off the building's middle: a building forty metres deep
+    /// turned a degree off the street has its middle most of a metre along from its front.
     /// </remarks>
     [Fact]
     public void NoBuildingFrontsTheRoundingOfACarPark()
@@ -215,9 +226,15 @@ public class BuildingsTests
             var centreM = plan.Buildings.CentreM[building];
             var halfM = plan.Buildings.SizeM[building] * 0.5f;
 
+            // The front wall's two ends: a building's front runs along its heading, the street on its right.
+            var front = Heading.Unit(plan.Buildings.HeadingRad[building]);
+            var wallM = centreM + (Heading.RightOf(front) * halfM.Y);
+            var (oneEndM, otherEndM) = (wallM - (front * halfM.X), wallM + (front * halfM.X));
+
             foreach (var (tipM, outward, halfAcrossM) in ranks)
             {
-                var alongM = Vector2.Dot(centreM - tipM, Heading.RightOf(outward));
+                var along = Heading.RightOf(outward);
+                var alongM = Vector2.Dot(centreM - tipM, along);
                 var outM = Vector2.Dot(centreM - tipM, outward);
 
                 // Only a building standing off this rank's own end owes it anything: one further along the
@@ -225,10 +242,12 @@ public class BuildingsTests
                 if (outM <= 0f || outM > Config.WalkOuterM + Config.CityGen.BuildingPitchM + halfM.Y) continue;
                 if (MathF.Abs(alongM) > halfAcrossM + halfM.X) continue;
 
+                var reachM = MathF.Max(
+                    MathF.Abs(Vector2.Dot(oneEndM - tipM, along)), MathF.Abs(Vector2.Dot(otherEndM - tipM, along)));
                 Assert.True(
-                    MathF.Abs(alongM) + halfM.X <= halfAcrossM,
-                    $"building {building} at {centreM} stands {MathF.Abs(alongM):F1} m off the middle of a " +
-                    $"rank reaching {halfAcrossM:F1} m, with {halfM.X:F1} m of frontage either side of it");
+                    reachM <= halfAcrossM,
+                    $"building {building} at {centreM} fronts {reachM:F2} m off the middle of a rank reaching " +
+                    $"{halfAcrossM:F2} m");
             }
         }
     }

@@ -10,11 +10,8 @@ internal enum Barrier : byte
 {
     None,
 
-    /// <summary>The water, its shore and the strip every road keeps off it (GEN-71).</summary>
+    /// <summary>The water — a river or the sea — its shore and the strip every road keeps off it (GEN-71).</summary>
     Water,
-
-    /// <summary>The sea, which nothing crosses.</summary>
-    Sea,
 
     /// <summary>A railway, its ballast and the clearance a junction keeps off it.</summary>
     Rail,
@@ -51,11 +48,6 @@ internal sealed class Partition
     /// <summary>A cell no district holds: a barrier's, or a region too small to be one.</summary>
     public const short None = -1;
 
-    /// <summary>How many times the middles are moved to the middle of what they took.</summary>
-    const int Settles = 8;
-
-    /// <summary>How many more districts a region is cut into, at the most, when its first cut leaves one too big.</summary>
-    const int Recuts = 6;
 
     Partition(CellGrid grid, short[] label, Barrier[] barrier, int count)
     {
@@ -79,6 +71,16 @@ internal sealed class Partition
             CentreM[district] /= Math.Max(1, cells[district]);
             AreaM2[district] = cells[district] * grid.CellM * grid.CellM;
         }
+
+        ReachM = new float[count];
+        var halfDiagonalM = grid.CellM * MathF.Sqrt(0.5f);
+        for (var cell = 0; cell < label.Length; cell++)
+        {
+            if (label[cell] < 0) continue;
+
+            var offM = Vector2.Distance(grid.CentreOf(cell), CentreM[label[cell]]) + halfDiagonalM;
+            ReachM[label[cell]] = MathF.Max(ReachM[label[cell]], offM);
+        }
     }
 
     public CellGrid Grid { get; }
@@ -95,6 +97,9 @@ internal sealed class Partition
     public Vector2[] CentreM { get; }
 
     public float[] AreaM2 { get; }
+
+    /// <summary>How far from its middle the furthest of each district's ground reaches, whatever its shape.</summary>
+    public float[] ReachM { get; }
 
     /// <summary>The district a point stands in, or <see cref="None"/> — off the map too.</summary>
     public int At(Vector2 pointM) =>
@@ -137,6 +142,21 @@ internal sealed class Partition
         return share;
     }
 
+    /// <summary>
+    /// <b>The same cut with only the districts kept</b> (GEN-76): every other district's ground is open land, as a region too
+    /// small to be one is, and the kept are numbered again from nought.
+    /// </summary>
+    public Partition Only(bool[] kept)
+    {
+        var label = (short[])Label.Clone();
+        for (var cell = 0; cell < label.Length; cell++)
+        {
+            if (label[cell] >= 0 && !kept[label[cell]]) label[cell] = None;
+        }
+
+        return new Partition(Grid, label, Barrier, Renumbered(label, Count));
+    }
+
     /// <param name="barrier">Which barrier each cell of the grid is, if any (<see cref="Gen.Barrier.None"/>).</param>
     public static Partition Cut(CellGrid grid, Barrier[] barrier, SimConfig config, ulong seed)
     {
@@ -158,13 +178,20 @@ internal sealed class Partition
             var areaM2 = cells.Count * cellM2;
             if (areaM2 < figures.DistrictLeastM2) continue;
 
+            // <b>A stream a region, keyed on where it starts</b> (GEN-11): a recut in one region moves no other's middles.
+            var regionDraw = new Rng(seed, Streams.Keyed(Streams.District ^ RegionStream, (ulong)cells[0]));
             var districts = (int)MathF.Ceiling(areaM2 / figures.DistrictLargestM2);
-            short[] cut = [];
-            for (var recut = 0; recut <= Recuts; recut++)
+            // Cut into one more each time its largest is too big, and the cut whose largest is least kept where none is under.
+            var (cut, bestM2) = (Array.Empty<short>(), float.PositiveInfinity);
+            for (var recut = 0; recut <= figures.DistrictRecuts; recut++)
             {
-                cut = CutRegion(grid, cells, districts + recut, bend, ref draw);
-                if (LargestM2(cut, districts + recut, cellM2) <= figures.DistrictLargestM2) break;
+                var tried = CutRegion(grid, cells, districts + recut, bend, figures.DistrictSettles, ref regionDraw);
+                var largestM2 = LargestM2(tried, districts + recut, cellM2);
+                if (largestM2 < bestM2) (cut, bestM2) = (tried, largestM2);
+                if (largestM2 <= figures.DistrictLargestM2) break;
             }
+
+            if (bestM2 > figures.DistrictLargestM2) cut = Halved(grid, cells, cut, bend, figures, ref regionDraw);
 
             var made = cut.Length == 0 ? 0 : cut.Max() + 1;
             for (var cell = 0; cell < cells.Count; cell++) label[cells[cell]] = (short)(count + cut[cell]);
@@ -172,9 +199,13 @@ internal sealed class Partition
             count += made;
         }
 
-        Whole(grid, label, count);
+        Whole(grid, label, count, figures.DistrictLargestM2);
+        NoneTooSmall(grid, label, count, figures);
         return new Partition(grid, label, barrier, Renumbered(label, count));
     }
+
+    /// <summary>The stream a region's cut is drawn on, keyed on the region's first cell as well.</summary>
+    const ulong RegionStream = 0x7265_6769_6F6E_0000;
 
     /// <summary>Every piece of land no barrier crosses, each the cells it is, four ways joined.</summary>
     static List<List<int>> Regions(CellGrid grid, bool[] blocked)
@@ -216,10 +247,10 @@ internal sealed class Partition
 
     /// <summary>
     /// <b>One region cut into districts</b>, as each of its cells' district: middles spread over it as far from each other
-    /// as they can stand, then settled (<see cref="Settles"/>) — each cell to the nearest middle on the bent field, each
+    /// as they can stand, then settled (<see cref="CityGenFigures.DistrictSettles"/>) — each cell to the nearest middle on the bent field, each
     /// middle to the middle of what it took.
     /// </summary>
-    static short[] CutRegion(CellGrid grid, List<int> cells, int districts, Bend bend, ref Rng draw)
+    static short[] CutRegion(CellGrid grid, List<int> cells, int districts, Bend bend, int settles, ref Rng draw)
     {
         var bentM = new Vector2[cells.Count];
         for (var cell = 0; cell < cells.Count; cell++) bentM[cell] = bend.Of(grid.CentreOf(cells[cell]));
@@ -244,23 +275,66 @@ internal sealed class Partition
         var cut = new short[cells.Count];
         var sumM = new Vector2[districts];
         var taken = new int[districts];
-        for (var settle = 0; settle <= Settles; settle++)
+        for (var settle = 0; settle <= settles; settle++)
         {
             Array.Clear(sumM);
             Array.Clear(taken);
+            // Each cell's nearest on as many threads as there are, and the sums in the cells' order on this one: a sum's
+            // order is what the middles come out of.
             var near = new Middles(middleM, bend.SpanM);
+            InChunks.Over(cells.Count, static () => 0, (_, cell) => cut[cell] = (short)near.Nearest(bentM[cell]));
             for (var cell = 0; cell < cells.Count; cell++)
             {
-                var nearest = near.Nearest(bentM[cell]);
-                cut[cell] = (short)nearest;
-                sumM[nearest] += bentM[cell];
-                taken[nearest]++;
+                sumM[cut[cell]] += bentM[cell];
+                taken[cut[cell]]++;
             }
 
             for (var district = 0; district < districts; district++)
             {
                 if (taken[district] > 0) middleM[district] = sumM[district] / taken[district];
             }
+        }
+
+        return cut;
+    }
+
+    /// <summary>
+    /// <b>Every district a region's cut left too big, cut in two on its own cells</b> (GEN-65), and again until none is: a
+    /// region's middles settle to districts near one size and not to one size, and a long region cut into many can keep
+    /// one over the largest however many it is cut into.
+    /// </summary>
+    static short[] Halved(CellGrid grid, List<int> cells, short[] cut, Bend bend, CityGenFigures figures, ref Rng draw)
+    {
+        var cellM2 = grid.CellM * grid.CellM;
+        var districts = cut.Max() + 1;
+        for (var district = 0; district < districts; district++)
+        {
+            var mine = new List<int>();
+            for (var at = 0; at < cut.Length; at++)
+            {
+                if (cut[at] == district) mine.Add(at);
+            }
+
+            if (mine.Count * cellM2 <= figures.DistrictLargestM2 || mine.Count < 2) continue;
+
+            var own = new List<int>(mine.Count);
+            foreach (var at in mine) own.Add(cells[at]);
+
+            var halves = CutRegion(grid, own, 2, bend, figures.DistrictSettles, ref draw);
+            var moved = 0;
+            for (var at = 0; at < mine.Count; at++)
+            {
+                if (halves[at] != 1) continue;
+
+                cut[mine[at]] = (short)districts;
+                moved++;
+            }
+
+            if (moved == 0 || moved == mine.Count) continue;
+
+            // The half handed a number of its own is asked in its turn, and this one again.
+            districts++;
+            district--;
         }
 
         return cut;
@@ -276,10 +350,29 @@ internal sealed class Partition
 
     /// <summary>
     /// <b>Every district made one piece</b>: its largest kept, and each other piece given to the district it lies most
-    /// against — or to none, where it lies against no district.
+    /// against of those it leaves no bigger than a district gets (GEN-65) — or to none, where it lies against no such
+    /// district.
     /// </summary>
-    static void Whole(CellGrid grid, short[] label, int count)
+    /// <remarks>
+    /// <b>Again until a pass gives nothing away</b>: a piece is given to a neighbour by the labels the pass began with, so a
+    /// piece given to a district whose own stray piece was given on in the same pass is left a stray of its new district.
+    /// Each pass leaves fewer pieces, so a pass that does not is the last.
+    /// </remarks>
+    static void Whole(CellGrid grid, short[] label, int count, float largestM2)
     {
+        for (var last = int.MaxValue; ;)
+        {
+            var (pieces, given) = WholeOnce(grid, label, count, largestM2);
+            if (given == 0 || pieces >= last) return;
+
+            last = pieces;
+        }
+    }
+
+    /// <summary>One pass of <see cref="Whole"/>: how many pieces it found, and how many of them it gave away.</summary>
+    static (int Pieces, int Given) WholeOnce(CellGrid grid, short[] label, int count, float largestM2)
+    {
+        var cellM2 = grid.CellM * grid.CellM;
         var piece = new int[grid.Count];
         Array.Fill(piece, -1);
         var pieces = new List<(short District, List<int> Cells)>();
@@ -318,26 +411,81 @@ internal sealed class Partition
             if (largest[district] < 0 || pieces[at].Cells.Count > pieces[largest[district]].Cells.Count) largest[district] = at;
         }
 
+        var held = new int[count];
+        foreach (var (district, cells) in pieces) held[district] += cells.Count;
+
+        var givenAway = 0;
         for (var at = 0; at < pieces.Count; at++)
         {
             var (district, cells) = pieces[at];
             if (largest[district] == at) continue;
 
-            var against = new Dictionary<short, int>();
-            foreach (var cell in cells)
-            {
-                var (column, row) = (cell % grid.Columns, cell / grid.Columns);
-                foreach (var (dx, dy) in Four)
-                {
-                    if (!grid.Holds(column + dx, row + dy)) continue;
-
-                    var other = label[grid.Index(column + dx, row + dy)];
-                    if (other >= 0 && other != district) against[other] = against.GetValueOrDefault(other) + 1;
-                }
-            }
-
-            var given = against.Count == 0 ? None : against.MaxBy(pair => (pair.Value, -pair.Key)).Key;
+            // To a neighbour it leaves no bigger than a district gets (GEN-65), or to none.
+            var given = MostAgainst(grid, label, cells, district, other => (held[other] + cells.Count) * cellM2 <= largestM2);
             foreach (var cell in cells) label[cell] = given;
+            held[district] -= cells.Count;
+            if (given >= 0) held[given] += cells.Count;
+            givenAway++;
+        }
+
+        return (pieces.Count, givenAway);
+    }
+
+    /// <summary>
+    /// The district some cells lie most against, the lower number of two as much — of those <paramref name="takes"/> lets
+    /// have them, where it says — or none, where they lie against none.
+    /// </summary>
+    static short MostAgainst(CellGrid grid, short[] label, List<int> cells, short district, Func<short, bool>? takes = null)
+    {
+        var against = new Dictionary<short, int>();
+        foreach (var cell in cells)
+        {
+            var (column, row) = (cell % grid.Columns, cell / grid.Columns);
+            foreach (var (dx, dy) in Four)
+            {
+                if (!grid.Holds(column + dx, row + dy)) continue;
+
+                var other = label[grid.Index(column + dx, row + dy)];
+                if (other >= 0 && other != district && (takes is null || takes(other))) against[other] = against.GetValueOrDefault(other) + 1;
+            }
+        }
+
+        return against.Count == 0 ? None : against.MaxBy(pair => (pair.Value, -pair.Key)).Key;
+    }
+
+    /// <summary>
+    /// <b>No district smaller than the least a district takes</b> (GEN-65): one the cut left under it is given to the
+    /// district it lies most against of those that stay no bigger than a district gets with it, and is open land where
+    /// none can take it. Smallest first, so what one takes is weighed before the next is asked.
+    /// </summary>
+    /// <remarks>Run on whole districts (<see cref="Whole"/>), and a district given whole to one it touches stays whole.</remarks>
+    static void NoneTooSmall(CellGrid grid, short[] label, int count, CityGenFigures figures)
+    {
+        var cellsOf = new List<int>[count];
+        for (var district = 0; district < count; district++) cellsOf[district] = [];
+        for (var cell = 0; cell < label.Length; cell++)
+        {
+            if (label[cell] >= 0) cellsOf[label[cell]].Add(cell);
+        }
+
+        var cellM2 = grid.CellM * grid.CellM;
+        var order = new List<int>();
+        for (var district = 0; district < count; district++)
+        {
+            if (cellsOf[district].Count > 0 && cellsOf[district].Count * cellM2 < figures.DistrictLeastM2) order.Add(district);
+        }
+
+        order.Sort((one, other) => (cellsOf[one].Count, one).CompareTo((cellsOf[other].Count, other)));
+        foreach (var district in order)
+        {
+            var cells = cellsOf[district];
+            if (cells.Count == 0 || cells.Count * cellM2 >= figures.DistrictLeastM2) continue;
+
+            var given = MostAgainst(
+                grid, label, cells, (short)district, other => (cellsOf[other].Count + cells.Count) * cellM2 <= figures.DistrictLargestM2);
+            foreach (var cell in cells) label[cell] = given;
+            if (given >= 0) cellsOf[given].AddRange(cells);
+            cells.Clear();
         }
     }
 
@@ -513,52 +661,109 @@ internal sealed class Partition
 
     /// <summary>
     /// <b>The middles filed by square</b>, a district's span a side, so a cell asks the few round it and not every middle in
-    /// its region — ring by ring outward until one ring finds any, and one ring past that, since the nearest can stand in
-    /// the next ring out.
+    /// its region — ring by ring outward until no square of the next ring can stand nearer than the nearest found: ring
+    /// <c>k</c> is at least <c>k − 1</c> sides off a place in the middle square, and a middle found in ring 0 can be up to
+    /// √2 sides off, so stopping one ring past the first find misses nearer middles.
     /// </summary>
+    /// <remarks>
+    /// <para>Asked from several threads at once: nothing is filed after it is laid.</para>
+    /// <para>
+    /// <b>Filed over the squares the middles' own box spans</b>, each square's middles in their own order, and a square
+    /// outside that box holds none — a cell is asked millions of times a cut, and a hashed square costs more than the
+    /// distances read in it.
+    /// </para>
+    /// </remarks>
     sealed class Middles
     {
         readonly Vector2[] _middleM;
         readonly float _sideM;
-        readonly Dictionary<(int, int), List<int>> _in = [];
+        readonly int _leastX;
+        readonly int _leastY;
+        readonly int _columns;
+        readonly int _rows;
+        readonly int[] _start;
+        readonly int[] _in;
 
         public Middles(Vector2[] middleM, float sideM)
         {
             (_middleM, _sideM) = (middleM, sideM);
+            var (leastX, leastY, mostX, mostY) = (int.MaxValue, int.MaxValue, int.MinValue, int.MinValue);
+            foreach (var atM in middleM)
+            {
+                var (x, y) = Square(atM);
+                (leastX, leastY, mostX, mostY) = (Math.Min(leastX, x), Math.Min(leastY, y), Math.Max(mostX, x), Math.Max(mostY, y));
+            }
+
+            (_leastX, _leastY) = (leastX, leastY);
+            (_columns, _rows) = middleM.Length == 0 ? (0, 0) : (mostX - leastX + 1, mostY - leastY + 1);
+            _start = new int[(_columns * _rows) + 1];
+            foreach (var atM in middleM) _start[Filed(Square(atM)) + 1]++;
+            for (var square = 0; square < _columns * _rows; square++) _start[square + 1] += _start[square];
+
+            _in = new int[middleM.Length];
+            var filled = new int[_columns * _rows];
             for (var middle = 0; middle < middleM.Length; middle++)
             {
-                var key = Square(middleM[middle]);
-                if (!_in.TryGetValue(key, out var list)) _in[key] = list = [];
-                list.Add(middle);
+                var square = Filed(Square(middleM[middle]));
+                _in[_start[square] + filled[square]++] = middle;
             }
         }
 
-        (int, int) Square(Vector2 atM) => ((int)MathF.Floor(atM.X / _sideM), (int)MathF.Floor(atM.Y / _sideM));
+        (int X, int Y) Square(Vector2 atM) => ((int)MathF.Floor(atM.X / _sideM), (int)MathF.Floor(atM.Y / _sideM));
+
+        int Filed((int X, int Y) square) => ((square.Y - _leastY) * _columns) + square.X - _leastX;
+
+        /// <summary>The middles filed in one square, none for a square off the middles' box.</summary>
+        ReadOnlySpan<int> In(int x, int y)
+        {
+            if ((uint)(x - _leastX) >= (uint)_columns || (uint)(y - _leastY) >= (uint)_rows) return [];
+
+            var square = Filed((x, y));
+            return _in.AsSpan(_start[square], _start[square + 1] - _start[square]);
+        }
+
+        /// <summary>The squared distance from a place to the nearest of a square's ground.</summary>
+        float BoxM2(Vector2 atM, int x, int y)
+        {
+            var offX = MathF.Max(MathF.Max((x * _sideM) - atM.X, atM.X - ((x + 1) * _sideM)), 0f);
+            var offY = MathF.Max(MathF.Max((y * _sideM) - atM.Y, atM.Y - ((y + 1) * _sideM)), 0f);
+            return (offX * offX) + (offY * offY);
+        }
 
         public int Nearest(Vector2 atM)
         {
             var (x, y) = Square(atM);
             var (nearest, bestM2) = (0, float.PositiveInfinity);
-            var foundAt = -1;
-            for (var ring = 0; foundAt < 0 || ring <= foundAt + 1; ring++)
+            var filed = 0;
+
+            // How far in from its own square's nearest side the place stands: ring k is that and k − 1 sides off at the least.
+            var inM = MathF.Min(
+                MathF.Min(atM.X - (x * _sideM), ((x + 1) * _sideM) - atM.X),
+                MathF.Min(atM.Y - (y * _sideM), ((y + 1) * _sideM) - atM.Y));
+            for (var ring = 0; filed < _middleM.Length; ring++)
             {
+                var leastM = inM + ((ring - 1) * _sideM);
+                if (ring > 0 && leastM * leastM >= bestM2) break;
+
                 for (var dy = -ring; dy <= ring; dy++)
                 {
-                    for (var dx = -ring; dx <= ring; dx++)
+                    // The ring's own squares: its two rows whole, and the two ends of every row between them.
+                    var step = dy == -ring || dy == ring ? 1 : Math.Max(1, 2 * ring);
+                    for (var dx = -ring; dx <= ring; dx += step)
                     {
-                        if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != ring || !_in.TryGetValue((x + dx, y + dy), out var list)) continue;
+                        var list = In(x + dx, y + dy);
+                        if (list.IsEmpty) continue;
+
+                        filed += list.Length;
+                        if (BoxM2(atM, x + dx, y + dy) >= bestM2) continue;
 
                         foreach (var middle in list)
                         {
                             var awayM2 = Vector2.DistanceSquared(atM, _middleM[middle]);
                             if (awayM2 < bestM2) (nearest, bestM2) = (middle, awayM2);
                         }
-
-                        if (foundAt < 0) foundAt = ring;
                     }
                 }
-
-                if (ring > 1024) break;
             }
 
             return nearest;
@@ -586,8 +791,15 @@ internal sealed class Partition
         /// <summary>The span of a district the waves run over, which is also the side the middles are filed by.</summary>
         public float SpanM { get; }
 
+        /// <summary>
+        /// How much faster, and how much of the first's height, the second wave each way runs: <b>the form of the bend and no
+        /// figure of the town</b> — how far it bends is the brief's bend share — as a noise's second octave is.
+        /// </summary>
+        const float SecondWaveFaster = 1.7f, SecondWaveShare = 0.5f;
+
         public Vector2 Of(Vector2 atM) => atM + (new Vector2(
-            Trig.Sin((atM.Y * _perM) + _phase.X) + (0.5f * Trig.Sin((atM.X * _perM * 1.7f) + _phase.Y)),
-            Trig.Sin((atM.X * _perM) + _phase.Z) + (0.5f * Trig.Sin((atM.Y * _perM * 1.7f) + _phase.W))) * (_amplitudeM / 1.5f));
+            Trig.Sin((atM.Y * _perM) + _phase.X) + (SecondWaveShare * Trig.Sin((atM.X * _perM * SecondWaveFaster) + _phase.Y)),
+            Trig.Sin((atM.X * _perM) + _phase.Z) + (SecondWaveShare * Trig.Sin((atM.Y * _perM * SecondWaveFaster) + _phase.W)))
+            * (_amplitudeM / (1f + SecondWaveShare)));
     }
 }

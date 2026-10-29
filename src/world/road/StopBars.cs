@@ -57,7 +57,11 @@ internal sealed class StopBars
     /// <summary>The middle of the bar, which stands on the line the lane behind it is driven down.</summary>
     public ReadOnlySpan<Vector2> CentreM => _centreM;
 
-    /// <summary>The way a car crossing it is going, which is what the bar is laid square across.</summary>
+    /// <summary>
+    /// The way a car crossing it is going, which is what the bar is laid square across: the axis of the band it is held
+    /// behind, so it stands parallel to that band's edge (<see cref="Crossings.BehindM"/>) — or its lane's bearing where
+    /// it was stood back behind other paint, or holds for something other than a junction.
+    /// </summary>
     public ReadOnlySpan<Vector2> Approach => _approach;
 
     /// <summary>How far it reaches either way, which is the width of the one lane driving at it.</summary>
@@ -129,25 +133,24 @@ internal sealed class StopBars
             // the band is a distance down the road and the bar a distance down a lane half a carriageway
             // off it, and over a bend the two run at different rates — a bar placed by subtracting the
             // band's depth from the lane's metres stands centimetres out of the gap it was meant to leave.
-            // <b>And struck along the band's own axis rather than along the lane</b> (TER-6): a band is laid
-            // square to the walk that placed it (WLK-10), so which way it is deep is its own fact and holds
-            // wherever along the arm it ended up standing. <b>The lane says only which of the two edges the
-            // traffic meets first</b>, which is a sign and not a bearing — so reading it at the lane's end
-            // costs nothing even where the arm bends between there and the paint.
+            // <b>And laid parallel to that edge, where its lane crosses the line a setback behind it</b>
+            // (TER-6, <see cref="Crossings.BehindM"/>): a band is laid square to the walk that placed it (WLK-10),
+            // so a bar square to its lane instead stands nearer the band at one end than the other wherever the
+            // arm bends, and the bars of one arm's lanes stand out of line. <b>The lane says only which of the
+            // two edges the traffic meets first</b>, which is a sign and not a bearing.
             var arcs = lanes.ArcsOf(at);
             var lengthM = lanes.LaneLengthM[at];
-            var axis = crossings.Axis[crossing];
             var arriving = Spline.SampleAt(arcs, lengthM).Direction;
-            var towards = Vector2.Dot(axis, arriving) >= 0f ? axis : -axis;
-            var bandM = crossings.CentreM[crossing] - (towards * crossings.DepthM[crossing] * 0.5f);
+            var nearM = Spline.ProjectM(arcs, crossings.CentreM[crossing], lengthM, lengthM);
+            var heldM = crossings.BehindM(crossing, arcs, nearM, arriving, setbackM + (thicknessM * 0.5f), out var towards);
 
-            var alongM = Spline.ProjectM(arcs, bandM, lengthM, lengthM) - setbackM - (thicknessM * 0.5f);
-            if (bands is not null) alongM = ClearOf(bands, arcs, lanes.LaneWidthM[at], alongM, setbackM, thicknessM);
-            if (alongM <= 0f) continue;
+            // A bar stood back behind another band is square to its lane there, the edge it was struck off being behind it.
+            var alongM = bands is null ? heldM : ClearOf(bands, arcs, lanes.LaneWidthM[at], heldM, setbackM, thicknessM);
+            if (!(alongM > 0f)) continue;
 
             var stop = Spline.SampleAt(arcs, alongM);
             centreM.Add(stop.PositionM);
-            approach.Add(stop.Direction);
+            approach.Add(alongM == heldM ? towards : stop.Direction);
             spanM.Add(lanes.LaneWidthM[at]);
             laidM.Add(thicknessM);
             lane.Add(at);

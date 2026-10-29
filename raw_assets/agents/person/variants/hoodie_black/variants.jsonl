@@ -1,0 +1,4 @@
+{"variant": "hoodie_black-v5", "frame": "walkorbit_hoodie_black-v1", "cell": 1, "pxPerM": 254.118, "score": 4, "status": "candidate", "ts": "2026-10-28T13:45:05"}
+{"variant": "hoodie_black-v6", "frame": "walkorbit_hoodie_black-v2", "cell": 1, "pxPerM": 251.176, "score": 4, "status": "candidate", "ts": "2026-10-28T16:29:28"}
+{"variant": "hoodie_black-v7", "frame": "walkorbit_hoodie_black-v2", "cell": 1, "recutOf": "hoodie_black-v6", "pxPerM": 250.0, "score": 4, "status": "candidate", "ts": "2026-10-28T16:42:20"}
+{"variant": "hoodie_black-v8", "frame": "walkorbit_hoodie_black-v2", "cell": 1, "recutOf": "hoodie_black-v7", "pxPerM": 245.294, "score": 4, "status": "used", "ts": "2026-10-28T21:38:09"}

@@ -401,15 +401,20 @@ internal sealed class Following(
     /// <b>The first join between two lanes of this car's line that its nose is not yet out of</b> — the box it is
     /// in or the next one it comes to — as where on the line its mouth and its far end stand.
     /// </summary>
-    /// <remarks>Two lanes meeting at a point have no box, and are passed over.</remarks>
+    /// <remarks>
+    /// Two lanes meeting at a point have no box, and are passed over; so does a join that only carries its lane on
+    /// (<see cref="RoadGraph.CarriesOn"/>, TER-5k), whose only other traffic is what it forks from or merges with.
+    /// </remarks>
     bool TheNextBox(int car, float noseM, out float mouthM, out float endsAtM)
     {
         mouthM = endsAtM = float.NaN;
         var starts = Cars.LaneStartsOf(car);
         var ends = Cars.LaneEndsOf(car);
+        var joins = Cars.JoinsOf(car);
         for (var slot = 0; slot + 1 < Cars.Line[car].LaneCount; slot++)
         {
             if (noseM >= starts[slot + 1] || starts[slot + 1] <= ends[slot]) continue;
+            if (joins[slot] != RoadGraph.NoConnector && ground.Roads.CarriesOn(joins[slot])) continue;
 
             mouthM = ends[slot];
             endsAtM = starts[slot + 1];

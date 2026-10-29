@@ -286,13 +286,16 @@ internal sealed class RoadGraph : ILaneEnds
     /// A route running down the lane beside <paramref name="last"/> is carried on from what it takes after that: the
     /// lane itself where <paramref name="last"/> joins it, and a lane beside it otherwise. One turning off a lane beside
     /// is carried on down a lane beside the one it turns onto. Either way the line keeps to its own lanes for as long as
-    /// they go the route's way.
+    /// they go the route's way. <b>Never beside the lane the leg ends on</b>: the leg's place is on that lane, and a line
+    /// run on beside it is a car that moves across wherever it gets the room — past the place, as a police car sent to
+    /// the mouth of the lane it closes is carried past it down the lane beside (SRV-9).
     /// </remarks>
+    /// <param name="endsOn">The lane the leg's place stands on where the route ends there (<c>CarFleet.RouteEndsOn</c>), or <see cref="NoLane"/>.</param>
     /// <param name="passed">How many of the route's lanes the lane returned passes, <paramref name="next"/> first.</param>
-    public int OnBesideTheRoute(int last, int next, int after, out int passed)
+    public int OnBesideTheRoute(int last, int next, int after, int endsOn, out int passed)
     {
         passed = 0;
-        if (!AreSideBySide(last, next)) return TheLaneOnBeside(last, next);
+        if (!AreSideBySide(last, next)) return next == endsOn ? NoLane : TheLaneOnBeside(last, next);
 
         if (after == NoLane) return NoLane;
 
@@ -301,6 +304,8 @@ internal sealed class RoadGraph : ILaneEnds
             passed = 2;
             return after;
         }
+
+        if (after == endsOn) return NoLane;
 
         var beside = TheLaneOnBeside(last, after);
         if (beside != NoLane) passed = 1;
@@ -430,9 +435,10 @@ internal sealed class RoadGraph : ILaneEnds
     /// nothing of its own carriageway and is ordinary traffic; and the turn across the oncoming stream, the
     /// last movement a box admits, gives way to both.
     /// <para>
-    /// <b>Every movement hands over at a lane's start</b>, so there is no movement here that joins a stream
-    /// already being driven where it lands: a node that would offer an approach one movement is a node the
-    /// generator does not lay (GEN-18).
+    /// <b>Every movement hands over at a lane's start</b>, so no movement joins a stream already being driven where it
+    /// lands: a node that would offer an approach one movement is a node the generator does not lay (GEN-18). <b>But for a
+    /// merge at a node that only carries lanes on</b> (TER-5k), every movement of which is straight on, so neither of the
+    /// two streams converging is the one that always gives way.
     /// </para>
     /// </remarks>
     public ClaimPriority FirmOnConnector(int connector) => FirmOn(_lines.ConnectorKind[connector]);
@@ -492,6 +498,15 @@ internal sealed class RoadGraph : ILaneEnds
     /// </summary>
     public bool BreaksTheLine(int connector) => _breaksTheLine[connector];
 
+    /// <summary>
+    /// <b>Whether a join only carries its lane on</b> (TER-5k): it is over a node where nothing crosses anything, so it is
+    /// no box a car has to see its way out of before it goes in.
+    /// </summary>
+    public bool CarriesOn(int connector) => _lines.IsSeamless(_lines.JunctionOfConnector(connector));
+
+    /// <inheritdoc cref="LaneLines.IsSeamless"/>
+    public bool IsSeamless(int junction) => _lines.IsSeamless(junction);
+
     /// <summary>How wide the ground a movement is driven over is: the narrower of the two lanes it joins (TER-5d.1).</summary>
     public float ConnectorWidthM(int connector) => _lines.ConnectorWidthM(connector);
 
@@ -505,6 +520,16 @@ internal sealed class RoadGraph : ILaneEnds
             lock (_nearestLaying) return _nearest ??= LayTheNearest();
         }
     }
+
+    /// <summary>
+    /// <b>Every lane's index laid now, on this thread</b>, for a caller about to ask it from a parallel pass.
+    /// </summary>
+    /// <remarks>
+    /// Laying it is a parallel pass of its own (<see cref="ChainIndex.Builder.Seal"/>) under the lock: first asked from
+    /// inside a pass, the pass's other threads block on the lock while the laying waits for pool threads to be added
+    /// — 0.75 s of a shipped town's open, however small the town.
+    /// </remarks>
+    public void LayTheLayingIndex() => _ = Nearest;
 
     ChainIndex LayTheNearest()
     {

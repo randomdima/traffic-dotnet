@@ -1,2 +1,4 @@
 {"variant": "ponytail_red-v1", "frame": "walkorbit_heygen-v1", "cell": 1, "pxPerM": 246.429, "score": 4, "status": "candidate", "ts": "2026-10-28T01:46:41"}
-{"variant": "ponytail_red-v2", "frame": "walkorbit_b-v3", "cell": 1, "pxPerM": 286.31, "score": 4, "status": "used", "ts": "2026-10-28T02:14:44"}
+{"variant": "ponytail_red-v7", "frame": "walkorbit_ponytail_red-v1", "cell": 1, "pxPerM": 245.833, "score": 4, "status": "candidate", "ts": "2026-10-28T13:50:13"}
+{"variant": "ponytail_red-v8", "frame": "walkorbit_ponytail_red-v1", "cell": 1, "recutOf": "ponytail_red-v7", "pxPerM": 247.619, "score": 4, "status": "candidate", "ts": "2026-10-28T16:51:21"}
+{"variant": "ponytail_red-v9", "frame": "walkorbit_ponytail_red-v1", "cell": 1, "recutOf": "ponytail_red-v8", "pxPerM": 245.833, "score": 4, "status": "used", "ts": "2026-10-28T21:39:01"}

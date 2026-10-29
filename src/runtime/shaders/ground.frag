@@ -56,6 +56,11 @@ const uint SHADOW = 9u;
 // A bridge's strips and fittings: each the layer its number past the first names, cut out where its picture is clear.
 const uint BRIDGE_FIRST = 10u;
 const uint BRIDGE_LAST = 15u;
+// The shoulder beside a road with no walk (GEN-75): the walk's array from its third layer on, where the shoulder's looks
+// are laid after the walk's own (GpuTexture.LoadLooks).
+const uint SHOULDER = 16u;
+const uint PAVEMENT = 2u;
+const float LATER_LOOKS = 2.0;
 
 // Where each surface's hashes start past its own number, which is its patches' (GroundPatches): the lumps its fades are
 // ragged by, then its two looks' scatter.
@@ -180,9 +185,11 @@ void main() {
         wave = waveHeight(waveWidthRad, lumps);
         uv += wave * vec2(camera.waveNumberXPerM.w, camera.waveNumberYPerM.w) / camera.waterPeriodM.x;
     }
+    uint of = inSurface == SHOULDER ? PAVEMENT : inSurface;
+    float first = inSurface == SHOULDER ? LATER_LOOKS : 0.0;
     vec3 ground = vec3(0.0);
-    if (second < 1.0) ground += (1.0 - second) * scattered(inSurface, uv - inDrift.xy, 0.0, SCATTER_SALT + 2u * inSurface, ddx, ddy);
-    if (second > 0.0) ground += second * scattered(inSurface, uv - inDrift.zw, 1.0, SCATTER_SALT + 2u * inSurface + 1u, ddx, ddy);
+    if (second < 1.0) ground += (1.0 - second) * scattered(of, uv - inDrift.xy, first, SCATTER_SALT + 2u * inSurface, ddx, ddy);
+    if (second > 0.0) ground += second * scattered(of, uv - inDrift.zw, first + 1.0, SCATTER_SALT + 2u * inSurface + 1u, ddx, ddy);
     // Blended, and opaque everywhere but where a surface fades out over the ground before it (GroundVertex.Fading).
     vec3 colour = ground * patchTint(lumps, inPatchLook) * inTint * (1.0 + wave * camera.waveLook.x);
     float cover = inCover < WHOLE_COVER ? ragged(inCover) : 1.0;

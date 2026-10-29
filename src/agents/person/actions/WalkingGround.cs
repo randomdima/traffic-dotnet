@@ -134,7 +134,8 @@ internal sealed class WalkingGround(
     /// <b>Whether this walker has walked its chain out</b> and what is left is the hop off the end of it — onto the
     /// goal, over ground the network does not number.
     /// </summary>
-    public bool IsHopping(int person) => People.OnTheLastWay(person) && HasWalkedOut(person, EndOfTheWayM(person));
+    public bool IsHopping(int person) =>
+        People.OnTheLastWay(person) && (People.Hopping[person] || HasWalkedOut(person, EndOfTheWayM(person)));
 
     /// <summary>
     /// How far along the way it is on this walk goes: the end of that way's own stretch of the chain, or
@@ -547,9 +548,9 @@ internal sealed class WalkingGround(
 
     /// <summary>
     /// <b>A straight walk, planned</b> (PER-25, PER-26) — the hop off the end of the route, the walk back onto it, an
-    /// officer's to their post: <b>the ways the world reads its body on, and the way it lands on</b> — the ground either
-    /// side of the body it would set off into (<see cref="PlansAheadM"/>) on each way under it
-    /// (<paramref name="under"/>), and the stretch of <paramref name="ontoWay"/> from where the body stands abeam of it to
+    /// officer's to their post: <b>the ways the world reads its body on, and the way it lands on</b> — the ground past the
+    /// body it would set off into (<see cref="PlansAheadM"/>) on each way under it (<paramref name="under"/>), on the side
+    /// the straight runs along that way and on neither where it crosses it, and the stretch of <paramref name="ontoWay"/> from where the body stands abeam of it to
     /// <paramref name="ontoM"/>, where the straight to <paramref name="toM"/> lands, and as far past both, once the edge
     /// of the way is inside the reach of its plan.
     /// </summary>
@@ -564,14 +565,21 @@ internal sealed class WalkingGround(
         Span<LineWay> into)
     {
         var written = 0;
+        var radiusM = People.RadiusM[person];
+        var towardsM = toM - People.PositionM[person];
         foreach (ref readonly var cover in under)
         {
             if (written == into.Length - 1) break;
             if (cover.Way == ontoWay) continue;
 
+            // Never behind the body: a red crossing's hold runs up to the body (TLT-2a), so ground held behind it there is
+            // refused, and a walker stepping sideways off the end of the paint would stand on it for good.
+            var line = Lines.LineOf(cover.Way, out _);
+            var alongM = Vector2.Dot(
+                Heading.Unit(Spline.SampleAt(line, (cover.FromM + cover.ToM) * 0.5f).HeadingRad), towardsM);
             into[written++] = new LineWay(
-                cover.Way, MathF.Max(0f, cover.FromM - PlansAheadM),
-                MathF.Min(Ways.LengthM(cover.Way), cover.ToM + PlansAheadM), frontM);
+                cover.Way, MathF.Max(0f, cover.FromM - (alongM < -radiusM ? PlansAheadM : 0f)),
+                MathF.Min(Ways.LengthM(cover.Way), cover.ToM + (alongM > radiusM ? PlansAheadM : 0f)), frontM);
         }
 
         return written + TheLanding(person, toM, ontoWay, ontoM, frontM, aheadM, into[written..]);

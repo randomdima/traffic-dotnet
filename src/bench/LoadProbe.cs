@@ -43,9 +43,16 @@ internal static class LoadProbe
         var planAt = Stopwatch.GetTimestamp();
 
         // Each stage's memory as it ends, on the terms a page says it in (Boot.cs): the process's, and the collector's in use.
-        OpenWatch.Watcher = stage => Console.WriteLine(
-            $"  {"",-12}{Stopwatch.GetElapsedTime(planAt).TotalSeconds,6:F1} s  {Environment.WorkingSet / (1024 * 1024),5} MiB resident, " +
-            $"{GC.GetTotalMemory(forceFullCollection: false) / (1024 * 1024),5} MiB in use — {stage}");
+        // And what it took since the stage before, which is the breakdown of every row below that is a remainder.
+        var passedAt = planAt;
+        OpenWatch.Watcher = stage =>
+        {
+            var now = Stopwatch.GetTimestamp();
+            Console.WriteLine(
+                $"  {"",-12}{Stopwatch.GetElapsedTime(planAt, now).TotalSeconds,6:F1} s {Stopwatch.GetElapsedTime(passedAt, now).TotalMilliseconds,7:F0} ms  " +
+                $"{Environment.WorkingSet / (1024 * 1024),5} MiB resident, {GC.GetTotalMemory(forceFullCollection: false) / (1024 * 1024),5} MiB in use — {stage}");
+            passedAt = now;
+        };
         var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var planMs = Stopwatch.GetElapsedTime(planAt).TotalMilliseconds;
         var planAllocated = Allocated(ref allocatedAt);
@@ -79,6 +86,9 @@ internal static class LoadProbe
         EndingAt("walk", rings.Walk.Loose);
 
         Allocated(ref allocatedAt);
+
+        // Beside a device's world the ground is laid as a window lays it (LaidTown), and the open is charged the wait.
+        var groundAside = worldMaker is DeviceWorldMaker ? GroundMesh.BuildAside(plan, config) : null;
         var world = new TownWorld(plan, config, worldMaker: worldMaker);
         Say("world", world.StoodMs,
             $"{world.AgentCount} agents, {world.StaticBodyCount} static bodies; {Allocated(ref allocatedAt)}");
@@ -112,7 +122,7 @@ internal static class LoadProbe
 
         Allocated(ref allocatedAt);
         var groundAt = Stopwatch.GetTimestamp();
-        var ground = GroundMesh.Build(plan, config);
+        var ground = groundAside?.GetAwaiter().GetResult() ?? GroundMesh.Build(plan, config);
         var groundMs = Stopwatch.GetElapsedTime(groundAt).TotalMilliseconds;
 
         var corners = 0;
@@ -123,7 +133,8 @@ internal static class LoadProbe
             triangles += part.Triangles;
         }
 
-        Say("ground", groundMs, $"{triangles} triangles over {corners} corners; {Allocated(ref allocatedAt)}");
+        Say("ground", groundMs, $"{triangles} triangles over {corners} corners; {Allocated(ref allocatedAt)}" +
+            (groundAside is null ? string.Empty : $" — the wait for it, laid in {ground.LaidMs:F0} ms beside the world, which its allocation is counted in"));
         Say("  merge", ground.MergeMs, "every driven band cut against every band near it");
         Say("  boundary", ground.BoundaryMs - ground.MergeMs, "that shape moved into each layer's own rings");
         Say("  lines", ground.LinesMs, "each layer's line read off its rings, thinned, and the walk and carriageway filled side by side");

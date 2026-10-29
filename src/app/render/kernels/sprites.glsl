@@ -140,6 +140,30 @@ vec2 spritesOnTiltedBody(CarRow row, vec2 atBodyM)
     return spritesOnBody(row.positionM, row.forward, drawnM);
 }
 
+// SpriteRing, where an instance carries it (SpriteInstance.RingShift), and SpriteRings' bits.
+const uint RingSelected = 1u;
+const uint RingSecondHand = 2u;
+const uint SpriteRingShift = 14u;
+
+bool spritesRingBit(uint from, uint unit) { return ((ringBits[from + (unit >> 5u)] >> (unit & 31u)) & 1u) != 0u; }
+
+uint spritesRingWords(uint units) { return (units + 31u) >> 5u; }
+
+uint spritesPersonRing(uint person) { return spritesRingBit(0u, person) ? RingSelected << SpriteRingShift : 0u; }
+
+uint spritesCarRing(uint car)
+{
+    uint ring = spritesRingBit(spritesRingWords(figures.personCapacity), car) ? RingSelected
+        : int(car) == secondHandCar ? RingSecondHand : 0u;
+    return ring << SpriteRingShift;
+}
+
+uint spritesWagonRing(uint wagon)
+{
+    uint from = spritesRingWords(figures.personCapacity) + spritesRingWords(figures.carCapacity);
+    return spritesRingBit(from, wagon) ? RingSelected << SpriteRingShift : 0u;
+}
+
 // SpriteCell: a column and a row of a grid of columns and rows, a byte each from the low.
 uint spritesCell(uint column, uint row, uint columns, uint rows) { return column | (row << 8) | (columns << 16) | (rows << 24); }
 
@@ -181,12 +205,16 @@ SpriteOut spritesPerson(uint person)
     PersonRow row = people[person];
     uint variant = row.variant % figures.personSheets;
     PersonLook look = personLooks[variant];
-    if ((row.flags & PersonDown) != 0u) return spritesPlain(row.positionM, look.downHalfM, figures.firstDownSheet + variant, row.headingRad);
+    uint ring = spritesPersonRing(person);
+    if ((row.flags & PersonDown) != 0u)
+    {
+        return spritesPlain(row.positionM, look.downHalfM, (figures.firstDownSheet + variant) | ring, row.headingRad);
+    }
 
     int facing = personFacingRow(row.headingRad, figures.facingFromRad, figures.facingStepRad);
     int column = (row.flags & PersonWalking) != 0u ? personWalkColumn(row.distanceWalkedM, look.heightM) : 0;
     uint cell = spritesCell(uint(column), uint(facing), figures.personColumns, figures.personRows);
-    return spritesQuad(row.positionM, look.standingHalfM, cell, SpritePlain, variant, 0.0);
+    return spritesQuad(row.positionM, look.standingHalfM, cell, SpritePlain, variant | ring, 0.0);
 }
 
 // The wagon as the view the frame shows left it (WorldView.Wagons).
@@ -209,7 +237,9 @@ SpriteOut spritesWagon(uint wagon)
 {
     WagonViewRow row = spritesWagonRow(wagon);
     uint look = row.flags & 0xffffu;
-    return spritesPlain(row.positionM, trainLooks[look].halfM, (figures.firstTrainSheet + look) | (wagon << 16u), row.headingRad);
+    return spritesPlain(
+        row.positionM, trainLooks[look].halfM, (figures.firstTrainSheet + look) | spritesWagonRing(wagon) | (wagon << 16u),
+        row.headingRad);
 }
 
 // CrossingSprites.Fill's cull for one approach's gear, and what of it is drawn: its arm where enough of it shows, and its
@@ -228,7 +258,7 @@ SpriteOut spritesBarrier(uint gear)
     GearShownRow shown = gearShown[gear];
     precise vec2 armM = shown.armToM - shown.armFromM;
     precise vec2 centreM = (shown.armFromM + shown.armToM) * 0.5;
-    return spritesPlain(centreM, vec2(length(armM), figures.barrierWidthM) * 0.5, figures.barrierSheet, atan(armM.y, armM.x));
+    return spritesPlain(centreM, vec2(length(armM), figures.barrierWidthM) * 0.5, figures.barrierSheet, trigAtan2(armM.y, armM.x));
 }
 
 SpriteOut spritesBarrierDrive(uint gear)
@@ -295,7 +325,8 @@ SpriteOut spritesBody(uint car)
     bool broken = (row.flags & CarBroken) != 0u;
     uint sheet = figures.firstCarSheet + (broken ? figures.carSheets : 0u) + variant;
     return spritesPlain(
-        row.positionM, broken ? look.wreckHalfM : look.bodyHalfM, sheet | (spritesTiltId(row) << 16u), row.headingRad);
+        row.positionM, broken ? look.wreckHalfM : look.bodyHalfM, sheet | spritesCarRing(car) | (spritesTiltId(row) << 16u),
+        row.headingRad);
 }
 
 // CarSprites.FillBeams' cull for one car: an arm on an unbroken look, its reach in view.

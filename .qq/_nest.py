@@ -108,9 +108,32 @@ class CallGraph:
     def calls_key(self, key: str, callee: str) -> bool:
         return any(callee in self.resolve(key, name, on) for name, on in self.calls.get(key, ()))
 
+    @functools.cached_property
+    def callers(self) -> dict[str, set[str]]:
+        """Each key's callers, every call resolved: the graph walked backwards."""
+        callers = defaultdict(set)
+        for key, calls in self.calls.items():
+            for name, on in calls:
+                for landed in self.resolve(key, name, on):
+                    callers[landed].add(key)
+        return callers
+
+    @functools.cache
+    def reaching(self, target: str) -> dict[str, int]:
+        """How few calls each key is from `target`, for the keys at most MOST_FILLED away; `target` itself is 0."""
+        away, frontier = {target: 0}, {target}
+        for step in range(1, MOST_FILLED + 1):
+            frontier = {c for k in frontier for c in self.callers.get(k, ()) if c not in away}
+            away |= dict.fromkeys(frontier, step)
+        return away
+
     @functools.cache
     def chains(self, start: str, target: str) -> list[list[str]]:
         """Every chain of keys from `start` to `target`, the ends left out, no longer than the shortest plus one."""
+        # A key is walked on from only where the target is near enough for the chain through it to be kept: the rest
+        # end no chain, and walked they were every path MOST_FILLED deep — nine seconds for a pair with no chain, a
+        # minute and a half of one report. A chain through a key `d` calls from the target is at least `d` keys more.
+        away = self.reaching(target)
         found, depth, reached = [], None, {start: 0}
         queue = deque([(start, [])])
         while queue:
@@ -125,7 +148,10 @@ class CallGraph:
                     continue
                 if len(chain) >= MOST_FILLED:
                     continue
+                longest = MOST_FILLED if depth is None else depth + 1
                 for nxt in landed:
+                    if len(chain) + away.get(nxt, MOST_FILLED + 1) > longest:
+                        continue
                     # A key is walked on from at its shortest reach and one past it, which is all a chain one longer
                     # than the shortest can pass through it at.
                     if nxt not in chain and len(chain) + 1 <= reached.setdefault(nxt, len(chain) + 1) + 1:

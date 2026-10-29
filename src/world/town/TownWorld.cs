@@ -285,7 +285,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // <b>A town stands the fleet</b> (CAR-11a).
         _builds = CarBuilds.OfTheFleet(config, CarCatalog.Shared);
 
-        Cars = new CarFleet(drivers, Math.Max(LineAssembler.ArcsFor(_roads), BayManoeuvre.MostArcsPerPiece), _builds);
+        Cars = new CarFleet(drivers, Math.Max(LineAssembler.ArcsFor(_roads), BayManoeuvre.MostArcsPerPiece), _builds,
+            config.Patience.FuseJitterShare);
         _mostArcsOfALane = LineAssembler.MostArcsOfALane(_roads);
         _manoeuvres = new Manoeuvres(drivers);
 
@@ -298,6 +299,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _trainOrders = new TrainOrders(_trains.MostOrdersATick);
         _trainManual = new bool[_trains.Count];
         _trainHold = LaneOccupancy.NoHolds(_trains.Count);
+        OpenWatch.Passed("town: crossings and trains");
         _occupancy = new LaneOccupancy(_ways, marks, drivers + walkers + _signalHolds.Count + _crossingHolds.Count + _trains.Count);
         _ground = new DrivingGround(Cars, _occupancy, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
@@ -349,8 +351,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         _containers = new Containers(_plan.Buildings.Capacity, drivers, People.Inside);
         _parking = ParkingRegistry.Build(plan, _bayStreets, config, drivers);
+        OpenWatch.Passed("town: fleets and parking");
         LayThePlaces(walkers, drivers);
+        OpenWatch.Passed("town: places");
         LayTheBaysAndDoorsOntoTheLanes();
+        OpenWatch.Passed("town: bays and doors onto the lanes");
         _bays = new BayManoeuvring(_ground, _carActions, _manoeuvres, _bayStreets);
         _pullingOut = new PullingOut(_ground, _bays, _parking, _bayStreets);
         _parkingIn = new ParkingIn(_ground, _carActions, _bays, _parking, _bayStreets);
@@ -374,7 +379,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _hitches = new TowHitches(drivers, _trains.WagonCount);
         _serviceBeat = new ServiceBeat(drivers);
         LayTheDistrictStreets();
-        OpenWatch.Passed("town: fleets and places");
+        OpenWatch.Passed("town: kerbs and district streets");
 
         if (standStatics) StandStatics();
         LayTheExits();
@@ -463,8 +468,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <remarks>
     /// <b>Three and not every stage</b>: the graphs are the seconds, and everything else the constructor does
     /// — the fleets, the tables they are numbered in, the roster and the spawn — is the remainder the probe
-    /// prints against <see cref="StoodMs"/>. A row a line of the constructor would be an instrument nobody
-    /// could read.
+    /// prints against <see cref="StoodMs"/>, and the stages it says as they pass (<see cref="OpenWatch"/>) are what
+    /// breaks that down. A row a line of the constructor would be an instrument nobody could read.
     /// </remarks>
     public double StoodMs { get; }
 
@@ -1047,10 +1052,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // body is still stepped, struck and pushed like any other; what it has stopped doing is deciding.
         if (People.Wounded[agent]) return;
 
-        // PER-30: a look on show walks its ring and takes no trip.
+        // PER-30: a look on show stands still and takes no trip.
         if (IsOnShow(agent) && !People.Inside[agent].Any)
         {
-            WalkTheRing(agent);
+            StandOnShow(agent);
             return;
         }
 

@@ -45,6 +45,16 @@ internal static class SelectionPath
 
     const float CrossStrokePx = 3f;
 
+    /// <summary>How far outside the box a goal's brackets stand, and how much of a side each arm covers, as shares of that side — so a truck and a hatchback are wrapped the same way.</summary>
+    const float BracketClearanceShare = 0.14f;
+
+    const float BracketArmShare = 0.3f;
+
+    /// <summary>The brackets' stroke, and the least they ever stand off the goal, in screen pixels divided by the zoom — as the ruler's tape is: a mark a metre thick covers the car it wraps.</summary>
+    const float BracketStrokePx = 2f;
+
+    const float BracketLeastClearancePx = 3f;
+
     public static void Draw(ref ScreenDraw draw, TownWorld world, SimConfig config, float pixelsPerMetre)
     {
         if (pixelsPerMetre <= 0f) return;
@@ -148,9 +158,9 @@ internal static class SelectionPath
         if (lead >= 0)
         {
             ref readonly var leadBuild = ref cars.BuildOf(lead);
-            SelectionMark.Brackets(
-                ref draw, cars.PositionM[lead], new Vector2(leadBuild.LengthM, leadBuild.WidthM),
-                cars.HeadingRad[lead], pixelsPerMetre, Theme.SelectionGoal);
+            Brackets(
+                ref draw, cars.PositionM[lead], new Vector2(leadBuild.LengthM, leadBuild.WidthM), cars.HeadingRad[lead],
+                pixelsPerMetre);
             return;
         }
 
@@ -168,10 +178,10 @@ internal static class SelectionPath
         var bay = world.Parking.ClaimedBayOf(car);
         if (bay >= 0)
         {
-            SelectionMark.Brackets(
+            Brackets(
                 ref draw, world.Parking.CentreM(bay),
                 new Vector2(config.ParkingSpaceLengthM, config.ParkingSpaceWidthM), world.Parking.HeadingRad(bay),
-                pixelsPerMetre, Theme.SelectionGoal);
+                pixelsPerMetre);
         }
         else if (cars.HasDestination[car])
         {
@@ -273,9 +283,7 @@ internal static class SelectionPath
         if (building != PersonFleet.NoBuilding)
         {
             var buildings = world.Plan.Buildings;
-            SelectionMark.Brackets(
-                ref draw, buildings.CentreM[building], buildings.SizeM[building], buildings.HeadingRad[building],
-                pixelsPerMetre, Theme.SelectionGoal);
+            Brackets(ref draw, buildings.CentreM[building], buildings.SizeM[building], buildings.HeadingRad[building], pixelsPerMetre);
             return;
         }
 
@@ -290,5 +298,34 @@ internal static class SelectionPath
         var arm = new Vector2(armM, armM);
         draw.LineM(atM - arm, atM + arm, strokeM, Theme.SelectionGoal);
         draw.LineM(atM - new Vector2(armM, -armM), atM + new Vector2(armM, -armM), strokeM, Theme.SelectionGoal);
+    }
+
+    /// <summary>
+    /// The goal as a thing that is entered — a building, a car, a bay: four corner brackets standing just outside its box,
+    /// laid in its own frame, so it is wrapped rather than crossed.
+    /// </summary>
+    static void Brackets(ref ScreenDraw draw, Vector2 centreM, Vector2 sizeM, float headingRad, float pixelsPerMetre)
+    {
+        var forward = Heading.Unit(headingRad);
+        var right = Heading.RightOf(forward);
+        var strokeM = BracketStrokePx / pixelsPerMetre;
+        var clearanceM = MathF.Max(MathF.Min(sizeM.X, sizeM.Y) * BracketClearanceShare, BracketLeastClearancePx / pixelsPerMetre);
+        var reachM = (sizeM * 0.5f) + new Vector2(clearanceM);
+        var armM = reachM * BracketArmShare;
+
+        for (var corner = 0; corner < 4; corner++)
+        {
+            var alongSign = corner is 0 or 3 ? 1f : -1f;
+            var acrossSign = corner is 0 or 1 ? 1f : -1f;
+
+            // Half a stroke past the corner both ways, so the two arms meet square instead of leaving a
+            // notch out of the very corner the bracket is drawn for.
+            var atM = centreM
+                + (forward * ((reachM.X * alongSign) + (strokeM * 0.5f * alongSign)))
+                + (right * ((reachM.Y * acrossSign) + (strokeM * 0.5f * acrossSign)));
+
+            draw.LineM(atM, atM - (forward * (armM.X * alongSign)), strokeM, Theme.SelectionGoal);
+            draw.LineM(atM, atM - (right * (armM.Y * acrossSign)), strokeM, Theme.SelectionGoal);
+        }
     }
 }

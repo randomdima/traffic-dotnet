@@ -141,8 +141,9 @@ and no ground carries both a lane and a line drawn across it (TER-5d).
 driven through. **What spares a driver the junctions that decide nothing is the layout and not the lane**: a
 run of roads through nodes nothing meets at is one road before a lane is laid on it (`GEN-51`), and a one-way
 street arrives only where the traffic it meets still has a choice (`GEN-18`). What is left holding one
-movement is a corner every other movement was refused for (`GEN-48`) or an entry to a roundabout (`GEN-19`) —
-both of them places a driver really is committed, and both reported by the census rather than papered over.
+movement is a corner every other movement was refused for (`GEN-48`), an entry to a roundabout (`GEN-19`) or a lane
+carried on through a fork or a merge (TER-5k) — places a driver really is committed, and reported by the census rather
+than papered over.
 
 **TER-5j** `P5` **A movement is made from the lanes of its arm a carriageway marked with nothing else would make
 it from** (`CityGen.LaneUse`): carrying straight on from any of them, turning to the near side from the kerb
@@ -164,10 +165,27 @@ the next one carried onto the other — and the ground between the branches is p
 were carried onto both. **A U-turn is made from the lane beside the line onto the lane beside the line**, and from
 no other. **A lane joins one lane, and one with no lane of its number there joins nothing**: of
 more lanes onto fewer the ones over end at the node, and of fewer onto more the ones over are reached by none.
-Nothing is merged or fanned at a node; a car gets off a lane that ends and onto one nothing reaches by
-moving across (`GEN-50`). A road of one lane each way is offered every turn its junction makes, from its one lane onto
+No lane is merged or fanned across lanes at a node; a car gets off a lane that ends and onto one nothing reaches by
+moving across (`GEN-50`). Two roads' lanes forking off one lane or merging onto one are TER-5k's. A road of one lane each way is offered every turn its junction makes, from its one lane onto
 the one lane each takes. **A car moves across onto a lane beside running its way along the street**
 (`CAR-53`), so the lane a turn is made from is one it can get to.
+
+**TER-5k** `P5` **A node whose movements cross nothing is no junction: its lanes are carried on.** Where every road
+meeting at a node has no walk (`GEN-75`), no two of its movements cross but two leaving one lane (a fork) or landing on
+one (a merge), and no track crosses any of them at ground level, the node is lanes carried on and nothing else
+(`LaneLines.IsSeamless`) — an intercity road's slip roads leaving its kerb lane and joining it again are the case
+(`GEN-68`). **Nothing there is the junction's**: no kerb end is filed at it, so no station, bar or arrow (TER-6,
+TER-6a); no light (`TLT-3`); the paint between lanes laid the same either side runs on through it, and parts at the
+gore of a fork; and a car comes to it as to more of its own road — no box to see its way out of before it goes in
+(TER-4c.1) and no turn to signal (`CAR-14.1`).
+
+- **Every movement over it is straight on** (TER-5e), whatever it bends through: which lanes each one joins is shared
+  first as the turns they are (TER-5j), so a slip still leaves and joins the kerb lane alone, and only then is every
+  one ranked straight. **A merge is therefore settled by the claims alone**: the two movements share the ground where
+  they converge (TER-5c), at one rung, so whichever asked first keeps it and the other follows it in — no bar, and no
+  stream that always gives way.
+- **What it is, is worked out and never authored**: from the walks, the movements' own lines and the tracks, so a
+  traced road meeting the same terms is one as well as a generated slip.
 
 ## Crossings
 
@@ -187,7 +205,7 @@ beyond their terrain attributes.
   a crossing is still held to that lane.
 - **Placement is not the road's** (`WLK-10`): a town paints a zebra wherever its kerb ends put a station
   (`CityGen.KerbEnds`) — across each end of each street at a box where three or more roads meet,
-  `Road.FootNodeClearM` out along the road past the further of the street's two kerb ends, from one edge of
+  its near edge on the further of the street's two kerb ends, from one edge of
   the carriageway to the other. **Nothing in this slice decides it** — not how far back the arm's lanes hand
   the car over, not how much road is left behind the paint. Each is still tagged with the junction it
   approaches, so a junction's signal bundle greens *its own* arms' crossings.

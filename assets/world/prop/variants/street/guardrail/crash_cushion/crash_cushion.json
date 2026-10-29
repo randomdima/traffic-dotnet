@@ -1,0 +1,9 @@
+{
+  "id": "crash_cushion",
+  "sprite": "crash_cushion.webp",
+  "kind": 2,
+  "footprintM": [2.5, 0.838],
+  "cornerRadiusM": 0.1,
+  "turns": true,
+  "describe": "highway crash cushion at a barrier's end: a row of yellow plastic energy-absorbing segments on a dark steel frame, its rounded nose at the right with black and yellow diagonal chevron stripes"
+}

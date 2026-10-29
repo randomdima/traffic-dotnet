@@ -188,7 +188,7 @@ internal sealed partial class TownWorld
         if (car < 0) return NoCar;
 
         TakeUpTheRescue(car, hospital);
-        StandTheCrew(car, PersonCatalog.Shared.Paramedic);
+        StandTheCrew(car, Errand.Rescue, Ambulances);
         Ambulances++;
         return car;
     }
@@ -199,7 +199,7 @@ internal sealed partial class TownWorld
         if (car < 0) return NoCar;
 
         BeginTheBeat(car, station, bay);
-        _beat.Officer[car] = StandTheCrew(car, PersonCatalog.Shared.Police);
+        _beat.Officer[car] = StandTheCrew(car, Errand.Patrol, PoliceCars);
         PoliceCars++;
         return car;
     }
@@ -210,7 +210,7 @@ internal sealed partial class TownWorld
         if (car < 0) return NoCar;
 
         TakeUpTheRecovery(car, depot, yard);
-        StandTheCrew(car, PersonCatalog.Shared.Recovery);
+        StandTheCrew(car, Errand.Recovery, Evacuators);
         Evacuators++;
         return car;
     }
@@ -219,12 +219,22 @@ internal sealed partial class TownWorld
     /// <b>The crew a service vehicle carries</b> (SRV-3): walkers in its building's uniform (SRV-3a), stood with
     /// the car before the first tick and put straight into its crew seats. The first of them, which is the one a
     /// police car puts out at a closure (SRV-11), or <see cref="PatrolDuty.Nobody"/> for a car stood with none.
+    /// <b>Its service's looks are worn in turn down the crews</b>, seat after seat, so two in one car are two people.
     /// </summary>
-    int StandTheCrew(int car, int uniform)
+    /// <param name="nth">How many of this service's vehicles were stood before this one.</param>
+    int StandTheCrew(int car, Errand service, int nth)
     {
         var first = PatrolDuty.Nobody;
-        for (var seat = 0; seat < CrewAboard(_config); seat++)
+        var aboard = CrewAboard(_config);
+        for (var seat = 0; seat < aboard; seat++)
         {
+            var worn = (nth * aboard) + seat;
+            var uniform = service switch
+            {
+                Errand.Rescue => PersonCatalog.Shared.ParamedicLook(worn),
+                Errand.Patrol => PersonCatalog.Shared.PoliceLook(worn),
+                _ => PersonCatalog.Shared.RecoveryLook(worn),
+            };
             var person = People.Add(
                 Cars.PositionM[car], Cars.HeadingRad[car], _config.Person.MassKg, _config.PersonRadiusM,
                 (byte)uniform, new Rng(_agentSeed, CrewStream + (ulong)((car * Containers.CrewSeats) + seat)),

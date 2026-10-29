@@ -198,7 +198,9 @@ internal static class RailLines
     {
         if (tracks.Count == 0) return CityPlan.RailArrays.None;
 
-        var levels = water is null ? tracks.Level : OverTheWater(tracks, water, config.Terrain.GroundStepM);
+        var (pointM, pointOffsets, levels) = OneDeck(
+            tracks, water is null ? tracks.Level : OverTheWater(tracks, water, config.Terrain.GroundStepM), config.RailDeckHalfM);
+        tracks = new TownMap.RailArrays { Line = tracks.Line, Runs = tracks.Runs, PointOffsets = pointOffsets, PointM = pointM, Level = levels };
 
         // <b>Each band cut on its own</b>: cut together, the runs of two tracks side by side are closed into each other
         // along the map's edge, and a run closed round a corner encloses everything between the line and that corner.
@@ -257,6 +259,180 @@ internal static class RailLines
         }
 
         return levels;
+    }
+
+    /// <summary>
+    /// <b>Tracks side by side cross on one bridge</b> (RAIL-8), as a road's lanes do: the runs of tracks whose decks touch
+    /// are each carried on to the furthest any of them reaches at either end, so the bridge ends square across all of them
+    /// rather than each track's where its own chords happened to leave the shore. A chord such an end falls inside is cut
+    /// there.
+    /// </summary>
+    static (Vector2[] PointM, int[] PointOffsets, byte[] Level) OneDeck(TownMap.RailArrays tracks, byte[] levels, float deckHalfM)
+    {
+
+        var alongM = new float[tracks.Count][];
+        var runs = new List<(int Track, float FromM, float ToM)>();
+        for (var track = 0; track < tracks.Count; track++)
+        {
+            var lineM = tracks.TrackOf(track);
+            var level = levels.AsSpan(tracks.PointOffsets[track], lineM.Length);
+            alongM[track] = new float[lineM.Length];
+            for (var point = 1; point < lineM.Length; point++) alongM[track][point] = alongM[track][point - 1] + Vector2.Distance(lineM[point - 1], lineM[point]);
+
+            for (var from = 0; from + 1 < lineM.Length; from++)
+            {
+                if (level[from] == TownMap.RailArrays.AtGrade) continue;
+
+                var to = from + 1;
+                while (to + 1 < lineM.Length && level[to] != TownMap.RailArrays.AtGrade) to++;
+
+                runs.Add((track, alongM[track][from], alongM[track][to]));
+                from = to;
+            }
+        }
+
+        // Two runs are one bridge where each passes within a deck's width of the other a quarter and three quarters along it,
+        // which two tracks crossing each other do not.
+        var root = Enumerable.Range(0, runs.Count).ToArray();
+        for (var one = 0; one < runs.Count; one++)
+        {
+            for (var other = one + 1; other < runs.Count; other++)
+            {
+                if (runs[one].Track != runs[other].Track && Beside(one, other) && Beside(other, one)) root[Find(one)] = Find(other);
+            }
+        }
+
+        var cutsM = new List<float>[tracks.Count];
+        var raised = new List<(float FromM, float ToM)>[tracks.Count];
+        for (var track = 0; track < tracks.Count; track++) (cutsM[track], raised[track]) = ([], []);
+
+        foreach (var group in Enumerable.Range(0, runs.Count).GroupBy(Find))
+        {
+            var first = runs[group.First()];
+            var axis = Vector2.Normalize(At(first.Track, first.ToM) - At(first.Track, first.FromM));
+            var (leastM, mostM) = (float.PositiveInfinity, float.NegativeInfinity);
+            foreach (var run in group)
+            {
+                foreach (var endM in (ReadOnlySpan<float>)[runs[run].FromM, runs[run].ToM])
+                {
+                    var onM = Vector2.Dot(At(runs[run].Track, endM), axis);
+                    (leastM, mostM) = (MathF.Min(leastM, onM), MathF.Max(mostM, onM));
+                }
+            }
+
+            foreach (var run in group)
+            {
+                var (track, fromM, toM) = runs[run];
+                var forward = Vector2.Dot(At(track, toM) - At(track, fromM), axis) >= 0f;
+                var (startM, endM) = (Reach(track, fromM, -1, axis, forward ? leastM : mostM), Reach(track, toM, 1, axis, forward ? mostM : leastM));
+                cutsM[track].Add(startM);
+                cutsM[track].Add(endM);
+                raised[track].Add((startM, endM));
+            }
+        }
+
+        var points = new List<Vector2>(tracks.PointM.Length);
+        var laid = new List<byte>(tracks.PointM.Length);
+        var offsets = new int[tracks.Count + 1];
+        var pointAlongM = new List<float>();
+        for (var track = 0; track < tracks.Count; track++)
+        {
+            var lineM = tracks.TrackOf(track);
+            var level = levels.AsSpan(tracks.PointOffsets[track], lineM.Length);
+            pointAlongM.Clear();
+            for (var point = 0; point < lineM.Length; point++)
+            {
+                Add(lineM[point], alongM[track][point], level[point]);
+                if (point + 1 == lineM.Length) break;
+
+                var (fromM, toM) = (alongM[track][point], alongM[track][point + 1]);
+                foreach (var cutM in cutsM[track].Where(cutM => cutM > fromM + LineTolerance.OnePlaceM && cutM < toM - LineTolerance.OnePlaceM).Order())
+                {
+                    Add(Vector2.Lerp(lineM[point], lineM[point + 1], (cutM - fromM) / (toM - fromM)), cutM, level[point]);
+                }
+            }
+
+            offsets[track + 1] = points.Count;
+
+            // A chord's level is the point's it starts at, so each is read again off where its middle stands.
+            for (var chord = 0; chord + 1 < pointAlongM.Count; chord++)
+            {
+                var middleM = (pointAlongM[chord] + pointAlongM[chord + 1]) * 0.5f;
+                if (raised[track].Exists(span => middleM > span.FromM && middleM < span.ToM)) laid[offsets[track] + chord] = TownMap.RailArrays.Above;
+            }
+
+            void Add(Vector2 atM, float onM, byte chordLevel)
+            {
+                points.Add(atM);
+                laid.Add(chordLevel);
+                pointAlongM.Add(onM);
+            }
+        }
+
+        return ([.. points], offsets, [.. laid]);
+
+        int Find(int run) => root[run] == run ? run : root[run] = Find(root[run]);
+
+        Vector2 At(int track, float atM)
+        {
+            var lineM = tracks.TrackOf(track);
+            var along = alongM[track];
+            var found = Array.BinarySearch(along, atM);
+            var point = Math.Clamp(found >= 0 ? found : ~found - 1, 0, lineM.Length - 2);
+            var chordM = along[point + 1] - along[point];
+            return chordM <= 0f ? lineM[point] : Vector2.Lerp(lineM[point], lineM[point + 1], Math.Clamp((atM - along[point]) / chordM, 0f, 1f));
+        }
+
+        // Whether one run passes within two deck half-widths of the other — their decks touching — a quarter and three
+        // quarters along it.
+        bool Beside(int one, int other)
+        {
+            var (track, fromM, toM) = runs[one];
+            var (otherTrack, otherFromM, otherToM) = runs[other];
+            var along = alongM[otherTrack];
+            foreach (var share in (ReadOnlySpan<float>)[0.25f, 0.75f])
+            {
+                var placeM = At(track, fromM + ((toM - fromM) * share));
+                var (nearestM, lastM) = (float.PositiveInfinity, At(otherTrack, otherFromM));
+                foreach (var stepM in along.Where(stepM => stepM > otherFromM && stepM < otherToM).Append(otherToM))
+                {
+                    var hereM = At(otherTrack, stepM);
+                    var runM = hereM - lastM;
+                    var onShare = Math.Clamp(Vector2.Dot(placeM - lastM, runM) / MathF.Max(runM.LengthSquared(), float.Epsilon), 0f, 1f);
+                    nearestM = MathF.Min(nearestM, Vector2.Distance(placeM, lastM + (runM * onShare)));
+                    lastM = hereM;
+                }
+
+                if (nearestM > 2f * deckHalfM) return false;
+            }
+
+            return true;
+        }
+
+        // How far along its track a run's end is carried on, the way given, to stand as far along the axis as its group
+        // reaches: where the track first gets there, the end itself where it is there already, and where the track turns
+        // away or ends short of it.
+        float Reach(int track, float endM, int way, Vector2 axis, float targetM)
+        {
+            var along = alongM[track];
+            var (hereM, hereOnM) = (endM, Vector2.Dot(At(track, endM), axis));
+            var found = Array.BinarySearch(along, endM);
+            for (var point = found >= 0 ? found + way : way > 0 ? ~found : ~found - 1; point >= 0 && point < along.Length; point += way)
+            {
+                var thereM = along[point];
+                var thereOnM = Vector2.Dot(At(track, thereM), axis);
+                if ((thereOnM - targetM) * (hereOnM - targetM) <= 0f)
+                {
+                    return thereOnM == hereOnM ? hereM : hereM + ((thereM - hereM) * (targetM - hereOnM) / (thereOnM - hereOnM));
+                }
+
+                if (MathF.Abs(thereOnM - targetM) >= MathF.Abs(hereOnM - targetM)) return hereM;
+
+                (hereM, hereOnM) = (thereM, thereOnM);
+            }
+
+            return hereM;
+        }
     }
 
     /// <summary>

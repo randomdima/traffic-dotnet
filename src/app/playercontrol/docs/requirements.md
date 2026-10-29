@@ -8,16 +8,17 @@ town. Why it reads this way is [decision-log.md](decision-log.md).
 elsewhere reselects or deselects. **Every rail vehicle is a unit of its own**: a locomotive is the one its train is
 driven by (`CTL-5`), and a wagon is followed and read but driven by nobody. A train that leaves the map is out of the
 world, and its vehicles drop out of the selection (`TRN-7`). The selection is **marked on the town by a shape and never by a change to the unit's own
-picture** — corner brackets standing outside its box, laid in the frame that box is drawn in.
+picture** — a bold green ring, edged dark, that follows the outline of the very picture the unit is drawn as, just
+outside it.
 
 **What is drawn on the town is the mark and nothing else**, and **what the unit is doing — and what the
 run's watches have against it — is read off the panel** (`OBS-2m`, `OBS-2i`). A shape says *which* unit
 without covering the ground it is about to drive over; words take room, and the room they take is the town.
-The brackets and the path are what tie the panel to a body, so the corner never has to say which car it
+The ring and the path are what tie the panel to a body, so the corner never has to say which car it
 means.
 
 **CTL-1b** `P7` **One unit or many, and the left button moves the town.** A selection holds **a set of units and
-not one**, and everything the interface does to a selection it does to every unit in it: the brackets, the
+not one**, and everything the interface does to a selection it does to every unit in it: the ring, the
 paths, the orders, the keys and the lever.
 
 - **A plain drag moves the town under the pointer**, and it is the first thing the left button does: the
@@ -45,7 +46,7 @@ paths, the orders, the keys and the lever.
 **CTL-1a** `P7` **Where it is going, drawn whole.** The selection carries a second mark: **the whole of the route
 the unit is holding**, from under its own body to the end of what it has planned, as one chevronned line
 in the interface's own colour — and **a mark on the goal at the end of it**. A place on the ground is
-crossed; **a thing rather than a place is wrapped in the same brackets the unit itself wears** — the
+crossed; **a thing rather than a place is wrapped in corner brackets round its box** — the
 building, the car, the bay, and the car being followed (CTL-8c), which is the one of them that moves and
 is therefore marked wherever it has got to rather than where the route was last drawn to.
 
@@ -211,10 +212,9 @@ same envelope, the same beacon (CTL-5c), and the town told nothing about either 
   and a second hand that could win it would be a fight nobody watching could read.
 - **One named car and one hand**, because the whole of what this is for is a driver beside a reader rather
   than a second way to drive a group.
-- **The car is marked on the town** — the selection's own brackets (`CTL-1`) in a hue of their own, because
-  it is the same question asked by somebody else. **It is outlined and the selection's mark is not**: a mark
-  the reader did not ask for lands on whatever colour that car is painted, and the town's palette holds
-  every hue a mark could be. A car they have also picked out wears the selection's mark and not both.
+- **The car is marked on the town** — the selection's own ring (`CTL-1`) in a hue of its own, because it is
+  the same question asked by somebody else. A car they have also picked out wears the selection's mark and
+  not both.
 - **And the camera stands on it when the reader has picked nothing out** (`OBS-1a`): a run carrying a second
   driver is a run about that car, so the window opens on it and comes back to it when a selection is
   dropped. Picking something out or moving the camera takes it, exactly as it always does.

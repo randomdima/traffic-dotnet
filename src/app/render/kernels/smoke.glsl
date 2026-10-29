@@ -20,7 +20,7 @@ struct SmokePoint
 
 // The car as the last step left it, the newest of its points in its ring and how many of the ring are its way, when it
 // last ran — a track not run on for a puff's life draws nothing — and the moment of the view the host shows, the step
-// before (WorldLayer.StepsAhead), which the smoke is drawn at so its newest puff leaves the car where it is drawn.
+// before (SimFigures.WorldStepsAhead), which the smoke is drawn at so its newest puff leaves the car where it is drawn.
 struct SmokeHead
 {
     SmokePoint live;

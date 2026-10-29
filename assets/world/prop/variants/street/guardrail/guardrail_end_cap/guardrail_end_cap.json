@@ -1,0 +1,8 @@
+{
+  "id": "guardrail_end_cap",
+  "sprite": "guardrail_end_cap.webp",
+  "kind": 2,
+  "footprintM": [1.0, 0.426],
+  "turns": true,
+  "describe": "short end of a W-beam crash barrier, 1 m long: the galvanised beam along the bottom edge, the left end cut straight and square to join a run, the right end a rounded steel fishtail cap bent back, one post at the middle"
+}

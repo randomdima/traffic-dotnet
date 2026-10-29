@@ -1,0 +1,8 @@
+{
+  "id": "guardrail_4m_dented",
+  "sprite": "guardrail_4m_dented.webp",
+  "kind": 2,
+  "footprintM": [4.0, 0.555],
+  "turns": true,
+  "describe": "the same new 4 m W-beam section dented by a crash: the beam pushed back towards the posts in its middle in a shallow bend, scuffed bare steel and a smear of black tyre rubber there, two posts a quarter of the way in from each end, both ends straight and square and in line"
+}

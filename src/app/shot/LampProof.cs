@@ -80,7 +80,8 @@ internal static class LampProof
     {
         var catalogue = CarCatalog.Shared;
         var looks = FleetList.IsTold ? catalogue.Count : catalogue.SheetCount;
-        var fleet = new CarFleet(looks, arcsPerCar: 1, CarBuilds.OfTheFleet(config, catalogue));
+        var fleet = new CarFleet(looks, arcsPerCar: 1, CarBuilds.OfTheFleet(config, catalogue),
+            config.Patience.FuseJitterShare);
 
         var tileM = Vector2.Zero;
         for (var look = 0; look < looks; look++) tileM = Vector2.Max(tileM, catalogue.Variants[look].FootprintM);

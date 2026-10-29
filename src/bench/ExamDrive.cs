@@ -36,11 +36,16 @@ namespace TrafficSimulation.Bench;
 internal sealed class ExamDrive
 {
     /// <summary>
-    /// A minute and a half of town. A card is a stand back of a few tens of metres and one junction, which is
+    /// Two minutes of town. A card is a stand back of a few tens of metres and one junction, which is
     /// a handful of seconds of driving — the rest is room for a car that has to wait for another, for a light
     /// to come round twice and for somebody on foot to get over.
     /// </summary>
-    public const float WatchedS = 90f;
+    /// <remarks>
+    /// <b>And for the level crossing's card</b>: a line's first train may be sent up to <c>Train.FirstMostS</c> in, and
+    /// a freight half a kilometre long holds the crossing for most of a minute after its warning, and the barrier a while
+    /// past that, before the car waiting there drives on past the track.
+    /// </remarks>
+    public const float WatchedS = 120f;
 
     readonly SimConfig _config;
     readonly TownWorld _world;

@@ -5,6 +5,7 @@ using TrafficSimulation.CityGen.Traced;
 using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Statics;
+using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
 
@@ -22,7 +23,7 @@ internal static class TracedFit
         var plan = Maps.Plan(map, config, ShippedArt.Sizes);
         var survey = Survey.Of(Maps.Read(map), config);
         var paving = plan.Paving(config);
-        var zones = new ZoneTree(survey.Zones, config.Zones);
+        var zones = new ZoneTree(survey.Zones, config);
         var laying = ZoneBuildings.Laid(zones, survey, BuildingStage.Yards.None(config), paving, new GroundShapes(paving, config), BuildingCatalog.Roofs, config);
         var buildings = laying.Buildings;
         var looks = BuildingCatalog.Roofs.PrefabLook;

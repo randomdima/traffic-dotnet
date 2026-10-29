@@ -152,8 +152,8 @@ internal sealed partial class DebugOverlay
     /// </para>
     /// <para>
     /// <b>And over both of them, the places the walk crosses</b> (<see cref="Theme.FootNode"/>): two to a
-    /// place, either side of the carriageway and square across it, struck off the red one at the figure the
-    /// page turns (<see cref="Core.Config.RoadFigures.FootNodeClearM"/>) — or one midway down a street too
+    /// place, either side of the carriageway and square across it, struck off the red one half a zebra out
+    /// (<see cref="Core.Config.RoadFigures.CrossingDepthM"/>) — or one midway down a street too
     /// short to be crossed twice (WLK-10a). Drawn last because they are what the layer is opened for and the
     /// ends are the working behind them.
     /// </para>

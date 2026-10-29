@@ -34,7 +34,8 @@ crossing" already carries the whole of the warning, and a crossing shows green o
 
 **TLT-3** `P6` An intersection carries **at most one light bundle, and only if it admits conflicting
 movements** (TER-5c), which is read off the shape of the junction rather than taken on trust from the map:
-three arms or more, and neither a roundabout's ring (GEN-19) nor a car park (GEN-53). **Of those, a town
+three arms or more, and neither a roundabout's ring (GEN-19), a car park (GEN-53), where a slip road meets an
+intercity road (GEN-68), nor a node that only carries lanes on (TER-5k). **Of those, a town
 lights the share its map asks for (`UnregulatedShare`), to the junction, drawn once from the world seed and weighted by the
 movements each admits** — so a crossroads is lit more often than a tee, and no tee is out of the draw. What
 is left is ranked (TER-5e). **A crossing does not qualify one on its own**: an intersection of fewer than

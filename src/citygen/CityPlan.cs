@@ -69,6 +69,13 @@ internal sealed class CityPlan
 
     public required PavedAreaArrays PavedAreas { get; init; }
 
+    /// <summary>
+    /// <b>Walk laid as an area rather than along a road</b>: each ring paved as the walk is, under the carriageway, and
+    /// answered as walk (<see cref="GroundShapes.At(Vector2)"/>). No kerb is struck along one — its edge is meant to lie
+    /// under a road, whose own kerb is the line seen. The showroom's island inside its loop; empty on every other map.
+    /// </summary>
+    public RingArrays Plazas { get; init; } = RingArrays.None;
+
     public required CrosswalkArrays Crosswalks { get; init; }
 
     /// <summary>
@@ -113,6 +120,7 @@ internal sealed class CityPlan
         ParkingLots, PavedAreas, Crosswalks, Water)
     {
         Rails = Rails,
+        Plazas = Plazas,
     };
 
     /// <summary>The railway (RAIL-2): its tracks, and the ballast each is laid on.</summary>
@@ -373,8 +381,8 @@ internal sealed class CityPlan
 
         /// <summary>
         /// <b>The turns a junction does not make</b>, from one road into another (TER-5j): the movements a traced
-        /// map's gathered junction's roads never made (GEN-57). <b>Empty where the town forbids none</b>, which is every
-        /// town whose streets its zones lay.
+        /// map's gathered junction's roads never made (GEN-57), and at a generated town's slip roads every movement but the
+        /// one onto or off the intercity road (GEN-68). <b>Empty where the town forbids none</b>.
         /// </summary>
         public RoadTurn[] BannedTurns { get; init; } = [];
 
@@ -415,10 +423,22 @@ internal sealed class CityPlan
         public bool IsLaidStraight(int road) => LaidStraight.Length > 0 && LaidStraight[road];
 
         /// <summary>
+        /// <b>Which roads have no walk beside them</b> (GEN-75): an intercity road, and a bridge carrying one. The
+        /// walk is struck off the rest of the driven ground (<see cref="Paving.Walked"/>), so nothing beside such a
+        /// road is paved, fronted or walked down. <b>Empty where every road is walked</b>, which is every town not
+        /// laid by class.
+        /// </summary>
+        public bool[] Unwalked { get; init; } = [];
+
+        /// <inheritdoc cref="Unwalked"/>
+        public bool IsWalked(int road) => Unwalked.Length == 0 || !Unwalked[road];
+
+        /// <summary>
         /// <b>The level each road is driven on</b> (GEN-57, PHY-1a): <see cref="Ground"/>, or
         /// <see cref="Over"/> for a bridge that carries it over other roads — whose cars, ground and claims never
-        /// meet those of the roads it passes over. <b>Empty where every road is on the ground</b>, which is every
-        /// town the generator lays: its bridges span water and nothing passes under them.
+        /// meet those of the roads it passes over. <b>Empty where every road is on the ground</b>: a generated town's
+        /// bridges over water are, and only a bypassed one carries roads over its intercity roads and those over its
+        /// railways (GEN-68).
         /// </summary>
         public byte[] Level { get; init; } = [];
 

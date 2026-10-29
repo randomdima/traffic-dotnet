@@ -9,8 +9,8 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </summary>
 /// <remarks>
 /// <b>A route is corners and not a road.</b> It comes back as the cells it stepped through and the crossings it took, each
-/// crossing's own two ends and the stretch held on its line either side, and the caller rounds it into a line a road can
-/// be laid along (<see cref="Polyline.Rounded"/>).
+/// crossing's own two ends and the stretch held on its line either side, and the caller draws the curve a road is laid
+/// along through them (<see cref="RouteSpline"/>).
 /// </remarks>
 internal sealed class Routes
 {
@@ -18,31 +18,53 @@ internal sealed class Routes
     readonly bool[] _blocked;
     readonly List<Crossing> _crossings = [];
 
+    /// <summary>Each of <see cref="_crossings"/> as it was handed in, whichever way round it is filed.</summary>
+    readonly List<Crossing> _given = [];
+
     /// <summary>The crossings that leave from each cell, each one way: a crossing is filed from both its ends.</summary>
     readonly Dictionary<int, List<int>> _leaving = [];
 
-    readonly float _approachM;
+    readonly float _approachM, _roomM;
+
+    /// <summary>
+    /// A search's working set, a cell each and kept from one search to the next: a cell's cost and step stand only where
+    /// <see cref="_seen"/> holds the search's own number, and it is closed only where <see cref="_closed"/> does — so a
+    /// search clears nothing, and a failing one that floods the map costs no table grown cell by cell.
+    /// </summary>
+    readonly float[] _costM;
+
+    readonly (int From, int Crossing)[] _came;
+    readonly int[] _seen;
+    readonly int[] _closed;
+    int _search;
 
     /// <param name="blocked">Whether a road may not stand at a place: the water and the railway, and their clearances.</param>
     /// <param name="approachM">How far either side of a crossing a road holds its line (<see cref="Crossing.NearApproachM"/>).</param>
-    public Routes(CellGrid grid, Func<Vector2, bool> blocked, IEnumerable<Crossing> crossings, float approachM)
+    /// <param name="roomM">
+    /// How far past its approach a route still runs on the crossing's line: the room a road needs to turn off the straight,
+    /// which a route leaves it and no other crossing takes.
+    /// </param>
+    public Routes(CellGrid grid, Func<Vector2, bool> blocked, IEnumerable<Crossing> crossings, float approachM, float roomM)
     {
         _grid = grid;
-        _approachM = approachM;
+        (_approachM, _roomM) = (approachM, roomM);
         _blocked = new bool[grid.Count];
         for (var cell = 0; cell < grid.Count; cell++) _blocked[cell] = blocked(grid.CentreOf(cell));
+
+        (_costM, _came, _seen, _closed) = (new float[grid.Count], new (int, int)[grid.Count], new int[grid.Count], new int[grid.Count]);
 
         foreach (var crossing in crossings)
         {
             foreach (var way in (ReadOnlySpan<Crossing>)[crossing, crossing.Reversed])
             {
-                var from = grid.IndexOf(way.NearApproachM(approachM));
-                var to = grid.IndexOf(way.FarApproachM(approachM));
+                var from = grid.IndexOf(way.NearApproachM(approachM + roomM));
+                var to = grid.IndexOf(way.FarApproachM(approachM + roomM));
                 if (_blocked[from] || _blocked[to]) continue;
 
                 if (!_leaving.TryGetValue(from, out var leaving)) _leaving[from] = leaving = [];
                 leaving.Add(_crossings.Count);
                 _crossings.Add(way);
+                _given.Add(crossing);
             }
         }
     }
@@ -52,27 +74,46 @@ internal sealed class Routes
     public bool Blocked(Vector2 atM) => _blocked[_grid.IndexOf(atM)];
 
     /// <summary>
-    /// <b>The cheapest way from a place to any cell a goal holds</b>, as corners — or none where there is none. Every
-    /// crossing taken costs <paramref name="crossingWeight"/> times its own length, so a road crosses a barrier where it has
-    /// to and not wherever the crossing happens to be shorter than the way round.
+    /// <b>A place barred after the search was laid</b>: every cell within a reach of it, and every crossing either end of
+    /// which now stands on one — where a curve could not be drawn along the way found, so the next search finds another.
     /// </summary>
+    public void Bar(Vector2 atM, float reachM)
+    {
+        _grid.Band(atM, atM, reachM, cell => _blocked[cell] = true);
+        foreach (var (from, leaving) in _leaving)
+        {
+            leaving.RemoveAll(crossing => _blocked[from] || _blocked[_grid.IndexOf(_crossings[crossing].FarApproachM(_approachM + _roomM))]);
+        }
+    }
+
+    /// <summary>
+    /// <b>A way from a place to any cell a goal holds</b>, as corners — or none where there is none. Every crossing taken
+    /// costs <paramref name="crossingWeight"/> times its own length, so a road crosses a barrier where it has to and not
+    /// wherever the crossing happens to be shorter than the way round.
+    /// </summary>
+    /// <remarks>
+    /// <b>Steered toward <paramref name="towardM"/> and not held to the cheapest</b>: the goals are the core and every road
+    /// already laid, and the steer is the distance to the core alone, which can overstate the way to a nearer road — so
+    /// the way found is a good one and not always the best.
+    /// </remarks>
     /// <param name="towardM">Where the goal lies, which the search is steered toward and never held to.</param>
     public List<RouteCorner>? Find(Vector2 fromM, Func<int, bool> goal, Vector2 towardM, float crossingWeight)
     {
+        var search = ++_search;
         var start = _grid.IndexOf(fromM);
-        var costM = new Dictionary<int, float> { [start] = 0f };
-        var came = new Dictionary<int, (int From, int Crossing)>();
+        (_costM[start], _came[start], _seen[start]) = (0f, (-1, -1), search);
         var open = new PriorityQueue<int, float>();
         open.Enqueue(start, Vector2.Distance(fromM, towardM));
-        var closed = new HashSet<int>();
 
         while (open.TryDequeue(out var cell, out _))
         {
-            if (!closed.Add(cell)) continue;
-            if (goal(cell)) return Walked(cell, came, fromM);
+            if (_closed[cell] == search) continue;
+
+            _closed[cell] = search;
+            if (goal(cell)) return Walked(cell, start, fromM);
 
             var (column, row) = (cell % _grid.Columns, cell / _grid.Columns);
-            var hereM = costM[cell];
+            var hereM = _costM[cell];
             for (var dy = -1; dy <= 1; dy++)
             {
                 for (var dx = -1; dx <= 1; dx++)
@@ -89,12 +130,13 @@ internal sealed class Routes
                 }
             }
 
-            if (!_leaving.TryGetValue(cell, out var leaving)) continue;
+            if (!_leaving.TryGetValue(cell, out var leaving) || !RoomedSinceACrossing(cell)) continue;
 
             foreach (var crossing in leaving)
             {
                 var way = _crossings[crossing];
-                Offer(_grid.IndexOf(way.FarApproachM(_approachM)), hereM + (way.SpanM * crossingWeight) + (2f * _approachM), cell, crossing);
+                var heldM = _approachM + _roomM;
+                Offer(_grid.IndexOf(way.FarApproachM(heldM)), hereM + (way.SpanM * crossingWeight) + (2f * heldM), cell, crossing);
             }
         }
 
@@ -102,21 +144,43 @@ internal sealed class Routes
 
         void Offer(int next, float nextM, int from, int crossing)
         {
-            if (closed.Contains(next) || (costM.TryGetValue(next, out var knownM) && knownM <= nextM)) return;
+            if (_closed[next] == search || (_seen[next] == search && _costM[next] <= nextM)) return;
 
-            costM[next] = nextM;
-            came[next] = (from, crossing);
+            (_costM[next], _came[next], _seen[next]) = (nextM, (from, crossing), search);
             open.Enqueue(next, nextM + Vector2.Distance(_grid.CentreOf(next), towardM));
         }
     }
 
-    /// <summary>The corners a search walked, from its start to the goal it reached, each crossing laid as its own straight.</summary>
-    List<RouteCorner> Walked(int goal, Dictionary<int, (int From, int Crossing)> came, Vector2 fromM)
+    /// <summary>
+    /// Whether the way a search came to a cell runs its room clear of the last crossing it took: one taken nearer leaves
+    /// a road nowhere to turn between the two straights.
+    /// </summary>
+    bool RoomedSinceACrossing(int cell)
+    {
+        var walkedM = 0f;
+        for (var at = cell; walkedM < _roomM;)
+        {
+            var (from, crossing) = _came[at];
+            if (crossing >= 0) return false;
+            if (from < 0) return true;
+
+            walkedM += Vector2.Distance(_grid.CentreOf(at), _grid.CentreOf(from));
+            at = from;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The corners a search walked, from its start to the goal it reached, each crossing laid as its own straight and the
+    /// room past either end of it as a corner of the route's own.
+    /// </summary>
+    List<RouteCorner> Walked(int goal, int start, Vector2 fromM)
     {
         var backwards = new List<RouteCorner>();
-        var cell = goal;
-        while (came.TryGetValue(cell, out var step))
+        for (var cell = goal; cell != start;)
         {
+            var step = _came[cell];
             if (step.Crossing < 0)
             {
                 backwards.Add(new RouteCorner(_grid.CentreOf(cell), -1));
@@ -124,10 +188,12 @@ internal sealed class Routes
             else
             {
                 var way = _crossings[step.Crossing];
+                backwards.Add(new RouteCorner(way.FarApproachM(_approachM + _roomM), -1));
                 backwards.Add(new RouteCorner(way.FarApproachM(_approachM), step.Crossing));
                 backwards.Add(new RouteCorner(way.FarM, step.Crossing));
                 backwards.Add(new RouteCorner(way.NearM, step.Crossing));
                 backwards.Add(new RouteCorner(way.NearApproachM(_approachM), step.Crossing));
+                backwards.Add(new RouteCorner(way.NearApproachM(_approachM + _roomM), -1));
             }
 
             cell = step.From;
@@ -138,58 +204,22 @@ internal sealed class Routes
         return backwards;
     }
 
-    /// <summary>The crossing a route's corner belongs to.</summary>
-    public Crossing CrossingOf(int crossing) => _crossings[crossing];
-
     /// <summary>
-    /// <b>A route as the line a road is laid along</b>: the cells it stepped through thinned to the corners that keep them
-    /// within a cell, every crossing's own corners kept exactly, and every corner rounded at the radius
-    /// (<see cref="Polyline.Rounded"/>) — so it holds each crossing's line through the crossing and for half its
-    /// approach either side.
+    /// <b>The crossings a route took</b>, in the order it took them and each as it was handed in — not the way round it was
+    /// crossed — so a caller asks what the route stands on of the route, and not of a line drawn off it.
     /// </summary>
-    /// <remarks>
-    /// <b>No cell's corner stands within the radius of a crossing's approach</b>: the cell a route steps into off a crossing
-    /// is a few metres past its approach, and a corner there leaves a leg no corner of the radius fits on, so the road
-    /// laid along it is refused for turning tighter than its class.
-    /// </remarks>
-    public static Polyline Line(List<RouteCorner> corners, float radiusM, float stepM, float toleranceM)
+    public List<Crossing> Taken(List<RouteCorner> corners)
     {
-        var kept = new List<Vector2>();
-        var run = new List<Vector2>();
-        var held = -1;
+        var taken = new List<Crossing>();
         foreach (var corner in corners)
         {
-            if (corner.Crossing < 0)
-            {
-                run.Add(corner.AtM);
-                continue;
-            }
+            if (corner.Crossing < 0) continue;
 
-            Flush(corner.AtM);
-            if (kept.Count == 0 || Vector2.DistanceSquared(kept[^1], corner.AtM) > 1e-6f) kept.Add(corner.AtM);
-            held = kept.Count - 1;
+            var given = _given[corner.Crossing];
+            if (taken.Count == 0 || taken[^1] != given) taken.Add(given);
         }
 
-        Flush(null);
-        return new Polyline([.. Polyline.Rounded(kept, radiusM, stepM)]);
-
-        // The run up to a crossing's approach, or to the route's end: kept clear of the approach either side of it.
-        void Flush(Vector2? crossingM)
-        {
-            var thinned = Polyline.Thinned(run, toleranceM);
-            for (var at = 0; at < thinned.Count; at++)
-            {
-                var atM = thinned[at];
-                var last = at == thinned.Count - 1 && crossingM is null;
-                var nearTheLast = held >= 0 && Vector2.Distance(kept[held], atM) < radiusM;
-                var nearTheNext = crossingM is { } nextM && Vector2.Distance(nextM, atM) < radiusM;
-                if (kept.Count > 0 && !last && (nearTheLast || nearTheNext)) continue;
-
-                if (kept.Count == 0 || Vector2.DistanceSquared(kept[^1], atM) > 1e-6f) kept.Add(atM);
-            }
-
-            run.Clear();
-        }
+        return taken;
     }
 }
 

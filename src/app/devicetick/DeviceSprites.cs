@@ -44,6 +44,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>Count, scan, write.</b> One thread a unit counts what each part of it draws into a slot laid in draw order — a cull
 /// and nothing built — a <see cref="PrefixScan"/> turns the counts into where each part starts, and a second pass builds
 /// every part counted there and the two draws' instance counts — so the order is the host's whatever order the threads ran in.
+/// The walkers alone are built aside and put in the order they are drawn by a third (<c>sprites_order.comp</c>, PER-31),
+/// a workgroup a walker counting those shown that rank before it: the square of the walkers on screen, and nothing sorted.
 /// </para>
 /// <para>
 /// <b>The device must offer doubles</b>: a walker's facing, its stride's cell and a tow arm's bearing are rounded in them,
@@ -107,13 +109,13 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
     /// <summary>
     /// The frame's own words (<c>Frame</c>): the view, the narrowest part, the clock, the rosters, the world's view the host
-    /// is showing, and the air of the moments back from the town's (<see cref="Wind.Back"/>), which carries the smoke
-    /// (CAR-54, OBJ-7).
+    /// is showing, how slow a walker is drawn standing (<c>SimConfig.Person.DrawnStandingBelowMps</c>), and the air of
+    /// the moments back from the town's (<see cref="Wind.Back"/>), which carries the smoke (CAR-54, OBJ-7).
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct FrameRow(
         Vector2 ViewCentreM, Vector2 ViewSpanM, float LeastPartM, float ElapsedS, uint PersonCount, uint CarCount, uint ViewSlot,
-        uint Pad, AirMoments Air);
+        float StandingBelowMps, AirMoments Air);
 
     /// <summary>
     /// How many moments back the frame hands the air at (<c>AirMoments</c>), from now to the oldest any puff is drawn at
@@ -254,11 +256,18 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     /// <summary>The binding of the counts the scan turns into starts (<c>Starts</c>), its totals the next.</summary>
     const int StartsAt = 14;
 
+    /// <summary>
+    /// The most workgroups one dispatch is sure of along x (Vulkan's least <c>maxComputeWorkGroupCount[0]</c>): the order
+    /// pass runs one a walker of the roster's capacity.
+    /// </summary>
+    const int MostWorkgroups = 65_535;
+
     readonly Vk _vk;
     readonly SimConfig _config;
     readonly DeviceHoldings _held;
     readonly int _units;
     readonly int _slots;
+    readonly int _personCapacity;
     readonly int _cars;
     readonly int _people;
     readonly SpriteRoom _room;
@@ -284,9 +293,12 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
     readonly ScanKernels _scans;
     readonly PrefixScan _scan;
-    readonly ComputeKernel _lay, _count, _write;
-    readonly DescriptorSet _laySet, _countSet, _writeSet;
+    readonly ComputeKernel _lay, _count, _write, _order;
+    readonly DescriptorSet _laySet, _countSet, _writeSet, _orderSet;
     readonly ComputeBatch _batch;
+
+    /// <summary>The stamps an emit read back is timed by (<see cref="EmitMs"/>), laid by the first that is.</summary>
+    GpuTimer? _timer;
 
     /// <summary>The crossings' gear, and what each approach's shows a frame: a row each, written as the frame's words are.</summary>
     readonly CrossingGear _gear;
@@ -295,6 +307,11 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
     /// <summary>Each swapchain image's gear rows, beside its frame words.</summary>
     readonly List<GpuBuffer> _gearFrames = [];
+
+    /// <summary>Which units wear a ring (<see cref="SpriteRings"/>), written as the frame's words are, and each image's.</summary>
+    readonly GpuBuffer _rings, _ringsIn;
+
+    readonly List<GpuBuffer> _ringFrames = [];
 
     /// <param name="levelled">Whether the town has a level above its ground (<see cref="TownWorld.Levelled"/>).</param>
     /// <param name="bridged">Whether any of its railway stands on a bridge, so a wagon may be drawn in the run above (RAIL-8).</param>
@@ -327,12 +344,14 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         };
         _cars = cars.Count;
         _people = people.Count;
+        _personCapacity = people.Capacity;
         _gear = gear;
         var lights = gear.Lights;
         _units = people.Capacity + cars.Capacity + wagons + heads.Count + gear.Count + lights.Length + chimneys.Length;
         _slots = people.Capacity + (CarParts(levelled) * cars.Capacity) + (bridged ? 2 * 2 * wagons : 2 * wagons) + heads.Count
                  + (CrossingSprites.EachGear * gear.Count) + lights.Length + chimneys.Length;
         if (_slots > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(cars), _slots, "more sprite slots than one scan covers");
+        if (people.Capacity > MostWorkgroups) throw new ArgumentOutOfRangeException(nameof(people), people.Capacity, "more walkers than the order pass has workgroups for");
 
         var (driveHalfM, lightHalfM) = (RailLooks.Shared.Drive.FootprintM * 0.5f, RailLooks.Shared.Light.FootprintM * 0.5f);
         var figures = FiguresOf(config, looks, room, cars.Capacity, people.Capacity, heads.Count, signals, levelled) with
@@ -361,6 +380,9 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
         var personRows = _held.Device<PersonRow>(Math.Max(1, people.Capacity));
         var carRows = _held.Device<CarRow>(Math.Max(1, cars.Capacity));
+        var ringWords = SpriteRings.Length(people.Capacity, cars.Capacity, wagons);
+        _rings = _held.Device<uint>(ringWords);
+        _ringsIn = _held.Own(_vk.CreateBuffer(Bytes<uint>(ringWords), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
 
         GpuBuffer[] set =
         [
@@ -394,6 +416,8 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             smoke.Heads,
             smoke.Points,
             Laid<ChimneyRow>(chimneys.Length > 0 ? chimneys : new ChimneyRow[1]),
+            _rings,
+            _held.Device<SpriteInstance>(Math.Max(1, people.Capacity)),
         ];
 
         _frameIn = _held.Own(_vk.CreateBuffer(
@@ -404,8 +428,10 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _scan = new PrefixScan(vk, _scans, set[StartsAt], _held.Device<uint>(ScanKernels.Block), set[StartsAt + 1], TotalAt);
         _count = new ComputeKernel(vk, "sprites_count.comp", set.Length, pushBytes: 0);
         _write = new ComputeKernel(vk, "sprites_write.comp", set.Length, pushBytes: 0);
+        _order = new ComputeKernel(vk, "sprites_order.comp", set.Length, pushBytes: 0);
         _countSet = _count.Bind(set);
         _writeSet = _write.Bind(set);
+        _orderSet = _order.Bind(set);
 
         var carVariants = new uint[Math.Max(1, cars.Count)];
         for (var car = 0; car < cars.Count; car++) carVariants[car] = cars.Variant[car];
@@ -459,21 +485,34 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
     /// <summary>
     /// <b>The two runs emitted for one view</b> — the one the fill is handed (<see cref="TownSprites.FillMoving"/>) — and
-    /// read back with their counts.
+    /// read back with their counts, and the passes timed (<see cref="EmitMs"/>).
     /// </summary>
-    public void Emit(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, float elapsedS)
+    public void Emit(TownWorld town, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
         _batch.Wait();
-        _frameIn.Span<FrameWords>()[0] = WordsFor(viewCentreM, viewSpanM, pixelsPerMetre, elapsedS, lay: true);
-        WriteTheGear(_gearShownIn, elapsedS);
+        _frameIn.Span<FrameWords>()[0] = WordsFor(viewCentreM, viewSpanM, pixelsPerMetre, town.ElapsedS, lay: true);
+        WriteTheGear(_gearShownIn, town.ElapsedS);
+        SpriteRings.Mark(town, _ringsIn.Span<uint>());
         var commands = _batch.Begin();
-        RecordTheEmit(commands, _frameIn, _gearShownIn);
+        _timer ??= new GpuTimer(_vk, PassStamps);
+        RecordTheEmit(commands, _frameIn, _gearShownIn, _ringsIn, _timer);
         _vk.BeforeTransfer(commands);
         _instancesOut ??= _held.Own(_vk.CreateBuffer(_instances.SizeBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads));
         _vk.Copy(commands, _instances, _instancesOut, _instances.SizeBytes);
         _vk.Copy(commands, _draws, _drawsOut, _draws.SizeBytes);
         _batch.SubmitAndWait();
+        _timer.Read();
+        EmitMs = new PassesMs(_timer.BetweenMs(0, 1), _timer.BetweenMs(1, 2), _timer.BetweenMs(2, 3), _timer.BetweenMs(3, 4), _timer.BetweenMs(4, 5));
     }
+
+    /// <summary>The device's own time each pass of an emit took, in milliseconds.</summary>
+    internal readonly record struct PassesMs(double Lay, double Count, double Scan, double Write, double Order);
+
+    /// <summary>What each pass of the last <see cref="Emit"/> took on the device.</summary>
+    public PassesMs EmitMs { get; private set; }
+
+    /// <summary>A stamp before the emit's first pass and one after each of its five.</summary>
+    const int PassStamps = 6;
 
     /// <summary>
     /// <b>The emit for one swapchain image's frame</b>, recorded into its command buffer ahead of the pass that draws the two
@@ -492,9 +531,12 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             var gear = _held.Own(_vk.CreateBuffer(_gearShown.SizeBytes, BufferUsageFlags.TransferSrcBit, HostAccess.Streams));
             gear.Span<GearShownRow>().Clear();
             _gearFrames.Add(gear);
+            var rings = _held.Own(_vk.CreateBuffer(_rings.SizeBytes, BufferUsageFlags.TransferSrcBit, HostAccess.Streams));
+            rings.Span<uint>().Clear();
+            _ringFrames.Add(rings);
         }
 
-        RecordTheEmit(commands, _frames[image], _gearFrames[image]);
+        RecordTheEmit(commands, _frames[image], _gearFrames[image], _ringFrames[image]);
         _vk.Barrier(
             commands, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageWriteBit,
             PipelineStageFlags2.DrawIndirectBit | PipelineStageFlags2.VertexAttributeInputBit,
@@ -503,15 +545,16 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
     /// <summary>
     /// <b>What image <paramref name="image"/>'s frame emits</b>, written into its frame words before the frame is submitted:
-    /// the view and the clock, and the rows laid again only where the world has taken a batch of signals since they were
-    /// last laid (<paramref name="signalsTaken"/>).
+    /// the view, the clock and the rings, and the rows laid again only where the world has taken a batch of signals since
+    /// they were last laid (<paramref name="signalsTaken"/>).
     /// </summary>
-    public void WriteTheFrame(int image, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, float elapsedS, long signalsTaken)
+    public void WriteTheFrame(int image, TownWorld town, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, long signalsTaken)
     {
         var lay = signalsTaken != _laidFor;
         _laidFor = signalsTaken;
-        _frames[image].Span<FrameWords>()[0] = WordsFor(viewCentreM, viewSpanM, pixelsPerMetre, elapsedS, lay);
-        WriteTheGear(_gearFrames[image], elapsedS);
+        _frames[image].Span<FrameWords>()[0] = WordsFor(viewCentreM, viewSpanM, pixelsPerMetre, town.ElapsedS, lay);
+        WriteTheGear(_gearFrames[image], town.ElapsedS);
+        SpriteRings.Mark(town, _ringFrames[image].Span<uint>());
     }
 
     /// <summary>
@@ -535,7 +578,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         return new FrameWords(
             new FrameRow(
                 viewCentreM, viewSpanM, _config.View.CarPartLeastPx / pixelsPerMetre, elapsedS, (uint)_people, (uint)_cars,
-                (uint)_world.View.Slot, 0u, air),
+                (uint)_world.View.Slot, _config.Person.DrawnStandingBelowMps, air),
             new DispatchIndirectCommand(lay ? Groups(_cars) : 0u, 1, 1), new DispatchIndirectCommand(lay ? Groups(_people) : 0u, 1, 1));
     }
 
@@ -550,26 +593,37 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     }
 
     /// <summary>
-    /// The emit recorded off frame words <paramref name="words"/>: the frame's row sent, every row laid off the world as
-    /// many workgroups as the words say, then count, scan and write.
+    /// The emit recorded off frame words <paramref name="words"/>: the frame's row, gear and rings sent, every row laid off
+    /// the world as many workgroups as the words say, then count, scan, write and the walkers' order — each pass stamped
+    /// on <paramref name="timer"/> where there is one.
     /// </summary>
-    void RecordTheEmit(CommandBuffer commands, GpuBuffer words, GpuBuffer gear)
+    void RecordTheEmit(CommandBuffer commands, GpuBuffer words, GpuBuffer gear, GpuBuffer rings, GpuTimer? timer = null)
     {
         var vk = _vk;
         vk.AfterTheSubmitsBefore(commands);
         vk.Copy(commands, words, _frame, Bytes<FrameRow>(1));
         vk.Copy(commands, gear, _gearShown, _gearShown.SizeBytes);
+        vk.Copy(commands, rings, _rings, _rings.SizeBytes);
         vk.AfterTransfer(commands);
+        timer?.Reset(commands);
+        timer?.Stamp(commands, 0);
 
         _lay.DispatchIndirect(commands, _laySet, words, LayCarsAt, new LayPush((uint)_cars, 0u));
         _lay.DispatchIndirect(commands, _laySet, words, LayPeopleAt, new LayPush((uint)_people, 1u));
         vk.BetweenKernels(commands);
+        timer?.Stamp(commands, 1);
 
         var groups = Groups(_units);
         _count.Dispatch(commands, _countSet, groups, default(NoPush));
         vk.BetweenKernels(commands);
+        timer?.Stamp(commands, 2);
         _scan.Record(commands, _slots);
+        timer?.Stamp(commands, 3);
         _write.Dispatch(commands, _writeSet, groups, default(NoPush));
+        vk.BetweenKernels(commands);
+        timer?.Stamp(commands, 4);
+        _order.Dispatch(commands, _orderSet, (uint)Math.Max(1, _personCapacity), default(NoPush));
+        timer?.Stamp(commands, 5);
     }
 
     /// <summary>A car's five parts, and five again where there is a level above to draw them in.</summary>
@@ -796,6 +850,8 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _lay.Dispose();
         _count.Dispose();
         _write.Dispose();
+        _order.Dispose();
+        _timer?.Dispose();
         _scans.Dispose();
         _held.Dispose();
     }

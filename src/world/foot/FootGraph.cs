@@ -211,10 +211,14 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     public static FootGraph Build(CityPlan plan, SimConfig config)
     {
         var pavement = PavementLanes.Of(plan, config);
-        return Build(pavement, CrossingWays.Of(plan, pavement, config), config);
+        var crossings = CrossingWays.Of(plan, pavement, config);
+        return Build(pavement.EndedAtTheCrossings(crossings, config), crossings, config);
     }
 
-    /// <summary>The same, off a pavement and a set of crossings somebody already holds.</summary>
+    /// <summary>
+    /// The same, off a pavement and a set of crossings somebody already holds — the pavement ended at them
+    /// (<see cref="PavementLanes.EndedAtTheCrossings"/>), or not where a reader asks for the walk as laid.
+    /// </summary>
     public static FootGraph Build(PavementLanes pavement, CrossingWays crossings, SimConfig config)
     {
         var weldM = config.Network.FootGraphNodeWeldM;
@@ -229,7 +233,7 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
             var rings = pavement.RingsOf(lane);
             for (var ring = 0; ring < rings.Length; ring++)
             {
-                Parted(rings[ring], crossings.PartedOn(lane, ring), weldM, pieces);
+                Parted(rings[ring], crossings.PartedOn(lane, ring), pavement.GapsOf(lane, ring), weldM, pieces);
                 for (var at = 0; at < pieces.Count; at++)
                 {
                     // Walked against its ring, a lane is the same pieces in the opposite order and each of
@@ -253,6 +257,18 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
         // points, so the weld joins them to the walk rather than standing a second node beside it.
         foreach (var way in crossings.Ways) builder.AddLane(way.Arcs, way.BandM, way.Kind);
 
+        // And the turn across the walk where one ends (GEN-75), either way: the lane a walker arrives on there ends, and
+        // the other takes them back.
+        foreach (var (oneM, otherM) in pavement.Turns)
+        {
+            var acrossM = otherM - oneM;
+            var headingRad = MathF.Atan2(acrossM.Y, acrossM.X);
+            one[0] = new ArcSeg(oneM, headingRad, acrossM.Length(), 0f);
+            builder.AddLane(one, bandM, FootEdgeKind.Pavement);
+            one[0] = new ArcSeg(otherM, headingRad + MathF.PI, acrossM.Length(), 0f);
+            builder.AddLane(one, bandM, FootEdgeKind.Pavement);
+        }
+
         return builder.Lay();
     }
 
@@ -264,31 +280,86 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     /// <remarks>
     /// <b>Nothing is moved and nothing is fitted</b>: a cut is a metre along the line the move laid, so the
     /// two pieces either side of it stand on exactly the ground the one piece did. <b>A place within a weld
-    /// of a joint is not cut at all</b> — the node is already there, and cutting would leave a stub shorter
-    /// than the distance two nodes are one node at.
+    /// of a joint, or of a gap's end, is not cut at all</b> — the node is already there, and cutting would leave a
+    /// stub shorter than the distance two nodes are one node at, which beside a gap is dropped with the ground it held.
     /// </remarks>
-    static void Parted(ReadOnlySpan<ArcSeg> ring, ReadOnlySpan<float> partedM, float weldM, List<ArcSeg> into)
+    /// <param name="gaps">
+    /// The stretches of the ring nobody walks (<see cref="PavementLanes.GapsOf"/>, GEN-75): cut at their ends wherever
+    /// those stand, no piece inside one handed over, and none beside one shorter than a weld — the turn there stands at
+    /// the gap's end, and a sliver would be one node walked to itself.
+    /// </param>
+    static void Parted(
+        ReadOnlySpan<ArcSeg> ring, ReadOnlySpan<float> crossedM, ReadOnlySpan<(float FromM, float ToM)> gaps, float weldM,
+        List<ArcSeg> into)
     {
         into.Clear();
 
         var startM = 0f;
         var next = 0;
+        var nextGap = 0;
         foreach (ref readonly var arc in ring)
         {
             var endM = startM + arc.LengthM;
-            while (next < partedM.Length && partedM[next] < startM + weldM) next++;
+            while (next < crossedM.Length && crossedM[next] < startM + weldM) next++;
 
             var fromM = 0f;
-            while (next < partedM.Length && partedM[next] <= endM - weldM)
+            while (true)
             {
-                var atM = partedM[next] - startM;
-                into.Add(Piece(arc, fromM, atM));
+                var crossAtM = next < crossedM.Length && crossedM[next] <= endM - weldM ? crossedM[next] : float.PositiveInfinity;
+                if (!float.IsPositiveInfinity(crossAtM) && WithinAWeldOfAGapEnd(gaps, crossAtM, weldM))
+                {
+                    next++;
+                    continue;
+                }
+                var gapAtM = GapEnd(gaps, nextGap, out var gapEndM) && gapEndM < endM ? gapEndM : float.PositiveInfinity;
+                if (float.IsPositiveInfinity(crossAtM) && float.IsPositiveInfinity(gapAtM)) break;
+
+                var atM = MathF.Min(crossAtM, gapAtM) - startM;
+                if (gapAtM <= crossAtM) nextGap++;
+                else next++;
+
+                if (atM <= fromM) continue;
+
+                Add(arc, fromM, atM, startM, gaps, weldM, into);
                 fromM = atM;
-                next++;
             }
 
-            into.Add(Piece(arc, fromM, arc.LengthM));
+            Add(arc, fromM, arc.LengthM, startM, gaps, weldM, into);
             startM = endM;
+        }
+
+        static bool WithinAWeldOfAGapEnd(ReadOnlySpan<(float FromM, float ToM)> gaps, float atM, float weldM)
+        {
+            foreach (var gap in gaps)
+            {
+                if (MathF.Abs(atM - gap.FromM) < weldM || MathF.Abs(atM - gap.ToM) < weldM) return true;
+            }
+
+            return false;
+        }
+
+        // The ends of the gaps in order along the ring, each gap's start then its end.
+        static bool GapEnd(ReadOnlySpan<(float FromM, float ToM)> gaps, int at, out float endM)
+        {
+            endM = at < 2 * gaps.Length ? (at % 2 == 0 ? gaps[at / 2].FromM : gaps[at / 2].ToM) : 0f;
+            return at < 2 * gaps.Length;
+        }
+
+        static void Add(
+            in ArcSeg arc, float fromM, float toM, float startM, ReadOnlySpan<(float FromM, float ToM)> gaps, float weldM,
+            List<ArcSeg> into)
+        {
+            var (fromAtM, toAtM) = (startM + fromM, startM + toM);
+            var middleM = (fromAtM + toAtM) * 0.5f;
+            foreach (var gap in gaps)
+            {
+                if (middleM > gap.FromM && middleM < gap.ToM) return;
+
+                var besideAGap = MathF.Abs(toAtM - gap.FromM) < LineTolerance.OnePlaceM || MathF.Abs(fromAtM - gap.ToM) < LineTolerance.OnePlaceM;
+                if (besideAGap && toM - fromM < weldM) return;
+            }
+
+            into.Add(Piece(arc, fromM, toM));
         }
     }
 

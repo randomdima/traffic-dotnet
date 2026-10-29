@@ -232,8 +232,7 @@ fixture map ([citygen](../src/citygen/docs/requirements.md#the-maps)).
 
 **A town's own questions go to `Towns.EveryTown`**, which is the fixture and the town the suite lays. What
 stays on `Towns.EveryLaidMap` is what is about the set of maps this build lays rather than about a town:
-that every map conforms, draws and is watched against something. `Towns.EveryShippedMap` is for what is
-about the menu itself — that every map has a description and can be opened — and nothing else may use it.
+that every map conforms, draws and is watched against something.
 A laboratory map is asked what it was laid to answer and nothing else: asked about parking, a proving
 ground answers over an empty set and reads like coverage.
 
@@ -249,8 +248,8 @@ family; and `qq tests exam` asserts each card as a case of its own.
 **Every card is expected to pass**, and a card that fails is the engine not doing what its own rules say.
 **It asks this engine and not a rule book**: which of two cars crossing goes first is the engine's right of
 way to settle (TER-5e), so a card asks that the one it favours is never made to wait, and nothing is asked
-that the engine refuses to do. **It is outside `all` as the frames are**: one whole town driven for a
-minute and a half, run when a change can have moved how traffic meets. A card that cannot be staged as
+that the engine refuses to do. **It is outside `all` as the frames are**: one whole town driven for two
+minutes, run when a change can have moved how traffic meets. A card that cannot be staged as
 written fails when the map is laid rather than passing over nothing.
 
 ## What a map claims about itself

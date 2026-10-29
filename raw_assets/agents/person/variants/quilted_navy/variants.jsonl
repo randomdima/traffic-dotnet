@@ -1,0 +1,5 @@
+{"variant": "quilted_navy-v1", "frame": "walkorbit_quilted_navy-v1", "cell": 1, "pxPerM": 260.494, "score": 4, "status": "candidate", "ts": "2026-10-28T20:31:54"}
+{"variant": "quilted_navy-v2", "frame": "walkorbit_quilted_navy-v1", "cell": 1, "recutOf": "quilted_navy-v1", "pxPerM": 254.938, "score": 4, "status": "candidate", "ts": "2026-10-28T21:00:02"}
+{"variant": "quilted_navy-v3", "frame": "walkorbit_quilted_navy-v1", "cell": 1, "recutOf": "quilted_navy-v2", "pxPerM": 249.383, "score": 4, "status": "candidate", "ts": "2026-10-28T21:39:07"}
+{"variant": "quilted_navy-v4", "frame": "walkorbit_quilted_navy-v1", "cell": 1, "recutOf": "quilted_navy-v3", "pxPerM": 249.383, "score": 4, "status": "candidate", "ts": "2026-10-29T00:17:02"}
+{"variant": "quilted_navy-v5", "frame": "walkorbit_quilted_navy-v5", "cell": 1, "pxPerM": 253.086, "score": 4, "status": "used", "ts": "2026-10-29T00:51:02"}

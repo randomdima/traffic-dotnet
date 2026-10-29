@@ -30,8 +30,6 @@ internal sealed partial class GroundMesh
             atStart ? (Line.PointM[0], Line.AlongAt(0f)) : (Line.PointM[^1], -Line.AlongAt(Line.LengthM));
     }
 
-    static float RailDeckHalfM(SimConfig config) => (config.Rail.BallastWidthM * 0.5f) + config.Rail.BridgeDeckOverhangM;
-
     /// <summary>
     /// <b>Every stretch of every track on a bridge</b>, cut to the map: an end lands where the track carries on at grade,
     /// and not where it runs off the map or off the track's own end.
@@ -82,7 +80,7 @@ internal sealed partial class GroundMesh
     static ChordGrid RailDeckGrid(List<RailSpan> spans, SimConfig config)
     {
         var grid = new ChordGrid(config.Grid.Main.CellM);
-        for (var span = 0; span < spans.Count; span++) grid.Add(span, spans[span].Line.PointM, RailDeckHalfM(config));
+        for (var span = 0; span < spans.Count; span++) grid.Add(span, spans[span].Line.PointM, config.RailDeckHalfM);
         return grid;
     }
 
@@ -92,7 +90,7 @@ internal sealed partial class GroundMesh
     /// </summary>
     void RailPiers(List<RailSpan> spans, ChordGrid decks, CityPlan.RingArrays water, SimConfig config)
     {
-        var halfM = RailDeckHalfM(config);
+        var halfM = config.RailDeckHalfM;
         var depthM = BridgeLooks.Shared[BridgeLookKind.RailPierNose].FootprintM.Y;
         var wallM = config.Rail.BridgeDeckOverhangM * config.View.RailBridgeParapetShare;
         for (var at = 0; at < spans.Count; at++)
@@ -137,7 +135,7 @@ internal sealed partial class GroundMesh
     /// </summary>
     void RailDecks(List<RailSpan> spans, ChordGrid decks, SimConfig config)
     {
-        var halfM = RailDeckHalfM(config);
+        var halfM = config.RailDeckHalfM;
         var ballastHalfM = config.Rail.BallastWidthM * 0.5f;
         var sideMiddleM = (ballastHalfM + halfM) * 0.5f;
         var wallM = config.Rail.BridgeDeckOverhangM * config.View.RailBridgeParapetShare;

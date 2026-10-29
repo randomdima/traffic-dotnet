@@ -177,6 +177,23 @@ public class LaneOccupancyTests
     }
 
     /// <summary>
+    /// <b>A mark lying inside one decimetre of the other way places that decimetre</b> (TER-5c.1): its section is held
+    /// from the decimetre it begins in, so two ribbons touching over a few centimetres still give the main claim over
+    /// them a secondary claim to hold.
+    /// </summary>
+    [Fact]
+    public void AMarkInsideOneDecimetrePlacesThatDecimetre()
+    {
+        var (a, b) = TwoWays();
+        var index = Index(Mark(a, (20f, 20.05f), b, (0.04f, 0.095f)));
+        Asked(index, 1, a, 0f, 40f, ClaimPriority.Firm);
+        index.Answer();
+
+        var second = Assert.Single(index.Secondaries(b).ToArray());
+        Assert.Equal((0, 1), (second.FromDm, second.ToDm));
+    }
+
+    /// <summary>
     /// A secondary claim a stronger main claim lies over is refused whole, and the hold is cut where its own main claim
     /// came to the mark — nothing past it laid.
     /// </summary>

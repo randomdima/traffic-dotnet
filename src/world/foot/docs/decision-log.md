@@ -4,6 +4,40 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-29 — the kept node construction is struck off the walked shell
+
+`WalkLines.Of(plan)`, and `FootWays` and `FootMovements` through it, read the whole driven ground's boundary
+(`Paving.Perimeter`), so they laid walks down intercity roads the town's own pavement has none beside (GEN-75).
+**They read `Paving.WalkedCourses` now, the shell `PavementLanes` is struck off**, as `FootJunctions` already stood no
+node at a road with no walk. `KerbLines.Of(plan)` stays the driven ground's boundary, which is what its other readers
+ask. **The construction's unit tests are still asked of the fixture and not of a plan of their own**, as 2026-09-18
+meant; the bars', the arrows' and the lane paint's tests no longer borrow its crossings, and are asked of the town's
+own (`Paving.RoadEnds`).
+
+## 2026-10-27 — a zebra starts at the kerb end
+
+**The owner ruled the zebra starts exactly where the kerb ends**, with no clearance before it: the station stands half
+the band's depth out (`CityGen.KerbEnds`), and `Road.FootNodeClearM` is gone. The bar, the lane line's trim and the
+signal heads are placed off the station and the band, so they moved with it; so did a car park's rank clearance
+(`CarParkRankClearM`), which is the depth of that band.
+
+**Two things it uncovered at a corner turning onto a road with no walk** (GEN-75). The station now stands within the
+corner's own rounded walk, so a zebra across that road is painted only where the walk stands at both edges of the band,
+not at its middle: otherwise one was painted onto gravel where no walk runs on past it. And a place standing beside the
+stretch where a lane's course turns back across the walk's end hands over from that end, instead of leaving the lane
+out of the place, which had left a zebra lane arriving onto nothing.
+
+## 2026-10-26 — a walk that ends turns its walker back
+
+**The owner chose the turn back** over a crossing at the end and over no walk at the corner, once the walk was struck
+off the walked roads alone (GEN-75): a course is still a whole ring of one move (WLK-1), so where a walk ends it closes
+over the intercity road's carriageway. That stretch is a gap nobody walks and the two lanes are joined across the walk at
+each end of it (`PavementLanes`), **leaving every ring whole and numbered as it was** — so the crossings part rings as
+before, and only a hand-over that lands in a gap moves, back to the walk's end.
+
+**What counts as left is nearer the driven ground than the course's own distance**, not merely on it: the turn then
+stands across the walk where both courses are still at their offsets, rather than at the kerb.
+
 ## 2026-09-30 — no connection goes beyond the pavement
 
 **The owner ruled that connections do not go beyond the sidewalk.** Odesa's walk had 63 connections with their

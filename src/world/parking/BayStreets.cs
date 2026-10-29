@@ -19,7 +19,10 @@ internal sealed class BayStreets
 {
     public const int NoBay = -1;
 
-    /// <summary>The most lanes one bay is worked off: the two ways of its street.</summary>
+    /// <summary>
+    /// The most lanes one bay is worked off: the kerb lane beside it, and the lane across where its street's two ways are
+    /// one lane each (<see cref="RoadGraph.LaneCrossesToPass"/>).
+    /// </summary>
     public const int MostLanes = 2;
 
     const int NoLane = -1;
@@ -96,7 +99,10 @@ internal sealed class BayStreets
     /// <summary>The lanes of the road, which <see cref="BaysOffLane"/> is asked by.</summary>
     public int LaneCount => _firstBayOfLane.Length - 1;
 
-    /// <summary>The street lanes this bay is worked off — one on a street driven one way, two on one driven both.</summary>
+    /// <summary>
+    /// The street lanes this bay is worked off, the kerb lane beside it first — and the lane across only on a street of one
+    /// lane each way, the one street whose middle line a car may cross (<see cref="RoadGraph.LaneCrossesToPass"/>).
+    /// </summary>
     public ReadOnlySpan<int> LanesOf(int bay)
     {
         var lanes = _lane.AsSpan(bay * MostLanes, MostLanes);
@@ -164,17 +170,20 @@ internal sealed class BayStreets
     }
 
     /// <summary>
-    /// <b>The bay a lane turns round in</b> (GEN-4l): the one worked off it furthest along it, where that is within
-    /// <paramref name="withinM"/> of the lane's end — or <see cref="NoBay"/>.
+    /// <b>The bay a lane turns round in</b> (GEN-4l): the one worked off it and off the lane running back furthest along
+    /// it, where that is within <paramref name="withinM"/> of the lane's end — or <see cref="NoBay"/>.
     /// </summary>
     public int TheBayToTurnIn(RoadGraph roads, int lane, float withinM)
     {
+        var back = roads.LaneReverse[lane];
+        if (back == NoLane) return NoBay;
+
         var best = NoBay;
         var bestM = roads.LaneLengthM[lane] - withinM;
         foreach (var bay in BaysOffLane(lane))
         {
             var atM = AtLaneM(bay, lane);
-            if (atM < bestM) continue;
+            if (atM < bestM || float.IsNaN(AtLaneM(bay, back))) continue;
 
             best = bay;
             bestM = atM;
@@ -187,6 +196,11 @@ internal sealed class BayStreets
     /// <b>Each bay's street, read off the car parks the plan laid</b> (GEN-53): the lanes of the road its car
     /// park stands off, numbered as the plan lists the bays — the numbering the registry keeps them in.
     /// </summary>
+    /// <remarks>
+    /// <b>The kerb lane is the street lane nearest the bay's mouth</b>, which is the outermost lane of the way keeping
+    /// to that kerb, or the lane a one-way street runs beside it — read off where the lanes lie, never off the order a
+    /// road numbers them in, which says nothing of the side a bay stands on.
+    /// </remarks>
     public static BayStreets Build(CityPlan plan, RoadGraph roads)
     {
         var parks = plan.CarParks;
@@ -207,6 +221,8 @@ internal sealed class BayStreets
                 continue;
             }
 
+            if (!roads.IsAStreetLane(lane)) continue;
+
             if (!lanesOfRoad.TryGetValue(road, out var lanes)) lanesOfRoad[road] = lanes = [];
             lanes.Add(lane);
         }
@@ -226,19 +242,32 @@ internal sealed class BayStreets
                 if (line.Length == 0) continue;
 
                 var mouthM = line[0].StartM;
-                var slot = 0;
+                var kerb = NoLane;
+                var kerbAtM = 0f;
+                var nearestSq = float.PositiveInfinity;
                 foreach (var onStreet in street)
                 {
-                    if (slot == MostLanes) break;
-
-                    var arcs = roads.ArcsOf(onStreet);
                     var lengthM = roads.LaneLengthM[onStreet];
-                    laneOf[(bay * MostLanes) + slot] = onStreet;
-                    atLaneM[(bay * MostLanes) + slot] = Spline.ProjectM(arcs, mouthM, lengthM * 0.5f, lengthM);
-                    (perLane[onStreet] ??= []).Add(bay);
-                    slot++;
+                    var atM = Spline.ProjectM(roads.ArcsOf(onStreet), mouthM, lengthM * 0.5f, lengthM, out var offSq);
+                    if (offSq < nearestSq) (kerb, kerbAtM, nearestSq) = (onStreet, atM, offSq);
                 }
+
+                if (kerb == NoLane) continue;
+
+                WorkedOff(bay, 0, kerb, kerbAtM);
+                var across = roads.LaneReverse[kerb];
+                if (across == NoLane || !roads.LaneCrossesToPass[kerb]) continue;
+
+                var acrossM = roads.LaneLengthM[across];
+                WorkedOff(bay, 1, across, Spline.ProjectM(roads.ArcsOf(across), mouthM, acrossM * 0.5f, acrossM));
             }
+        }
+
+        void WorkedOff(int bay, int slot, int lane, float atM)
+        {
+            laneOf[(bay * MostLanes) + slot] = lane;
+            atLaneM[(bay * MostLanes) + slot] = atM;
+            (perLane[lane] ??= []).Add(bay);
         }
 
         var firstBayOfLane = new int[roads.LaneCount + 1];

@@ -54,3 +54,18 @@ variant file's `looks`, and `qq sprites use` joins them into the surface's pictu
 - **High draws water as rows of waves** running across the picture (`ground_d-v1` row 3); asked for "scattered ripple
   marks, never waves, rows, bands or lines", it drew raindrop rings on a diamond mesh of light (`ground_d-v2`). Neither
   kept: the water is still `water_*-v1` from low, whose soft ripples curve every way.
+
+## The intercity road (2026-10-26) — `ground_highway-v1`, high, $0.058
+
+Asked in words, with the style picture laid by `qq sprites style pavement_a1 sidewalk_k1 grass_a1 estate_steel
+kombi_sage` (the town's road beside its walk and grass, and two cars), so the brief could say "clearly darker than the
+town road in the attached picture".
+
+- **Naming the surface it must differ from works in one go**: both highway looks came back near black (mean 49 and 41
+  against the road's 75), distinct from the town's road where they meet at a junction (`highway_a*-v1`, chip seal,
+  used; `highway_c*-v1`, smooth blue-black, kept as a trial). The worn look came back 15 lighter, near the road's own
+  fresh tone, which the join halves.
+- **A gravel shoulder may have its stones**: asked "densely scattered small stones one to three centimetres across",
+  the shoulder drew readable pebbles at a calm even density, which repeat without a seam (`shoulder_*-v1`, score 4) —
+  what ruins a paved surface is right for loose ground.
+- **Twelve squares asked without a layout came back as twelve, in order**, about 2 % short of square; `cut` found each.

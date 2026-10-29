@@ -51,12 +51,32 @@ than formal — a box round a district would otherwise be thirty routes drawn ov
 down. The gesture resolves on release because a click and a drag begin identically, so selecting on the
 way down gives one gesture two answers and a flicker between them.
 
-## The selection is bracketed, not tinted
+## The selection is ringed, not tinted
 
 A brighter sprite is only readable against the picture beside it — a white van or a car alone on a street
 reads the same either way — and it spends the art's one channel saying something that is not about the
-car. Four corner brackets through the interface's overlay read at any framing, survive a recolour, and
-leave the town the colours it was painted.
+car. A ring reads at any framing, survives a recolour, and leaves the town the colours it was painted.
+
+The ring follows the picture's own outline rather than standing as brackets round its box (2026-10-28, the
+owner's: "instead of '[ ]' selection — nice highlighting with bold green line"), the way props are outlined.
+It is not laid into the art as the props' line is, because what is selected changes from frame to frame. Green,
+edged dark so it still reads on a lawn.
+
+**It is drawn by the unit's own sprite instance**, which carries the ring in its sheet's spare bits and is grown by
+its width (`SpriteRings`), not by the interface's overlay round a quad worked out a second time (2026-10-28, the
+owner's: "how is that even possible"). The overlay's copy read the host's fleet while the device emitted the
+bodies off its own, so a walker's ring showed another frame of the stride than the walker. One instance is one
+answer: the ring cannot stand off the picture whichever side emits it. It is drawn with the body, so what is laid
+over the body afterwards — a lamp's glow, a car over the walker — lies over its ring too.
+A goal stays bracketed (`CTL-1a`): a bay has no picture to follow, and the shape tells the unit from where
+it is going.
+
+**The ring widens with the zoom, never thinner than two pixels** (2026-10-29, the owner on a walker zoomed in:
+"only visible on far zoom and not up close"). Two interface pixels at every zoom were bold beside a car a few
+pixels long and a hairline beside a walker two hundred tall, between the picture's dark fringe and the ring's own
+edge. It is now the wider of `SelectionRingPx` and `SelectionRingM` of the town at the frame's zoom (`RingLook.At`),
+its edge still a pixel. A wider ring at every zoom was tried first (3 px) and set aside: it thickens the far
+framing that read well, and still thins up close.
 
 ## The selection gets its whole route, and the layers still get two pieces of it
 

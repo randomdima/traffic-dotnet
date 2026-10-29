@@ -1,0 +1,9 @@
+{
+  "id": "concrete_median_4m",
+  "sprite": "concrete_median_4m.webp",
+  "kind": 2,
+  "footprintM": [4.0, 0.713],
+  "cornerRadiusM": 0.03,
+  "turns": true,
+  "describe": "precast concrete highway median barrier section, 4 m long: light grey concrete, a narrow flat top ridge along its middle, the sloped faces either side of it shaded, both ends cut straight and square"
+}

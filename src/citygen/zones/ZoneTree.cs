@@ -15,6 +15,11 @@ namespace TrafficSimulation.CityGen.Zones;
 /// <b>Filed by the squares each zone's outline box covers</b>, and asked of a square's zones alone, deepest first. A
 /// zone's outline is thinned and in whole metres, so a place a metre from its edge may be read as either side of it.
 /// </para>
+/// <para>
+/// <b>And each ring's edges by the grid's rows</b> (<see cref="GroundShapes.EdgeRows"/>), so whether a place is inside
+/// asks the edges of its own row and not the whole outline. Every edge a ray along its height can cross is filed there,
+/// and a crossing's parity is the same in any order, so the answer is the whole walk's to the bit.
+/// </para>
 /// <para>Read-only once built, so any number of threads ask it at once.</para>
 /// </remarks>
 internal sealed class ZoneTree
@@ -31,8 +36,9 @@ internal sealed class ZoneTree
     readonly (Vector2 LeastM, Vector2 MostM)[] _box;
     readonly Dictionary<long, int[]> _cells;
     readonly ZoneSettings[] _settings;
+    readonly GroundShapes.EdgeRows[] _rows;
 
-    public ZoneTree(TownMap.ZoneArrays zones, ZoneFigures figures)
+    public ZoneTree(TownMap.ZoneArrays zones, SimConfig config)
     {
         Zones = zones;
         _outlineM2 = new float[zones.Count];
@@ -40,6 +46,7 @@ internal sealed class ZoneTree
         _depth = new int[zones.Count];
         _box = new (Vector2, Vector2)[zones.Count];
         _settings = new ZoneSettings[zones.Count];
+        _rows = new GroundShapes.EdgeRows[zones.RingOffsets[^1]];
         var filing = new Dictionary<long, List<int>>();
         for (var zone = 0; zone < zones.Count; zone++)
         {
@@ -48,11 +55,15 @@ internal sealed class ZoneTree
             foreach (var pointM in zones.RingOf(first)) (leastM, mostM) = (Vector2.Min(leastM, pointM), Vector2.Max(mostM, pointM));
 
             _box[zone] = (leastM, mostM);
-            for (var ring = first; ring < past; ring++) _outlineM2[zone] += (ring == first ? 1f : -1f) * MathF.Abs(Area(zones.RingOf(ring)));
+            for (var ring = first; ring < past; ring++)
+            {
+                _outlineM2[zone] += (ring == first ? 1f : -1f) * MathF.Abs(Area(zones.RingOf(ring)));
+                _rows[ring] = Rows(zones.RingOf(ring), config.Grid.Main.CellM);
+            }
 
             _ownM2[zone] += _outlineM2[zone];
             _depth[zone] = zone == TownMap.ZoneArrays.Root ? 0 : _depth[zones.Parent[zone]] + 1;
-            _settings[zone] = Resolved(zones, zone, figures);
+            _settings[zone] = Resolved(zones, zone, config.Zones);
             if (zone == TownMap.ZoneArrays.Root) continue;
 
             _ownM2[zones.Parent[zone]] -= _outlineM2[zone];
@@ -115,9 +126,20 @@ internal sealed class ZoneTree
         if (atM.X < leastM.X || atM.Y < leastM.Y || atM.X > mostM.X || atM.Y > mostM.Y) return false;
 
         var inside = false;
-        for (var ring = Zones.RingOffsets[zone]; ring < Zones.RingOffsets[zone + 1]; ring++) inside ^= Encloses(Zones.RingOf(ring), atM);
+        for (var ring = Zones.RingOffsets[zone]; ring < Zones.RingOffsets[zone + 1]; ring++)
+        {
+            inside ^= Encloses(Zones.RingOf(ring), _rows[ring], atM);
+        }
 
         return inside;
+    }
+
+    static GroundShapes.EdgeRows Rows(ReadOnlySpan<Vector2> ring, float rowM)
+    {
+        var (leastY, mostY) = (float.MaxValue, float.MinValue);
+        foreach (var pointM in ring) (leastY, mostY) = (MathF.Min(leastY, pointM.Y), MathF.Max(mostY, pointM.Y));
+
+        return new GroundShapes.EdgeRows(ring, leastY, mostY, rowM);
     }
 
     /// <summary><b>A zone's settings resolved</b>: its own, over its kind's. A zone that says any look says its whole mix.</summary>
@@ -164,7 +186,8 @@ internal sealed class ZoneTree
             Math.Clamp(interior, 0f, 1f), bearingDeg, Math.Clamp(growth, 0f, 1f), MathF.Max(0f, footprintM2), MathF.Max(0f, behindM2), looks);
     }
 
-    static ZoneDefaults DefaultsOf(ZoneKind kind, ZoneFigures figures) => kind switch
+    /// <summary>What a kind of zone is laid by where the zone says nothing of its own.</summary>
+    public static ZoneDefaults DefaultsOf(ZoneKind kind, ZoneFigures figures) => kind switch
     {
         ZoneKind.Town => figures.Town,
         ZoneKind.Wheel => figures.Wheel,
@@ -186,12 +209,12 @@ internal sealed class ZoneTree
 
     static (int X, int Y) Cell(Vector2 atM) => ((int)MathF.Floor(atM.X / CellM), (int)MathF.Floor(atM.Y / CellM));
 
-    static bool Encloses(ReadOnlySpan<Vector2> ring, Vector2 atM)
+    static bool Encloses(ReadOnlySpan<Vector2> ring, GroundShapes.EdgeRows rows, Vector2 atM)
     {
         var inside = false;
-        for (int at = 0, before = ring.Length - 1; at < ring.Length; before = at++)
+        foreach (var at in rows.At(atM.Y))
         {
-            var (a, b) = (ring[at], ring[before]);
+            var (a, b) = (ring[at], ring[at == 0 ? ring.Length - 1 : at - 1]);
             if ((a.Y > atM.Y) != (b.Y > atM.Y) && atM.X < a.X + ((atM.Y - a.Y) / (b.Y - a.Y) * (b.X - a.X))) inside = !inside;
         }
 

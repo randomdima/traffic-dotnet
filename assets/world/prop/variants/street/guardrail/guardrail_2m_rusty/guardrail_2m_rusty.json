@@ -1,0 +1,8 @@
+{
+  "id": "guardrail_2m_rusty",
+  "sprite": "guardrail_2m_rusty.webp",
+  "kind": 2,
+  "footprintM": [2.0, 0.52],
+  "turns": true,
+  "describe": "the same 2 m W-beam section weathered: dull grey with soft brown rust spots, one post at the middle, both ends cut straight and square"
+}

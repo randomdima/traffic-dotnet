@@ -1,0 +1,4 @@
+{"variant": "recovery_c-v6", "frame": "walkorbit_recovery_c-v2", "cell": 1, "pxPerM": 238.69, "score": 4, "status": "candidate", "ts": "2026-10-28T13:51:56"}
+{"variant": "recovery_c-v7", "frame": "walkorbit_recovery_c-v2", "cell": 1, "recutOf": "recovery_c-v6", "pxPerM": 238.69, "score": 4, "status": "candidate", "ts": "2026-10-28T16:14:33"}
+{"variant": "recovery_c-v8", "frame": "walkorbit_recovery_c-v2", "cell": 1, "recutOf": "recovery_c-v7", "pxPerM": 241.667, "score": 4, "status": "candidate", "ts": "2026-10-28T16:53:03"}
+{"variant": "recovery_c-v9", "frame": "walkorbit_recovery_c-v2", "cell": 1, "recutOf": "recovery_c-v8", "pxPerM": 237.5, "score": 4, "status": "used", "ts": "2026-10-28T21:39:23"}

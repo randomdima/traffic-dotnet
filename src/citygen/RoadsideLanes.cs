@@ -73,9 +73,10 @@ internal sealed class RoadsideLanes
 
     /// <summary>
     /// <b>The ground a kerb is eased in over</b> where a roadside is lost along the way (<see cref="Tapers"/>): a line and
-    /// the width of the band it is, and the level it lies on.
+    /// the width of the band it is, the level it lies on, and the road whose lane it eases off — which says whether a
+    /// walk is struck off it (GEN-75).
     /// </summary>
-    public readonly record struct Taper(ArcSeg[] Line, float WidthM, byte Level);
+    public readonly record struct Taper(ArcSeg[] Line, float WidthM, byte Level, int Road);
 
     /// <summary>The most pieces a movement is drawn in (<see cref="LaneLines"/>).</summary>
     const int MovementPieces = Spline.MostMovementArcs;
@@ -426,7 +427,7 @@ internal sealed class RoadsideLanes
         var intoRad = arriving ? headingRad : headingRad + MathF.PI;
         Span<ArcSeg> line = stackalloc ArcSeg[2];
         var pieces = Spline.CorneredInto(atM, intoRad, far.PositionM, farRad, (stripM * 0.5f) + _roundedM, line);
-        if (pieces > 0) _tapers.Add(new Taper(line[..pieces].ToArray(), stripM, _roads.LevelOf(road)));
+        if (pieces > 0) _tapers.Add(new Taper(line[..pieces].ToArray(), stripM, _roads.LevelOf(road), road));
     }
 
     /// <summary>

@@ -162,7 +162,8 @@ internal sealed class FootJunctions
             // it makes is a corner — which is why this is asked of the road and not of its junction.
             // <b>Both are still arms of the junctions they meet</b>, and are taken as far as their bearing
             // so the wedges either side of them are known not to be corners (<see cref="RoundTheCorner"/>).
-            carriesAWalk[road] = !roads.IsABay(road) && !arms.Circulates(road);
+            // <b>Nor does a road the plan lays no walk beside</b> (GEN-75), an intercity road's: it is an arm the same way.
+            carriesAWalk[road] = !roads.IsABay(road) && !arms.Circulates(road) && roads.IsWalked(road);
 
             var lengthM = Spline.TotalLengthM(line);
             var halfWidthM = roads.WidthM[road] * 0.5f;

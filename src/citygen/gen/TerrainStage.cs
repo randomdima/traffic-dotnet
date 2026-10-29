@@ -29,19 +29,18 @@ namespace TrafficSimulation.CityGen.Gen;
 internal static class TerrainStage
 {
     /// <summary>The fewest points a shoreline is drawn through, however straight the wave it is drawn from.</summary>
+    /// <remarks>A floor on the drawing's resolution, not a figure of the town: the points stand on the wave either way.</remarks>
     const int FewestOutlinePoints = 24;
-
-    /// <summary>How far past the map's own edge the far side of an outline is pushed, so no shore closes inside the town.</summary>
-    const float OverrunM = 200f;
-
-    /// <summary>How many places a tributary is drawn at before it is left out: drawn again, never searched for.</summary>
-    const int TributaryTries = 8;
 
     /// <summary>
     /// The three waves a bank wanders on: how many times each runs over the shore's length, and how much of
     /// the wander is its own. <b>Three of them, of their own phase and period</b> — a shore drawn from one is
     /// a sine and one drawn from noise per point is a saw.
     /// </summary>
+    /// <remarks>
+    /// <b>The form of the wander, and no figure of the town</b>: how far a bank wanders is the brief's meander, and these
+    /// only say what shape that wander has — as a noise's octaves do. Unrelated periods keep the sum from repeating.
+    /// </remarks>
     static readonly Vector3 WavesOver = new(1f, 2.3f, 4.1f);
 
     static readonly Vector3 WaveShare = new(0.25f, 0.15f, 0.1f);
@@ -78,15 +77,6 @@ internal static class TerrainStage
     /// <summary>One water's course as it is drawn: its line, and each bank's offset off it along the way across.</summary>
     sealed record Course(TownMap.WaterBody Kind, Vector2 Across, int Parent, int Depth, Vector2[] CentreM, float[] NearM, float[] FarM);
 
-    /// <summary>How many places a river is drawn at before it is left out: drawn again, never searched for.</summary>
-    const int RiverTries = 8;
-
-    /// <summary>
-    /// How much of a river's run its wander rises over from either end, so it leaves the edge and meets the sea where it
-    /// was drawn to.
-    /// </summary>
-    const float RiverRiseShare = 0.15f;
-
     /// <summary>
     /// <b>The sea, the rivers and their tributaries</b> (GEN-62), each drawn once: a river that would cross water already
     /// laid is drawn again somewhere else, or not at all — what fits is what is laid.
@@ -114,14 +104,14 @@ internal static class TerrainStage
         var rivers = (int)MathF.Round(brief.Rivers.PerKm * MathF.Max(extentM.X, extentM.Y) / 1000f);
         for (var river = 0; river < rivers; river++)
         {
-            for (var tries = 0; tries < RiverTries; tries++)
+            for (var tries = 0; tries < config.CityGen.WaterTries; tries++)
             {
                 var (entersM, leavesM) = seaM.Length > 0
-                    ? IntoTheSea(seaward, strandedM, extentM, ref draw)
-                    : Across(brief.Rivers.BearingDeg, extentM, ref draw);
+                    ? IntoTheSea(seaM, seaward, strandedM, extentM, config, ref draw)
+                    : Across(brief.Rivers.BearingDeg, extentM, config, ref draw);
                 var laid = River(entersM, leavesM, seaM.Length > 0 ? 0 : TownMap.CourseArrays.NoParent, brief.Rivers, config, ref draw);
                 var (laidOutline, laidShore) = CourseRings(laid, config);
-                if (!Fits(laid, laidOutline, laidShore, outlines, shores, config)) continue;
+                if (!Fits(laid, laidOutline, laidShore, outlines, shores, config) || !ApartFromTheRivers(laid, courses, extentM, config)) continue;
 
                 courses.Add(laid);
                 outlines.Add(laidOutline);
@@ -134,7 +124,7 @@ internal static class TerrainStage
         {
             if (!courses.Exists(course => course.Kind == TownMap.WaterBody.River)) break;
 
-            for (var tries = 0; tries < TributaryTries; tries++)
+            for (var tries = 0; tries < config.CityGen.WaterTries; tries++)
             {
                 if (Tributary(courses, brief.Rivers, config, extentM, ref draw) is not { } laid) continue;
 
@@ -167,13 +157,14 @@ internal static class TerrainStage
         var seaWideM = breadthM * sea.Share;
         var strandedM = (breadthM * 0.5f) - seaWideM;
         var wanderM = seaWideM * sea.Meander;
-        var runM = extentM.Length() + (OverrunM * 2f);
+        var overrunM = config.CityGen.WaterOverrunM;
+        var runM = extentM.Length() + (overrunM * 2f);
         var phase = DrawPhase(ref draw);
 
         var points = PointsAlong(runM, wanderM, config.CityGen.ShoreChordToleranceM);
         var middleM = new Vector2[points];
         var (nearM, farM) = (new float[points], new float[points]);
-        var farOffM = extentM.Length() + OverrunM;
+        var farOffM = extentM.Length() + overrunM;
         for (var point = 0; point < points; point++)
         {
             var along = point / (float)(points - 1);
@@ -194,24 +185,51 @@ internal static class TerrainStage
     /// <b>Where a river flowing into the sea enters the map and where it meets the coast</b>: a place along the coast the
     /// map shows, and the edge a line from it reaches running inland, turned off straight away from the sea by a draw.
     /// </summary>
-    static (Vector2 EntersM, Vector2 LeavesM) IntoTheSea(Vector2 seaward, float strandedM, Vector2 extentM, ref Rng draw)
+    /// <remarks>
+    /// <b>It meets the coast as drawn and not the coast's mean line</b>: the coast wanders off its line by its meander,
+    /// further than a river is run on past where it ends, so a river aimed at the mean line stopped short of a coast
+    /// bulging seaward and never reached the sea.
+    /// </remarks>
+    static (Vector2 EntersM, Vector2 LeavesM) IntoTheSea(
+        Vector2[] seaM, Vector2 seaward, float strandedM, Vector2 extentM, SimConfig config, ref Rng draw)
     {
         var along = -Heading.RightOf(seaward);
         var middleM = extentM * 0.5f;
-        var coastM = middleM + (seaward * strandedM) + (along * (draw.NextFloat(-0.35f, 0.35f) * BreadthM(extentM, along)));
-        var inland = Heading.Unit(Trig.Atan2(-seaward.Y, -seaward.X) + draw.NextFloat(-0.8f, 0.8f));
-        return (coastM + (inland * ToTheEdgeM(coastM, inland, extentM)), coastM);
+        var figures = config.CityGen;
+        var meanM = middleM + (seaward * strandedM) + (along * (draw.NextFloat(-figures.RiverPassShare, figures.RiverPassShare) * BreadthM(extentM, along)));
+        var inland = Heading.Unit(Trig.Atan2(-seaward.Y, -seaward.X) + draw.NextFloat(-figures.RiverInlandTurnRad, figures.RiverInlandTurnRad));
+        var entersM = meanM + (inland * ToTheEdgeM(meanM, inland, extentM));
+        return (entersM, OnTheCoast(seaM, entersM, meanM, config.Terrain.GroundStepM, extentM.Length()));
+    }
+
+    /// <summary>
+    /// Where a line from inland toward a place near the coast first reaches the sea as drawn: walked on past the place
+    /// where it is still dry there, and back toward inland where it is already the sea's — a step at a time, and no
+    /// further than <paramref name="reachM"/> either way.
+    /// </summary>
+    static Vector2 OnTheCoast(Vector2[] seaM, Vector2 inlandM, Vector2 nearM, float stepM, float reachM)
+    {
+        var seaward = Vector2.Normalize(nearM - inlandM);
+        var way = Polygons.Encloses(seaM, nearM) ? -1f : 1f;
+        for (var outM = 0f; outM < reachM; outM += stepM)
+        {
+            var atM = nearM + (seaward * (way * outM));
+            if (Polygons.Encloses(seaM, atM) != (way < 0f)) return atM;
+        }
+
+        return nearM;
     }
 
     /// <summary>
     /// <b>Where a river crossing a map with no sea enters and leaves it</b>: a line on the brief's bearing, turned by a
     /// draw and passing the middle at a drawn offset, edge to edge.
     /// </summary>
-    static (Vector2 EntersM, Vector2 LeavesM) Across(float bearingDeg, Vector2 extentM, ref Rng draw)
+    static (Vector2 EntersM, Vector2 LeavesM) Across(float bearingDeg, Vector2 extentM, SimConfig config, ref Rng draw)
     {
-        var heading = Heading.Unit((bearingDeg * MathF.PI / 180f) + draw.NextFloat(-0.35f, 0.35f));
+        var figures = config.CityGen;
+        var heading = Heading.Unit((bearingDeg * MathF.PI / 180f) + draw.NextFloat(-figures.RiverTurnRad, figures.RiverTurnRad));
         var side = Heading.RightOf(heading);
-        var passesM = (extentM * 0.5f) + (side * (draw.NextFloat(-0.35f, 0.35f) * BreadthM(extentM, side)));
+        var passesM = (extentM * 0.5f) + (side * (draw.NextFloat(-figures.RiverPassShare, figures.RiverPassShare) * BreadthM(extentM, side)));
         return (passesM - (heading * ToTheEdgeM(passesM, -heading, extentM)), passesM + (heading * ToTheEdgeM(passesM, heading, extentM)));
     }
 
@@ -223,8 +241,9 @@ internal static class TerrainStage
     static Course River(Vector2 entersM, Vector2 leavesM, int parent, RiversBrief rivers, SimConfig config, ref Rng draw)
     {
         var heading = Vector2.Normalize(leavesM - entersM);
-        var fromM = entersM - (heading * OverrunM);
-        var runM = Vector2.Distance(fromM, leavesM) + OverrunM;
+        var overrunM = config.CityGen.WaterOverrunM;
+        var fromM = entersM - (heading * overrunM);
+        var runM = Vector2.Distance(fromM, leavesM) + overrunM;
         var across = Heading.RightOf(heading);
         var narrowing = rivers.WidthSpread;
         var widthM = MathF.Min(rivers.WidthM, WidestSpannedM(config) / (1f + narrowing));
@@ -238,7 +257,7 @@ internal static class TerrainStage
         for (var point = 0; point < points; point++)
         {
             var along = point / (float)(points - 1);
-            var risen = Math.Clamp(MathF.Min(along, 1f - along) / RiverRiseShare, 0f, 1f);
+            var risen = Math.Clamp(MathF.Min(along, 1f - along) / config.CityGen.RiverRiseShare, 0f, 1f);
             risen *= risen * (3f - (2f * risen));
             centreM[point] = fromM + (heading * (along * runM)) + (across * (Wander(along, phase) * wanderM * risen));
             var halfM = widthM * 0.5f * Widened(along, widthPhase, narrowing, widening);
@@ -246,6 +265,32 @@ internal static class TerrainStage
         }
 
         return new Course(TownMap.WaterBody.River, across, parent, 1, centreM, nearM, farM);
+    }
+
+    /// <summary>
+    /// <b>Whether a river keeps a valley's width off every river already laid</b> on the map (GEN-62,
+    /// <see cref="CityGenFigures.RiversApartLeastM"/>): two rivers that near would long since have met, so a town is not
+    /// laid between two parallel channels a few blocks apart.
+    /// </summary>
+    static bool ApartFromTheRivers(Course laid, List<Course> courses, Vector2 extentM, SimConfig config)
+    {
+        var apartM = config.CityGen.RiversApartLeastM;
+        foreach (var course in courses)
+        {
+            if (course.Kind != TownMap.WaterBody.River || course.Parent != laid.Parent) continue;
+
+            foreach (var pointM in laid.CentreM)
+            {
+                if (!Within(pointM, extentM)) continue;
+
+                foreach (var otherM in course.CentreM)
+                {
+                    if (Vector2.DistanceSquared(pointM, otherM) < apartM * apartM) return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -275,6 +320,8 @@ internal static class TerrainStage
 
         var parents = 0;
         foreach (var course in laid) parents += Feeds(course) ? 1 : 0;
+
+        if (parents == 0) return null;
 
         var pick = draw.NextInt(parents);
         var parentAt = 0;
@@ -312,7 +359,7 @@ internal static class TerrainStage
 
         var (sin, cos) = MathF.SinCos(joinRad);
         var upstream = (-downstream * cos) + (sideways * sin);
-        var runM = ToTheEdgeM(mouthM, upstream, extentM) + OverrunM;
+        var runM = ToTheEdgeM(mouthM, upstream, extentM) + figures.WaterOverrunM;
         var across = Heading.RightOf(-upstream);
 
         // The wander starts once the river is clear of the water it flows into, so its mouth stays where it was drawn.

@@ -115,8 +115,8 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
     public RoadShape ShapeOfTheRoad(int car, out bool inward)
     {
         var key = new KeptShape(
-            Cars.LinesLaid[car], Cars.PeekNextRouteLane(car), Cars.PeekRouteLaneAfterNext(car), Cars.HasDestination[car],
-            Cars.LineIsReverse[car], RoadShape.None, Inward: false, Kept: true);
+            Cars.LinesLaid[car], Cars.PeekNextRouteLane(car), Cars.PeekRouteLaneAfterNext(car), Cars.RouteEndsOn[car],
+            Cars.HasDestination[car], Cars.LineIsReverse[car], RoadShape.None, Inward: false, Kept: true);
         ref var kept = ref _shapes[car];
         if (kept with { Shape = RoadShape.None, Inward = false } == key)
         {
@@ -131,10 +131,11 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
 
     /// <summary>
     /// <b>What <see cref="ShapeOfTheRoad"/> was last for a car, and what it was read against</b>: the line it had, the two
-    /// lanes its route queued next, whether it was going anywhere and in which gear its line is driven.
+    /// lanes its route queued next and the one it ends on, whether it was going anywhere and in which gear its line is
+    /// driven.
     /// </summary>
     readonly record struct KeptShape(
-        uint Line, int Next, int AfterNext, bool Destination, bool Reverse, RoadShape Shape, bool Inward, bool Kept);
+        uint Line, int Next, int AfterNext, int EndsOn, bool Destination, bool Reverse, RoadShape Shape, bool Inward, bool Kept);
 
     readonly KeptShape[] _shapes = new KeptShape[ground.Cars.Capacity];
 
@@ -367,7 +368,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
 
         if (Roads.ConnectorBetween(last, next) != RoadGraph.NoConnector
             || !Roads.ReachesBySwitching(last, next, out var beside)
-            || Roads.OnBesideTheRoute(last, next, Cars.PeekRouteLaneAfterNext(car), out _) != RoadGraph.NoLane)
+            || Roads.OnBesideTheRoute(last, next, Cars.PeekRouteLaneAfterNext(car), Cars.RouteEndsOn[car], out _) != RoadGraph.NoLane)
         {
             return false;
         }

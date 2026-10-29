@@ -141,17 +141,37 @@ internal sealed unsafe class GpuTexture : IDisposable
     /// texture, mipped and repeating as a single surface is. Viewed as an array even with one look, which is what the
     /// ground stage samples.
     /// </summary>
-    /// <exception cref="InvalidDataException">A picture that is not a whole number of squares tall.</exception>
-    public static GpuTexture LoadLooks(Vk vk, string path)
+    /// <param name="after">
+    /// A second picture of looks laid after the first's in the same array (GEN-75), each look its own layer; one size with
+    /// the first's, as every layer of an array is.
+    /// </param>
+    /// <exception cref="InvalidDataException">A picture that is not a whole number of squares tall, or not the first's width.</exception>
+    public static GpuTexture LoadLooks(Vk vk, string path, string? after = null)
     {
         using var decoded = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(path);
-        if (decoded.Height % decoded.Width != 0)
+        Squares(path, decoded.Width, decoded.Height);
+        if (after is null) return Upload(vk, decoded, repeats: true, mipped: true, layers: decoded.Height / decoded.Width, arrayed: true);
+
+        using var later = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(after);
+        Squares(after, later.Width, later.Height);
+        if (later.Width != decoded.Width)
         {
-            throw new InvalidDataException(
-                $"{path} is {decoded.Width}x{decoded.Height}: a surface's looks are squares stacked top to bottom.");
+            throw new InvalidDataException($"{after} is {later.Width} wide and {path} {decoded.Width}: an array's layers are one size.");
         }
 
-        return Upload(vk, decoded, repeats: true, mipped: true, layers: decoded.Height / decoded.Width, arrayed: true);
+        var all = new Texel[decoded.Width * (decoded.Height + later.Height)];
+        decoded.CopyPixelDataTo(MemoryMarshal.AsBytes(all.AsSpan(0, decoded.Width * decoded.Height)));
+        later.CopyPixelDataTo(MemoryMarshal.AsBytes(all.AsSpan(decoded.Width * decoded.Height)));
+        var layers = (decoded.Height + later.Height) / decoded.Width;
+        return Upload(vk, all, decoded.Width, decoded.Width, repeats: true, mipped: true, layers, arrayed: true);
+
+        static void Squares(string path, int widthPx, int heightPx)
+        {
+            if (heightPx % widthPx != 0)
+            {
+                throw new InvalidDataException($"{path} is {widthPx}x{heightPx}: a surface's looks are squares stacked top to bottom.");
+            }
+        }
     }
 
     /// <summary>

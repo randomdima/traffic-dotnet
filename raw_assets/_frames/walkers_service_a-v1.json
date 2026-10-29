@@ -1,0 +1,55 @@
+{
+ "id": "walkers_service_a-v1",
+ "ts": "2026-10-28T03:29:42",
+ "op": "edit",
+ "name": "walkers_service_a",
+ "file": ".tmp/gen/frames/walkers_service_a-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.013557,
+ "usage": {
+  "prompt_tokens": 1467,
+  "completion_tokens": 158,
+  "total_tokens": 1625,
+  "cost": 0.013557,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.013557,
+   "upstream_inference_prompt_cost": 0.008817,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "One image is attached: finished art from the same 2D city game, cars seen from above. Match its finish and light only — not its contents, colours or scale.\n\nMake one image: 9 different people for the game, in a grid of 3 columns by 3 rows, read left to right, top to bottom. Each stands still, the whole body facing south — straight down the picture, towards its bottom edge — arms relaxed at the sides, feet side by side, a relaxed neutral expression, head level. The camera is in front and high above, looking down at about 55 degrees: the top of the head and the tops of the shoulders show plainly, the face is seen from above and a little shortened, the legs shorter on the picture than the body above them, the feet tucked just under the hem. Looking down shortens a body top to bottom only; it never makes it wider. Every figure has an ordinary average build — neither thin nor stocky, shoulders their natural width. The whole body is visible. Each is centred in its cell, well apart from its neighbours, never touching. All at one scale: a person 1.8 m tall fills about 70 % of the cell's height, shorter people smaller in proportion.\n\nStyle: game sprite art with a light pixel-art feel — clean simplified shapes, bold readable silhouettes, a limited palette with flat shading in two or three tones per colour, crisp hard edges. Leave small details out: no fabric texture, no stitching, no tiny patterns; faces simple, eyes, brows and mouth a few marks. Each must read clearly when shown only 60 pixels tall. Not photographic, not soft painting, not chibi: natural adult proportions. Summer in a Black Sea port city.\n\nThe people, in order:\n1. 1.82 m tall. A police officer, a man of about 30 with short dark hair, clean-shaven, in a dark-navy police uniform: a short-sleeved shirt with a small silver badge on the chest, dark-navy trousers, a black duty belt, black boots and a dark-navy peaked cap.\n2. 1.7 m tall. A police officer, a woman of about 28 with dark-blond hair in a low bun, in a dark-navy police uniform: a short-sleeved shirt with a small silver badge on the chest, dark-navy trousers, a black duty belt and black boots, bareheaded.\n3. 1.78 m tall. A police officer, a man of about 45 with short greying hair and a dark moustache, in a dark-navy police uniform: a short-sleeved shirt with a small silver badge on the chest, dark-navy trousers, a black duty belt, black boots and a dark-navy peaked cap.\n4. 1.66 m tall. A paramedic, a woman of about 35 with brown hair in a ponytail, in a paramedic's uniform: a red short-sleeved shirt with silver reflective stripes round the arms, dark-navy trousers and black boots.\n5. 1.84 m tall. A paramedic, a man of about 25 with short fair hair, in a paramedic's uniform: a red short-sleeved shirt with silver reflective stripes round the arms, dark-navy trousers and black boots.\n6. 1.76 m tall. A paramedic, a bald man of about 50 with a short grey beard, in a paramedic's uniform: a red short-sleeved shirt with silver reflective stripes round the arms, dark-navy trousers and black boots.\n7. 1.8 m tall. A recovery mechanic, a man of about 40 with short dark hair and a short dark beard, in work clothes: a fluorescent-yellow high-visibility vest with silver reflective stripes over a dark-grey T-shirt, dark-grey work trousers and black work boots.\n8. 1.74 m tall. A recovery mechanic, a man of about 55 with short grey hair, in work clothes: a fluorescent-yellow high-visibility vest with silver reflective stripes over a dark-grey T-shirt, dark-grey work trousers and black work boots.\n9. 1.68 m tall. A recovery mechanic, a woman of about 30 with red hair in a ponytail, in work clothes: a fluorescent-yellow high-visibility vest with silver reflective stripes over a dark-grey T-shirt, dark-grey work trousers, black work boots and grey work gloves.\n\nEverything outside the figures is fully transparent: no background, no ground, no shadow, nothing half-transparent. No text, letters, numbers, labels, grid lines or frames anywhere.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "029e23e559e4d1a5",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/walkers_style.png"
+  }
+ ],
+ "cells": [
+  "police_a",
+  "police_b",
+  "police_c",
+  "paramedic_a",
+  "paramedic_b",
+  "paramedic_c",
+  "recovery_a",
+  "recovery_b",
+  "recovery_c"
+ ]
+}

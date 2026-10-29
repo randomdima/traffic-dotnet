@@ -19,10 +19,16 @@ internal sealed partial class GroundShapes
 
     /// <summary>
     /// <b>And the walk</b>: inside that boundary moved out by <see cref="SimConfig.WalkOuterM"/>
-    /// (<see cref="GroundRings.Walk"/>). It encloses the carriageway as the layer drawn under it does, so it is
-    /// asked after the carriageway and never instead of it (TER-7b).
+    /// (<see cref="GroundRings.Walk"/>). It encloses the walked roads' carriageway as the layer drawn under it does, so
+    /// it is asked after the carriageway and never instead of it (TER-7b).
     /// </summary>
     RingSides _walk = RingSides.None;
+
+    /// <summary>
+    /// <b>And the shoulder beside a road with no walk</b> (<see cref="GroundRings.Shoulder"/>, GEN-75): drawn under the
+    /// walk, so asked after it.
+    /// </summary>
+    RingSides _shoulder = RingSides.None;
 
     /// <summary>
     /// The two layers struck off the town's boundary, laid over the lattice that answers which side of them a
@@ -40,6 +46,7 @@ internal sealed partial class GroundShapes
         var rings = _layers = paving.Rings(config);
         _carriageway = RingSides.Of(rings.Carriageway.Rings, config.ShellLevel);
         _walk = rings.WalkSides(config);
+        if (rings.Shoulder.Rings.Length > 0) _shoulder = RingSides.Of(rings.Shoulder.Rings, config.ShellLevel);
     }
 
     /// <summary>The lattice the carriageway is answered off, for a census of what it costs.</summary>

@@ -1,4 +1,4 @@
-// The one binding layout both passes of the emit run over (sprites_count, sprites_write), so one set serves them, and
+// The one binding layout the passes of the emit run over (sprites_count, sprites_write, sprites_order), so one set serves them, and
 // sprites.glsl over it. Every row is app/devicetick/DeviceSprites' of the same name, field for field. The including
 // kernel enables doubles, which rounded.glsl answers its quotients in.
 
@@ -19,8 +19,8 @@ const uint AirMoments = 32u;
 
 // The frame's own words, written by the host each frame into a buffer rather than pushed, because a frame is recorded
 // once (CameraView): the view as the fill takes it, the narrowest part drawn, the town's clock, its live rosters, which
-// of the world's two views the host is showing (sprites_world.comp), and the air of the moments back from the town's,
-// which carries the smoke.
+// of the world's two views the host is showing (sprites_world.comp), how slow a walker is drawn standing, and the air of
+// the moments back from the town's, which carries the smoke.
 layout(std430, binding = 0) readonly buffer Frame
 {
     vec2 viewCentreM;
@@ -30,7 +30,7 @@ layout(std430, binding = 0) readonly buffer Frame
     uint personCount;
     uint carCount;
     uint viewSlot;
-    uint pad;
+    float standingBelowMps;
     AirBack air[AirMoments];
 } frame;
 
@@ -326,6 +326,17 @@ struct ChimneyRow
 };
 
 layout(std430, binding = 28) readonly buffer Chimneys { ChimneyRow chimneys[]; };
+
+// Which units wear a ring this frame (SpriteRings, CTL-1, CTL-5d), written by the host: the car somebody else has the
+// wheel of, then a bit a unit — the walkers' to personCapacity, the cars' to carCapacity, then the wagons'.
+layout(std430, binding = 29) readonly buffer Rings
+{
+    int secondHandCar;
+    uint ringBits[];
+};
+
+// The walkers shown, as the write pass builds them in roster order, for sprites_order.comp to put in the order drawn (PER-31).
+layout(std430, binding = 30) buffer WalkersShown { SpriteOut walkersShown[]; };
 
 #define LAMP_FIGURES figures
 #define SIGNAL_FIGURES figures

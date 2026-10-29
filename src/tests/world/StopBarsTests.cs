@@ -3,7 +3,6 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Tests.CityGen;
-using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 using Xunit;
 
@@ -27,8 +26,9 @@ public class StopBarsTests
     {
         var config = SimConfig.Shipped();
         var plan = Towns.Of(Towns.Fixture);
-        var lanes = plan.Paving(config).Lanes;
-        var crossings = Crossings.Lay(plan, config, FootConnectors.Lay(plan, config).Crossed());
+        var paving = plan.Paving(config);
+        var lanes = paving.Lanes;
+        var crossings = Crossings.Lay(plan, config, paving.RoadEnds(config).HeldM);
         var bars = StopBars.Lay(lanes, crossings, config);
 
         var painted = new HashSet<int>(bars.Lane.ToArray());
@@ -50,42 +50,49 @@ public class StopBarsTests
     /// <see cref="RoadFigures.StopBarSetbackM"/> of bare road and nothing else.
     /// </summary>
     /// <remarks>
-    /// <b>The two marks stand on two lines half a carriageway apart</b> — the bar on its lane and the band
-    /// across the road — so a gap read as a straight on the ground differs from the metres the bar was
-    /// placed by, by what that offset costs over the bend the arm makes. <see cref="FramesM"/> is what that
-    /// comes to on the streets a town lays, and <b>the worst of them is what is weighed</b>, so a reading
-    /// that grows says by how much rather than naming whichever bar crossed the line first.
+    /// <b>Read in the band's own frame and at both ends of the bar's front edge</b>: the band is deep along its
+    /// axis (TER-6), so the bare road in front of the bar is that far everywhere across the lane or the bar
+    /// stands nearer the paint at one end than the other. <b>The worst of them is what is weighed</b>, so a
+    /// reading that grows says by how much rather than naming whichever bar crossed the line first.
     /// </remarks>
-    [Fact(Skip = "the worst bar's gap outgrew the FramesM bound the fixture was measured at — docs/tech-debt.md")]
+    [Fact]
     public void ABarStandsASetbackBehindItsCrossing()
     {
         var config = SimConfig.Shipped();
         var plan = Towns.Of(Towns.Fixture);
-        var lanes = plan.Paving(config).Lanes;
-        var crossings = Crossings.Lay(plan, config, FootConnectors.Lay(plan, config).Crossed());
+        var paving = plan.Paving(config);
+        var lanes = paving.Lanes;
+        var crossings = Crossings.Lay(plan, config, paving.RoadEnds(config).HeldM);
         var bars = StopBars.Lay(lanes, crossings, config);
         var setbackM = config.Road.StopBarSetbackM;
 
         var worstM = 0f;
+        var worstBar = 0;
         for (var bar = 0; bar < bars.Count; bar++)
         {
             var lane = bars.Lane[bar];
             var crossing = crossings.At(lanes.LaneRoad[lane], lanes.LaneForward[lane]);
 
             // The crossing's near edge is half its band toward the lane, struck along the band's own axis
-            // because that is which way a band is deep (TER-6); the bar's own is half its thickness the
-            // same way along the lane, and the gap between them is read in the bar's frame.
+            // because that is which way a band is deep (TER-6); the bar's is half its thickness forward of its middle.
             var axis = crossings.Axis[crossing];
             var towards = Vector2.Dot(axis, bars.Approach[bar]) >= 0f ? axis : -axis;
             var bandM = crossings.CentreM[crossing] - (towards * crossings.DepthM[crossing] * 0.5f);
             var edgeM = bars.CentreM[bar] + (bars.Approach[bar] * bars.ThicknessM[bar] * 0.5f);
-            var gapM = Vector2.Dot(bandM - edgeM, bars.Approach[bar]);
+            var acrossM = Heading.RightOf(bars.Approach[bar]) * (bars.SpanM[bar] * 0.5f);
+            foreach (var endM in (ReadOnlySpan<Vector2>)[edgeM - acrossM, edgeM + acrossM])
+            {
+                var offM = MathF.Abs(Vector2.Dot(bandM - endM, towards) - setbackM);
+                if (offM <= worstM) continue;
 
-            worstM = MathF.Max(worstM, MathF.Abs(gapM - setbackM));
+                (worstM, worstBar) = (offM, bar);
+            }
         }
 
         Assert.NotEmpty(bars.Lane.ToArray());
-        Assert.InRange(worstM, 0f, FramesM);
+        Assert.True(
+            worstM <= LineTolerance.RoundingM,
+            $"bar {worstBar} stands {worstM * 1000f:0.#} mm off a setback behind its crossing");
     }
 
     /// <summary>
@@ -96,8 +103,9 @@ public class StopBarsTests
     /// </summary>
     /// <remarks>
     /// <b>Asked at a figure the fixture's streets answer to</b> (<see cref="WeldedBelowM"/>) rather than at
-    /// the shipped one, which is a figure about a town rather than about this rule. <b>Both readings are
-    /// taken in the metres of the lane the bar is on</b>, which is the frame the gap it was placed by is in.
+    /// the shipped one, which is a figure about a town rather than about this rule. <b>Which stands where is
+    /// read in the metres of the lane the bar is on, and the gap along the axis of the place held behind</b>,
+    /// which is the frame the bar was placed in (<see cref="Crossings.BehindM"/>).
     /// </remarks>
     [Fact]
     public void ARoadCrossedMidwayIsHeldAtEachOfItsKerbEnds()
@@ -142,14 +150,15 @@ public class StopBarsTests
                     $"the bar on lane {lane} stands at {barM:F1} m, the paint at {paintM:F1} m and the kerb "
                     + $"end at {kerbM:F1} m");
 
-                var gapM = kerbM - barM - (bars.ThicknessM[bar] * 0.5f);
+                var edgeM = bars.CentreM[bar] + (bars.Approach[bar] * bars.ThicknessM[bar] * 0.5f);
+                var gapM = Vector2.Dot(holds.CentreM[kerb] - edgeM, bars.Approach[bar]);
                 worstM = MathF.Max(worstM, MathF.Abs(gapM - config.Road.StopBarSetbackM));
             }
         }
 
         // The staging and not the claim: a fixture with no street short enough would ask nothing, and pass.
         Assert.True(asked > 0, $"no street of the fixture is cut twice within {WeldedBelowM:F0} m");
-        Assert.InRange(worstM, 0f, FramesM);
+        Assert.InRange(worstM, 0f, LineTolerance.RoundingM);
     }
 
     /// <summary>
@@ -157,16 +166,4 @@ public class StopBarsTests
     /// their ends (<see cref="RoadFigures.CrossedOnceBelowM"/>).
     /// </summary>
     const float WeldedBelowM = 60f;
-
-    /// <summary>
-    /// How far the lane's metres and its road's may part over the paint at one arm's end: half a
-    /// carriageway of offset, over the bend a street makes in the metre and a half the paint takes.
-    /// </summary>
-    /// <remarks>
-    /// <b>Measured on the fixture rather than derived</b>, which is why the claim is stated as a bound it
-    /// does not lean on, and <b>the worst of them is what is weighed</b> — so this is a maximum and not
-    /// whichever bar first crossed a line. The two marks stand nearly two metres apart across the road, so
-    /// a degree of turn between their frames is three centimetres of it.
-    /// </remarks>
-    const float FramesM = 0.04f;
 }

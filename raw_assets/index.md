@@ -31,8 +31,12 @@ raw_assets/                        committed
     variants.jsonl                 per variant: frame, cell, px/m, score 0-5, used | candidate
     <id>_broken/                   a car's wreck, an asset of its own (`qq sprites` ids `<car>_broken`)
   <family path>/prompting.md       what wording worked and what failed for a family, citing variants
+  <family path>/*plan.md           the plan its variant files and briefs are written from: `qq fleet`,
+                                   `qq walkers` and `qq townprops` read it by default
+  agents/car/lamp_briefs/          the brief each agent cutting one car's lamps is given, by kind
   _frames/<frame>.json             the record of every frame a kept variant came from, and its ancestors':
                                    the exact prompt, model, settings sent, cost, inputs by hash
+  _frames/<clip>.mp4               a clip a kept variant was cut from, beside its record (rule 2)
   _inputs/<sha>.<ext>              the pictures those frames were asked from: layouts, style pictures, masks
   legacy.txt                       images under assets/ that trace to nothing yet
 
@@ -50,7 +54,10 @@ A sprite traces through its `.src.json` to its variant, through `variants.jsonl`
 2. **A sheet is never committed; its cells are.** A frame stays in `.tmp/gen/`. A cell with a major defect
    stays there too. A cell worth keeping — the one put in the game and the real alternatives to it — is
    kept with `qq sprites keep`, which brings the frame's record and its inputs along; a parent frame (a
-   masked redo's) keeps its record only, never its image.
+   masked redo's) keeps its record only, never its image. **A clip is the exception** (the owner, 2026-10-29): the
+   video a kept variant was cut from is kept beside its record, since a walker is cut again from its clip and a clip
+   is never asked twice alike. Its trials and rolls not kept stay in `.tmp/gen/`; `check` fails a kept variant whose
+   clip is missing, and `drop` takes a clip no kept variant traces to.
 3. **What is kept is never edited or renamed.** A new attempt is a new version; a variant named by a
    `.src.json` is never deleted. A candidate no sprite uses — a trial given up — is unkept with `qq sprites drop`,
    which takes its record, its lamp cut and any lineage no other variant traces to.
@@ -77,8 +84,10 @@ A sprite traces through its `.src.json` to its variant, through `variants.jsonl`
    painted over by hand (CAR-14a). The brief names each part and where on the asset it is, never its shape — a lamp may be round,
    a strip, wrapped round a corner, whatever the asset wants; a drawing missing a part, or drawing one lit, is a
    failed cell. A part added to or moved in a file is had by asking for the asset again, never by painting it in.
-
-## The loose images
-
-The three images directly in this folder trace to nothing: `doctor.png`, `policeman.png` and `repair man.png` are
-the sheets the paramedic, police and recovery walkers on `legacy.txt` were drawn from.
+8. **Every unit, building and prop look stands on the showroom once, and every change to one is looked at there**
+   (`ShowroomPlan`, `--map Showroom`): every car, person and rolling-stock look standing still until a hand takes it,
+   every building in the rows round the car park, every prop in the field between them and the yard. A look added to, changed in or dropped from a catalogue is not finished until a captioned
+   shot of the showroom shows it standing as it should (`--shot .tmp/showroom.png --map Showroom --caption`, framed
+   on it with `--at` and `--view`). The showroom reads the catalogues, so a look is on it once its catalogue lists
+   it; a new kind of look the showroom does not stand yet is not finished until `ShowroomPlan` and the town stand it,
+   and `ShowroomTests` says it stands once.

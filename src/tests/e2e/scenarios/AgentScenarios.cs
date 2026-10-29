@@ -121,13 +121,15 @@ internal static class AgentScenarios
         new(
             Name: "service-lamps",
             Group: "core",
-            Map: "Odesa",
-            Subject: "Ambulances standing on their hospital's apron, none of them out on a call "
-                     + "(CAR-14a, AMB-4b). Their art is painted with a two-section lamp bar across "
-                     + "the roof; what no number can answer is whether that bar reads as unlit glass "
-                     + "rather than as a beacon that is on.",
+            Map: "Showroom",
+            Subject: "The showroom's two ambulance looks parked side by side, beside its police car, "
+                     + "none of them out on a call (CAR-14a, AMB-4b). Their art is painted with a two-section "
+                     + "lamp bar across the roof; what no number can answer is whether that bar reads "
+                     + "as unlit glass rather than as a beacon that is on.",
             FrameWidthM: 16f, FinestFeatureM: 0.05f, // one end of a beacon bar
-            AtM: new Vector2(1489f, 1035f), Seconds: 45, Ui: ["none"],
+            // Between the two ambulances' bays: the showroom parks the looks in catalogue order, so a
+            // service look added ahead of them moves this frame.
+            AtM: new Vector2(287.4f, 329.3f), Seconds: 10, Ui: ["none"],
             Expect:
             [
                 "No lamp on any of these cars is lit: nothing on them glows or spills light onto the "

@@ -1,5 +1,19 @@
 # The kernel — decision log
 
+## 2026-10-26 — a sparse cell index is an open-addressed table, and a known extent an array
+
+**Asked of a city's open, the hashed cells were the main thread's largest cost after the trigonometry**: `PointCells`,
+`ArcRings.Place`, `TrackChords`, a foot graph's welds and a road's footprint index, each a `Dictionary` keyed by
+`GridLevel.KeyOf`, most asks of a cell that holds nothing.
+
+- **`CellTable` holds them open-addressed**, never more than half full, the key's top bits the slot: the key is already
+  the cell times an odd constant, so no second hash is taken. **`CellChains`** files numbers in a cell in the order they
+  were added, for the two searches that break a tie by that order (`ArcRings.Place`, `FootGraph.Builder.NodeAt`).
+- **`PointCells` takes an extent where its caller knows one**, and the cells inside it are an array: a nearest found
+  rings of cells out reads hundreds of them, along rows. A point outside is filed in the table, so the answers are the
+  same whatever the extent (`PointCellsTests`).
+- **What moved**: nothing laid — every plan, atlas and marks digest is equal on Saltbay, Twinford, Highmoor and OdesaOsm.
+
 ## 2026-10-20 — everything a town is laid or ticked through turns by `Trig`, and nothing asks libm
 
 **The owner (2026-10-20) chose it over a citygen-only change**, once a page was seen laying another Odesa than the

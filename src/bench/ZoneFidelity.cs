@@ -6,7 +6,7 @@ using TrafficSimulation.CityGen.Traced;
 using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.World.Statics;
+using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
 
@@ -64,7 +64,7 @@ internal static class ZoneFidelity
         var art = ShippedArt.Sizes;
         var plan = Maps.Plan(map, config, art);
         var survey = Survey.Of(Maps.Read(map), config);
-        var zones = new ZoneTree(plan.Zones, config.Zones);
+        var zones = new ZoneTree(plan.Zones, config);
 
         var real = Side.Of(SurveyFootprints.Read(reference), zones, survey, plan.WorldSizeM);
         var laid = Side.Of(Footprints(plan.Buildings, art.Buildings), zones, survey, plan.WorldSizeM);
@@ -204,7 +204,7 @@ internal static class ZoneFidelity
                     foreach (var building in near)
                     {
                         var inside = false;
-                        for (var ring = buildings.RingOffsets[building]; ring < buildings.RingOffsets[building + 1]; ring++) inside ^= Encloses(buildings.RingOf(ring), atM);
+                        for (var ring = buildings.RingOffsets[building]; ring < buildings.RingOffsets[building + 1]; ring++) inside ^= Polygons.Encloses(buildings.RingOf(ring), atM);
 
                         if (inside) return (building, offM);
                     }
@@ -334,17 +334,5 @@ internal static class ZoneFidelity
         }
 
         return Math.Abs(twice) < 1e-9 ? (ring[0], 0f) : (new Vector2((float)(x / (3 * twice)), (float)(y / (3 * twice))), (float)Math.Abs(twice * 0.5));
-    }
-
-    static bool Encloses(ReadOnlySpan<Vector2> ring, Vector2 atM)
-    {
-        var inside = false;
-        for (int at = 0, before = ring.Length - 1; at < ring.Length; before = at++)
-        {
-            var (a, b) = (ring[at], ring[before]);
-            if ((a.Y > atM.Y) != (b.Y > atM.Y) && atM.X < a.X + ((atM.Y - a.Y) / (b.Y - a.Y) * (b.X - a.X))) inside = !inside;
-        }
-
-        return inside;
     }
 }

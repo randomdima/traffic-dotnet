@@ -40,11 +40,18 @@ internal enum RoadClass : byte
     /// so nothing here wanders, jitters or bends.
     /// </summary>
     CarPark,
+
+    /// <summary>
+    /// <b>A slip road</b> (GEN-68): one lane, one way, between an intercity road and an interchange's terminal, leaving or
+    /// joining the intercity road at a shallow angle. <b>Its movement onto or off the intercity road is the kerb lane's
+    /// alone</b>, whatever its angle (TER-5j), so the lanes beside it pass by.
+    /// </summary>
+    Slip,
 }
 
 /// <summary>One road of the layout before it has a shape: what it joins, what it is for, and how it runs.</summary>
 /// <param name="Curvature">
-/// The bend the layout itself asks for, as 1/radius — an orbital's own arc, a roundabout's own circle, and
+/// The bend the layout itself asks for, as 1/radius — a roundabout's own circle, and
 /// zero for everything the road stage is free to wander (<see cref="RoadStage"/>). It is signed the way
 /// <see cref="ArcSeg.Curvature"/> is: positive turns to the driver's right.
 /// </param>
@@ -68,8 +75,18 @@ internal enum RoadClass : byte
 /// How many lanes it carries each way it is driven (GEN-67), and so how wide it is laid and how much ground it keeps
 /// (<see cref="RoadLines"/>). Fixed when the road is offered, because the ground it keeps is.
 /// </param>
+/// <param name="Unwalked">
+/// Whether it has no walk beside it (GEN-75): an intercity road, and a bridge that is a span of one — which its own
+/// class does not say, a span being <see cref="RoadClass.Bridge"/> whatever it carries.
+/// </param>
+/// <param name="Over">
+/// <b>Whether it is carried over what it crosses</b> (<see cref="CityPlan.RoadArrays.Over"/>): an interchange's road over
+/// an intercity road, and an intercity road's span over a railway (GEN-68). Its ground and an intercity road's are never
+/// one another's, and it meets nothing between its ends.
+/// </param>
 internal readonly record struct LayoutEdge(
-    int From, int To, RoadClass Class, float Curvature, RoadFlow Flow, Vector2[] ThroughM, bool Straight = false, int Lanes = 1)
+    int From, int To, RoadClass Class, float Curvature, RoadFlow Flow, Vector2[] ThroughM, bool Straight = false, int Lanes = 1,
+    bool Unwalked = false, bool Over = false)
 {
     /// <summary>
     /// How wide its carriageway is laid as it is offered: its lanes each way, both ways — every road is offered running
@@ -109,12 +126,16 @@ internal readonly record struct LayoutEdge(
 /// and nothing retries.
 /// </para>
 /// </remarks>
+/// <param name="slipArmsApartMinRad">How near a slip road's arm may lie to an intercity road's or another slip's (GEN-13).</param>
 internal sealed class TownLayout(
     float shortestRoadM, float armsApartMinRad, float localityM, GridLevel level, WaterRules water, RoadLines lines,
-    NodeSizes sizes)
+    NodeSizes sizes, float slipArmsApartMinRad = 0f)
 {
     /// <summary>How much ground each node takes and which of them a road runs off the map at.</summary>
     public NodeSizes Sizes => sizes;
+
+    /// <summary>The shortest road the layout takes: the ground two junctions take (<see cref="Join"/>).</summary>
+    public float ShortestRoadM => shortestRoadM;
 
     readonly List<Vector2> _nodeM = [];
 
@@ -127,8 +148,11 @@ internal sealed class TownLayout(
     /// <summary>The line each road was laid as, drawn when it was offered and carried with it thereafter.</summary>
     readonly List<ArcSeg[]> _lineOf = [];
 
-    /// <summary>The bearing each road leaves each node on, so a new arm can be asked how square it stands to them.</summary>
-    readonly List<List<float>> _armsAt = [];
+    /// <summary>
+    /// The bearing each road leaves each node on, its class and its lanes each way, so a new arm can be asked how square it
+    /// stands to them and whether it carries a joint's lanes on (<see cref="JointTakes"/>).
+    /// </summary>
+    readonly List<List<(float Rad, RoadClass Class, int Lanes)>> _armsAt = [];
     readonly List<LayoutEdge> _edges = [];
 
     /// <summary>Which pairs of nodes are already joined, so no two of them are joined twice.</summary>
@@ -211,11 +235,16 @@ internal sealed class TownLayout(
     public int[] SettleTheNodes()
     {
         var root = Clusters.Apart(_nodeM.Count);
+        var filed = new PointCells(level);
+        foreach (var nodeM in _nodeM) filed.Add(nodeM);
+
+        var near = new List<int>();
         for (var node = 0; node < root.Length; node++)
         {
-            for (var other = node + 1; other < root.Length; other++)
+            filed.Within(_nodeM[node], localityM, near);
+            foreach (var other in near)
             {
-                if ((_nodeM[node] - _nodeM[other]).LengthSquared() < localityM * localityM)
+                if (other > node && (_nodeM[node] - _nodeM[other]).LengthSquared() < localityM * localityM)
                 {
                     Clusters.Union(root, node, other);
                 }
@@ -262,7 +291,7 @@ internal sealed class TownLayout(
     }
 
     /// <summary>
-    /// One road between two nodes, if it is a road at all. Three things are refused here rather than found
+    /// One road between two nodes, if it is a road at all. Five things are refused here rather than found
     /// later, and each of them is something no junction in this engine's geometry can be made of:
     /// <list type="bullet">
     /// <item><b>Two nodes joined twice</b> — ground two carriageways share with no junction between them.</item>
@@ -284,9 +313,14 @@ internal sealed class TownLayout(
     /// deleted with its own piece (<see cref="KeepTheLargestComponent"/>) rather than joined some other way.
     /// </summary>
     /// <returns>The road, or <c>−1</c> where it was refused.</returns>
+    /// <param name="flow">
+    /// Which way it is driven, where that is the layout's own to say and not the one-way scatter's: a slip road
+    /// (<see cref="RoadClass.Slip"/>).
+    /// </param>
+    /// <param name="over">Whether it is carried over what it crosses (<see cref="LayoutEdge.Over"/>).</param>
     public int Join(
         int from, int to, RoadClass roadClass, float curvature = 0f, Vector2[]? throughM = null,
-        bool straight = false, int lanes = 1)
+        bool straight = false, int lanes = 1, bool unwalked = false, RoadFlow flow = RoadFlow.BothWays, bool over = false)
     {
         if (from == to) return -1;
 
@@ -295,21 +329,89 @@ internal sealed class TownLayout(
         if (!water.Carries(_nodeM[from], _nodeM[to], roadClass, throughM)) return -1;
         if (!_joined.Add(from < to ? (from, to) : (to, from))) return -1;
 
-        var road = new LayoutEdge(from, to, roadClass, curvature, RoadFlow.BothWays, throughM ?? [], straight, lanes);
+        var road = new LayoutEdge(
+            from, to, roadClass, curvature, flow, throughM ?? [], straight, lanes,
+            unwalked || roadClass is RoadClass.Intercity or RoadClass.Slip, over);
         var (outOfFrom, outOfTo) = BearingsOf(road);
-        if (!StandsSquareEnough(from, outOfFrom) || !StandsSquareEnough(to, outOfTo)
+        if (!StandsSquareEnough(from, outOfFrom, roadClass) || !StandsSquareEnough(to, outOfTo, roadClass)
+            || !JointTakes(from, outOfFrom, lanes) || !JointTakes(to, outOfTo, lanes)
             || !lines.CanLay(road, _nodeM, out var line))
         {
             _joined.Remove(from < to ? (from, to) : (to, from));
             return -1;
         }
 
-        _armsAt[from].Add(outOfFrom);
-        _armsAt[to].Add(outOfTo);
+        _armsAt[from].Add((outOfFrom, roadClass, lanes));
+        _armsAt[to].Add((outOfTo, roadClass, lanes));
         _edges.Add(road);
         _lineOf.Add(line);
         lines.Keep(road, line);
         return _edges.Count - 1;
+    }
+
+    /// <summary>
+    /// <b>One straight road from a node to another through each place given</b>, a piece between each two: a node the
+    /// layout has, or a node of its own stood there — <b>every piece asked before any is laid</b>, and none laid unless all
+    /// of them can be: each a road's length at least, on ground that carries it, joining no two nodes joined already,
+    /// leaving every node it meets that has arms square enough to them (GEN-13), and its lines laid together
+    /// (<see cref="CouldLay"/>). What <see cref="TownLinks.JoinWhatWasLeft"/> hangs the streets it crosses on.
+    /// </summary>
+    /// <param name="through">Each place in order: a node of the layout's, or −1 and where to stand one.</param>
+    /// <returns>The node at each place, in order, or none where it was refused.</returns>
+    public int[]? JoinThrough(int from, int to, IReadOnlyList<(int Node, Vector2 AtM)> through, RoadClass roadClass)
+    {
+        var nodeM = new List<Vector2>(_nodeM);
+        var at = new int[through.Count + 2];
+        (at[0], at[^1]) = (from, to);
+        for (var place = 0; place < through.Count; place++)
+        {
+            var (node, atM) = through[place];
+            if (node < 0)
+            {
+                if (!water.Holds(atM)) return null;
+
+                node = nodeM.Count;
+                nodeM.Add(atM);
+            }
+
+            at[place + 1] = node;
+        }
+
+        var edges = new LayoutEdge[through.Count + 1];
+        var pairs = new HashSet<(int, int)>();
+        for (var piece = 0; piece < edges.Length; piece++)
+        {
+            var (a, b) = (at[piece], at[piece + 1]);
+            if (a == b || (nodeM[b] - nodeM[a]).Length() < shortestRoadM || !water.Carries(nodeM[a], nodeM[b], roadClass, null)) return null;
+
+            var pair = a < b ? (a, b) : (b, a);
+            if (_joined.Contains(pair) || !pairs.Add(pair)) return null;
+
+            edges[piece] = new LayoutEdge(
+                a, b, roadClass, 0f, RoadFlow.BothWays, [], Straight: true, Unwalked: roadClass == RoadClass.Intercity);
+            var (outOfA, outOfB) = Bearings(nodeM[a], nodeM[b], 0f);
+            var lanes = edges[piece].Lanes;
+            if ((a < _nodeM.Count && (!StandsSquareEnough(a, outOfA, roadClass) || !JointTakes(a, outOfA, lanes)))
+                || (b < _nodeM.Count && (!StandsSquareEnough(b, outOfB, roadClass) || !JointTakes(b, outOfB, lanes))))
+            {
+                return null;
+            }
+
+            // And its own two arms at each place it passes, which no arm of the layout's stands between yet.
+            if (piece > 0)
+            {
+                var (_, cameIn) = Bearings(nodeM[at[piece - 1]], nodeM[a], 0f);
+                if (MathF.Abs(MathF.IEEERemainder(outOfA - cameIn, MathF.Tau)) < armsApartMinRad) return null;
+            }
+        }
+
+        var laid = new List<ArcSeg[]>(edges.Length);
+        if (!CouldLay(nodeM, edges, [], laid)) return null;
+
+        for (var node = _nodeM.Count; node < nodeM.Count; node++) Appended(nodeM[node]);
+        for (var piece = 0; piece < edges.Length; piece++) Added(edges[piece], laid[piece]);
+
+        return at[1..^1];
     }
 
     /// <summary>
@@ -394,17 +496,43 @@ internal sealed class TownLayout(
     /// Whether an arm leaving on this bearing stands far enough off every arm already at the node — or
     /// straight through one of them, which is a road passing a junction rather than meeting one.
     /// </summary>
-    bool StandsSquareEnough(int node, float outwardRad)
+    /// <remarks>
+    /// <b>A slip road may lie nearer an intercity road's arm, or another slip's</b> (GEN-13, GEN-68): nothing is laid across
+    /// either — no walk, no crossing, no bar on the intercity road — and its node stands its arms out until the slip's lane
+    /// clears the intercity road's carriageway (<see cref="SimConfig.SlipStandoffM"/>).
+    /// </remarks>
+    bool StandsSquareEnough(int node, float outwardRad, RoadClass roadClass)
     {
-        foreach (var arm in _armsAt[node])
+        foreach (var (armRad, armClass, _) in _armsAt[node])
         {
             // Half a turn apart is a road running through the node rather than two arms lying together, and
             // that is the one wide angle a junction is made of.
-            if (MathF.Abs(MathF.IEEERemainder(outwardRad - arm, MathF.Tau)) < armsApartMinRad) return false;
+            var leastRad = Glancing(roadClass, armClass) ? slipArmsApartMinRad : armsApartMinRad;
+            if (MathF.Abs(MathF.IEEERemainder(outwardRad - armRad, MathF.Tau)) < leastRad) return false;
         }
 
         return true;
     }
+
+    /// <summary>
+    /// Whether an arm leaving on this bearing with these lanes each way may meet the node: any may, but at a bridgehead that
+    /// is no junction (<see cref="NodeSizes.Joint"/>), which takes its span and the one road carrying it on, lane onto its
+    /// own lane, and nothing else (GEN-14a) — the handover between them has no room for a lane to end in.
+    /// </summary>
+    bool JointTakes(int node, float outwardRad, int lanes)
+    {
+        if (!sizes.IsJoint(_nodeM[node])) return true;
+
+        var arms = _armsAt[node];
+        return arms.Count == 0
+               || (arms.Count == 1 && arms[0].Lanes == lanes
+                   && MathF.Abs(MathF.IEEERemainder(outwardRad - arms[0].Rad - MathF.PI, MathF.Tau)) <= ConnectionPoints.CarriesOnWithinRad);
+    }
+
+    /// <summary>Whether two arms of these classes may lie as near each other as a slip road leaves its intercity road.</summary>
+    static bool Glancing(RoadClass one, RoadClass other) =>
+        (one == RoadClass.Slip && other is RoadClass.Slip or RoadClass.Intercity)
+        || (other == RoadClass.Slip && one == RoadClass.Intercity);
 
     /// <summary>
     /// Which way one road is driven, for the pass that settles that and changes nothing else
@@ -433,7 +561,7 @@ internal sealed class TownLayout(
     {
         RoadClass.Bridge => 3,
         RoadClass.Intercity => 2,
-        RoadClass.Arterial => 1,
+        RoadClass.Arterial or RoadClass.Slip => 1,
         _ => 0,
     };
 
@@ -538,8 +666,44 @@ internal sealed class TownLayout(
         return arms;
     }
 
+    /// <summary>The pieces the roads laid so far make: each node's cluster (<see cref="Clusters"/>).</summary>
+    public int[] Pieces()
+    {
+        var root = Clusters.Apart(_nodeM.Count);
+        foreach (var edge in _edges) Clusters.Union(root, edge.From, edge.To);
+
+        return root;
+    }
+
     /// <summary>
-    /// Drops everything not joined to the largest piece of the town, nodes and roads together, and renumbers
+    /// <b>Which piece is the town</b> (GEN-5, GEN-63): the one with the most roads of those holding an intercity road, and
+    /// the one with the most roads where none holds one — or −1 where there are no roads. The one answer the repair
+    /// (<see cref="TownLinks.JoinWhatWasLeft"/>) and the deletion (<see cref="KeepTheLargestComponent"/>) both read, so a
+    /// piece the repair left out never outgrows the town and takes its intercity roads with it.
+    /// </summary>
+    public int MainPiece(int[] root)
+    {
+        var roads = new int[_nodeM.Count];
+        var outside = new bool[_nodeM.Count];
+        foreach (var edge in _edges)
+        {
+            var piece = Clusters.Find(root, edge.From);
+            roads[piece]++;
+            outside[piece] |= edge.Class == RoadClass.Intercity;
+        }
+
+        var main = -1;
+        for (var piece = 0; piece < roads.Length; piece++)
+        {
+            if (roads[piece] == 0) continue;
+            if (main < 0 || (outside[piece], roads[piece]).CompareTo((outside[main], roads[main])) > 0) main = piece;
+        }
+
+        return main;
+    }
+
+    /// <summary>
+    /// Drops everything not joined to the town's piece (<see cref="MainPiece"/>), nodes and roads together, and renumbers
     /// what is left. <b>A node nothing reaches is deleted and not connected</b>: a link drawn to reach it
     /// would cross whatever stands in the way, and a road crossing another road where no junction is would be
     /// worse than the island it fixed.
@@ -550,17 +714,8 @@ internal sealed class TownLayout(
 
         var lineOf = new List<ArcSeg[]>(_edges.Count);
 
-        var root = Clusters.Apart(_nodeM.Count);
-        foreach (var edge in _edges) Clusters.Union(root, edge.From, edge.To);
-
-        var size = new int[_nodeM.Count];
-        for (var node = 0; node < root.Length; node++) size[Clusters.Find(root, node)]++;
-
-        var largest = 0;
-        for (var node = 1; node < size.Length; node++)
-        {
-            if (size[node] > size[largest]) largest = node;
-        }
+        var root = Pieces();
+        var largest = MainPiece(root);
 
         var moved = new int[_nodeM.Count];
         var kept = new List<Vector2>(_nodeM.Count);
@@ -783,6 +938,13 @@ internal sealed class TownLayout(
         for (var road = 0; road < roads.Length; road++) Added(roads[road], roadLines[road]);
     }
 
+    /// <summary>
+    /// <b>A road the town had, put back as it stood</b>, its line and all, between nodes it still has — what
+    /// <see cref="Gen.ThroughRoads"/> falls back on when a piece of a run cannot be offered again on the town its joined
+    /// runs left. It passed <see cref="Join"/> once on these very nodes, and deleting it would part the town (GEN-5).
+    /// </summary>
+    public void Restore(in LayoutEdge edge, ArcSeg[] line) => Added(edge, line);
+
     void Appended(Vector2 atM)
     {
         _nodeM.Add(atM);
@@ -803,7 +965,7 @@ internal sealed class TownLayout(
     {
         _joined.Add(edge.From < edge.To ? (edge.From, edge.To) : (edge.To, edge.From));
         var (outOfFrom, outOfTo) = BearingsOf(edge);
-        _armsAt[edge.From].Add(outOfFrom);
-        _armsAt[edge.To].Add(outOfTo);
+        _armsAt[edge.From].Add((outOfFrom, edge.Class, edge.Lanes));
+        _armsAt[edge.To].Add((outOfTo, edge.Class, edge.Lanes));
     }
 }

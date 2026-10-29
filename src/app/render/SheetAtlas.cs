@@ -153,6 +153,7 @@ internal sealed class SheetAtlas
 
             var rect = _rects[sheet];
             var pixels = Decode(_sources[sheet]);
+            if (_sources[sheet].OutlineArtPx > 0f) SheetOutline.Ring(pixels, rect.Width, rect.Height, _sources[sheet].OutlineArtPx);
             Blit(pixels, rect, into);
         }
     }

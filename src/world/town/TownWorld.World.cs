@@ -373,7 +373,7 @@ internal sealed partial class TownWorld
             if (People.Inside[person].Any || _walkerSetBy[person] > view.SignalsTaken) continue;
 
             ref readonly var row = ref walkers[person];
-            People.DistanceWalkedM[person] += (row.PositionM - People.PositionM[person]).Length();
+            People.DistanceWalkedM[person] = row.DistanceWalkedM;
             People.PositionM[person] = row.PositionM;
             People.VelocityMps[person] = row.VelocityMps;
             People.HeadingRad[person] = row.HeadingRad;

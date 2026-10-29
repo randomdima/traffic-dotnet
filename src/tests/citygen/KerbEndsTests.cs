@@ -49,13 +49,15 @@ public class KerbEndsTests
         var ends = KerbEnds.Of(paving, config);
         var crossed = Cuts(ends.CrossedM);
         var held = Cuts(ends.HeldM);
-        var clearM = config.Road.FootNodeClearM;
+        var clearM = config.Road.CrossingDepthM * 0.5f;
 
         var welded = 0;
+        var worstMidwayM = 0f;
         var worstM = 0f;
         foreach (var (road, both) in stations)
         {
-            if (both.Count != 2) continue;
+            // A road with no walk is crossed where the walk reaches both its kerbs and nowhere else (GEN-75).
+            if (both.Count != 2 || !plan.Roads.IsWalked(road)) continue;
 
             var arcs = plan.Roads.SegmentsOf(road);
             var lengthM = Spline.TotalLengthM(arcs);
@@ -74,7 +76,7 @@ public class KerbEndsTests
             var single = Assert.Single(paint);
             Assert.Equal(KerbCut.Midway, single.Cut);
             var middleM = (oneM + otherM) * 0.5f;
-            worstM = MathF.Max(worstM, MathF.Abs(AlongM(arcs, lengthM, single) - middleM));
+            worstMidwayM = MathF.Max(worstMidwayM, MathF.Abs(AlongM(arcs, lengthM, single) - middleM));
 
             // Held at the kerb ends, which stand the clearance the stations were struck at back towards the
             // box — each of them on the side of the middle its own station was.
@@ -90,6 +92,7 @@ public class KerbEndsTests
 
         // The staging and not the claim: a fixture with no street short enough would ask nothing, and pass.
         Assert.True(welded > 0, $"no street of the fixture is cut twice within {WideM:F0} m");
+        Assert.InRange(worstMidwayM, 0f, LineTolerance.JoinedM);
         Assert.InRange(worstM, 0f, FramesM);
     }
 
@@ -206,16 +209,17 @@ public class KerbEndsTests
     const float WideM = 60f;
 
     /// <summary>
-    /// How far the station a pair was welded into may stand off the middle of that pair: the two are averaged
-    /// in the metres of one kerb's lane and weighed here in the road's own, which are the same metres to
-    /// within what half a carriageway of offset costs over the bend a short street makes.
+    /// How far a hold may stand off the clearance back from its station: the clearance is taken along one kerb's
+    /// lane and weighed here in the road's own metres, which are the same metres to within what half a carriageway
+    /// of offset costs over the bend a short street makes in a half zebra. The station a pair is welded into is
+    /// halved in the road's own metres (<see cref="KerbEnds"/>) and owes no such bound — only what dropping it onto
+    /// the lane and reading it back through its two nodes moves it by, under a joint's tolerance
+    /// (<see cref="LineTolerance.JoinedM"/>; 4 mm at worst on 2026-10-29).
     /// </summary>
     /// <remarks>
-    /// <b>Measured on the fixture rather than derived</b>, so the claim is stated as a bound it does not lean
-    /// on, and <b>the worst of them is what is weighed</b> — a reading that grows says by how much rather
-    /// than naming whichever street first crossed a line. It is a bound on what <see cref="WideM"/> asks and
-    /// not on what the town lays: the two frames part over the length between the stations, and the shipped
-    /// figure welds a pair less than half as far apart as this reading does.
+    /// <b>Measured on the fixture rather than derived</b> (0.12 m at its worst on 2026-10-29), so the claim is stated
+    /// as a bound it does not lean on, and <b>the worst of them is what is weighed</b> — a reading that grows says by
+    /// how much rather than naming whichever street first crossed a line.
     /// </remarks>
     const float FramesM = 0.2f;
 }

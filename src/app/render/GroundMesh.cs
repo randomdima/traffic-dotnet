@@ -62,9 +62,16 @@ internal enum Surface : uint
 
     /// <summary>
     /// A bridge's lamps, piers and end pillars, a road's and a railway's, each a cell of the one layer
-    /// (<see cref="BridgeSheet.CellOf"/>). The last surface a corner can file (<see cref="GroundVertex.Fading"/>).
+    /// (<see cref="BridgeSheet.CellOf"/>).
     /// </summary>
     BridgeFittings = 15,
+
+    /// <summary>
+    /// <b>The shoulder beside a road with no walk</b> (GEN-75): the walk's array, periods and patches, read at the looks
+    /// laid after the walk's own (<see cref="ProjectPaths.GroundSurfaceLooksAfter"/>) — the first surface past the five
+    /// bits the word once filed.
+    /// </summary>
+    Shoulder = 16,
 
     /// <summary>Not a surface: the tint alone, for anything that is not ground.</summary>
     Paint = 255,
@@ -87,19 +94,25 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
     /// <remarks>Said again in both vertex stages, which unpack it (<c>ground.vert</c>, <c>town.wgsl</c>).</remarks>
     public const float BrightestTint = 3f;
 
-    /// <summary>The steps a channel is filed in: nine bits each, three channels and the surface's five in a word.</summary>
-    const uint ChannelSteps = (1u << 9) - 1;
+    /// <summary>
+    /// The steps a channel is filed in: nine bits each for the first two, eight for the third, and the surface's six above
+    /// them in a word.
+    /// </summary>
+    public const uint ChannelSteps = (1u << 9) - 1;
+
+    /// <inheritdoc cref="ChannelSteps"/>
+    public const uint ThirdChannelSteps = (1u << 8) - 1;
 
     /// <summary>Where the surface stands in the word, and what <see cref="Surface.Paint"/> is filed as there.</summary>
-    const int SurfaceShift = 27;
+    const int SurfaceShift = 26;
 
-    const uint PaintFiled = 31;
+    const uint PaintFiled = 63;
 
     public GroundVertex(Vector2 positionM, Vector3 tint, Surface surface) : this(positionM, Pack(tint, surface))
     {
     }
 
-    public Vector3 Tint => new(Channel(Shade), Channel(Shade >> 9), Channel(Shade >> 18));
+    public Vector3 Tint => new(Channel(Shade), Channel(Shade >> 9), Channel(Shade >> 18, ThirdChannelSteps));
 
     public Surface Surface => (Shade >> SurfaceShift) == PaintFiled ? Surface.Paint : (Surface)((Shade >> SurfaceShift) & ~FadingFiled);
 
@@ -108,7 +121,7 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
     /// with this bit, which every surface but <see cref="Surface.Paint"/> leaves clear.
     /// </summary>
     /// <remarks>Said again in both vertex stages (<c>ground.vert</c>, <c>town.wgsl</c>).</remarks>
-    const uint FadingFiled = 16;
+    const uint FadingFiled = 32;
 
     /// <summary>How much of a fading corner's surface covers the ground laid before it, from nought to one.</summary>
     public float Cover => Fades ? Channel(Shade) / BrightestTint : 1f;
@@ -125,7 +138,7 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
 
     /// <summary>A shade and a surface as one word: each channel to the nearest of its steps up to <see cref="BrightestTint"/>.</summary>
     public static uint Pack(Vector3 tint, Surface surface) =>
-        Filed(tint.X) | (Filed(tint.Y) << 9) | (Filed(tint.Z) << 18)
+        Filed(tint.X) | (Filed(tint.Y) << 9) | (Filed(tint.Z, ThirdChannelSteps) << 18)
         | ((surface == Surface.Paint ? PaintFiled : (uint)surface) << SurfaceShift);
 
     /// <summary>The steps a strip's corner files how far along it it stands: a picture's length in a few hundred.</summary>
@@ -137,8 +150,8 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
     /// </summary>
     public const float TrackPicturesFiled = ((1u << 18) / TrackStepsPerPicture) - 1;
 
-    /// <summary>The steps a strip's corner files how far across it it stands in.</summary>
-    public const uint AcrossSteps = (1u << 9) - 1;
+    /// <summary>The steps a strip's corner files how far across it it stands in, where a tint files its third channel.</summary>
+    public const uint AcrossSteps = ThirdChannelSteps;
 
     /// <summary>How far across its strip a strip's corner stands, from nought on the left of its line to one on the right.</summary>
     public float Across => ((Shade >> 18) & AcrossSteps) / (float)AcrossSteps;
@@ -161,9 +174,10 @@ internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
         |((uint)MathF.Round(Math.Clamp(acrossShare, 0f, 1f) * AcrossSteps) << 18)
         | ((uint)strip << SurfaceShift);
 
-    static uint Filed(float channel) => (uint)MathF.Round(Math.Clamp(channel / BrightestTint, 0f, 1f) * ChannelSteps);
+    static uint Filed(float channel, uint steps = ChannelSteps) =>
+        (uint)MathF.Round(Math.Clamp(channel / BrightestTint, 0f, 1f) * steps);
 
-    static float Channel(uint word) => (word & ChannelSteps) * BrightestTint / ChannelSteps;
+    static float Channel(uint word, uint steps = ChannelSteps) => (word & steps) * BrightestTint / steps;
 }
 
 /// <summary>
@@ -302,7 +316,7 @@ internal sealed partial class GroundMesh
     /// It is a measurement like <see cref="Edge"/> and not the inverse of one — 1/0.58 is 1.72 and lays a
     /// dash two and a half times too dark.
     /// </summary>
-    public static readonly Vector3 Paint = new(2.6f, 2.6f, 2.5f);
+    public static readonly Vector3 Paint = new(2.9f, 2.9f, 2.8f);
 
     readonly List<GroundVertex> _vertices = [];
     readonly List<uint> _indices = [];
@@ -487,6 +501,16 @@ internal sealed partial class GroundMesh
         return mesh;
     }
 
+    /// <summary>
+    /// <see cref="Build"/> on a thread of its own, beside whatever the caller lays next — or nothing where there is one
+    /// thread (a page), and the caller builds it itself.
+    /// </summary>
+    /// <remarks>
+    /// Only beside a world whose atlas the device files: beside the host's, the mesh stood under the open's peak.
+    /// </remarks>
+    public static Task<GroundMesh>? BuildAside(CityPlan plan, SimConfig config) =>
+        Environment.ProcessorCount > 1 ? Task.Run(() => Build(plan, config)) : null;
+
     public static GroundMesh Build(CityPlan plan, SimConfig config)
     {
         var mesh = new GroundMesh
@@ -565,6 +589,11 @@ internal sealed partial class GroundMesh
         // pass splits, and the two share nothing (<see cref="InChunks.Both{TFirst, TSecond}"/>).
         var (walkShell, carriagewayShell) = InChunks.Both(
             () => ShellFill.Of(walkFill), () => ShellFill.Of(carriagewayFill));
+
+        // <b>The shoulder beside the roads with no walk</b> (GEN-75): a layer struck off a shell of their own and filled
+        // whole as the walk is, laid under the walk so it shows only where no walk is struck.
+        var shoulderLine = rings.Shoulder.Rings.Length == 0 ? [] : MapCut.Rings(Line(rings.Shoulder.Rings), worldM);
+        (Vector2[] PointsM, int[] Triangles)? shoulderShell = shoulderLine.Length == 0 ? null : ShellFill.Of(Filled(shoulderLine, kerbM));
         mesh.LinesMs = Stopwatch.GetElapsedTime(linesFrom).TotalMilliseconds;
 
         // <b>The pavement and the kerb along its outer face, under the water and the decks</b> (TER-7b): a
@@ -576,8 +605,22 @@ internal sealed partial class GroundMesh
         // is a kerb's width about that line wherever it runs, which is what the thinning either fill is laid
         // at cannot promise, and it is laid after the fill so the fill cannot eat into it. <b>Laid as its
         // edging stones</b> (<see cref="Surface.Edging"/>), their shadow cast on the grass.
+        // <b>The shoulder's outer edge a fade and not a line</b> (GEN-75), as a shore's is: its gravel faded out over the
+        // grass past it. Outward, because this part is filed by band (GroundBands) and a fade laid inward over the fill
+        // would be drawn under it; the grass is a part of its own, drawn before.
+        var roadShoulder = mesh.Starting();
+        if (shoulderShell is { } shoulderFill)
+        {
+            mesh.Shell(shoulderFill, Surface.Shoulder, Plain);
+            mesh.Fade(shoulderLine, OnTheEdge, config.View.ShoulderFadeM, inside: false, Surface.Shoulder, kerbM * 0.5f);
+        }
+
+        mesh.Laid(GroundPart.RoadShoulder, roadShoulder);
+
+        // A plaza with the walk and over the shoulder, so it is paved up to the kerb it lies under (CityPlan.Plazas).
         var walk = mesh.Starting();
         mesh.Shell(walkShell, Surface.Pavement, Plain);
+        FillRings(mesh, plan.Plazas, Surface.Pavement, Plain);
         mesh.Laid(GroundPart.Walk, walk);
 
         var walkKerb = mesh.Starting();
@@ -590,9 +633,9 @@ internal sealed partial class GroundMesh
         // the shore and neither reaches past it onto a walk.
         var water = mesh.Starting();
         var fadeM = config.View.ShoreFadeM;
-        Water(mesh, plan.Water.Shore, Surface.Shore, Plain);
+        FillRings(mesh, plan.Water.Shore, Surface.Shore, Plain);
         mesh.Fade(plan.Water.Shore, OnTheEdge, fadeM, inside: true, Surface.Grass);
-        Water(mesh, plan.Water.Outline, Surface.Water, Plain);
+        FillRings(mesh, plan.Water.Outline, Surface.Water, Plain);
         mesh.Fade(plan.Water.Outline, OnTheEdge, fadeM, inside: false, Surface.Water);
         mesh.Laid(GroundPart.Water, water);
 
@@ -724,8 +767,8 @@ internal sealed partial class GroundMesh
         from.Index, _indices.Count - from.Index, _vertices.Count - from.Corner,
         Stopwatch.GetElapsedTime(from.At).TotalMilliseconds);
 
-    /// <summary>Every ring of one of the water's own sets, laid as the one shape it is.</summary>
-    static void Water(
+    /// <summary>Every ring of one of the plan's sets — the water's, the shore's, the plazas' — laid as the one shape it is.</summary>
+    static void FillRings(
         GroundMesh mesh, CityPlan.RingArrays rings, Surface surface, Vector3 tint)
     {
         for (var ring = 0; ring < rings.Count; ring++) mesh.Polygon(rings.RingOf(ring), surface, tint);

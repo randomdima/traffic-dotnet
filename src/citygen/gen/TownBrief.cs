@@ -74,7 +74,6 @@ internal sealed record TownBrief
         if (Rivers.WidthSpread >= 1f) throw new InvalidDataException($"{Name}: a river narrowing by {Rivers.WidthSpread} of its width runs dry.");
         NotNegative(Rivers.Tributaries, "rivers.tributaries");
         NotNegative(Connectors.IntercityRoads, "connectors.intercityRoads");
-        Share(Connectors.MinorShare, "connectors.minorShare");
         NotNegative(Connectors.Railways, "connectors.railways");
         if (Connectors.RailTracks is < 1 or > 2) throw new InvalidDataException($"{Name}: a railway of {Connectors.RailTracks} tracks; a brief lays one or two.");
         if (Connectors.RailLoopDeg != 0f && MathF.Abs(Connectors.RailLoopDeg) is < RailLines.LoopLeastDeg or > RailLines.LoopMostDeg)
@@ -211,9 +210,6 @@ internal sealed record ConnectorsBrief
     /// <summary>How many intercity roads enter the map, spread round its edge.</summary>
     public int IntercityRoads { get; init; } = 3;
 
-    /// <summary>How many of them are minor — two lanes rather than four (GEN-67) — as a share.</summary>
-    public float MinorShare { get; init; }
-
     /// <summary>How many railways cross the map, edge to edge.</summary>
     public int Railways { get; init; } = 1;
 
@@ -227,12 +223,19 @@ internal sealed record ConnectorsBrief
     public float RailLoopDeg { get; init; }
 }
 
-/// <summary>The districts (GEN-64…66, GEN-74).</summary>
+/// <summary>The districts (GEN-64…66, GEN-74, GEN-76).</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record DistrictsBrief
 {
     /// <summary>How many of them are laid as a grid rather than loose, as a share (GEN-47).</summary>
     public float GridShare { get; init; } = 0.5f;
+
+    /// <summary>
+    /// <b>Whether the town grades out to the country</b> (GEN-76) — built solid about its core, thinning toward the map's
+    /// edge, some of its rim left farmed or wild, and bypassed (GEN-63) — or every district is built alike, a town laid for
+    /// its streets rather than for its people. A town that plans no building is built alike whatever this says.
+    /// </summary>
+    public bool Country { get; init; } = true;
 }
 
 /// <summary>The streets (GEN-67, GEN-68).</summary>

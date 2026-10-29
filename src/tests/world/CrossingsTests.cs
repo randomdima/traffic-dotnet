@@ -98,7 +98,8 @@ public class CrossingsTests
     {
         var config = SimConfig.Shipped();
         var plan = Towns.Of(Towns.Fixture);
-        var crossings = Crossings.Lay(plan, config, FootConnectors.Lay(plan, config).Crossed());
+        var crossings = Crossings.Lay(plan, config, plan.Paving(config).RoadEnds(config).CrossedM);
+        Assert.NotEqual(0, crossings.Count);
 
         for (var crossing = 0; crossing < crossings.Count; crossing++)
         {

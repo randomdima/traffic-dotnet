@@ -1,0 +1,28 @@
+{
+ "id": "walkorbit_quilted_navy-v5",
+ "ts": "2026-10-29T00:43:47",
+ "op": "video",
+ "name": "walkorbit_quilted_navy",
+ "file": ".tmp/gen/frames/walkorbit_quilted_navy-v5.mp4",
+ "model": "heygen/heygen-video-1",
+ "settings": {
+  "resolution": "480p",
+  "aspect_ratio": "3:4",
+  "duration": 10
+ },
+ "costUsd": 0.1,
+ "usage": {
+  "cost": 0.1,
+  "is_byok": false
+ },
+ "prompt": "Five two-second shots joined by instant hard cuts, each from its own fixed camera. The woman is walking from the very first moment and walks on the spot the whole time, never turning, always facing the same way. Within a shot the camera is locked to her: it never zooms, pans, tilts or circles, so she stays the same size in the same place in the picture. Every camera stands high above at the same distance and never comes down to eye level: in every shot, as in the first frame, we look down onto the top of her head and her shoulders. The cameras go round her left side only: shot 1 from the front, as in the first frame; shot 2 front-left, she faces towards us and to the picture's left; shot 3 her left side, she faces the picture's left; shot 4 back-left, she faces away from us and to the picture's left; shot 5 straight behind. Quick, short, even steps, three every second, never a run. Drawn throughout in the first frame's style, with its dark outlines and flat colours, never a soft 3D render. Flat chroma-key green background.",
+ "inputs": [
+  {
+   "role": "first frame",
+   "sha": "9b548b1b9bf686f9",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/templates/walkorbit_quilted_navy.png"
+  }
+ ]
+}

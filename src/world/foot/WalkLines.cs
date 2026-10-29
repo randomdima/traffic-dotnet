@@ -62,9 +62,13 @@ internal sealed class WalkLines
     /// </summary>
     public KerbLines Boundary { get; }
 
-    /// <summary>Moves the town's boundary off itself once per walking lane. Build-time only — it allocates freely.</summary>
+    /// <summary>
+    /// Moves the boundary the town's walk is struck off (<see cref="Paving.WalkedCourses"/>, GEN-75) off itself once
+    /// per walking lane, as the town's own pavement is (<see cref="PavementLanes"/>): a road with no walk beside it
+    /// carries no course. Build-time only — it allocates freely.
+    /// </summary>
     public static WalkLines Of(CityPlan plan, SimConfig config) =>
-        Of(plan.Paving(config).Perimeter(config), config);
+        Of(plan.Paving(config).WalkedCourses(config), config);
 
     /// <summary>The same, off a merge somebody already holds.</summary>
     public static WalkLines Of(BandShell shell, SimConfig config)

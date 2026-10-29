@@ -18,6 +18,8 @@ open one, and the only way to do that without a person sitting there is to drive
                                     frames offered at 30 Hz, as a slow display would: the town keeps real time
     qq web --shot F --map OdesaOsm --cpu .tmp/web/cpu.md
                                     the page's CPU over its open, by function, the profile kept beside it
+    qq web --shot F --map Twinford --cpu .tmp/web/run.md --cpu-steady --seconds 120
+                                    the same over the town running, from the moment it stood
     qq web --cpu-read .tmp/web/cpu.cpuprofile --focus mono_interp_exec_method --managed
                                     a kept profile asked again: what enters the interpreter, by managed caller
 
@@ -270,7 +272,7 @@ def shoot(base: Path, bundle: Path | None, a) -> int:
         page = wait_for_page(a.debug_port)
         out = Path(a.shot)
         out.parent.mkdir(parents=True, exist_ok=True)
-        cpu = (Path(a.cpu), a.limit, bundle) if a.cpu else None
+        cpu = (Path(a.cpu), a.limit, bundle, a.cpu_steady) if a.cpu else None
         address = a.url.rstrip("/") + "/" if a.url else f"http://localhost:{a.port}/"
         capture(page, address + query, out, a.seconds, a.click, a.drag, a.ask, a.device, cpu, a.hz)
         print(f"{out} written after {a.seconds:g} s on {a.map or 'the start menu over the idle ring'}")
@@ -335,26 +337,35 @@ def wait_for_page(port: int, seconds: float = 30.0) -> dict:
 
 #: What the browser is asked, to find the rate it is actually painting at. The read-out in the picture
 #: quotes the engine's own figure for the same thing, and the two are only worth one line each because
-#: a page that draws every frame it is offered has them agree.
+#: a page that draws every frame it is offered has them agree. **Answered within PAINT_WINDOW_S whatever
+#: the rate**: a page whose thread is busy a second a frame paints slowly, and waiting for a fixed count
+#: of frames would time out and report it as a window nobody can see.
+PAINT_WINDOW_S = 8.0
+#: The rate a Wayland compositor (Mutter) still calls a covered or unshown window back at: a page at exactly this is the
+#: desktop's reading, whatever the town is — the idle ring and Saltbay both read it with the window out of view.
+HIDDEN_HZ = 1.0
 PAINT_RATE = """
 new Promise(done => {
     const marks = [];
+    const answer = () => {
+        if (marks.length < 2) { done({frames: marks.length}); return; }
+        const gaps = marks.slice(1).map((m, i) => m - marks[i]).sort((a, b) => a - b);
+        done({frames: marks.length, hz: 1000 / gaps[gaps.length >> 1]});
+    };
+    const until = setTimeout(answer, %d);
     const tick = at => {
         marks.push(at);
         if (marks.length <= 40) requestAnimationFrame(tick);
-        else {
-            const gaps = marks.slice(1).map((m, i) => m - marks[i]).sort((a, b) => a - b);
-            done(1000 / gaps[gaps.length >> 1]);
-        }
+        else { clearTimeout(until); answer(); }
     };
     requestAnimationFrame(tick);
 })
-"""
+""" % (PAINT_WINDOW_S * 1000)
 
 
 def capture(page: dict, url: str, out: Path, seconds: float, click: str | None = None,
             pull: str | None = None, ask: str | None = None, device: str | None = None,
-            cpu: tuple[Path, int, Path] | None = None, hz: float | None = None):
+            cpu: tuple[Path, int, Path, bool] | None = None, hz: float | None = None):
     """Navigate, let the town run for real seconds, then ask what it is painting at and photograph it."""
     sock = connect(page["webSocketDebuggerUrl"])
     send(sock, {"id": 1, "method": "Runtime.enable"})
@@ -367,13 +378,8 @@ def capture(page: dict, url: str, out: Path, seconds: float, click: str | None =
     if hz:
         throttle(sock, hz)
 
-    if cpu:
-        sock.settimeout(30.0)
-        for at, (method, params) in enumerate([("Profiler.enable", {}),
-                                               ("Profiler.setSamplingInterval", {"interval": CPU_SAMPLE_US}),
-                                               ("Profiler.start", {})]):
-            send(sock, {"id": 60 + at, "method": method, "params": params})
-            await_reply(sock, 60 + at)
+    if cpu and not cpu[3]:
+        start_profiler(sock)
 
     global navigated
     navigated = time.time()
@@ -404,19 +410,28 @@ def capture(page: dict, url: str, out: Path, seconds: float, click: str | None =
     # promise waits on an animation callback that a hidden or fully covered window does not get. That
     # is worth saying rather than hanging on, because it is also the state in which the read-out in the
     # picture has nothing worth reading.
-    sock.settimeout(15.0)
+    # The socket's wait is past the probe's own window, so a reply that never comes is a page whose thread
+    # never let the evaluation run at all.
+    sock.settimeout(PAINT_WINDOW_S + 15.0)
     send(sock, {"id": 3, "method": "Runtime.evaluate",
                 "params": {"expression": PAINT_RATE, "awaitPromise": True, "returnByValue": True}})
     try:
-        rate = await_reply(sock, 3).get("result", {}).get("result", {}).get("value")
+        paint = await_reply(sock, 3).get("result", {}).get("result", {}).get("value") or {}
     except (socket.timeout, TimeoutError):
-        rate = None
+        paint = None
 
-    if isinstance(rate, (int, float)):
-        print(f"   the browser is painting at {rate:.0f} Hz, which is what the read-out's fps is against")
+    if paint is None:
+        print(f"   the page never answered the paint probe in {PAINT_WINDOW_S + 15.0:.0f} s: its thread is held")
+    elif "hz" in paint and abs(paint["hz"] - HIDDEN_HZ) < 0.1:
+        print(f"   the browser is painting at {paint['hz']:.1f} Hz, which is what the compositor gives a window it is not "
+              "showing: the read-out in this picture measures the desktop, not the page — keep the window in view")
+    elif "hz" in paint:
+        print(f"   the browser is painting at {paint['hz']:.1f} Hz, which is what the read-out's fps is against")
+    elif paint.get("frames"):
+        print(f"   the browser painted once in {PAINT_WINDOW_S:.0f} s: the page's thread is held between frames")
     else:
-        print("   the browser never painted a frame: the window is covered or off-screen, and the "
-              "read-out in this picture is measuring a town nobody asked to draw")
+        print(f"   the browser painted no frame in {PAINT_WINDOW_S:.0f} s: the window is covered or off-screen, or "
+              "the page's thread is held, and the read-out in this picture is measuring a town nobody saw drawn")
 
     if ask:
         # Not the rate probe's fifteen seconds: an ask may await a promise that lets the town run on under it.
@@ -456,10 +471,20 @@ STOOD = (" stood in ", "page threw")
 OPEN_BOUND_S = 900.0
 
 
-def profile_the_open(sock: socket.socket, seconds: float, out: Path, limit: int, bundle: Path) -> float:
+def start_profiler(sock: socket.socket):
+    sock.settimeout(30.0)
+    for at, (method, params) in enumerate([("Profiler.enable", {}),
+                                           ("Profiler.setSamplingInterval", {"interval": CPU_SAMPLE_US}),
+                                           ("Profiler.start", {})]):
+        send(sock, {"id": 60 + at, "method": method, "params": params})
+        await_reply(sock, 60 + at)
+
+
+def profile_the_open(sock: socket.socket, seconds: float, out: Path, limit: int, bundle: Path, steady: bool) -> float:
     """
     The page's CPU from the navigate until the town has stood, written to ``out`` by function, self and inclusive.
-    Answers the seconds it took, so the caller lets the town run for what is left of ``seconds``.
+    Answers the seconds it took, so the caller lets the town run for what is left of ``seconds``. ``steady`` samples
+    the town running instead: from the moment it stood to the end of ``seconds``, and answers all of them.
     """
     sock.settimeout(1.0)
     begun = time.time()
@@ -475,19 +500,29 @@ def profile_the_open(sock: socket.socket, seconds: float, out: Path, limit: int,
             or message.get("method") == "Runtime.exceptionThrown"
 
     took = time.time() - begun
+    if steady:
+        if not stood:
+            print("   the town never stood, so there is no running town to sample")
+            return seconds
+        start_profiler(sock)
+        ran = time.time()
+        settle(sock, max(0.0, seconds - took))
+        took = time.time() - ran
+
     sock.settimeout(120.0)
     send(sock, {"id": 63, "method": "Profiler.stop"})
     profile = await_reply(sock, 63).get("result", {}).get("profile")
+    spent = seconds if steady else took
     if not profile:
         print("   the browser handed back no profile")
-        return took
+        return spent
 
     out.parent.mkdir(parents=True, exist_ok=True)
     out.with_suffix(".cpuprofile").write_text(json.dumps(profile))
-    out.write_text(cpu_tables(profile, limit, symbols(bundle), took, stood))
-    print(f"   the page's CPU over its open written to {out}, and the profile itself beside it "
-          f"(DevTools opens a .cpuprofile; --cpu-read summarises one again)")
-    return took
+    out.write_text(cpu_tables(profile, limit, symbols(bundle), took, stood, steady=steady))
+    print(f"   the page's CPU over its {'running town' if steady else 'open'} written to {out}, and the profile "
+          f"itself beside it (DevTools opens a .cpuprofile; --cpu-read summarises one again)")
+    return spent
 
 
 def console_text(message: dict) -> list[str]:
@@ -517,7 +552,7 @@ MANAGED = ("traffic_dotnet_web_", "corlib_", "aot_instances_", "System_")
 
 
 def cpu_tables(profile: dict, limit: int, names: dict[int, str], took: float, stood: bool,
-               focus: str | None = None, managed: bool = False) -> str:
+               focus: str | None = None, managed: bool = False, steady: bool = False) -> str:
     """Self and inclusive sample shares by function, off a DevTools CPU profile."""
     import re
     from collections import Counter
@@ -576,12 +611,16 @@ def cpu_tables(profile: dict, limit: int, names: dict[int, str], took: float, st
             if at is not None:
                 callers[name(nodes[at])] += count
 
-    ending = "until the town said it had stood" if stood else "and the town never said it had stood"
+    if steady:
+        (title, span) = ("running town", f"{took:.1f} s of the town running, from the moment it stood")
+    else:
+        ending = "until the town said it had stood" if stood else "and the town never said it had stood"
+        (title, span) = ("open", f"{took:.1f} s from the navigate {ending}")
     focused = [f"## What calls `{focus}`", "", *table(callers), "",
                f"## What `{focus}` spends its time in", "", *table(callees), ""] if focus else []
     return "\n".join([
-        "# The page's CPU over its open", "",
-        f"{total} samples a {CPU_SAMPLE_US} µs apart, {took:.1f} s from the navigate {ending}.", "",
+        f"# The page's CPU over its {title}", "",
+        f"{total} samples a {CPU_SAMPLE_US} µs apart, {span}.", "",
         *focused, "## Self", "", *table(own), "", "## Inclusive", "", *table(under), ""])
 
 
@@ -927,6 +966,9 @@ def parse_args():
     parser.add_argument("--cpu", metavar="FILE",
                         help="sample the page's CPU from the navigate until the town says it has stood, and write "
                              "where it went here (markdown): self and inclusive time by function, top --limit rows")
+    parser.add_argument("--cpu-steady", action="store_true",
+                        help="of --cpu, sample the running town instead: from the moment it stood to the end of "
+                             "--seconds, which is where a slow frame is")
     parser.add_argument("--limit", type=int, default=40, help="rows of each --cpu table")
     parser.add_argument("--focus", metavar="TEXT",
                         help="of --cpu or --cpu-read, also what calls the functions whose names hold this, by caller")

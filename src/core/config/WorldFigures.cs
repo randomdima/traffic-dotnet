@@ -56,11 +56,15 @@ internal sealed class RoadFigures
     public float IntersectionCornerRadiusInCarWidths { get; init; } = 2.5f;
 
     /// <summary>
-    /// One walking lane, in bodies — the pavement's own lane, and the pavement is two of them, one each way
-    /// (<see cref="SimConfig.PavementWidthM"/>). Two bodies wide, so somebody stepping round somebody coming
+    /// One walking lane, in prop diameters — the pavement's own lane, and the pavement is two of them, one each way
+    /// (<see cref="SimConfig.PavementWidthM"/>). At least two bodies wide, so somebody stepping round somebody coming
     /// the other way does it inside the walk rather than over the kerb.
     /// </summary>
-    public float WalkingLaneInPersonDiameters { get; init; } = 2f;
+    /// <remarks>
+    /// <b>Off the town's scale and not the body's</b>, so a body resized for how closely walkers pass
+    /// (<see cref="PersonFigures.DiameterInPropDiameters"/>) moves no pavement, crossing or building line.
+    /// </remarks>
+    public float WalkingLaneInPropDiameters { get; init; } = 1f;
 
     /// <summary>
     /// <b>Where a pedestrian node stands off the end of a road</b> (WLK-2): how far back along the road from
@@ -79,20 +83,6 @@ internal sealed class RoadFigures
     public float FootNodeAsideM { get; init; } = 2.5f;
 
     /// <summary>
-    /// <b>How far clear of the end of a road's kerb a pedestrian node stands</b>, away from the junction
-    /// along the road (WLK-1). The kerb end is where the town's outline stops following the road
-    /// (<c>CityGen.KerbEnds</c>), so this is the gap between that place and where a walk beside the road is
-    /// cut.
-    /// </summary>
-    /// <remarks>
-    /// <b>The owner's figure, and a place rather than a derivation.</b> It is measured off the kerb's own
-    /// end rather than off the lane's, which is what <see cref="FootNodeBackM"/> measures and why the two
-    /// are different numbers: a road's line stops at the mouth of the box, and its kerb gives up the
-    /// boundary some way short of that wherever the mouth widens first.
-    /// </remarks>
-    public float FootNodeClearM { get; init; } = 4f;
-
-    /// <summary>
     /// <b>How near a road's two pedestrian stations have to stand for the road to be crossed once</b>
     /// (WLK-10a): a street short enough that its two ends' walks are cut within this of each other is
     /// crossed once instead, midway between the two places, and met by the traffic from both hands. <b>Only
@@ -102,7 +92,7 @@ internal sealed class RoadFigures
     /// <remarks>
     /// <b>The owner's figure, and measured between the stations rather than between the kerb ends.</b> What
     /// it weighs is how far a walker would go out of their way to use the other crossing, which is the gap
-    /// between the places they can stand — the kerb ends are <see cref="FootNodeClearM"/> further apart than
+    /// between the places they can stand — the kerb ends are half a <see cref="CrossingDepthM"/> further apart than
     /// that at either hand, and a figure read off them would say a different thing every time that one moved.
     /// </remarks>
     public float CrossedOnceBelowM { get; init; } = 25f;
@@ -184,6 +174,12 @@ internal sealed class RoadFigures
     /// reads at a framing; a kerb is a thing the town is built of and is measured in what it is.
     /// </remarks>
     public float KerbWidthM { get; init; } = 0.2f;
+
+    /// <summary>
+    /// <b>How wide the shoulder beside a road with no walk is</b> (GEN-75): the gravel off its kerb, where a walked road
+    /// has its walk, and on whose outer edge its barrier stands.
+    /// </summary>
+    public float ShoulderWidthM { get; init; } = 2.5f;
 
     /// <summary>
     /// <b>How tightly any line struck off the driven ground's boundary is allowed to turn</b> (TER-3c.10):
@@ -788,6 +784,22 @@ internal sealed class MarkFigures
     public int Capacity { get; init; } = 80000;
 }
 
+/// <summary>
+/// <b>How one kind of district lays its blocks</b> (GEN-72, GEN-74): its streets' spacing along its bearing, drawn between the
+/// two, and how much longer a block runs across the bearing than along it. <b>A block is a rectangle</b> — the traced
+/// cities' are, and a town of square blocks is a town with half as much road again as it needs.
+/// </summary>
+internal sealed class BlockFigures
+{
+    public float AlongMinM { get; init; }
+
+    public float AlongMaxM { get; init; }
+
+    public float AspectMin { get; init; }
+
+    public float AspectMax { get; init; }
+}
+
 /// <summary>How coarsely a town is spaced.</summary>
 /// <remarks>
 /// <b>The block is this project's unit of town distance</b>: how far somebody will walk rather than drive,
@@ -796,19 +808,32 @@ internal sealed class MarkFigures
 /// </remarks>
 internal sealed class CityGenFigures
 {
+    /// <summary>
+    /// <b>A town's block, as distance is reckoned in</b>: the unit a walk, a trip and a service's home are quoted in. What a
+    /// generated district is laid at is its kind's own (<see cref="OldTownBlocks"/> and the rest).
+    /// </summary>
     public float BlockSpacingAlongMinM { get; init; } = 95f;
 
-    /// <summary>The coarsest a district may be spaced. A district draws its blocks between the two.</summary>
-    public float BlockSpacingAlongMaxM { get; init; } = 170f;
+    /// <summary>
+    /// <b>How an old town's blocks are laid</b> (GEN-74): small and near square, every side a street's frontage — 60 to 100 m
+    /// in the old quarters of real towns.
+    /// </summary>
+    public BlockFigures OldTownBlocks { get; init; } = new() { AlongMinM = 70f, AlongMaxM = 95f, AspectMin = 1.1f, AspectMax = 1.6f };
+
+    /// <summary>How the housing round it is laid: a little larger, and longer one way.</summary>
+    public BlockFigures ResidentialBlocks { get; init; } = new() { AlongMinM = 85f, AlongMaxM = 120f, AspectMin = 1.2f, AspectMax = 2f };
+
+    /// <summary>How an estate of towers is laid: superblocks, the towers standing in open ground inside them.</summary>
+    public BlockFigures HighRiseBlocks { get; init; } = new() { AlongMinM = 140f, AlongMaxM = 190f, AspectMin = 1f, AspectMax = 1.5f };
 
     /// <summary>
-    /// How much longer a block is across its district's bearing than along it. <b>A block is a rectangle</b>
-    /// — the traced cities' are, and a town of square blocks is a town with half as much road again as it
-    /// needs, all of which is then laid, walked, driven and drawn.
+    /// How a suburb is laid: <b>long and thin</b>, the short side two plots deep back to back and the long side the street
+    /// the houses front.
     /// </summary>
-    public float BlockAspectMin { get; init; } = 1.2f;
+    public BlockFigures SuburbBlocks { get; init; } = new() { AlongMinM = 65f, AlongMaxM = 90f, AspectMin = 2.2f, AspectMax = 3.4f };
 
-    public float BlockAspectMax { get; init; } = 2.2f;
+    /// <summary>How works are laid: big plots and few streets.</summary>
+    public BlockFigures IndustrialBlocks { get; init; } = new() { AlongMinM = 120f, AlongMaxM = 180f, AspectMin = 1f, AspectMax = 1.6f };
 
     /// <summary>
     /// How near two of a kind have to stand before they are one thing rather than two (GEN-16): two nodes
@@ -833,6 +858,13 @@ internal sealed class CityGenFigures
     /// A generated town never lays a road a tenth of that; a survey's ring road through open country does.
     /// </remarks>
     public float TracedRoadLongestM { get; init; } = 1000f;
+
+    /// <summary>
+    /// <b>The longest road a generated town joins a run into</b> (GEN-51, <c>ThroughRoads</c>): a run longer is joined as
+    /// pieces no longer, at the places of two arms it passes. The bound is the ribbon atlas's, which files a way's metres in
+    /// tenths of a ushort, 6 553.5 m, and a road in run on round a bypass comes to more.
+    /// </summary>
+    public float JoinedRoadLongestM { get; init; } = 3000f;
 
     /// <summary>
     /// The shortest road a traced map lays between two junctions (GEN-57): a junction's disc stops this short
@@ -1087,7 +1119,7 @@ internal sealed class CityGenFigures
     /// town rather than gathering them into a district.
     /// </summary>
     /// <remarks>
-    /// <b>Wider than the coarsest block a district is laid at</b> (<see cref="BlockSpacingAlongMaxM"/>), so
+    /// <b>Wider than the coarsest block a district is laid at</b> (<see cref="IndustrialBlocks"/>), so
     /// no block has two of them round it and a driver meets one every few blocks wherever they are in the
     /// town. Authored: it is a spacing between two things on the ground, like <see cref="LocalityM"/>, and
     /// not a share of anything the town came out with.
@@ -1352,6 +1384,97 @@ internal sealed class CityGenFigures
     public float DistrictLeastM2 { get; init; } = 150_000f;
 
     /// <summary>
+    /// <b>How far out a town is built solid</b> (GEN-76), as a share of the way from its core to its furthest land: every
+    /// district within it is built as full as its kind builds, and its bypass runs round it (GEN-63).
+    /// </summary>
+    public float TownSolidShare { get; init; } = 0.3f;
+
+    /// <summary>
+    /// <b>How much of what its kind builds a district at the town's furthest land builds</b> (GEN-76), as a share: from the
+    /// solid middle out, a district builds less the further out it stands, down to this at the edge.
+    /// </summary>
+    public float TownEdgeFill { get; init; } = 0.3f;
+
+    /// <summary>
+    /// <b>How far below what its place says a district's fill is drawn</b> (GEN-76), as a share of it: no two neighbourhoods
+    /// are built alike, and none is quite full.
+    /// </summary>
+    public float TownFillSpread { get; init; } = 0.35f;
+
+    /// <summary>
+    /// <b>How much of a district's thinning is its streets standing further apart</b> (GEN-76), as the power of its fill its
+    /// blocks are widened by — the rest is gaps along its streets: the edge of a town is sparser in its lanes as well as
+    /// its houses, and nought widens no block.
+    /// </summary>
+    public float TownSparseBlockShare { get; init; } = 0.5f;
+
+    /// <summary>
+    /// <b>How much nearer the core a district beside a road into the town counts</b> (GEN-76), as a share of its distance:
+    /// a town is built thicker along its roads than in the ground between them.
+    /// </summary>
+    public float TownRoadwardShare { get; init; } = 0.35f;
+
+    /// <summary>How far off a road into the town a district's middle still counts as beside it, falling to nothing (GEN-76).</summary>
+    public float TownRoadwardReachM { get; init; } = 700f;
+
+    /// <summary>
+    /// <b>How far a district's distance from the core is moved by a draw</b>, either way, as a share of it (GEN-76): no town
+    /// thins out evenly.
+    /// </summary>
+    public float TownEdgeJitterShare { get; init; } = 0.2f;
+
+    /// <summary>
+    /// <b>How many of the districts on the map's rim are left to the country</b> (GEN-76), as a share of them at the
+    /// furthest land, falling to none at the solid middle's edge: farmland and the wild between the villages.
+    /// </summary>
+    public float CountryRimShare { get; init; } = 0.4f;
+
+    /// <summary>
+    /// <b>How much of the land a town leaves to the country is left wild</b> rather than farmed (GEN-76), as a share of its
+    /// districts, drawn one by one.
+    /// </summary>
+    public float CountryWildShare { get; init; } = 0.3f;
+
+    /// <summary>
+    /// <b>How many of a town's built districts one hospital serves</b> (GEN-56): a catchment, so a city of a hundred
+    /// districts has a handful and not a hundred.
+    /// </summary>
+    public int DistrictsPerHospital { get; init; } = 12;
+
+    /// <summary>How many one police station serves (GEN-56); each patrol's beat is still its own district (SRV-5).</summary>
+    public int DistrictsPerPoliceStation { get; init; } = 4;
+
+    /// <summary>How many one depot serves (GEN-56).</summary>
+    public int DistrictsPerDepot { get; init; } = 6;
+
+    /// <summary>
+    /// <b>How many of a generated town's blocks are parks</b> (GEN-77), as a share of its built districts' blocks, drawn
+    /// one by one — and the block nearest the core, the town's own garden, always.
+    /// </summary>
+    public float BlockParkShare { get; init; } = 0.07f;
+
+    /// <summary>
+    /// <b>How thickly a generated park is planted</b> (GEN-77), as a share of the most the ground holds: a park is laid as
+    /// a garden, thicker than the grass round a town's buildings.
+    /// </summary>
+    public float BlockParkGrowth { get; init; } = 1f;
+
+    /// <summary><b>How many are a school, a church or a public building and its grounds</b> (GEN-77), drawn as the parks are.</summary>
+    public float BlockCivicShare { get; init; } = 0.04f;
+
+    /// <summary>
+    /// <b>How many of the old town's and the housing's blocks along a road between districts are shops and offices</b>
+    /// (GEN-77) — the high street — drawn one by one.
+    /// </summary>
+    public float BlockCommercialShare { get; init; } = 0.6f;
+
+    /// <summary>
+    /// <b>How much of a block's face must run along a road between districts</b> for the block to front it (GEN-77), as a
+    /// share of the face.
+    /// </summary>
+    public float BlockFrontsAShare { get; init; } = 0.2f;
+
+    /// <summary>
     /// <b>How fine the land is cut into districts</b> (GEN-64): the side of the square the partition is laid on. A strip of
     /// land narrower than a few of these is not seen as land at all.
     /// </summary>
@@ -1378,6 +1501,38 @@ internal sealed class CityGenFigures
     /// <summary>How near each other two junctions on an intercity road may stand at the least (GEN-68).</summary>
     public float IntercityJunctionsApartLeastM { get; init; } = 300f;
 
+    /// <summary>
+    /// <b>How near each other two interchanges on a bypassed town's intercity road stand at the least</b> (GEN-68): each
+    /// takes its slip roads' run either side of where it meets the road, and a road carried over it its span.
+    /// </summary>
+    public float InterchangesApartLeastM { get; init; } = 500f;
+
+    /// <summary>
+    /// <b>How far off an intercity road's line an interchange's terminal stands</b> (GEN-68): where its slip roads meet the
+    /// town's road, and where a road carried over the intercity road comes down — clear of the intercity road's carriageway
+    /// and of the terminal's own box.
+    /// </summary>
+    public float InterchangeOffsetM { get; init; } = 20f;
+
+    /// <summary>
+    /// <b>The speed a slip road is laid for</b> (GEN-47, GEN-68): what the turn off its shallow leg into its terminal is
+    /// rounded at, a car having slowed off the intercity road for the town's.
+    /// </summary>
+    public float SlipDesignSpeedMps { get; init; } = 14f;
+
+    /// <summary>
+    /// <b>The angle a slip road leaves an intercity road at, and joins it at</b> (GEN-68), off the intercity road's line:
+    /// shallow, so a car leaves and joins the kerb lane near the speed it is driven at. How far along the road it runs
+    /// from its terminal is read off this and <see cref="InterchangeOffsetM"/>.
+    /// </summary>
+    public float SlipLeavesDeg { get; init; } = 25f;
+
+    /// <summary>
+    /// <b>How far either side of a road with no walk nothing is built or planted</b> (GEN-75), off its carriageway's
+    /// edge: open ground an intercity road runs through, and the shoulder and its barrier stand in.
+    /// </summary>
+    public float UnwalkedVergeM { get; init; } = 15f;
+
     /// <summary>How near each other two junctions on a district road may stand at the least (GEN-68).</summary>
     public float DistrictJunctionsApartLeastM { get; init; } = 40f;
 
@@ -1394,8 +1549,17 @@ internal sealed class CityGenFigures
     /// </summary>
     public float CoreInsetShare { get; init; } = 0.25f;
 
-    /// <summary>How far off the town's core a railway passes, across its own line (GEN-63).</summary>
+    /// <summary>
+    /// How far off the town's core a railway passes, across its own line (GEN-63) — and how much further out each line after
+    /// the first passes.
+    /// </summary>
     public float RailPassesCoreM { get; init; } = 450f;
+
+    /// <summary>
+    /// How near two of a town's railways come at the least (GEN-63): a line drawn nearer one already laid, or across it, is
+    /// drawn again — a block's room between them, so the ground they part is a district's and not a sliver.
+    /// </summary>
+    public float RailLinesApartLeastM { get; init; } = 100f;
 
     /// <summary>
     /// <b>How fine an intercity road is routed</b> (GEN-63): the side of the square its search walks. It is smoothed after,
@@ -1403,8 +1567,34 @@ internal sealed class CityGenFigures
     /// </summary>
     public float RouteCellM { get; init; } = 20f;
 
+    /// <summary>
+    /// <b>How far round a place a curve could not be drawn a road passing the town is routed on its next try</b> (GEN-63),
+    /// in the tightest radius it may bend at: the two crossings it could not turn between, and room either side to turn
+    /// before them.
+    /// </summary>
+    public float RouteStrayBarredRadii { get; init; } = 2f;
+
+    /// <summary>
+    /// <b>How far a curve drawn along a route may stand off the cells its search walked</b> (GEN-63, GEN-71): the clearance
+    /// the search keeps off the water and the railway is widened by as much, so a curve through its corners has room to
+    /// keep what the search kept.
+    /// </summary>
+    public float RouteToleranceM { get; init; } = 10f;
+
+    /// <summary>
+    /// <b>How far an intercity road's straights stand off the curve it was drawn as, at the most</b> (GEN-63): its line is
+    /// as few points as keep it this near, so a gentle curve is few points and the road laid round them few arcs.
+    /// </summary>
+    public float IntercityChordToleranceM { get; init; } = 0.5f;
+
     /// <summary>How far a road holds a bridge's own line before and after its span (GEN-70), so it meets the river square.</summary>
     public float BridgeApproachM { get; init; } = 30f;
+
+    /// <summary>
+    /// <b>How far a bridgehead's lanes stand off it</b> (GEN-14a): the span and the road carrying it on meet on one line,
+    /// lane onto its own lane, so the handover between them is a joint in the carriageway and no junction's ground.
+    /// </summary>
+    public float BridgeheadStandoffM { get; init; } = 0.5f;
 
     /// <summary>
     /// How far along a barrier two districts it parts are linked across it at the most (GEN-69): one link to every this much
@@ -1580,6 +1770,164 @@ internal sealed class CityGenFigures
     /// bends inward or the arithmetic rounds down.
     /// </summary>
     public float PropRunGapM { get; init; } = 0.7f;
+
+    /// <summary>How many places a railway or an intercity road is drawn at before it is left out (GEN-8): drawn again, never searched for.</summary>
+    public int ConnectorTries { get; init; } = 12;
+
+    /// <summary>How many places a river or a tributary is drawn at before it is left out (GEN-8): drawn again, never searched for.</summary>
+    public int WaterTries { get; init; } = 8;
+
+    /// <summary>How far past the map's own edge a water's far side is run on, so no shore closes inside the town (GEN-62).</summary>
+    public float WaterOverrunM { get; init; } = 200f;
+
+    /// <summary>How much of a river's run its wander rises over from either end, so it leaves the edge and meets the sea where drawn (GEN-62).</summary>
+    public float RiverRiseShare { get; init; } = 0.15f;
+
+    /// <summary>How far a river crossing a map with no sea is turned off the brief's bearing, either way (GEN-62).</summary>
+    public float RiverTurnRad { get; init; } = 0.35f;
+
+    /// <summary>
+    /// <b>How near two rivers of a map run at the least</b> (GEN-62), each the other's: a river drawn nearer one already
+    /// laid is drawn again. Two rivers a few blocks apart would have met long before the town was built.
+    /// </summary>
+    public float RiversApartLeastM { get; init; } = 2000f;
+
+    /// <summary>How far off the map's middle a river passes, or meets the coast, either way, as a share of the map's breadth there (GEN-62).</summary>
+    public float RiverPassShare { get; init; } = 0.35f;
+
+    /// <summary>How far a river flowing into the sea is turned off straight inland, either way (GEN-62).</summary>
+    public float RiverInlandTurnRad { get; init; } = 0.8f;
+
+    /// <summary>How finely the town's core is looked for (GEN-63): the side of the square each place tried stands in.</summary>
+    public float CoreCellM { get; init; } = 50f;
+
+    /// <summary>
+    /// How far off the water the core stands at the least (GEN-63): a street's room off the bank and a block of the old town
+    /// before it.
+    /// </summary>
+    public float CoreOffWaterLeastM { get; init; } = 80f;
+
+    /// <summary>
+    /// <b>How far off the water the core is best placed</b> (GEN-63): a town grew up at its river's crossing or its harbour, so
+    /// its middle stands a block or two off the bank.
+    /// </summary>
+    public float CoreOffWaterBestM { get; init; } = 150f;
+
+    /// <summary>How far round the core its ground is asked whether it is dry (GEN-63): the old town's few blocks.</summary>
+    public float CoreLandReachM { get; init; } = 400f;
+
+    /// <summary>
+    /// <b>How much of the ground round the core is dry at the least</b> (GEN-63): a town grew up on land, beside the water
+    /// and not in a wedge between two waters, where its old town has no room.
+    /// </summary>
+    public float CoreLandLeastShare { get; init; } = 0.7f;
+
+    /// <summary>How much a draw moves the core's ranking, as a share of the map's short side (GEN-63), so two towns of one shape differ.</summary>
+    public float CoreJitterShare { get; init; } = 0.15f;
+
+    /// <summary>How much being near its best distance off the water weighs in the core's ranking against being near the middle (GEN-63).</summary>
+    public float CoreWaterWeight { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How far inside the circle it touches an intercity road passing the town may be routed</b>, as a share of its radius
+    /// (GEN-63): the search is barred from the ground nearer the core than this, so a road round a river is routed round the
+    /// town and not through it.
+    /// </summary>
+    public float BypassInsideShare { get; init; } = 0.85f;
+
+    /// <summary>
+    /// <b>How much of the turn round the town an intercity road passing it spans</b> (GEN-63), from the bearing it enters past
+    /// the map's edge on to the one it leaves on, the place it touches the circle round the solid middle halfway: near half
+    /// a turn, so it runs on near the tangent there rather than doubling back.
+    /// </summary>
+    public float IntercitySpanDeg { get; init; } = 160f;
+
+    /// <summary>How far a town's railways are turned off the bearing they run along, either way (GEN-63).</summary>
+    public float RailTurnRad { get; init; } = 0.2f;
+
+    /// <summary>How far a railway wanders off its bearing, as a share of the map's short side (GEN-63, RAIL-2).</summary>
+    public float RailMeanderShare { get; init; } = 0.08f;
+
+    /// <summary>How far along its bearing a railway's loop is moved off where the line passes the core, either way, as a share of the map's long side (RAIL-11).</summary>
+    public float RailLoopShiftShare { get; init; } = 0.3f;
+
+    /// <summary>How much further out, in <see cref="RailPassesCoreM"/>, each retry draws a railway that would not stand (GEN-63).</summary>
+    public float RailRetryOutShare { get; init; } = 0.25f;
+
+    /// <summary>How far an intercity road's entry is turned off its spread bearing a retry, alternately either way (GEN-63).</summary>
+    public float IntercityEntryTurnRad { get; init; } = 0.12f;
+
+    /// <summary>How far a draw turns an intercity road's entry off its spread bearing, either way (GEN-63).</summary>
+    public float IntercityEntryJitterRad { get; init; } = 0.15f;
+
+    /// <summary>
+    /// How much wider than its class's floor an intercity route's corners are rounded (GEN-47, GEN-63): the rounding of a
+    /// route's cells and the settling of its nodes take a little off the radius it was rounded at.
+    /// </summary>
+    public float IntercityRoundingShare { get; init; } = 1.25f;
+
+    /// <summary>How many times its own length a crossing costs a route (GEN-63), which keeps a road off a barrier it can go round.</summary>
+    public float RouteCrossingWeight { get; init; } = 3f;
+
+    /// <summary>How wide, in route cells, a laid intercity road marks the cells a later road's route may end on it at (GEN-63).</summary>
+    public float RouteMarkCells { get; init; } = 0.75f;
+
+    /// <summary>How many times a region's middles are moved to the middle of what they took (GEN-65).</summary>
+    public int DistrictSettles { get; init; } = 8;
+
+    /// <summary>How many more districts a region is cut into, at the most, when its first cut leaves one too big (GEN-65).</summary>
+    public int DistrictRecuts { get; init; } = 6;
+
+    /// <summary>How far a district's bearing is turned off its own ground's longer axis, either way (GEN-74).</summary>
+    public float DistrictBearingSpreadRad { get; init; } = 0.17f;
+
+    /// <summary>The share of a town's districts nearest its core that are its old town, and at least one (GEN-74).</summary>
+    public float OldTownShare { get; init; } = 0.1f;
+
+    /// <summary>How far out, as a share of the furthest district's distance from the core, the housing gives way to the edge's kinds (GEN-74).</summary>
+    public float InnerDistrictShare { get; init; } = 0.55f;
+
+    /// <summary>How much of a block a street's own stub may be, before the junction it would make is too near the last one (GEN-72).</summary>
+    public float ShortestStubInBlocks { get; init; } = 0.15f;
+
+    /// <summary>How near the place its lattice line crosses a road a stub meets a node already there rather than one of its own (GEN-72).</summary>
+    public float StubWeldM { get; init; } = 5f;
+
+    /// <summary>How far apart along an intercity road the places a district fronts it are asked (GEN-69).</summary>
+    public float FrontStationStepM { get; init; } = 50f;
+
+    /// <summary>How much less a metre along an intercity road costs the demand than one along a district road: it is the faster (GEN-67).</summary>
+    public float IntercityDemandWeight { get; init; } = 0.6f;
+
+    /// <summary>How many times an edge between districts has its corners cut, so its steps off the cells are gone and it bends smoothly (GEN-66).</summary>
+    public int SeamCornerCuts { get; init; } = 4;
+
+    /// <summary>How far an edge between districts is thinned off the cells it was traced along, in cells (GEN-66).</summary>
+    public float SeamThinCells { get; init; } = 0.75f;
+
+    /// <summary>The shortest edge between districts laid as a road, in localities (GEN-16, GEN-69).</summary>
+    public float SeamShortestLocalities { get; init; } = 3f;
+
+    /// <summary>How far past an intercity road's corridor, in district cells, a district is read as fronting it (GEN-69).</summary>
+    public float FrontCells { get; init; } = 2f;
+
+    /// <summary>How far past an intercity road's corridor, in district cells, an edge between districts ending near it is run on to it (GEN-69).</summary>
+    public float RunOnCells { get; init; } = 3f;
+
+    /// <summary>How far past the ends of a crossing's approach, in district cells, the districts it joins are read (GEN-69).</summary>
+    public float FacedCells { get; init; } = 3f;
+
+    /// <summary>How near, in an intercity road's corridors, a junction planned on it is welded onto one already planned (GEN-68).</summary>
+    public float StationWeldCorridors { get; init; } = 2f;
+
+    /// <summary>How far, in a district's widest spacing, a link may run on to reach its district's edge road (GEN-69).</summary>
+    public float ToTheEdgeRoadInBlocks { get; init; } = 2f;
+
+    /// <summary>How far, in a district's widest spacing, a road in from an intercity road may run to the roads it joins (GEN-69).</summary>
+    public float RoadInReachInBlocks { get; init; } = 4f;
+
+    /// <summary>How wide, as a share of each crossing's own stretch of the barrier, the window its shortest site is looked for in is (GEN-70).</summary>
+    public float CrossingWindowShare { get; init; } = 0.25f;
 }
 
 /// <summary>Tolerances the walkable and drivable graphs are built to.</summary>

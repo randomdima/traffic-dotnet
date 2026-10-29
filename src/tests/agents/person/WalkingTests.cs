@@ -249,11 +249,15 @@ public class WalkingTests(WalkingTests.Settled settled) : IClassFixture<WalkingT
             var atM = world.People.PositionM[person];
             var aim = world.People.DestinationM[person] - atM;
             var points = world.WalkHeld(slot: 0, person);
-            if (points.Length == 0 || aim.LengthSquared() < 1e-6f) continue;
+            // A walk of one point is a body at the end of its chain, with nothing drawn to set off along.
+            if (points.Length < 2 || aim.LengthSquared() < 1e-6f) continue;
 
+            // The walk begins under the body, and on a straight way the first point is the body's own place.
+            var first = 0;
+            while (first < points.Length - 1 && Vector2.Distance(points[first], atM) < LineTolerance.OnePlaceM) first++;
             Assert.True(
-                Vector2.Dot(Vector2.Normalize(points[0] - atM), Vector2.Normalize(aim)) > 0f,
-                $"the walk drawn for walker {person} sets off at {points[0] - atM} while the body walks at {aim}");
+                Vector2.Dot(Vector2.Normalize(points[first] - atM), Vector2.Normalize(aim)) > 0f,
+                $"the walk drawn for walker {person} sets off at {points[first] - atM} while the body walks at {aim}");
             drawn++;
         }
 

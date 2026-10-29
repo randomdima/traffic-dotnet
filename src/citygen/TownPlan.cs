@@ -85,7 +85,7 @@ internal static class TownPlan
 
         var worldSizeM = new Vector2(survey.WidthM, survey.HeightM);
         var zoned = survey.ZonesOrWhole;
-        var zones = new ZoneTree(zoned, config.Zones);
+        var zones = new ZoneTree(zoned, config);
         var generated = town is not null;
         yield return Took("zones");
 
@@ -118,6 +118,14 @@ internal static class TownPlan
         // against — the boundary the finished town answers with, and nothing below adds driven ground.
         paving.Rings(config).NewKerbScan();
         var ground = new GroundShapes(paving, config);
+
+        // <b>A generated town's blocks given uses of their own</b> (GEN-77), once its streets have made its blocks.
+        if (generated)
+        {
+            zoned = BlockUses.Zoned(zoned, zones, paving.Rings(config), streets.Roads, worldSizeM, config, seeds.Buildings);
+            zones = new ZoneTree(zoned, config);
+        }
+
         yield return Took("ground");
 
         // <b>The buildings stand against the walk the finished town is laid with</b> (GEN-54): what the map sets down,
@@ -125,7 +133,7 @@ internal static class TownPlan
         var yards = generated && streets.CarParks.Count > 0
             ? BuildingStage.Lay(streets.CarParks, streets.Roads, paving, ground, worldSizeM, sizes.Buildings, config)
             : BuildingStage.Yards.None(config);
-        var buildings = ZoneBuildings.Lay(zones, survey with { Seed = seeds.Buildings }, yards, paving, ground, sizes.Buildings, config);
+        var buildings = ZoneBuildings.Lay(zones, survey with { Seed = seeds.Buildings }, yards, paving, ground, sizes.Buildings, config, generated);
         yield return Took("buildings");
 
         // <b>The props stand on what is left beside what is built</b> (GEN-6b), so they are laid last.

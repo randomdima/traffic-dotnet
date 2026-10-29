@@ -44,6 +44,25 @@ namespace TrafficSimulation.CityGen;
 /// cut by the edge rather than turned on it (GEN-2b).
 /// </para>
 /// </remarks>
+/// <summary>Which of the driven ground's bands one shell is merged from (GEN-75).</summary>
+internal enum ShellOf : byte
+{
+    /// <summary>All of them: the town's boundary, kerb to kerb.</summary>
+    Driven,
+
+    /// <summary>Those a walk is struck off (<see cref="Paving.Walked"/>).</summary>
+    Walked,
+
+    /// <summary>
+    /// The same, run on further where a walk ends at a crossing: those the walk's lanes are struck off
+    /// (<see cref="Paving.WalkedCourses"/>).
+    /// </summary>
+    WalkedCourses,
+
+    /// <summary>Those of the roads with no walk, and the movements between them (<see cref="Paving.Unwalked"/>).</summary>
+    Unwalked,
+}
+
 internal static class LaneShell
 {
     /// <summary>
@@ -65,16 +84,18 @@ internal static class LaneShell
     /// between roads reach past the disc and have a lane running along some stretch of their edge, and are kept.
     /// </para>
     /// </remarks>
-    public static BandShell Of(Paving paving, SimConfig config, byte level)
+    /// <param name="of">Which of the driven ground's bands are merged (GEN-75).</param>
+    public static BandShell Of(Paving paving, SimConfig config, byte level, ShellOf of = ShellOf.Driven)
     {
-        var (lines, widthM) = Bands(paving, config, level);
+        var (lines, widthM) = Bands(paving, config, level, of);
         var shell = BandShell.Of(lines, widthM, lines.Length == paving.DrivenCount ? paving.DrivenLines(config) : Indexed(lines, config))
             .WithoutRingsNarrowerThan(config.Road.KerbWidthM);
         if (level != CityPlan.RoadArrays.Ground) return shell;
 
         var junctions = paving.Of.Junctions;
         var widestM = junctions.RadiusM.Length == 0 ? 0f : junctions.RadiusM.Max();
-        return shell.WithoutHoles(ring => InsideABox(junctions, widestM, ring) || !AlongAKerb(paving, config, ring));
+        var under = new KerbEnds.Under(paving, config);
+        return shell.WithoutHoles(ring => InsideABox(junctions, widestM, ring) || !AlongAKerb(under, ring));
     }
 
     /// <summary>Whether a ring stands wholly inside one junction's disc (<see cref="CityPlan.JunctionArrays.RadiusM"/>).</summary>
@@ -101,14 +122,13 @@ internal static class LaneShell
 
     /// <summary>
     /// Whether any piece of a ring runs along a lane's own edge (<see cref="KerbEnds.LaneUnder"/>) — a road's kerb, as
-    /// against the edge of a movement through a box or a band's square end.
+    /// against the edge of a movement through a box or a band's square end — at either end or at its middle.
     /// </summary>
-    static bool AlongAKerb(Paving paving, SimConfig config, ArcSeg[] ring)
+    static bool AlongAKerb(KerbEnds.Under under, ArcSeg[] ring)
     {
         foreach (var piece in ring)
         {
-            if (KerbEnds.LaneUnder(paving, config, piece, fromStart: true) >= 0 ||
-                KerbEnds.LaneUnder(paving, config, piece, fromStart: false) >= 0)
+            if (under.LaneOf(piece, fromStart: true) >= 0 || under.LaneOf(piece, fromStart: false) >= 0 || under.LaneMidway(piece) >= 0)
             {
                 return true;
             }
@@ -123,24 +143,28 @@ internal static class LaneShell
     /// stubs under the decks and past the map's edge, and the tapers a kerb eases in over where a roadside or a lane is
     /// lost (<see cref="LaneLines.Tapers"/>).
     /// </summary>
-    internal static (ArcSeg[][] Lines, float[] WidthM) Bands(Paving paving, SimConfig config, byte level)
+    internal static (ArcSeg[][] Lines, float[] WidthM) Bands(
+        Paving paving, SimConfig config, byte level, ShellOf of = ShellOf.Driven)
     {
         var count = paving.DrivenCount;
         var lines = new List<ArcSeg[]>(count);
         var widthM = new List<float>(count);
         var lanes = paving.Lanes;
+        var roads = paving.Of.Roads;
 
         for (var line = 0; line < count; line++)
         {
-            lines.Add(Twin(lanes, line) || paving.DrivenLevel(line) != level ? [] : paving.ArcsOfDriven(line).ToArray());
+            var handed = !Twin(lanes, line) && paving.DrivenLevel(line) == level && Takes(of, lanes, roads, line);
+            lines.Add(handed ? paving.ArcsOfDriven(line).ToArray() : []);
             widthM.Add(paving.DrivenWidthM(line));
         }
 
-        if (level == CityPlan.RoadArrays.Ground) UnderTheDecks(paving, config, lines, widthM);
-        OffTheMap(paving, config, level, lines, widthM);
+        if (level == CityPlan.RoadArrays.Ground) UnderTheDecks(paving, config, lines, widthM, of);
+        if (of is ShellOf.Walked or ShellOf.WalkedCourses) PastTheCrossings(paving, config, level, of, lines, widthM);
+        OffTheMap(paving, config, level, lines, widthM, of);
         foreach (var taper in lanes.Tapers)
         {
-            if (taper.Level != level) continue;
+            if (taper.Level != level || !TakesRoad(of, roads, taper.Road)) continue;
 
             lines.Add(taper.Line);
             widthM.Add(taper.WidthM);
@@ -165,11 +189,132 @@ internal static class LaneShell
         line < lanes.LaneCount && lanes.LaneOverOneLine[line] && !lanes.LaneForward[line] && lanes.LaneReverse[line] >= 0;
 
     /// <summary>
+    /// <b>Whether a walk is struck off one driven line</b> (GEN-75): a lane of a walked road, a movement between two of
+    /// them, and the turn to the kerb side between one of them and a road with no walk — the movement the corner's
+    /// kerb runs along, so the walk turns that corner and ends at its mouth rather than stopping square at the box.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never the far-side turn onto or off such a road</b>: it crosses the whole carriageway, and the walk struck off
+    /// it would stand at the far kerb, where nothing is walked.
+    /// </remarks>
+    static bool Walked(LaneLines lanes, CityPlan.RoadArrays roads, int line)
+    {
+        if (line < lanes.LaneCount) return roads.IsWalked(lanes.LaneRoad[line]);
+
+        var movement = line - lanes.LaneCount;
+        var from = roads.IsWalked(lanes.LaneRoad[lanes.ConnectorFromLane[movement]]);
+        var to = roads.IsWalked(lanes.LaneRoad[lanes.ConnectorToLane[movement]]);
+        return from && to || (from || to) && lanes.ConnectorKind[movement] == LaneTurn.NearSide;
+    }
+
+    /// <summary>
+    /// <b>Whether a driven line is a road with no walk's own</b> (GEN-75): a lane of one, or a movement between two of
+    /// them — never a turn onto one from a walked road, which the town's own carriageway carries.
+    /// </summary>
+    static bool Unwalked(LaneLines lanes, CityPlan.RoadArrays roads, int line)
+    {
+        if (line < lanes.LaneCount) return !roads.IsWalked(lanes.LaneRoad[line]);
+
+        var movement = line - lanes.LaneCount;
+        return !roads.IsWalked(lanes.LaneRoad[lanes.ConnectorFromLane[movement]])
+               && !roads.IsWalked(lanes.LaneRoad[lanes.ConnectorToLane[movement]]);
+    }
+
+    static bool Takes(ShellOf of, LaneLines lanes, CityPlan.RoadArrays roads, int line) => of switch
+    {
+        ShellOf.Walked or ShellOf.WalkedCourses => Walked(lanes, roads, line),
+        ShellOf.Unwalked => Unwalked(lanes, roads, line),
+        _ => true,
+    };
+
+    static bool TakesRoad(ShellOf of, CityPlan.RoadArrays roads, int road) => of switch
+    {
+        ShellOf.Walked or ShellOf.WalkedCourses => roads.IsWalked(road),
+        ShellOf.Unwalked => !roads.IsWalked(road),
+        _ => true,
+    };
+
+    /// <summary>
+    /// <b>The first metres of a road with no walk past each mouth a walk turns onto it at every kerb</b> (GEN-75): the
+    /// lane a walked turn to the kerb side joins, from the box out to the crossing painted there from the kerb end — to
+    /// its middle, half of <see cref="RoadFigures.CrossingDepthM"/>, for the walk, and on to its far edge, the whole of
+    /// it, for the walk's lanes (<see cref="ShellOf.WalkedCourses"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The walk's own end reaches past the band's</b>, its outer face rounding the band's end at its whole width, so
+    /// from the zebra's middle it covers the zebra and the walk's lanes to its far edge, and ends a little past it. <b>The
+    /// lanes need their own band to run that far</b>: a course rounds a band's end at its own offset, so struck off the
+    /// walk's it would turn back before the zebra's middle. Their walkers run straight onto the zebra and off it
+    /// (<c>CrossingWays</c>).
+    /// </para>
+    /// <para>
+    /// <b>None at a mouth turned onto at one kerb of two</b>: no zebra is painted there (<see cref="KerbEnds"/>), so the
+    /// walk ends on the corner's own turn. A two-way road has two kerb lanes at a box, one leaving it and one arriving; a
+    /// one-way road, one carriageway of a divided road among them, has the one.
+    /// </para>
+    /// </remarks>
+    static void PastTheCrossings(
+        Paving paving, SimConfig config, byte level, ShellOf of, List<ArcSeg[]> lines, List<float> widthM)
+    {
+        var lanes = paving.Lanes;
+        var roads = paving.Of.Roads;
+        var reachM = config.Road.CrossingDepthM * (of == ShellOf.WalkedCourses ? 1f : 0.5f);
+        var stubs = new HashSet<(int Lane, bool Leaving)>();
+        var walkedKerbs = new Dictionary<(int Road, int Junction), int>();
+        for (var movement = 0; movement < lanes.ConnectorCount; movement++)
+        {
+            if (lanes.ConnectorKind[movement] != LaneTurn.NearSide) continue;
+
+            var (from, to) = (lanes.ConnectorFromLane[movement], lanes.ConnectorToLane[movement]);
+            var (fromWalked, toWalked) = (roads.IsWalked(lanes.LaneRoad[from]), roads.IsWalked(lanes.LaneRoad[to]));
+            if (fromWalked == toWalked) continue;
+
+            var lane = fromWalked ? to : from;
+            if (lanes.LaneFromKerb[lane] != 0 || lanes.LaneLevel[lane] != level || Twin(lanes, lane)) continue;
+            if (!stubs.Add((lane, fromWalked))) continue;
+
+            var mouth = Mouth(lane, fromWalked);
+            walkedKerbs[mouth] = walkedKerbs.GetValueOrDefault(mouth) + 1;
+        }
+
+        var kerbs = new Dictionary<(int Road, int Junction), int>();
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
+        {
+            if (lanes.LaneFromKerb[lane] != 0 || Twin(lanes, lane)) continue;
+
+            foreach (var mouth in (ReadOnlySpan<(int, int)>)[Mouth(lane, leaving: true), Mouth(lane, leaving: false)])
+            {
+                if (walkedKerbs.ContainsKey(mouth)) kerbs[mouth] = kerbs.GetValueOrDefault(mouth) + 1;
+            }
+        }
+
+        var scratch = new ArcSeg[lanes.LaneArcs.Length];
+        foreach (var (lane, leaving) in stubs)
+        {
+            var mouth = Mouth(lane, leaving);
+            if (walkedKerbs[mouth] < kerbs[mouth]) continue;
+
+            var lengthM = lanes.LaneLengthM[lane];
+            var stubM = MathF.Min(reachM, lengthM);
+            var (stubFromM, stubToM) = leaving ? (0f, stubM) : (lengthM - stubM, lengthM);
+            var pieces = Spline.SubChainInto(lanes.ArcsOf(lane), stubFromM, stubToM, scratch);
+            if (pieces == 0) continue;
+
+            lines.Add(scratch.AsSpan(0, pieces).ToArray());
+            widthM.Add(lanes.LaneWidthM[lane]);
+        }
+
+        (int Road, int Junction) Mouth(int lane, bool leaving) =>
+            (lanes.LaneRoad[lane], leaving ? lanes.LaneFromJunction[lane] : lanes.LaneToJunction[lane]);
+    }
+
+    /// <summary>
     /// The first metres of every lane above the ground at each bridgehead it ends at, as lines of the ground's own
     /// (<see cref="SimConfig.UnderTheDeckM"/>): numbered after the town's driven lines, so they need an index of
     /// their own.
     /// </summary>
-    static void UnderTheDecks(Paving paving, SimConfig config, List<ArcSeg[]> lines, List<float> widthM)
+    static void UnderTheDecks(Paving paving, SimConfig config, List<ArcSeg[]> lines, List<float> widthM, ShellOf of)
     {
         var lanes = paving.Lanes;
         if (!lanes.Levelled) return;
@@ -178,6 +323,7 @@ internal static class LaneShell
         for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
             if (lanes.LaneLevel[lane] == CityPlan.RoadArrays.Ground || Twin(lanes, lane)) continue;
+            if (!TakesRoad(of, paving.Of.Roads, lanes.LaneRoad[lane])) continue;
 
             var lengthM = lanes.LaneLengthM[lane];
             var stubM = MathF.Min(config.UnderTheDeckM, lengthM);
@@ -201,7 +347,7 @@ internal static class LaneShell
     /// the boundary turns round its end off the map and the map keeps a road that runs to its edge. Numbered after the
     /// town's driven lines, as the decks' are.
     /// </summary>
-    static void OffTheMap(Paving paving, SimConfig config, byte level, List<ArcSeg[]> lines, List<float> widthM)
+    static void OffTheMap(Paving paving, SimConfig config, byte level, List<ArcSeg[]> lines, List<float> widthM, ShellOf of)
     {
         var junctions = paving.Of.Junctions;
         if (junctions.RunsOffTheMap.Length == 0) return;
@@ -211,6 +357,7 @@ internal static class LaneShell
         for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
             if (lanes.LaneLevel[lane] != level || Twin(lanes, lane)) continue;
+            if (!TakesRoad(of, paving.Of.Roads, lanes.LaneRoad[lane])) continue;
 
             PastTheEdge(
                 junctions, worldM, config, lanes.ArcsOf(lane), lanes.LaneWidthM[lane], lanes.LaneFromJunction[lane],

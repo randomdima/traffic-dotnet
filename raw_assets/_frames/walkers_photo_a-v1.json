@@ -1,0 +1,73 @@
+{
+ "id": "walkers_photo_a-v1",
+ "ts": "2026-10-28T20:25:07",
+ "op": "edit",
+ "name": "walkers_photo_a",
+ "file": ".tmp/gen/frames/walkers_photo_a-v1.png",
+ "model": "openai/gpt-image-2.5-sunburst",
+ "size": "1536x1024",
+ "settings": {
+  "aspect_ratio": "3:2",
+  "quality": "low",
+  "background": "transparent"
+ },
+ "costUsd": 0.032526,
+ "usage": {
+  "prompt_tokens": 3738,
+  "completion_tokens": 158,
+  "total_tokens": 3896,
+  "cost": 0.032526,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.032526,
+   "upstream_inference_prompt_cost": 0.027786,
+   "upstream_inference_completions_cost": 0.00474
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 158
+  }
+ },
+ "prompt": "Image 1 is finished art from the same 2D city game: people standing, seen from in front and high above. Match its style, finish, camera and proportions exactly — draw none of its people.\nImages 2 to 4 are photos of real people, one each, in the order below. Draw each as the same person as in their photo — face, hair, build, clothes, colours, prints and anything carried — and take nothing else from the photo: not its pose, camera, light or background.\n\nMake one image: 3 different people for the game, in one row of 3, read left to right. Each stands still, the whole body facing south — straight down the picture, towards its bottom edge — arms relaxed at the sides, feet side by side, a relaxed neutral expression, head level. The camera is in front and high above, looking down at about 55 degrees: the top of the head and the tops of the shoulders show plainly, the face is seen from above and a little shortened, the legs shorter on the picture than the body above them, the feet tucked just under the hem. Looking down shortens a body top to bottom only; it never makes it wider. Every figure has an ordinary average build — neither thin nor stocky, shoulders their natural width. The whole body is visible. Each is centred in its cell, well apart from its neighbours, never touching. All at one scale: a person 1.8 m tall fills about 70 % of the cell's height, shorter people smaller in proportion.\n\nStyle: game sprite art with a light pixel-art feel — clean simplified shapes, bold readable silhouettes, a limited palette with flat shading in two or three tones per colour, crisp hard edges. Leave small details out: no fabric texture, no stitching, no tiny patterns; faces simple, eyes, brows and mouth a few marks. Each must read clearly when shown only 60 pixels tall. Not photographic, not soft painting, not chibi: natural adult proportions. Summer in a Black Sea port city.\n\nThe people, in order:\n1. 1.62 m tall. A woman of about 60 with short auburn-brown hair, in a long navy quilted coat worn open over a pale-blue jumper, a blue-and-white checked scarf, dark-grey jeans and black shoes, a dark-teal leather handbag in one hand.\n2. 1.68 m tall. A woman of about 30 with long auburn hair under a black wide-brimmed hat, in a red-and-black checked flannel shirt open over a grey top, grey-green cargo trousers and dark boots.\n3. 1.8 m tall. A man of about 40 with very short brown hair and a short beard, in a black T-shirt with a print on the chest — a four-square logo, red, green, blue and yellow, and the word \"Microslop\" in white — grey shorts, grey socks and dark-grey trainers.\n\nEverything outside the figures is fully transparent: no background, no ground, no shadow, nothing half-transparent. No text, letters, numbers, labels, grid lines or frames anywhere, but for a print a person's clothes are said to carry.",
+ "inputs": [
+  {
+   "role": "image 1",
+   "sha": "04ce2b7789e4dcdb",
+   "ext": "png",
+   "frame": "walkers_cast_b-v2",
+   "was": ".tmp/gen/frames/walkers_cast_b-v2.png"
+  },
+  {
+   "role": "image 2",
+   "sha": "55ac9015b0e82405",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/photos/person_1.png",
+   "private": true
+  },
+  {
+   "role": "image 3",
+   "sha": "eb8f50d3533bf480",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/photos/person_2.png",
+   "private": true
+  },
+  {
+   "role": "image 4",
+   "sha": "d2ade87f9c86c0ac",
+   "ext": "png",
+   "frame": null,
+   "was": ".tmp/gen/photos/person_3.png",
+   "private": true
+  }
+ ],
+ "cells": [
+  "quilted_navy",
+  "flannel_hat",
+  "tee_print"
+ ]
+}

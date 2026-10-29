@@ -31,11 +31,12 @@ internal readonly struct GenClaims(ulong[] taken, GridWindow window)
     {
         var side = new Vector2(-axis.Y, axis.X);
         var stepM = window.Level.CellM * 0.5f;
-        for (var alongM = -halfExtentM.X; alongM <= halfExtentM.X; alongM += stepM)
+        var (alongs, acrosses) = (Steps(halfExtentM.X, stepM), Steps(halfExtentM.Y, stepM));
+        for (var along = 0; along <= alongs; along++)
         {
-            for (var acrossM = -halfExtentM.Y; acrossM <= halfExtentM.Y; acrossM += stepM)
+            for (var across = 0; across <= acrosses; across++)
             {
-                var cell = CellAt(centreM + (axis * alongM) + (side * acrossM));
+                var cell = CellAt(centreM + (axis * Sample(along, halfExtentM.X, stepM)) + (side * Sample(across, halfExtentM.Y, stepM)));
                 if (cell < 0 || IsTaken(cell)) return false;
             }
         }
@@ -47,30 +48,38 @@ internal readonly struct GenClaims(ulong[] taken, GridWindow window)
     {
         var side = new Vector2(-axis.Y, axis.X);
         var stepM = window.Level.CellM * 0.5f;
-        for (var alongM = -halfExtentM.X; alongM <= halfExtentM.X; alongM += stepM)
+        var (alongs, acrosses) = (Steps(halfExtentM.X, stepM), Steps(halfExtentM.Y, stepM));
+        for (var along = 0; along <= alongs; along++)
         {
-            for (var acrossM = -halfExtentM.Y; acrossM <= halfExtentM.Y; acrossM += stepM)
+            for (var across = 0; across <= acrosses; across++)
             {
-                var cell = CellAt(centreM + (axis * alongM) + (side * acrossM));
+                var cell = CellAt(centreM + (axis * Sample(along, halfExtentM.X, stepM)) + (side * Sample(across, halfExtentM.Y, stepM)));
                 if (cell >= 0) taken[cell >> 6] |= 1UL << cell;
             }
         }
     }
 
+    /// <summary>
+    /// How many half-cell steps cross a span of twice <paramref name="halfM"/>: the samples are one more, <b>the last held
+    /// to the far edge</b>, so a span that is no whole number of steps is still asked at both its edges.
+    /// </summary>
+    static int Steps(float halfM, float stepM) => (int)MathF.Ceiling(halfM * 2f / stepM);
+
+    static float Sample(int step, float halfM, float stepM) => MathF.Min(-halfM + (step * stepM), halfM);
+
     /// <summary>Whether every cell under a disc is still free — what a prop asks for the girth it keeps.</summary>
     public bool IsFree(Vector2 centreM, float radiusM)
     {
         var stepM = window.Level.CellM * 0.5f;
-        var steps = (int)MathF.Ceiling(radiusM * 2f / stepM);
+        var steps = Steps(radiusM, stepM);
         for (var down = 0; down <= steps; down++)
         {
-            var alongM = MathF.Min(-radiusM + (down * stepM), radiusM);
+            var alongM = Sample(down, radiusM, stepM);
             var acrossM = MathF.Sqrt(MathF.Max(0f, (radiusM * radiusM) - (alongM * alongM)));
-            var across = (int)MathF.Ceiling(acrossM * 2f / stepM);
+            var across = Steps(acrossM, stepM);
             for (var over = 0; over <= across; over++)
             {
-                var cell = CellAt(
-                    centreM + new Vector2(alongM, MathF.Min(-acrossM + (over * stepM), acrossM)));
+                var cell = CellAt(centreM + new Vector2(alongM, Sample(over, acrossM, stepM)));
                 if (cell < 0 || IsTaken(cell)) return false;
             }
         }

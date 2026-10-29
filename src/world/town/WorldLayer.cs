@@ -18,7 +18,7 @@ namespace TrafficSimulation.World.Town;
 /// suite, and the device's (<c>app/devicetick/DeviceWorld</c>). The actor layer cannot tell which it drives.
 /// </para>
 /// <para>
-/// <b>One step ahead of what it shows</b> (<see cref="StepsAhead"/>): a <see cref="Step"/> waits for the step begun the
+/// <b>One step ahead of what it shows</b> (<see cref="SimFigures.WorldStepsAhead"/>): a <see cref="Step"/> waits for the step begun the
 /// tick before, makes what it left the <see cref="View"/>, and begins this tick's — so the device steps while the actors
 /// decide the next tick off the view before it, and neither waits on the other but once a tick. The managed world steps
 /// on a thread of its own the same way, or at once where there is none, and shows the answer as late either way — so the
@@ -54,14 +54,11 @@ internal abstract class WorldLayer : IDisposable
     /// <summary>What the actor layer asks of the world this tick, in the order it decided it.</summary>
     public ControlSignals Signals { get; }
 
-    /// <summary>The world as the step before the last one begun left it (<see cref="StepsAhead"/>).</summary>
+    /// <summary>The world as the step before the last one begun left it (<see cref="SimFigures.WorldStepsAhead"/>).</summary>
     public WorldView View { get; private set; }
 
     /// <summary>One of the two views by its <see cref="WorldView.Slot"/>, for a world that writes each into memory of its own.</summary>
     protected WorldView ViewInSlot(int slot) => View.Slot == slot ? View : _ahead;
-
-    /// <summary>How many steps the world runs ahead of its <see cref="View"/>.</summary>
-    public const int StepsAhead = SimFigures.WorldStepsAhead;
 
     /// <summary>What the tyres have written on the ground. Scenery: drawn, and read by nothing that decides anything.</summary>
     public DriftMarks Marks { get; }

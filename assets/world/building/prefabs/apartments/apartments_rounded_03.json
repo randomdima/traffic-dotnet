@@ -17,7 +17,7 @@
     "khrushchyovka",
     "rounded corners"
   ],
-  "describe": "five-storey Soviet brick or panel block, flat roof of dark grey bitumen membrane, 2 stairwell exit hatches and vent stacks evenly along the ridge line, TV antennas, its corners rounded in wide curves",
+  "describe": "five-storey Soviet brick or panel block, flat roof of dark grey bitumen membrane, 2 stairwell exit boxes and vent stacks evenly along the roof's length, TV antennas, its corners rounded in wide curves",
   "chimneys": [[-20.2, 1.2], [-15.7, -0.4], [-6.7, -0.4], [-1.3, -1.9], [0.0, -0.8], [6.8, -0.4], [16.0, -2.2], [16.0, -0.4], [20.2, 1.5]],
   "potWidthM": 0.5
 }

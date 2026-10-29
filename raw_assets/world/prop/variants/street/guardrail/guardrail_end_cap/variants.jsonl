@@ -1,0 +1,2 @@
+{"variant": "guardrail_end_cap-v1", "frame": "props_street_guardrail-v1", "cell": 8, "pxPerM": 136.0, "score": 3, "status": "used", "ts": "2026-10-26T20:10:52"}
+{"variant": "guardrail_end_cap-v2", "frame": "props_street_guardrail-v2", "cell": 8, "pxPerM": 145.0, "score": 3, "status": "candidate", "ts": "2026-10-26T20:10:52"}

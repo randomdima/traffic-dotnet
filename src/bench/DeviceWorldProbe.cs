@@ -102,7 +102,7 @@ internal static class DeviceWorldProbe
 
         Console.WriteLine();
 
-        // The step ahead shown, so the fleets the host fills from stand where the device draws (WorldLayer.StepsAhead).
+        // The step ahead shown, so the fleets the host fills from stand where the device draws (SimFigures.WorldStepsAhead).
         var looks = TownSprites.Load(config);
         looks.ReadAspects(SheetAtlas.Pack(looks.Sheets));
         Drawn(device, deviceLoop, config, plan, looks);
@@ -203,16 +203,53 @@ internal static class DeviceWorldProbe
         var warmTicks = (int)MathF.Ceiling((config.Smoke.FullLifeS + (2f * config.Smoke.TrackEveryS)) * config.Sim.TickRateHz);
         for (var tick = 0; tick < warmTicks; tick++) loop.Advance();
 
-        // The step ahead shown, so the fleets the host fills from stand where the device draws (WorldLayer.StepsAhead).
+        // The step ahead shown, so the fleets the host fills from stand where the device draws (SimFigures.WorldStepsAhead).
         town.LayTheClaims();
         var centreM = framedOn(town);
+
+        // Everything framed picked out, so its rings (CTL-1, SpriteRings) are held to the host's as well.
+        town.SelectIn(centreM, spanM, 0f, add: false);
         var (overCount, aboveCount) = looks.FillMoving(town, config, centreM, spanM, pxPerM, over, above);
-        sprites.Emit(centreM, spanM, pxPerM, town.ElapsedS);
+        var fastest = Fastest(sprites, town, centreM, spanM, pxPerM);
         var (deviceOver, overPuffs) = Unsmoked(sprites.Over, looks.SmokeSheet);
         var (deviceAbove, abovePuffs) = Unsmoked(sprites.Above, looks.SmokeSheet);
         var differ = Differing(over.AsSpan(0, overCount), deviceOver) + Differing(above.AsSpan(0, aboveCount), deviceAbove);
         Console.Write(
-            $"  {where} {overCount + aboveCount} / {deviceOver.Length + deviceAbove.Length} / {differ} (+{overPuffs + abovePuffs} puffs)");
+            $"  {where} {overCount + aboveCount} / {deviceOver.Length + deviceAbove.Length} / {differ} (+{overPuffs + abovePuffs} puffs)" +
+            $" [{Walkers(over.AsSpan(0, overCount), looks)} walkers; µs lay {fastest.Lay * 1e3:F0}, count {fastest.Count * 1e3:F0}," +
+            $" scan {fastest.Scan * 1e3:F0}, write {fastest.Write * 1e3:F0}, order {fastest.Order * 1e3:F0}]");
+    }
+
+    /// <summary>How many emits of one framing <see cref="Fastest"/> times, the fastest of each pass kept.</summary>
+    const int TimedEmits = 20;
+
+    /// <summary>The device's time each pass of an emit takes at this framing, the fastest of <see cref="TimedEmits"/>.</summary>
+    static DeviceSprites.PassesMs Fastest(DeviceSprites sprites, TownWorld town, Vector2 centreM, Vector2 spanM, float pxPerM)
+    {
+        var fastest = new DeviceSprites.PassesMs(double.MaxValue, double.MaxValue, double.MaxValue, double.MaxValue, double.MaxValue);
+        for (var emit = 0; emit < TimedEmits; emit++)
+        {
+            sprites.Emit(town, centreM, spanM, pxPerM);
+            var ms = sprites.EmitMs;
+            fastest = new DeviceSprites.PassesMs(
+                Math.Min(fastest.Lay, ms.Lay), Math.Min(fastest.Count, ms.Count), Math.Min(fastest.Scan, ms.Scan),
+                Math.Min(fastest.Write, ms.Write), Math.Min(fastest.Order, ms.Order));
+        }
+
+        return fastest;
+    }
+
+    /// <summary>How many of a run's instances are walkers, standing or down — the order pass's whole input.</summary>
+    static int Walkers(ReadOnlySpan<SpriteInstance> run, TownSprites looks)
+    {
+        var walkers = 0;
+        foreach (var instance in run)
+        {
+            var looksAt = looks.People.SheetCount;
+            if (instance.Sheet < looksAt || (instance.Sheet >= looks.FirstDownSheet && instance.Sheet < looks.FirstDownSheet + looksAt)) walkers++;
+        }
+
+        return walkers;
     }
 
     /// <summary>A run of the device's without its puffs of smoke, which no host fill draws, and how many there were.</summary>

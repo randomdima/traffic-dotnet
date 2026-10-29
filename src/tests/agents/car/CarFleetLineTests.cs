@@ -25,7 +25,7 @@ public class CarFleetLineTests
     {
         var graph = RoadGraph.Build(Towns.Of(Towns.Fixture), Config);
         var arcsPerCar = LineAssembler.ArcsFor(graph);
-        var cars = new CarFleet(2, arcsPerCar, CarBuilds.OfTheFleet(Config, CarCatalog.Shared));
+        var cars = new CarFleet(2, arcsPerCar, CarBuilds.OfTheFleet(Config, CarCatalog.Shared), Config.Patience.FuseJitterShare);
         var shifted = cars.Add(Vector2.Zero, 0f, 0, false, new Rng(1, 1));
         var laid = cars.Add(Vector2.Zero, 0f, 0, false, new Rng(1, 2));
         var random = new Random(3);
@@ -68,7 +68,8 @@ public class CarFleetLineTests
     public void AGrownLineIsTheLineAssembledWhole()
     {
         var graph = RoadGraph.Build(Towns.Of(Towns.Fixture), Config);
-        var cars = new CarFleet(2, LineAssembler.ArcsFor(graph), CarBuilds.OfTheFleet(Config, CarCatalog.Shared));
+        var cars = new CarFleet(2, LineAssembler.ArcsFor(graph), CarBuilds.OfTheFleet(Config, CarCatalog.Shared),
+            Config.Patience.FuseJitterShare);
         var grown = cars.Add(Vector2.Zero, 0f, 0, false, new Rng(1, 1));
         var whole = cars.Add(Vector2.Zero, 0f, 0, false, new Rng(1, 2));
         var random = new Random(5);

@@ -58,7 +58,9 @@ FIGURES = "src/core/config/EngineFigures.cs"
 OVERRIDES = "assets/shared/config/SimConfig.json"
 
 #: The ground surfaces, in the order `ProjectPaths.GroundSurfaceFiles` returns them and the shore
-#: (`ShoreSurfaceFile`), against the `ViewFigures` period each one repeats over.
+#: (`ShoreSurfaceFile`), against the `ViewFigures` period each one repeats over. `shoulder` (beside a road with no
+#: walk, GEN-75) is laid in the walk's array after its looks (`ProjectPaths.GroundSurfaceLooksAfter`), so it repeats
+#: over the walk's period.
 SURFACES = {
     "grass": "GroundPeriodGrassM",
     "pavement": "GroundPeriodTarmacM",
@@ -66,6 +68,7 @@ SURFACES = {
     "bridge": "GroundPeriodDeckM",
     "water": "GroundPeriodWaterM",
     "shore": "GroundPeriodShoreM",
+    "shoulder": "GroundPeriodPavementM",
 }
 
 #: How many facing rows a walker's sheet is cut into. `PersonCatalog.FacingRows`.
@@ -174,9 +177,10 @@ class Walker(Sheet):
 
 
 class Down(Sheet):
-    """The one frame a walker is drawn as once it is down."""
+    """The one frame a walker is drawn as once it is down: lying head along +x, so its width is the person's height
+    (`PersonSprites.Fill`)."""
 
-    measured = property(lambda self: self.height)
+    measured = property(lambda self: self.width)
 
 
 class Prop(Sheet):
@@ -223,7 +227,9 @@ def read_figures(base: Path) -> dict[str, float]:
 
 def survey(base: Path, figures: dict[str, float]) -> list[Sheet]:
     """Every PNG under assets/, with the metres its own variant file says it covers."""
-    art, car = figures["ArtPixelsPerMetre"], figures["CarSpritePixelsPerMetre"]
+    import sprites  # sprites imports this module
+
+    art = figures["ArtPixelsPerMetre"]
     sized: dict[Path, tuple[type[Sheet], float, float]] = {}
 
     surfaces = base / "assets/world/terrain/ground/surfaces"
@@ -239,8 +245,7 @@ def survey(base: Path, figures: dict[str, float]) -> list[Sheet]:
         if not isinstance(described, dict):
             continue
 
-        # The cars and the kerbs are laid at the cars' grid (`sprites.FAMILIES`).
-        grid = car if "/agents/car/" in variant.as_posix() or "/ground/kerbs/" in variant.as_posix() else art
+        grid = sprites.grid(figures, _sim.rel(base, variant))
         if "sprite" in described and "footprintM" in described:
             sized[variant.parent / described["sprite"]] = (Body, float(described["footprintM"][0]), grid)
         wreck = described.get("wreck")
@@ -378,15 +383,15 @@ def written(image, fmt: str, **how) -> bytes:
     return kept.getvalue()
 
 
-def shrink(path: Path, wanted: tuple[int, int]):
+def shrink(source, wanted: tuple[int, int]):
     """
     Downsample on premultiplied alpha and come back out of it, so the transparent black around a
-    sprite cannot bleed a dark fringe into its edge.
+    sprite cannot bleed a dark fringe into its edge. `source` is a path or an image.
     """
     from PIL import Image
     import numpy as np
 
-    image = Image.open(path).convert("RGBA")
+    image = (source if isinstance(source, Image.Image) else Image.open(source)).convert("RGBA")
     if (image.width, image.height) == wanted:
         return image
 

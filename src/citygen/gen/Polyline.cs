@@ -191,57 +191,6 @@ internal sealed class Polyline
         return cut;
     }
 
-    /// <summary>
-    /// <b>Every corner of a run of straights rounded</b> at the radius, or as tight as its legs leave room for — each
-    /// corner's tangent no longer than half of either leg — and the whole walked at a step, its ends kept.
-    /// </summary>
-    public static List<Vector2> Rounded(IReadOnlyList<Vector2> cornersM, float radiusM, float stepM)
-    {
-        var walked = new List<Vector2> { cornersM[0] };
-        for (var corner = 1; corner + 1 < cornersM.Count; corner++)
-        {
-            var (beforeM, atM, afterM) = (cornersM[corner - 1], cornersM[corner], cornersM[corner + 1]);
-            var (inLegM, outLegM) = (Vector2.Distance(beforeM, atM), Vector2.Distance(atM, afterM));
-            if (inLegM <= 0f || outLegM <= 0f) continue;
-
-            var (inward, outward) = ((atM - beforeM) / inLegM, (afterM - atM) / outLegM);
-            var turnRad = MathF.Acos(Math.Clamp(Vector2.Dot(inward, outward), -1f, 1f));
-            if (turnRad < 1e-3f)
-            {
-                Walk(walked, atM, stepM);
-                continue;
-            }
-
-            var tangentM = MathF.Min(radiusM * MathF.Tan(turnRad * 0.5f), MathF.Min(inLegM, outLegM) * 0.5f);
-            var fittedM = tangentM / MathF.Tan(turnRad * 0.5f);
-            var enterM = atM - (inward * tangentM);
-            Walk(walked, enterM, stepM);
-
-            var side = MathF.Sign((inward.X * outward.Y) - (inward.Y * outward.X));
-            var centreM = enterM + (Core.Geometry.Heading.RightOf(inward) * (side * fittedM));
-            var arcM = fittedM * turnRad;
-            var steps = Math.Max(1, (int)MathF.Ceiling(arcM / stepM));
-            var fromRad = MathF.Atan2(enterM.Y - centreM.Y, enterM.X - centreM.X);
-            for (var step = 1; step <= steps; step++)
-            {
-                var angleRad = fromRad + (side * turnRad * step / steps);
-                walked.Add(centreM + (new Vector2(MathF.Cos(angleRad), MathF.Sin(angleRad)) * fittedM));
-            }
-        }
-
-        Walk(walked, cornersM[^1], stepM);
-        return walked;
-    }
-
-    /// <summary>A straight from the last point walked to another, a step at a time.</summary>
-    static void Walk(List<Vector2> walked, Vector2 toM, float stepM)
-    {
-        var fromM = walked[^1];
-        var runM = Vector2.Distance(fromM, toM);
-        var steps = (int)MathF.Ceiling(runM / stepM);
-        for (var step = 1; step <= steps; step++) walked.Add(Blend.Lerp(fromM, toM, step / (float)steps));
-    }
-
     /// <summary>How far a point stands off the straight through two others.</summary>
     static float OffM(Vector2 pointM, Vector2 aM, Vector2 bM)
     {

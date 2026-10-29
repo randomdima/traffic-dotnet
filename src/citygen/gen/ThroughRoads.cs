@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Gen;
@@ -36,7 +37,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <b>It runs on the layout the deletions left</b>, after the stranded pieces and the dead ends
 /// and before the roundabouts (<see cref="TownGen.Lay"/>): a ring is opened out of a junction, so what is
 /// offered one has to be a junction already. Nothing here deletes a road — every run comes back as the one
-/// road it was — and the nodes it empties are dropped by the prune it ends on, the way
+/// road it was, or as its pieces — and the nodes it empties are dropped by the prune it ends on, the way
 /// <see cref="TownLayout.RingOut"/>'s husks are.
 /// </para>
 /// </remarks>
@@ -46,7 +47,7 @@ internal static class ThroughRoads
     /// Every run of roads through nodes nothing meets at, joined into the one road it is, and the nodes it
     /// emptied dropped.
     /// </summary>
-    public static void Lay(TownLayout layout)
+    public static void Lay(TownLayout layout, SimConfig config)
     {
         var was = (List<LayoutEdge>)[.. layout.Edges];
         var edgesAt = new List<int>[layout.NodeM.Count];
@@ -110,17 +111,19 @@ internal static class ThroughRoads
         // pieces and still be laid into one another.
         var stays = new List<LayoutEdge>(was.Count);
         var staysLines = new List<ArcSeg[]>(was.Count);
+        var wasLines = new ArcSeg[was.Count][];
         var nodeM = (List<Vector2>)[.. layout.NodeM];
         for (var edge = 0; edge < was.Count; edge++)
         {
+            wasLines[edge] = [.. layout.LineOf(edge)];
             if (inARun[edge]) continue;
 
             stays.Add(was[edge]);
-            staysLines.Add([.. layout.LineOf(edge)]);
+            staysLines.Add(wasLines[edge]);
         }
 
         layout.Rebuilt(nodeM, stays, staysLines);
-        foreach (var (pieces, nodes, start) in runs) Offer(layout, was, pieces, nodes, start);
+        foreach (var (pieces, nodes, start) in runs) Offer(layout, was, wasLines, pieces, nodes, start, config.CityGen.JoinedRoadLongestM);
 
         // Every node a run passed through is left standing with nothing at it, and this is what drops them.
         layout.PruneTheDeadEnds();
@@ -132,20 +135,35 @@ internal static class ThroughRoads
     /// turn, so a corner that cannot be drawn costs that corner and never the whole run. A run of one piece is
     /// the road it always was.
     /// </summary>
-    static void Offer(TownLayout layout, List<LayoutEdge> was, List<int> pieces, List<int> nodes, int start)
+    /// <remarks>
+    /// <b>A piece is never lost</b>: offered alone it is the link it was, and its line a function of the link — but its
+    /// ground is asked of the runs joined before it, which were drawn anew, and one refused is put back as it stood
+    /// (<see cref="TownLayout.Restore"/>). Dropped instead, the town came apart with no deletion after to find it.
+    /// </remarks>
+    static void Offer(
+        TownLayout layout, List<LayoutEdge> was, ArcSeg[][] wasLines, List<int> pieces, List<int> nodes, int start, float longestM)
     {
-        // A piece on its own is the road it always was, offered again exactly as it stood — and its line is a
-        // function of the link, so it comes back the line it had.
-        var road = pieces.Count == 1 ? was[pieces[0]] : Merged(was, layout, pieces, nodes, start);
-        if (layout.Join(road.From, road.To, road.Class, road.Curvature, road.ThroughM, road.Straight, road.Lanes) >= 0) return;
+        var lengthM = 0f;
+        foreach (var piece in pieces) lengthM += Spline.TotalLengthM(wasLines[piece]);
 
-        if (pieces.Count == 1) return;
+        var road = pieces.Count == 1 ? was[pieces[0]] : Merged(was, layout, pieces, nodes, start);
+        if ((pieces.Count == 1 || lengthM <= longestM)
+            && layout.Join(road.From, road.To, road.Class, road.Curvature, road.ThroughM, road.Straight, road.Lanes) >= 0)
+        {
+            return;
+        }
+
+        if (pieces.Count == 1)
+        {
+            layout.Restore(road, wasLines[pieces[0]]);
+            return;
+        }
 
         // Each half keeps one node a piece — the far end of each of its own pieces — and the place between
         // them is the junction they now meet at.
         var at = pieces.Count / 2;
-        Offer(layout, was, pieces.GetRange(0, at), nodes.GetRange(0, at), start);
-        Offer(layout, was, pieces.GetRange(at, pieces.Count - at), nodes.GetRange(at, nodes.Count - at), nodes[at - 1]);
+        Offer(layout, was, wasLines, pieces.GetRange(0, at), nodes.GetRange(0, at), start, longestM);
+        Offer(layout, was, wasLines, pieces.GetRange(at, pieces.Count - at), nodes.GetRange(at, nodes.Count - at), nodes[at - 1], longestM);
     }
 
     /// <summary>
@@ -155,7 +173,7 @@ internal static class ThroughRoads
     /// <remarks>
     /// <para>
     /// <b>A bridge and a ring piece are never joined to anything</b>, and their ends are not this rule's
-    /// subject: a deck is one straight span between its own two bridgeheads (GEN-14a) and a ring is one
+    /// subject: a deck is one span between its own two bridgeheads (GEN-14a) and a ring is one
     /// junction laid out as a circle (GEN-19), so each end of each is a place the carriageway itself
     /// changes rather than a place the town's arithmetic stopped a line. It is the same reason
     /// <c>TownLayout.IsALeaf</c> will not prune a ring node.
@@ -163,17 +181,16 @@ internal static class ThroughRoads
     /// <para>
     /// <b>Everything else is joined, whatever it is.</b> A street and an arterial come out as the arterial
     /// (<see cref="TownLayout.Precedence"/>, GEN-16), a carriageway being the width its ways make it
-    /// whatever class it is (GEN-15) so that the class decides only how far the road may wander. A street
-    /// the scatter took one way is joined on the same terms: the traffic through has to agree either way,
-    /// and what keeps GEN-18 true is that a road which later comes apart runs both ways again
-    /// (<see cref="TownLayout.Join"/>).
+    /// whatever class it is (GEN-15) so that the class decides only how far the road may wander. Every road
+    /// runs both ways here — the one-way scatter is laid after (<see cref="OneWayStreets"/>) — and the traffic
+    /// test below is what keeps a run whose ways disagree apart all the same.
     /// </para>
     /// </remarks>
     static bool OneRoad(TownLayout layout, int node, int one, int other)
     {
         var a = layout.Edges[one];
         var b = layout.Edges[other];
-        if (NeverJoined(a.Class) || NeverJoined(b.Class)) return false;
+        if (NeverJoined(a) || NeverJoined(b)) return false;
 
         // <b>Where the carriageway changes is a junction</b> (GEN-67), and an intercity road is never anything else
         // carrying on (GEN-68): joined into a street, the street would be met by what may not meet the other.
@@ -190,10 +207,11 @@ internal static class ThroughRoads
     }
 
     /// <summary>
-    /// A class of road whose ends are not places the town's arithmetic happened to stop a line, so they are
-    /// junctions however few arms they carry.
+    /// A road whose ends are not places the town's arithmetic happened to stop a line, so they are junctions however few
+    /// arms they carry: a bridge, a ring piece, a slip road, and a road carried over what it crosses — whose ends are where
+    /// it leaves the ground (GEN-68).
     /// </summary>
-    static bool NeverJoined(RoadClass roadClass) => roadClass is RoadClass.Bridge or RoadClass.Roundabout;
+    static bool NeverJoined(in LayoutEdge road) => road.Class is RoadClass.Bridge or RoadClass.Roundabout or RoadClass.Slip || road.Over;
 
     /// <summary>Which of two classes the road joined out of them is, which is the one the other gives way to.</summary>
     static RoadClass Keeps(RoadClass one, RoadClass other) =>
@@ -276,6 +294,7 @@ internal static class ThroughRoads
         }
 
         return new LayoutEdge(
-            start, nodes[^1], roadClass, 0f, RoadFlow.BothWays, [.. throughM], straightM > wanderingM, was[run[0]].Lanes);
+            start, nodes[^1], roadClass, 0f, RoadFlow.BothWays, [.. throughM], straightM > wanderingM, was[run[0]].Lanes,
+            was[run[0]].Unwalked);
     }
 }

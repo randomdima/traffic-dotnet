@@ -32,7 +32,7 @@ public class LampSpriteTests
     /// <summary>One car with everything lit: braking, pulling round to its right, under a priority.</summary>
     static CarFleet Lit(int variant)
     {
-        var fleet = new CarFleet(1, arcsPerCar: 1, CarBuilds.OfTheFleet(Config, Catalogue));
+        var fleet = new CarFleet(1, arcsPerCar: 1, CarBuilds.OfTheFleet(Config, Catalogue), Config.Patience.FuseJitterShare);
         fleet.Add(new Vector2(20f, 5f), HeadingRad, (byte)variant, backsIntoBays: false, new Rng(1, 1));
         fleet.Driven[0] = true;
         fleet.Command[0] = new DriveCommand(0f, 0f, 4f, false, false);

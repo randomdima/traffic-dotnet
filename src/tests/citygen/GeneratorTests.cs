@@ -826,8 +826,8 @@ public class GeneratorTests
     /// <b>Asked of the deflection alone, and of the junctions GEN-51 does not exempt.</b> Every reason a
     /// junction of two arms may stand between two ordinary roads is a corner — the place a loop was
     /// shortened at, or the place a joined road the stage would not lay was cut in two — and a corner
-    /// deflects. A bridgehead and a ring node are the two that need not, being where the carriageway itself
-    /// changes, and the rule names both.
+    /// deflects. A bridgehead, a ring node and a place the lanes change are the three that need not, being where
+    /// the carriageway itself changes, and the rule names all three.
     /// </remarks>
     [Theory]
     [MemberData(nameof(Seeds))]
@@ -843,8 +843,9 @@ public class GeneratorTests
         }
 
         var arms = new List<float>[plan.Junctions.Count];
+        var lanes = new List<int>[plan.Junctions.Count];
         var ordinaryArms = new int[plan.Junctions.Count];
-        for (var junction = 0; junction < arms.Length; junction++) arms[junction] = [];
+        for (var junction = 0; junction < arms.Length; junction++) (arms[junction], lanes[junction]) = ([], []);
 
         for (var road = 0; road < plan.Roads.Count; road++)
         {
@@ -856,13 +857,14 @@ public class GeneratorTests
                          (plan.Roads.ToJunction[road], chain[^1].HeadingAtRad(chain[^1].LengthM) + MathF.PI)])
             {
                 arms[junction].Add(bearingRad);
+                lanes[junction].Add(plan.Roads.LanesOn(road));
                 if (ordinary[road]) ordinaryArms[junction]++;
             }
         }
 
         for (var junction = 0; junction < arms.Length; junction++)
         {
-            if (arms[junction].Count != 2 || ordinaryArms[junction] != 2) continue;
+            if (arms[junction].Count != 2 || ordinaryArms[junction] != 2 || lanes[junction][0] != lanes[junction][1]) continue;
 
             var throughRad = MathF.PI - MathF.Abs(Spline.WrapRad(arms[junction][0] - arms[junction][1]));
             Assert.True(
@@ -938,7 +940,7 @@ public class GeneratorTests
     }
 
     /// <summary>
-    /// <b>A bridge is one straight span no longer than the deck a town builds, and the deck is the whole of
+    /// <b>A bridge over water is one straight span no longer than the deck a town builds, and the deck is the whole of
     /// it</b> (GEN-14a, TER-3b) — so what it carries reaches standable ground at both ends.
     /// </summary>
     [Theory]
@@ -948,6 +950,8 @@ public class GeneratorTests
         var plan = Lay(Brief(seed));
         for (var bridge = 0; bridge < plan.Bridges.Count; bridge++)
         {
+            if (plan.Roads.Class[plan.Bridges.Road[bridge]] != RoadClass.Bridge) continue;
+
             var chain = plan.Roads.SegmentsOf(plan.Bridges.Road[bridge]);
             var lengthM = Spline.TotalLengthM(chain);
 
@@ -959,6 +963,46 @@ public class GeneratorTests
             Assert.Equal(0f, plan.Bridges.FromM[bridge]);
             Assert.Equal(lengthM, plan.Bridges.ToM[bridge], 0.01f);
         }
+    }
+
+    /// <summary>
+    /// <b>A bridgehead nothing else meets is no junction</b> (GEN-14a): the span and the one road carrying it on meet on
+    /// one line, with only the handover between their lanes and no junction's ground round it.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void ABridgeheadNothingElseMeetsIsNoJunction(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        var roads = plan.Roads;
+        var arms = new int[plan.Junctions.CentreM.Length];
+        for (var road = 0; road < roads.Count; road++) (arms[roads.FromJunction[road]], arms[roads.ToJunction[road]]) = (arms[roads.FromJunction[road]] + 1, arms[roads.ToJunction[road]] + 1);
+
+        var joints = 0;
+        foreach (var deck in plan.Bridges.Road)
+        {
+            foreach (var junction in (ReadOnlySpan<int>)[roads.FromJunction[deck], roads.ToJunction[deck]])
+            {
+                if (arms[junction] != 2) continue;
+
+                var onward = Enumerable.Range(0, roads.Count).Single(road => road != deck && (roads.FromJunction[road] == junction || roads.ToJunction[road] == junction));
+                var turnRad = MathF.Abs(Spline.WrapRad(Rad(Leaving(roads, deck, junction)) - Rad(-Leaving(roads, onward, junction))));
+                joints++;
+
+                Assert.Equal(Config.CityGen.BridgeheadStandoffM, plan.Junctions.RadiusM[junction]);
+                Assert.True(turnRad <= RoadStage.CreaseRad(Config), $"bridgehead {junction} at {plan.Junctions.CentreM[junction]} turns {float.RadiansToDegrees(turnRad):F2}° off the span");
+            }
+        }
+
+        Assert.True(joints > 0, "the suite's town lays no bridgehead");
+
+        static Vector2 Leaving(CityPlan.RoadArrays roads, int road, int junction)
+        {
+            var chain = roads.SegmentsOf(road);
+            return roads.FromJunction[road] == junction ? chain[0].StartUnit : -Heading.Unit(chain[^1].HeadingAtRad(chain[^1].LengthM));
+        }
+
+        static float Rad(Vector2 unit) => MathF.Atan2(unit.Y, unit.X);
     }
 
     /// <summary>

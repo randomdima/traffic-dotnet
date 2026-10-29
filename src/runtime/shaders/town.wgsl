@@ -22,6 +22,9 @@ struct Camera {
     turning: vec4f,
     // The car bodies' sheets from and past, and the height their tilt is seen from (CameraView.CarTilt, CAR-56).
     carTilt: vec4f,
+    // How a selected unit's ring is drawn (CameraView.Rings, RingLook): its two hues and its edge's, each four bytes,
+    // then its width and the edge's in interface pixels as two halves.
+    rings: vec4u,
     // The clouds' shadows (CameraView.Clouds), which a page does not draw: here so what follows lands where it is written.
     cloudField: vec4f,
     cloudLook: vec4f,
@@ -300,11 +303,17 @@ fn scatterFrom(corner: vec2i, salt: u32) -> vec2f {
     return vec2f(f32(h & 0xffffu), f32(h >> 16u)) / 65536.0;
 }
 
-// How a shade is filed, said again from GroundVertex: three channels of nine bits up to the brightest
-// tint, and the surface in the five above them, paint filed as the last of those.
+// How a shade is filed, said again from GroundVertex: three channels up to the brightest tint, nine bits, nine and
+// eight, and the surface in the six above them, paint filed as the last of those.
 const BRIGHTEST_TINT: f32 = 3.0;
 const CHANNEL_STEPS: u32 = 511u;
-const PAINT_FILED: u32 = 31u;
+const THIRD_STEPS: u32 = 255u;
+const SURFACE_SHIFT: u32 = 26u;
+const PAINT_FILED: u32 = 63u;
+// The shoulder beside a road with no walk (GEN-75): the walk's periods, patches and array, read at the looks laid after
+// the walk's own (Surface.Shoulder).
+const SHOULDER: u32 = 16u;
+const LATER_LOOKS: u32 = 2u;
 
 // The track's strip files where on it a corner stands in place of a tint, said again from GroundVertex.OnTheTrack:
 // pictures along in eighteen bits of 256 steps each, and across in the nine above them.
@@ -324,10 +333,10 @@ const BRIDGE_LAST: u32 = 15u;
 const PAVEMENT: u32 = 2u;
 // A surface fading out over the ground before it files its number with this bit, and how much it covers in place of
 // its tint (GroundVertex.Fading).
-const FADING_FILED: u32 = 16u;
+const FADING_FILED: u32 = 32u;
 const TRACK_STEPS_PER_PICTURE: f32 = 256.0;
 const ALONG_STEPS: u32 = 262143u;
-const ACROSS_STEPS: f32 = 511.0;
+const ACROSS_STEPS: f32 = 255.0;
 
 /// A corner carries its place and one word of shade and surface; its texture coordinate is its place over
 /// its surface's period, which anchors every surface to the world origin.
@@ -339,7 +348,7 @@ fn groundVertex(
     var result: GroundOut;
     result.position = toClip(positionM);
 
-    var filed = shade >> 27u;
+    var filed = shade >> SURFACE_SHIFT;
     result.patchAt = vec2f(0.0);
     result.patchField = camera.patchField.xy;
     result.patchLook = vec4f(0.0);
@@ -349,14 +358,14 @@ fn groundVertex(
     result.drift = vec4f(0.0);
     result.waveRad = vec3f(0.0);
     if (filed >= BRIDGE_FIRST && filed <= BRIDGE_LAST) {
-        result.uv = vec2f(f32(shade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, f32((shade >> 18u) & CHANNEL_STEPS) / ACROSS_STEPS);
+        result.uv = vec2f(f32(shade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, f32((shade >> 18u) & THIRD_STEPS) / ACROSS_STEPS);
         result.tint = vec3f(1.0);
         result.surface = filed;
         return result;
     }
 
     if (filed == TRACK || filed == KERB || filed == EDGING) {
-        let strip = vec2f(f32(shade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, f32((shade >> 18u) & CHANNEL_STEPS) / ACROSS_STEPS);
+        let strip = vec2f(f32(shade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, f32((shade >> 18u) & THIRD_STEPS) / ACROSS_STEPS);
         // A kerb's picture has its low side at the bottom: the town's kerb drops to the road on the right of its line,
         // the walk's to the grass on the left.
         result.uv = select(strip, vec2f(strip.x, 1.0 - strip.y), filed == EDGING);
@@ -370,24 +379,29 @@ fn groundVertex(
         return result;
     }
 
-    result.tint = vec3f(vec3u(shade, shade >> 9u, shade >> 18u) & vec3u(CHANNEL_STEPS)) * (BRIGHTEST_TINT / f32(CHANNEL_STEPS));
+    result.tint = vec3f(
+        f32(shade & CHANNEL_STEPS) / f32(CHANNEL_STEPS), f32((shade >> 9u) & CHANNEL_STEPS) / f32(CHANNEL_STEPS),
+        f32((shade >> 18u) & THIRD_STEPS) / f32(THIRD_STEPS)) * BRIGHTEST_TINT;
     if (filed != PAINT_FILED && (filed & FADING_FILED) != 0u) {
         filed &= ~FADING_FILED;
         result.cover = result.tint.x / BRIGHTEST_TINT;
         result.tint = vec3f(1.0);
     }
 
-    if (filed <= 4u) {
-        result.patchLook = camera.patchLook[filed];
-    } else if (filed == SHORE) {
+    // Whose periods and patches the surface takes: its own, or the walk's for the looks laid after the walk's.
+    let looks = select(filed, PAVEMENT, filed == SHOULDER);
+
+    if (looks <= 4u) {
+        result.patchLook = camera.patchLook[looks];
+    } else if (looks == SHORE) {
         result.patchLook = camera.patchLook[SHORE_ROW];
     }
 
     var period = 1.0;
     var perAcross = 0.0;
-    if (filed < 4u) {
-        period = camera.surfacePeriodsM[filed];
-        perAcross = camera.patchPerAcross[filed];
+    if (looks < 4u) {
+        period = camera.surfacePeriodsM[looks];
+        perAcross = camera.patchPerAcross[looks];
     } else if (filed == 4u) {
         period = camera.waterPeriodM.x;
         perAcross = camera.patchPerAcrossWet.x;
@@ -534,14 +548,16 @@ fn groundFragment(frag: GroundOut) -> @location(0) vec4f {
         wave = waveHeight(frag, waveWidthRad, lumps);
         uv += wave * vec2f(camera.waveNumberXPerM.w, camera.waveNumberYPerM.w) / camera.waterPeriodM.x;
     }
+    let looksOf = select(frag.surface, PAVEMENT, frag.surface == SHOULDER);
+    let first = select(0u, LATER_LOOKS, frag.surface == SHOULDER);
     var ground = vec3f(0.0);
     if (second < 1.0) {
         ground += (1.0 - second) * scattered(
-            frag.surface, uv - frag.drift.xy, 0u, frag.scatter, SCATTER_SALT + 2u * frag.surface, ddx, ddy);
+            looksOf, uv - frag.drift.xy, first, frag.scatter, SCATTER_SALT + 2u * frag.surface, ddx, ddy);
     }
     if (second > 0.0) {
         ground += second * scattered(
-            frag.surface, uv - frag.drift.zw, 1u, frag.scatter, SCATTER_SALT + 2u * frag.surface + 1u, ddx, ddy);
+            looksOf, uv - frag.drift.zw, first + 1u, frag.scatter, SCATTER_SALT + 2u * frag.surface + 1u, ddx, ddy);
     }
     // Blended, and opaque everywhere but where a surface fades out over the ground before it (GroundVertex.Fading).
     var colour = ground * patchTint(lumps, frag.patchLook) * frag.tint * (1.0 + wave * camera.waveLook.x);
@@ -570,7 +586,18 @@ struct SpriteOut {
     @location(4) local: vec2f,
     @location(6) @interpolate(flat) turns: f32,
     @location(7) @interpolate(flat) look: f32,
+    // A ring round the picture (quad.glsl's): its cell on its page; its width, its edge's outer width and an interface
+    // pixel on the page; its hue and its edge's.
+    @location(5) @interpolate(flat) ringCell: vec4f,
+    @location(8) @interpolate(flat) ring: vec4f,
+    @location(9) @interpolate(flat) ringHue: vec4f,
+    @location(10) @interpolate(flat) edgeHue: vec4f,
 };
+
+// SpriteInstance.RingShift and SpriteRing.Selected, said again.
+const RING_SHIFT: u32 = 14u;
+const SHEET_MASK: u32 = (1u << RING_SHIFT) - 1u;
+const RING_SELECTED: u32 = 1u;
 
 @vertex
 fn spriteVertex(
@@ -584,9 +611,36 @@ fn spriteVertex(
     @location(4) tint: vec4f,
     @location(5) sheetId: vec2u,
 ) -> SpriteOut {
-    let sheet = sheetId.x;
+    let ringKind = sheetId.x >> RING_SHIFT;
+    let sheet = sheetId.x & SHEET_MASK;
     let at = corner(vertex);
-    var fromCentreM = (at * 2.0 - 1.0) * halfSizeM;
+    let side = at * 2.0 - 1.0;
+    let place = sheets.place[sheet];
+
+    var result: SpriteOut;
+    result.ringCell = vec4f(0.0);
+    result.ring = vec4f(0.0);
+    result.ringHue = vec4f(0.0);
+    result.edgeHue = vec4f(0.0);
+
+    // A ringed quad grown by the ring's widths, its cell read past its edges there (quad.glsl's quadEmit).
+    var grownM = halfSizeM;
+    var cellAt = at;
+    if (ringKind != 0u) {
+        let widthsPx = unpack2x16float(camera.rings.w);
+        let outerPx = widthsPx.x + widthsPx.y;
+        let pxPerM = abs(camera.clipPerM.x) * camera.uiPx.x * 0.5;
+        grownM = halfSizeM + vec2f(outerPx / pxPerM);
+        cellAt = 0.5 + side * grownM / (2.0 * halfSizeM);
+        let cellUv = place.originScale.zw / vec2f(cell.zw);
+        let cellFrom = place.originScale.xy + vec2f(cell.xy) * cellUv;
+        result.ringCell = vec4f(cellFrom, cellFrom + cellUv);
+        result.ring = vec4f(widthsPx.x, outerPx, cellUv / (2.0 * halfSizeM * pxPerM));
+        result.ringHue = unpack4x8unorm(select(camera.rings.y, camera.rings.x, ringKind == RING_SELECTED));
+        result.edgeHue = unpack4x8unorm(camera.rings.z);
+    }
+
+    var fromCentreM = side * grownM;
 
     // A car body tilted on its springs (quad.glsl's quadEmit, CAR-56).
     var depth = 1.0;
@@ -601,10 +655,8 @@ fn spriteVertex(
     let along = vec2f(cos(headingRad), sin(headingRad));
     let across = vec2f(-along.y, along.x);
 
-    let place = sheets.place[sheet];
-    let uv = (vec2f(cell.xy) + at) / vec2f(cell.zw);
+    let uv = (vec2f(cell.xy) + cellAt) / vec2f(cell.zw);
 
-    var result: SpriteOut;
     result.position = toClip(centreM + along * fromCentreM.x + across * fromCentreM.y) * depth;
     result.uv = vec3f(place.originScale.xy + uv * place.originScale.zw, place.layerSize.x);
     result.tint = tint;
@@ -630,16 +682,63 @@ fn spriteFragment(frag: SpriteOut) -> @location(0) vec4f {
         }
     }
 
+    // A ringed quad is grown past its cell, where the page holds another picture.
+    let ringed = frag.ring.y > 0.0;
+    if (ringed && !ringInCell(frag, frag.uv.xy)) {
+        texel = vec4f(0.0);
+    }
+    var ring = vec4f(0.0);
+    if (ringed) {
+        ring = ringAt(frag, frag.uv.xy);
+    }
+
     // The art is keyed, so most of every cell is nothing at all; discarding it keeps the blend from
     // laying a rectangle of near-zero alpha over whatever the sprite is standing on.
-    if (texel.a < 0.004) {
+    if (texel.a < 0.004 && ring.a < 0.004) {
         discard;
     }
 
     // Premultiplied, blended one over one-minus-src-alpha (town.js): laid over at its alpha, or — a sheet of light,
-    // its coverage nought — summed onto what is under it.
+    // its coverage nought — summed onto what is under it. The ring lies under the picture's own fringe.
     let alpha = texel.a * frag.tint.a;
-    return vec4f(texel.rgb * frag.tint.rgb * alpha, alpha * (1.0 - frag.light));
+    return vec4f(texel.rgb * frag.tint.rgb * alpha, alpha * (1.0 - frag.light)) + ring * (1.0 - alpha);
+}
+
+// sprite.frag's ring, said again: solid is most of opaque, as SheetOutline takes it.
+const RING_FAINT_ALPHA: f32 = 0.5;
+const RING_SOLID_ALPHA: f32 = 0.9;
+const RING_WAY_RAD: f32 = 0.78539816;
+
+fn ringInCell(frag: SpriteOut, uv: vec2f) -> bool {
+    return all(uv >= frag.ringCell.xy) && all(uv <= frag.ringCell.zw);
+}
+
+// How solid the picture is at `uv` on its page, and nothing past its own cell.
+fn ringSolidAt(frag: SpriteOut, uv: vec2f) -> f32 {
+    if (!ringInCell(frag, uv)) {
+        return 0.0;
+    }
+
+    let alpha = textureSampleLevel(pages, clamped, uv, i32(frag.uv.z), 0.0).a;
+    return smoothstep(RING_FAINT_ALPHA, RING_SOLID_ALPHA, alpha);
+}
+
+// The ring, premultiplied: the hue within its width of the solid part, the edge's within the outer width, eight ways in
+// the quad's own axes, and none of it over the picture itself.
+fn ringAt(frag: SpriteOut, uv: vec2f) -> vec4f {
+    var nearHue = 0.0;
+    var nearEdge = 0.0;
+    for (var way = 0; way < 8; way++) {
+        let wayRad = f32(way) * RING_WAY_RAD;
+        let stepUv = vec2f(cos(wayRad), sin(wayRad)) * frag.ring.zw;
+        nearHue = max(nearHue, max(ringSolidAt(frag, uv + stepUv * frag.ring.x), ringSolidAt(frag, uv + stepUv * frag.ring.x * 0.5)));
+        nearEdge = max(nearEdge, ringSolidAt(frag, uv + stepUv * frag.ring.y));
+    }
+
+    let outside = 1.0 - ringSolidAt(frag, uv);
+    let hue = frag.ringHue.a * nearHue * outside;
+    let edge = frag.edgeHue.a * max(nearHue, nearEdge) * outside * (1.0 - hue);
+    return vec4f(frag.ringHue.rgb * hue + frag.edgeHue.rgb * edge, hue + edge);
 }
 
 struct OverlayOut {

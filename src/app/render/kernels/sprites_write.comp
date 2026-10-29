@@ -101,9 +101,10 @@ void main()
         draws[1] = SpriteDraw(SpriteQuadCorners, min(total - overTotal, figures.roomAbove), 0u, 0u);
     }
 
+    // A walker is built aside, and sprites_order.comp puts it where it is drawn among the others (PER-31).
     if (unit < figures.personCapacity)
     {
-        if (countAt(unit) != 0u) put(RunOver, starts[unit], spritesPerson(unit));
+        if (countAt(unit) != 0u) walkersShown[starts[unit]] = spritesPerson(unit);
         return;
     }
 

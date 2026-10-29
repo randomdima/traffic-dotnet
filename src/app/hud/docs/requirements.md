@@ -107,7 +107,7 @@ fast, what is claimed in front of it, how much room that leaves, how much of its
 the run's watches have against it.
 
 - **Nothing about a unit is written on the town** (`CTL-1`). What stands at the unit is the mark and only
-  the mark, and which unit the corner means is never in doubt, because the brackets are on it and the
+  the mark, and which unit the corner means is never in doubt, because the ring is on it and the
   camera can be stood on it (`OBS-1a`).
 - **A group is counted, not described** (`CTL-1b`): how many of each kind, and nothing else.
 - **It does not need the unit on the picture.** Somebody indoors or riding is not drawn (`PHY-7`), and a

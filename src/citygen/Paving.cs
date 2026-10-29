@@ -19,9 +19,9 @@ namespace TrafficSimulation.CityGen;
 /// read one list.
 /// </para>
 /// <para>
-/// <b>The pavement is the ground within one figure of the driven ground's boundary, and it is nothing
-/// else</b> (TER-3c.3, <see cref="GroundRings"/>): the boundary moved by a kerb and a walk and filled whole,
-/// with the carriageway laid back over what it covers. The town's kerb is struck along the boundary and the
+/// <b>The pavement is the ground within one figure of the walked roads' boundary, and it is nothing
+/// else</b> (TER-3c.3, GEN-75, <see cref="GroundRings"/>, <see cref="Walked"/>): that boundary moved by a kerb and a walk
+/// and filled whole, with the carriageway laid back over what it covers. The town's kerb is struck along the boundary and the
 /// walk's own kerb along the outer face, and the walking lanes are struck off the same boundary at their
 /// own distances (<see cref="SimConfig.WalkingLaneAtM"/>).
 /// </para>
@@ -162,6 +162,52 @@ internal sealed class Paving
         lock (_laying) return _perimeter ??= LaneShell.Of(this, config, CityPlan.RoadArrays.Ground);
     }
 
+    BandShell? _walked;
+
+    /// <summary>
+    /// <b>The outside of the driven ground a walk is struck off</b> (GEN-75, TER-7b): <see cref="Perimeter"/> without
+    /// the roads that have no walk beside them (<see cref="CityPlan.RoadArrays.Unwalked"/>) — the same shell where every
+    /// road is walked. Laid on the first ask.
+    /// </summary>
+    /// <remarks>
+    /// <b>The walk is never struck off the whole and cut back</b>: what is not walked is not handed to the merge, so a
+    /// walk ends where its road's ground ends, round the corner a walked road turns onto one that is not
+    /// (<see cref="LaneShell.Of"/>).
+    /// </remarks>
+    public BandShell Walked(SimConfig config)
+    {
+        if (Of.Roads.Unwalked.Length == 0) return Perimeter(config);
+
+        lock (_laying) return _walked ??= LaneShell.Of(this, config, CityPlan.RoadArrays.Ground, ShellOf.Walked);
+    }
+
+    BandShell? _walkedCourses;
+
+    /// <summary>
+    /// <b>The outside of the driven ground the walk's lanes are struck off</b> (GEN-75): <see cref="Walked"/>, but run on
+    /// across the crossing where a walk ends at one (<see cref="ShellOf.WalkedCourses"/>), so a lane passes the zebra
+    /// the walk itself ends at. The same shell where every road is walked. Laid on the first ask.
+    /// </summary>
+    public BandShell WalkedCourses(SimConfig config)
+    {
+        if (Of.Roads.Unwalked.Length == 0) return Perimeter(config);
+
+        lock (_laying) return _walkedCourses ??= LaneShell.Of(this, config, CityPlan.RoadArrays.Ground, ShellOf.WalkedCourses);
+    }
+
+    BandShell? _unwalked;
+
+    /// <summary>
+    /// <b>The outside of the roads with no walk</b> (GEN-75): their lanes and the movements between them, which the
+    /// shoulder beside them is struck off — or none, where every road is walked. Laid on the first ask.
+    /// </summary>
+    public BandShell? Unwalked(SimConfig config)
+    {
+        if (Of.Roads.Unwalked.Length == 0) return null;
+
+        lock (_laying) return _unwalked ??= LaneShell.Of(this, config, CityPlan.RoadArrays.Ground, ShellOf.Unwalked);
+    }
+
     ArcSeg[][]? _above;
 
     /// <summary>
@@ -217,7 +263,7 @@ internal sealed class Paving
     /// </remarks>
     public GroundRings Rings(SimConfig config)
     {
-        lock (_laying) return _rings ??= GroundRings.Of(Perimeter(config), config);
+        lock (_laying) return _rings ??= GroundRings.Of(Perimeter(config), Walked(config), Unwalked(config), config);
     }
 
     /// <summary>

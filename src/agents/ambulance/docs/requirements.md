@@ -11,7 +11,7 @@ drives what every car drives** ([agents/car](../../car/docs/requirements.md) `CA
 
 **AMB-1** `P4` Some of a town's buildings are **hospitals**. Which ones is **declared by the map** (GEN-9),
 never by behaviour and never by a run, so a map's hospitals are the same every time it is opened. Every
-district of a town with a building on it has one (GEN-56).
+district of a town with a building on it is served by one, each hospital serving a catchment of districts (GEN-56).
 
 **AMB-1a** `P6` A hospital **wears the hospital's own roof**, and no other building may. The roof is fitted
 inside whatever plot the map chose rather than matched by size, and it is kept out of the catalogue an

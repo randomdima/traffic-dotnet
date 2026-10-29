@@ -16,8 +16,8 @@ using TrafficSimulation.Runtime;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Terrain;
+using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Main;
 
@@ -396,6 +396,9 @@ internal static class Program
             case "shape":
                 TownShape.Run(map ?? Options.FixtureMap, config);
                 return 0;
+            case "form":
+                TownForm.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "fidelity":
                 TracedFidelity.Run(map ?? Options.TracedMap, config, atM);
                 return 0;
@@ -555,7 +558,7 @@ internal static class Program
     }
 
     /// <summary>
-    /// The town as data: laid from the brief all four engines are handed, classified, and triangulated.
+    /// The town as data: laid from its brief, classified, and triangulated.
     /// What it is made of is <c>--bench census</c>.
     /// </summary>
     static void ReportTown(string map, SimConfig config)
@@ -621,11 +624,12 @@ internal static class Program
                 $"{read.Name}: {read.WidthM / 1000f:F1} x {read.HeightM / 1000f:F1} km, authored in {clock.Elapsed.TotalSeconds:F1} s\n" +
                 $"  water      {(read.Sea is null ? "no sea" : "a sea")}, {rivers} rivers and tributaries\n" +
                 $"  railways   {town.Connectors.Tracks.Line.Distinct().Count()} of {read.Connectors.Railways}\n" +
-                $"  intercity  {town.Connectors.Roads.Count} of {read.Connectors.IntercityRoads}, core at ({town.Connectors.CoreM.X:F0}, {town.Connectors.CoreM.Y:F0})\n" +
+                $"  intercity  {town.Connectors.Roads.Count} of {(town.Connectors.BypassM > 0f ? $"{(read.Connectors.IntercityRoads + 1) / 2} passing the town" : read.Connectors.IntercityRoads)}, core at ({town.Connectors.CoreM.X:F0}, {town.Connectors.CoreM.Y:F0})\n" +
+                $"  bypass     {(town.Connectors.BypassM <= 0f ? "none asked" : $"each passes the core at {town.Connectors.BypassM:F0} m, edge to edge")}\n" +
                 $"  crossings  {town.Connectors.Bridges.Count} bridge sites, {town.Connectors.LevelCrossings.Count} level-crossing sites\n" +
                 $"  districts  {town.Partition.Count}, {(areasKm2.Length == 0 ? "none" : $"{areasKm2.Min():F2}–{areasKm2.Max():F2} km² ({areasKm2.Average():F2} on average)")}");
             // What the streets came to: the districts any of the town's own streets stand in once it is laid.
-            var laid = TownGen.Lay(town, config, World.Statics.ShippedArt.Sizes.Buildings, static _ => { });
+            var laid = TownGen.Lay(town, config, ShippedArt.Sizes.Buildings, static _ => { });
             var withStreets = new HashSet<int>();
             for (var road = 0; road < laid.Roads.Roads.Count; road++)
             {
@@ -652,6 +656,11 @@ internal static class Program
                 $"  junctions  {arms.Count(count => count == 3)} of three arms, {arms.Count(count => count >= 4)} of four or more, " +
                 $"{laid.Roads.Junctions.Lit.Count(lit => lit)} lit; {roads.Flow.Count(flow => flow != RoadFlow.BothWays)} one-way roads");
             Console.WriteLine($"  main roads {MainNetworks(roads, arms.Length)} networks (GEN-69 asks one)");
+            if (town.Connectors.BypassM > 0f)
+            {
+                var railways = town.Connectors.Roads.Sum(road => road.Crossed.Count(crossing => !crossing.Bridge));
+                Console.WriteLine($"  intercity  {Interchanges(roads, arms.Length)}, of {railways} railway crossings routed");
+            }
             if (read.Roster.Buildings > 0)
             {
                 var yards = new List<string>();
@@ -664,17 +673,19 @@ internal static class Program
                         if (laid.CarParks.For[park] == use) laidFor.Add(laid.CarParks.District[park]);
                     }
 
-                    yards.Add($"{laidFor.Count} {use}");
-                    for (var district = 0; district < laid.Districts.Count; district++)
+                    var serving = ServiceBuildings.Serving(use, read.Roster.Buildings, laid.Districts, config.CityGen);
+                    yards.Add($"{laidFor.Count} of {serving.Count} {use}");
+                    foreach (var district in serving)
                     {
-                        if (laid.Districts.Built(district) && !laidFor.Contains(district))
+                        if (!laidFor.Contains(district))
                         {
-                            missing.Add($"{use} in {district} at ({town.Partition.CentreM[district].X:F0}, {town.Partition.CentreM[district].Y:F0}) {town.Partition.AreaM2[district] / 1e6f:F2} km²");
+                            var handed = laidFor.Count >= serving.Count ? ", its catchment's handed on" : "";
+                            missing.Add($"{use} in {district} at ({town.Partition.CentreM[district].X:F0}, {town.Partition.CentreM[district].Y:F0}) {town.Partition.AreaM2[district] / 1e6f:F2} km²{handed}");
                         }
                     }
                 }
 
-                Console.WriteLine($"  services   {string.Join(", ", yards)} yards, of {laid.Districts.BuiltCount} districts with streets each (GEN-56)");
+                Console.WriteLine($"  services   {string.Join(", ", yards)} yards, serving {laid.Districts.BuiltCount} districts with streets (GEN-56)");
                 foreach (var yard in missing) Console.WriteLine($"             no {yard}");
             }
 
@@ -685,6 +696,34 @@ internal static class Program
         }
 
         return 0;
+    }
+
+    /// <summary>
+    /// <b>What a bypassed town's intercity roads meet</b> (GEN-68): the roads carried over them and over the railways, the
+    /// slip roads, and the junctions an intercity road runs through that something other than a slip road meets — none asked.
+    /// </summary>
+    static string Interchanges(CityPlan.RoadArrays roads, int junctions)
+    {
+        var (overRoads, overRails, slips) = (0, 0, 0);
+        var (through, other) = (new int[junctions], new bool[junctions]);
+        for (var road = 0; road < roads.Count; road++)
+        {
+            var roadClass = roads.Class[road];
+            if (roads.LevelOf(road) == CityPlan.RoadArrays.Over)
+            {
+                if (roadClass == RoadClass.Intercity) overRails++;
+                else overRoads++;            }
+
+            if (roadClass == RoadClass.Slip) slips++;
+            foreach (var junction in (ReadOnlySpan<int>)[roads.FromJunction[road], roads.ToJunction[road]])
+            {
+                if (roadClass == RoadClass.Intercity) through[junction]++;
+                else if (roadClass is not (RoadClass.Slip or RoadClass.Bridge)) other[junction] = true;
+            }
+        }
+
+        var atGrade = Enumerable.Range(0, junctions).Count(junction => through[junction] >= 2 && other[junction]);
+        return $"{overRoads} roads carried over, {slips} slip roads, {overRails} spans over a railway; {atGrade} junctions on one met by anything but a slip road (GEN-68 asks none)";
     }
 
     /// <summary>How many networks the roads that are no district's own make: every road but a street and a car park's.</summary>
@@ -782,8 +821,7 @@ internal static class Program
         public const string BotEyeFrames = ".tmp/bot";
 
         /// <summary>
-        /// The words the other engines use: <c>--size W H</c>, <c>--map</c> and <c>--shot</c> are
-        /// <c>traffic-native</c>'s, so a command line reads the same at both. <c>--shot</c> opens no
+        /// The words a command line is made of. <c>--shot</c> opens no
         /// window at all; <c>--seconds</c> closes the one <c>--map</c> opens, for a run nobody is
         /// sitting in front of; <c>--view</c> opens on a named span in metres and <c>--turn</c> stages
         /// the frame turned by a named angle (OBS-1c), which is how a turned town is photographed and

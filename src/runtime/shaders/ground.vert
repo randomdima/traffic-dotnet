@@ -40,12 +40,17 @@ layout(location = 9) flat out vec4 outDrift;
 // Each wave train's phase at the corner, linear in its place so the interpolation is exact. Nought off the water.
 layout(location = 10) out vec3 outWaveRad;
 
-// How a shade is filed, said again from GroundVertex: three channels of nine bits up to the brightest
-// tint, and the surface in the five above them, paint filed as the last of those.
+// How a shade is filed, said again from GroundVertex: three channels up to the brightest tint, nine bits, nine and
+// eight, and the surface in the six above them, paint filed as the last of those.
 const float BRIGHTEST_TINT = 3.0;
 const uint CHANNEL_STEPS = 511u;
-const uint PAINT_FILED = 31u;
+const uint THIRD_STEPS = 255u;
+const uint SURFACE_SHIFT = 26u;
+const uint PAINT_FILED = 63u;
 const uint PAINT = 255u;
+// The shoulder beside a road with no walk (GEN-75): the walk's periods and patches, read at the looks laid after the
+// walk's own (Surface.Shoulder).
+const uint SHOULDER = 16u;
 
 // The track's strip files where on it a corner stands in place of a tint, said again from GroundVertex.OnTheTrack:
 // pictures along in eighteen bits of 256 steps each, and across in the nine above them.
@@ -64,16 +69,16 @@ const uint BRIDGE_FIRST = 10u;
 const uint BRIDGE_LAST = 15u;
 // A surface fading out over the ground before it files its number with this bit, and how much it covers in place of
 // its tint (GroundVertex.Fading).
-const uint FADING_FILED = 16u;
+const uint FADING_FILED = 32u;
 const float TRACK_STEPS_PER_PICTURE = 256.0;
 const uint ALONG_STEPS = 262143u;
-const float ACROSS_STEPS = 511.0;
+const float ACROSS_STEPS = 255.0;
 
 void main() {
     // +y is down in the world and +y is down in Vulkan's clip space, so nothing is flipped anywhere.
     gl_Position = toClip(inPositionM);
 
-    uint filed = inShade >> 27;
+    uint filed = inShade >> SURFACE_SHIFT;
     outPatchAt = vec2(0.0);
     outPatchField = camera.patchField.xy;
     outCover = 1.0;
@@ -82,7 +87,7 @@ void main() {
     outDrift = vec4(0.0);
     outWaveRad = vec3(0.0);
     if (filed >= BRIDGE_FIRST && filed <= BRIDGE_LAST) {
-        outUv = vec2(float(inShade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, float((inShade >> 18) & CHANNEL_STEPS) / ACROSS_STEPS);
+        outUv = vec2(float(inShade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, float((inShade >> 18) & THIRD_STEPS) / ACROSS_STEPS);
         outTint = vec3(1.0);
         outSurface = filed;
         outPatchLook = vec4(0.0);
@@ -90,7 +95,7 @@ void main() {
     }
 
     if (filed == TRACK || filed == KERB || filed == EDGING) {
-        vec2 strip = vec2(float(inShade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, float((inShade >> 18) & CHANNEL_STEPS) / ACROSS_STEPS);
+        vec2 strip = vec2(float(inShade & ALONG_STEPS) / TRACK_STEPS_PER_PICTURE, float((inShade >> 18) & THIRD_STEPS) / ACROSS_STEPS);
         // A kerb's picture has its low side at the bottom: the town's kerb drops to the road on the right of its line,
         // the walk's to the grass on the left.
         outUv = filed == EDGING ? vec2(strip.x, 1.0 - strip.y) : strip;
@@ -105,22 +110,26 @@ void main() {
         return;
     }
 
-    outTint = vec3(uvec3(inShade, inShade >> 9, inShade >> 18) & uvec3(CHANNEL_STEPS)) * (BRIGHTEST_TINT / float(CHANNEL_STEPS));
+    outTint = vec3(
+        float(inShade & CHANNEL_STEPS) / float(CHANNEL_STEPS), float((inShade >> 9) & CHANNEL_STEPS) / float(CHANNEL_STEPS),
+        float((inShade >> 18) & THIRD_STEPS) / float(THIRD_STEPS)) * BRIGHTEST_TINT;
     if (filed != PAINT_FILED && (filed & FADING_FILED) != 0u) {
         filed &= ~FADING_FILED;
         outCover = outTint.x / BRIGHTEST_TINT;
         outTint = vec3(1.0);
     }
 
-    float period = filed < 4u ? camera.surfacePeriodsM[filed]
-        : filed == 4u ? camera.waterPeriodM.x
-        : filed == SHORE ? camera.waterPeriodM.y : 1.0;
-    float perAcross = filed < 4u ? camera.patchPerAcross[filed]
-        : filed == 4u ? camera.patchPerAcrossWet.x
-        : filed == SHORE ? camera.patchPerAcrossWet.y : 0.0;
+    // Whose periods and patches the surface takes: its own, or the walk's for the looks laid after the walk's.
+    uint looks = filed == SHOULDER ? PAVEMENT : filed;
+    float period = looks < 4u ? camera.surfacePeriodsM[looks]
+        : looks == 4u ? camera.waterPeriodM.x
+        : looks == SHORE ? camera.waterPeriodM.y : 1.0;
+    float perAcross = looks < 4u ? camera.patchPerAcross[looks]
+        : looks == 4u ? camera.patchPerAcrossWet.x
+        : looks == SHORE ? camera.patchPerAcrossWet.y : 0.0;
     outUv = inPositionM / period;
     outSurface = filed == PAINT_FILED ? PAINT : filed;
-    outPatchLook = filed <= 4u ? camera.patchLook[filed] : filed == SHORE ? camera.patchLook[SHORE_ROW] : vec4(0.0);
+    outPatchLook = looks <= 4u ? camera.patchLook[looks] : looks == SHORE ? camera.patchLook[SHORE_ROW] : vec4(0.0);
     outPatchAt = inPositionM * perAcross;
     outScatter = vec4(period * camera.patchScatter.x, camera.patchScatter.y, camera.patchRagged.xy);
     if (filed == 4u) {

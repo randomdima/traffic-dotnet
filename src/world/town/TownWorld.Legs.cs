@@ -257,8 +257,10 @@ internal sealed partial class TownWorld
         // The road was not the problem, so the place this leg is going to might be: another bay near where
         // the car has actually got to, and the route to that one. It is the destination's own last chance — <b>and
         // only one</b>, spent as the last reroute is: a town with a free bay near every jam otherwise gave the place up
-        // for the next one a patience at a time, and the leg never ended (CAR-15a).
-        if (Cars.Reroutes[car] <= _config.Patience.ReroutesPerLeg && RetargetTheBay(car, Cars.PositionM[car], BayAimedAt(car)))
+        // for the next one a patience at a time, and the leg never ended (CAR-15a). <b>Never a leg aimed at a place in the
+        // road</b>, which a bay is no other answer for: it is the errand's own to lay again once the leg is given up.
+        if (!IsAimedAtAPlaceInTheRoad(car) && Cars.Reroutes[car] <= _config.Patience.ReroutesPerLeg
+            && RetargetTheBay(car, Cars.PositionM[car], BayAimedAt(car)))
         {
             Cars.Reroutes[car] = (byte)(_config.Patience.ReroutesPerLeg + 1);
             PlacesGivenUp++;
