@@ -22,10 +22,11 @@ public class LaneSwitchInATownTests
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>
-    /// Why a case is skipped: no car moves across to get past what holds it up (CAR-53), since whether that is at rest or
-    /// slow is what the body is doing, and the claims say only where it is (TER-4c.5).
+    /// Why the two cases held up are skipped: the car's line runs on past the tee onto the street's one lane, where the
+    /// inner lane is lost, so the lanes beside do not carry its line on (CAR-53, <c>Switching.RunsBeside</c>) and it never
+    /// wants to move across — whatever holds it up, which is read (2026-10-29).
     /// </summary>
-    const string NoSwitchPastWhatHoldsItUp = "no switch past what holds a car up until a reading of the bodies ahead says what they are doing — docs/tech-debt.md";
+    const string TheInnerLaneIsLost = "the staged line runs past where the inner lane is lost — docs/tech-debt.md";
 
     /// <summary>
     /// <b>A car turns off the lane beside the one it is on by moving across onto it first</b>: sent up an arm turned
@@ -77,7 +78,7 @@ public class LaneSwitchInATownTests
     /// road of more than a lane each way (CAR-6.2b): with a wreck on the kerb lane ahead of it on a street of two lanes east
     /// and one west, the car sent along the street gets past it without once crossing to the lane running west.
     /// </summary>
-    [Fact(Skip = NoSwitchPastWhatHoldsItUp)]
+    [Fact(Skip = TheInnerLaneIsLost)]
     public void ACarGetsPastAWreckOverTheLaneBesideAndNotTheOncomingOne()
     {
         using var world = new TownWorld(TracedPlanTests.TwoLanesIntoATee(againstWest: 1), Config);
@@ -106,7 +107,7 @@ public class LaneSwitchInATownTests
     /// <b>A car moves across to get past traffic going slower than it means to</b>, on a road of more than a lane each
     /// way: a car held to a crawl ahead of it on the kerb lane, both sent along the street, is got past.
     /// </summary>
-    [Fact(Skip = NoSwitchPastWhatHoldsItUp)]
+    [Fact(Skip = TheInnerLaneIsLost)]
     public void ACarGetsPastSlowerTrafficOverTheLaneBeside()
     {
         using var world = new TownWorld(TracedPlanTests.TwoLanesIntoATee(againstWest: 1), Config);

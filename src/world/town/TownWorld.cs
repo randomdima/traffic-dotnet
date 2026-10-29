@@ -301,6 +301,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _trainHold = LaneOccupancy.NoHolds(_trains.Count);
         OpenWatch.Passed("town: crossings and trains");
         _occupancy = new LaneOccupancy(_ways, marks, drivers + walkers + _signalHolds.Count + _crossingHolds.Count + _trains.Count);
+        _occupancy.SeeTheBodiesMoveIn(Cars.VelocityMps, Cars.HeadingRad, People.VelocityMps, People.HeadingRad);
         _ground = new DrivingGround(Cars, _occupancy, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
         _decisions = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz);
@@ -308,7 +309,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _carsInTurn = new int[Cars.Capacity];
         _carActions = new CarActions(_ground, _manoeuvres);
         _overtaking = new Overtaking(_ground, _carActions);
-        _switching = new Switching(_ground, _carActions);
+        _switching = new Switching(_ground, _carActions, _overtaking);
         _backingUp = new BackingUp(_ground, _carActions, _overtaking);
         _walkingGround = new WalkingGround(People, _occupancy, _ways, _lines, _walking, config);
         _personActions = new PersonActions(People);

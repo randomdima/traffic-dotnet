@@ -615,6 +615,20 @@ internal sealed class DrivingFigures
     public float StandOffM { get; init; } = 1.5f;
 
     /// <summary>
+    /// <b>How far off a driver's own line a body at rest may point and still be read as travelling it</b> (CAR-46, S-2a):
+    /// within it, a body waiting down the same road, which is going nowhere only where nothing holds the road just past it;
+    /// past it, a body standing across the road — a car stood across the lane, somebody on the zebra — going nowhere the
+    /// driver's way whatever is past it.
+    /// </summary>
+    public float TravelsTheLineWithinDeg { get; init; } = 45f;
+
+    /// <summary>
+    /// <b>How fast a body ahead has to be gaining speed to be pulling away</b> (CAR-53, AMB-4.4), read between a driver's
+    /// two turns: past it, a queue moving off or traffic getting up to pace, and not traffic holding anybody up.
+    /// </summary>
+    public float PullingAwayMps2 { get; init; } = 0.5f;
+
+    /// <summary>
     /// <b>How long a driver means to hold the speed it is planning for</b> (TER-4c.1) — the middle term of
     /// how far its plan reaches, between getting up to that speed and stopping from it.
     /// </summary>
@@ -795,6 +809,12 @@ internal sealed class PersonFigures
     /// the stride it stopped in — a walker held at a kerb, in a queue or by a shove still means to walk, and is still.
     /// </summary>
     public float DrawnStandingBelowMps { get; init; } = 0.2f;
+
+    /// <summary>
+    /// <b>How slow a body met on a walk is read as at rest</b> (PER-28): at or under it, somebody standing there rather
+    /// than walking on — one a walker may step round.
+    /// </summary>
+    public float AtRestBelowMps { get; init; } = 0.2f;
 
     /// <summary>
     /// <b>How near its aim a walker's body has to stand for the aim to be under it</b>, as the square of the distance — a

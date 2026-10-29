@@ -32,7 +32,7 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// handed back to following its lane.
 /// </para>
 /// </remarks>
-internal sealed class Switching(DrivingGround ground, CarActions actions)
+internal sealed class Switching(DrivingGround ground, CarActions actions, Overtaking overtaking)
 {
     /// <summary>
     /// How many stretches a step's ground is: the ways of its own line to where it lands, and the lane beside. A bound
@@ -87,20 +87,36 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
     /// <list type="number">
     /// <item><b>Where its line stops because its lanes no longer go the route's way</b> — toward the lane the route goes
     /// on from — <b>or because its lane ends</b> under a toured car, toward the nearest lane beside that carries on.</item>
-    /// <item><b>Back toward the kerb</b>, where the lanes there carry its line on as far as it runs, and its route goes on
-    /// from there.</item>
+    /// <item><b>Toward the line, to get past what holds it up</b> (<see cref="IsHeldUp"/>), where the line is not crossed
+    /// to pass.</item>
+    /// <item><b>Back toward the kerb</b>, where nothing holds it up, the lanes there carry its line on as far as it runs,
+    /// and its route goes on from there.</item>
     /// </list>
     /// Each only where the lane beside runs on beside every lane of the line the car is driving (<see cref="RunsBeside"/>),
-    /// so the line laid down it after lands back on the route. <b>Never to get past what holds it up</b>: whether that is
-    /// at rest or slow is what the body is doing, which the claims do not say (TER-4c.5).
+    /// so the line laid down it after lands back on the route.
     /// </summary>
     public bool Wants(int car, out bool inward)
     {
         var shape = ShapeOfTheRoad(car, out inward);
         if ((shape & RoadShape.StopsToMoveAcross) != 0) return (shape & RoadShape.Wants) != 0;
 
-        inward = false;
-        return (shape & RoadShape.WantsWhenFree) != 0;
+        var heldUp = (shape & RoadShape.Asks) != 0 && IsHeldUp(car);
+        var wants = (shape & (heldUp ? RoadShape.WantsWhenHeldUp : RoadShape.WantsWhenFree)) != 0;
+        inward = heldUp && wants;
+        return wants;
+    }
+
+    /// <summary>
+    /// <b>Whether what ended the car's grant holds it up</b> (CAR-53), as it was read at the car's last turn
+    /// (<see cref="DrivingGround.WhatCutIt"/>): a body at rest going nowhere the car's way, or traffic going slower than
+    /// the car means to by more than <see cref="DrivingFigures.SlowerToSwitchMps"/> — once the car has come to where it
+    /// would begin slowing for it.
+    /// </summary>
+    bool IsHeldUp(int car)
+    {
+        ref readonly var body = ref ground.WhatCutIt(car);
+        var slower = body.IsTrafficSlowerThan(overtaking.MeansMps(car), Config.Driving.SlowerToSwitchMps);
+        return (body.GoesNowhere || slower) && overtaking.ComesUpTo(car, Cars.AlongMps[car], Cars.GrantLeftM(car));
     }
 
     /// <summary>

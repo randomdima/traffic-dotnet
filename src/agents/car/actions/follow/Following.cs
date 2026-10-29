@@ -28,30 +28,39 @@ internal sealed class Following(
 
     /// <summary>
     /// <b>This tick of a car following its route</b>, once the line under it has been read: on down the line on the
-    /// ground it was granted. Into its bay's manoeuvre or across onto the lane beside is decided on the car's own clock
+    /// ground it was granted, slowed for gently from the first where what ended the grant is something it may get past
+    /// (CAR-46). Into its bay's manoeuvre, onto a pass or across onto the lane beside is decided on the car's own clock
     /// (<see cref="Decide"/>).
     /// </summary>
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps)
         where TTown : struct, ICarTown =>
-        town.DriveOnTheLine(car, pose, progressM, alongMps);
+        town.DriveOnTheLine(car, pose, progressM, alongMps, overtaking.MayGetPastWhatCutIt(car));
 
     /// <summary>
     /// <b>A car following its route, on its own clock</b>: where the line stops for its bay and the car is near enough,
-    /// its manoeuvre in shaped from where it stands and asked for (GEN-4f); otherwise, where it means to move across onto
-    /// the lane beside, that looked for (CAR-53).
+    /// its manoeuvre in shaped from where it stands and asked for (GEN-4f); otherwise, where something ended its grant
+    /// that it may get past and it has come to where it would begin slowing for it, its pass drawn — once — and taken
+    /// up, or backed up for (CAR-46, CAR-50); otherwise, where it means to move across onto the lane beside, that
+    /// looked for (CAR-53).
     /// </summary>
-    /// <remarks>
-    /// <b>A pass round what cut its grant is never decided here</b> (CAR-46): whether that is something to get past is
-    /// what the body is doing, which the claims do not say (TER-4c.5). <see cref="Overtaking"/> waits on a reading of it
-    /// that does.
-    /// </remarks>
-    public void Decide(int car)
+    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
+    public void Decide<TTown>(ref TTown town, int car, float sinceLastDecisionS)
+        where TTown : struct, ICarTown
     {
         var progressM = Cars.ProgressM[car];
         var alongMps = Cars.AlongMps[car];
         if (Cars.StopsForBayOf(car) is var bay and not CarFleet.NoBay && parkingIn.TakeUpTheBay(car, bay, progressM, alongMps))
         {
             actions.Enter(car, CarAction.Park);
+            return;
+        }
+
+        var cutBy = ground.WhatCutIt(car).Seen;
+        if (overtaking.MayGetPastWhatCutIt(car)
+            && overtaking.ComesUpTo(car, alongMps, Cars.GrantLeftM(car))
+            && overtaking.DrawThePass(car, sinceLastDecisionS, progressM, alongMps, town.ToTheSceneM(car), cutBy.Way, cutBy.FromM))
+        {
+            actions.Enter(car, overtaking.BacksUp(car, progressM, alongMps) ? CarAction.BackUp : CarAction.Overtake);
             return;
         }
 

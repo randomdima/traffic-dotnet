@@ -313,6 +313,12 @@ internal sealed partial class SimConfig
     public float PersonStepM => PersonWalkSpeedMps * TickSeconds;
 
     /// <summary>
+    /// <b>The least a body's heading may share with a driver's line and still be travelling it</b>, as the cosine of
+    /// <see cref="DrivingFigures.TravelsTheLineWithinDeg"/> — 0.71 at the shipped figures.
+    /// </summary>
+    public float TravelsTheLineCos => MathF.Cos(Driving.TravelsTheLineWithinDeg * MathF.PI / 180f);
+
+    /// <summary>
     /// How far off a pavement lane's own line a body is still standing on that lane: a quarter of the band,
     /// which is the half of the lane's ground it has either side of the line it is held on.
     /// </summary>

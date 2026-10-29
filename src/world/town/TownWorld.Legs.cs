@@ -97,7 +97,7 @@ internal sealed partial class TownWorld
         switch (Cars.Action[car])
         {
             case CarAction.Follow:
-                _following.Decide(car);
+                _following.Decide(ref town, car, sinceLastDecisionS);
 
                 // A pass drawn now is looked round for at once — and so is the room to move across.
                 if (Cars.Action[car] == CarAction.Overtake) _overtaking.Decide(car, 0f);

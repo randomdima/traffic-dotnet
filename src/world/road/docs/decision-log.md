@@ -4,6 +4,33 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-29 — a body ahead is read where it stands, and never off a claim
+
+**What the claims redesign dropped (2026-10-12) is read again off the bodies themselves**, and nothing is put on a
+claim (TER-4c.5): a body met by place is found again in its way's run, and its own key — only where its hold is its
+own body's, so a trailer or an owner walking to its car is never read — names its row in the velocity and heading the
+fleets read off the world view, handed to the occupancy once as data (`LaneOccupancy.ReadTheBody`). Who it is never
+leaves the occupancy. **"Not making its own next movement" is read by place too** (`IsHeldPast`): at rest, and nothing
+laid a stand-off past it down the reader's own line — a plan, a secondary claim, a moving body, or a body at rest that
+is held in its turn — so a queue's own plan and the light ahead of it say it waits on what the reader would. **A body
+pointing across the reader's line goes nowhere its way** whatever is past it (`DrivingFigures.TravelsTheLineWithinDeg`).
+Read once a turn with the grant (TER-49), and against the turn before (`DrivingGround.ReadAgain`): going nowhere only
+at two turns running, and slower traffic only while it is not pulling away — a car whose holder has not yet laid its
+plan, and a charge getting up to pace, are neither.
+
+- **A pass's own ground is asked round what it passes** (`Overtaking.AskAround`, `Sidestepping.AskAround`): asked over
+  it, the hold was refused by the very body it gets past, at every turn — the redesign had never been asked for one.
+  So a pass's hold has a gap over each body it passes, which nobody else can plan while the body stands there.
+- **Room to step out is kept only behind what may be passed, and never short of the place the car was sent to**
+  (`Overtaking.KeepRoomToStepOut`): kept behind a car standing at its own place, the car behind stopped short of its
+  own and cards 73 and 79 failed.
+- **A call is held up by slower traffic only below the pace put on it** (`Overtaking.MeansMps`): read against what the
+  road lets it plan for alone, the idle ring's trailing escort stopped to pass its charge.
+
+**Measured**: unit and town at their baseline, perf and device unmoved; twelve of the fourteen skipped
+`OvertakeInATownTests` pass, the other two and both `LaneSwitchInATownTests` held up skipped on their staging
+(`docs/tech-debt.md`). The exam fails 39, 80, 84 and 109 against 39, 67, 80, 84, 89, 108 and 109 before.
+
 ## 2026-10-29 — a bar and the lane line stop on one line parallel to the band in front of them
 
 A band is laid square to the walk that placed it (WLK-10), so it is deep along its own axis wherever along the arm
@@ -243,8 +270,8 @@ edge case.
 - **Rounding up needs a grain**: 0.3 m × 10 is 3.0000001 in floats, so a metre read off a claim and asked again
   rounded to the decimetre after its own; `DmOf` takes 0.001 dm off before rounding up.
 
-**Dropped, because each read what a body was doing or who it was** (`docs/tech-debt.md` brings them back off a reading
-of the bodies themselves): deciding a pass round what cut a grant (CAR-46, `Overtaking.MayGetPastWhatCutIt`), and so
+**Dropped, because each read what a body was doing or who it was** (all but the light's hold and TER-5e's tier read
+again off the bodies themselves, 2026-10-29 above): deciding a pass round what cut a grant (CAR-46, `Overtaking.MayGetPastWhatCutIt`), and so
 backing up for one (CAR-50) and a call passing at-rest or slow traffic (AMB-4.4); moving across to get past what holds a
 car up (CAR-53, `Switching.IsHeldUp`); a walker's sidestep (PER-28); the room kept to step out behind a body going
 nowhere (`KeptOffM`); the backing that took the plan of somebody queued behind it (`IsQueuedBehind`); a light's hold

@@ -131,7 +131,10 @@ that has left its own way cannot safely go back. A manoeuvre at a bay (`GEN-4f`)
 beside (`CAR-53`) are asked the same way. So it is asked for only where it can be had whole:
 
 - **What it gets past is the holder's to decide, off where things stand and not who they are** (TER-4c.5): the
-  claims say where a body is and nothing of what it is doing.
+  claims say where a body is and nothing of what it is doing, and the holder reads the body it met there — how it
+  moves and points, and whether anything is laid just past it down the holder's own line.
+- **Its ground is asked round what it gets past**: none of the holder's own way under those bodies, which nobody else
+  can plan while they stand there.
 - **Over the lane beside and back**: the asker's own line moved across onto the way running back beside it,
   and back onto that line past what it passes, with room there to come back into — drawn inside the lane it begins
   on.
@@ -343,4 +346,5 @@ and a tow**, which move a car where they take it, holding what it can no longer 
 body (`S-7`, `EVA-5`); **a recovery**, which puts a body down only where nobody holds the ground (TER-4c.8);
 **a pass**, which asks ground its holder has still to reach (TER-4c.6); and **the solver**, which is what two bodies
 in one place come to. **A claim says where, and how strong; never who** — who laid one is for the instruments
-alone.
+alone. **A body met on the way is read where it stands** — its motion and heading as the world's last step left them,
+found again by place — which is the physical layer read, and no look-up of an agent.

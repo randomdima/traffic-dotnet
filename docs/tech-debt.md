@@ -76,8 +76,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   alone, passing alone twice after); the town is the same every
   run, so what allocates is not the tick's own work. What allocated is not known; an allocation trace (`dotnet-trace`'s
   GC allocation ticks) of a failing run closes it.
-- **Seven exam cards fail** (2026-10-29; 70, 93 and 110 pass since the walker's straight and hop were mended and the
-  exam watches two minutes — person decision log):
+- **Four exam cards fail** (2026-10-29; 70, 93 and 110 pass since the walker's straight and hop were mended and the
+  exam watches two minutes — person decision log; 67, 89 and 108 since the bodies ahead are read, road decision log):
   - 39 (the nearer of two straights goes first): driver 0 on the box at 3.5 s, after driver 1 at 2.8 s, neither held.
     **Traced: the engine is right and the card is staged against its looks.** A card's cars wear the fleet's looks in
     table order, and card 39's pull away at 2.5 m/s² (driver 0, 1 420 kg, 20 m out) and 11.9 m/s² (driver 1, 2 000 kg,
@@ -86,22 +86,28 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     these looks cannot beat it is card 45 (`CloseM` against `FarM`) again. _owner_: recast it as "the one whose plan
     reaches the shared ground first goes first", stage it on looks pinned to its drivers, or retire it — no card can be
     taken out of the table without every later card wearing other looks.
-  - 67 (a left turn on green gives way to the oncoming right turn): driver 1 (North-West) drives straight through and
-    round the block. **Traced: its junction does not offer the right turn.** `LaneLines.WhatTheJunctionOffers` drops
+  - 67 (a left turn on green gives way to the oncoming right turn) **passes since 2026-10-29's reading of the bodies
+    ahead, and nothing traced says why**: before it, driver 1 (North-West) drove straight through and round the block,
+    and the drop below still stands — so it may pass the way the "reads a car out onto its arm anywhere" entry below
+    allows. A trace of driver 1's lanes on the card says which, and the drop closes it either way. **Traced: its
+    junction does not offer the right turn.** `LaneLines.WhatTheJunctionOffers` drops
     lane 264 → 262 at cell 6,4, its tightest arc 2.30 m under `JunctionCorneringRadiusM` (2.41 m): the arms are drawn
     off the chord (`ConnectionPoints.ArmOf`, as the generator draws them), and where two close under a right angle the
     near-side turn between them falls under the floor. Nine near-side turns of the exam's lattice are dropped so; 67's
     is the one a card drives, and a generated town loses its own the same way. A junction stood off far enough for its
     near-side turns to hold the floor at the corner its arms draw closes it; the exam laying its arms on the chord
     would close the card alone.
-  - 108 and 109 (getting past a car stood in its lane; a call past a queue at a red): no pass is decided — the
-    "nobody reads what a body is doing" entry below.
-  - 80, 84 and 89 (a car gives way on a zebra): "driver 0 was on the zebra for 5.6 s (84: 5.2 s; 89: 84.4 s) with
-    walker 0 in its half of it". On 84 and 89 the car stops behind somebody standing at the kerb end of the paint,
-    inside the zebra, and is on it when they cross; the room once kept behind a body going nowhere held it short — the
-    same entry. **Traced on 80, two ways onto the paint.** At its pause point the walker has arrived (`Walking` false)
-    and plans nothing, so only its body holds the lane — a stand-off short of the body, which stands on the paint; the
-    same entry. And for the laying before that, the end of its walk inside the front of its body and `IsHopping` not
+  - 109 (a call past a queue at a red): driver 5, on the call, is through the box at 39.9 s behind all five, never
+    having begun a pass. It failed before the claims were redesigned too (road decision log, 2026-10-12), so the
+    reading is not all it lacks; not traced further. Whether it decides a pass (`Overtaking.Asked`) and what refuses it
+    — the queue's room running into the box, whose far side `PassGround` holds no lane back of — closes it or names it.
+  - 80 and 84 (a car gives way on a zebra): "driver 0 was on the zebra for 5.6 s (84: 5.2 s) with walker 0 in its half
+    of it". The room to step out is now kept behind a body going nowhere (S-2a) — a body at rest pointing across the
+    car's line among them — but only on a lane a pass may be had from (`Overtaking.KeepRoomToStepOut`), and 84's car
+    stops a stand-off short of the walker at the kerb end of the paint, inside the zebra; whether its lane is one, or
+    the walker is read as going nowhere at two turns running, is not traced. **Traced on 80, two ways onto the paint.**
+    At its pause point the walker has arrived (`Walking` false) and plans nothing, so only its body holds the lane — a
+    stand-off short of the body, which stands on the paint. And for the laying before that, the end of its walk inside the front of its body and `IsHopping` not
     yet true, `PlansTheWalk` plans nothing ahead of it: the car, cut by the body and not the zebra's marks, accelerates
     for a turn on the room it was handed and then commits (p1) past the mark's start, which nothing takes back — its
     nose 0.27 m over the paint where it would otherwise stop 0.07 m over. Planning those last metres as the hop closed
@@ -118,9 +124,16 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   — so card 67's driver 1, which drove straight through and round the block, read "out 25.6 s" 130 m south of the box,
   and had it reached its place that way the card would have passed. Reading it only off a car leaving the box onto that
   arm's own lanes closes it.
-- **Sixteen town tests are skipped** for the decisions no claim can make any more: all fourteen of
-  `OvertakeInATownTests` (CAR-46, CAR-50, PER-28) and two of `LaneSwitchInATownTests` (getting past a wreck and slower
-  traffic, CAR-53). They come back with the entry below.
+- **Four town tests are skipped, on their staging** (2026-10-29; the other twelve of `OvertakeInATownTests` pass since
+  the bodies ahead are read):
+  - `OvertakeInATownTests`' two at a box (CAR-46, "a junction is no end to a pass"): neither suite town has a car on a
+    street a pass may be had from, going straight on through a box with no zebra on its arms — every one of
+    `Towns.Built`'s and `Towns.City`'s is painted. A fixture of its own, a street through an unpainted node, closes it.
+  - `LaneSwitchInATownTests`' two held up (CAR-53, past a wreck and past slower traffic): the decision is read, but the
+    staged car's line runs on past the tee onto the one-lane street where the inner lane is lost (chain 0, 3, 7), so
+    `Switching.RunsBeside` — which reads the whole chain — refuses the move. An order to a place short of the
+    narrowing still laid the line to the street's end. Reading the lanes beside only as far as the move and its room
+    back need, or a staging whose inner lane runs the line's length, closes it.
 - **`BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark`** (town, GEN-55) fails: "building 139 at <1944.03, 302.92>
   fronts 8.04 m off the middle of a rank reaching 7.20 m" (2026-10-29; the test now reads the front wall's two ends,
   not the middle of a building 45 m deep). It has failed since 2026-10-15 on one reworked suite town or another.
@@ -605,24 +618,23 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   rest. It was about 170 plans a laying on OdesaOsm when every car planned at every laying, and is not measured
   since each plans at its own turn. Levelling the held claims' rungs again where the nose leaves a piece closes it.
 
-- **Nobody reads what a body is doing, so every decision that turned on it is dropped** (since the claims redesign,
-  2026-10-12; road decision log): the claims say where a body is and never who or what it is doing (TER-4c.5), and
-  what read the body's state off the claim it laid is gone with it:
-  - deciding a pass round what cut a grant (CAR-46) — `Overtaking.DrawThePass` and `ComesUpTo` are kept and called by
-    nothing, so backing up for one (CAR-50, `BackingUp`) and a call getting past at-rest or slow traffic (AMB-4.4)
-    are unreachable too;
-  - moving across to get past what holds a car up (CAR-53): `Switching`'s `RoadShape.Asks` and `WantsWhenHeldUp` are
-    still worked out and read by nothing, and `Driving.SlowerToSwitchMps` and `Ambulance.SlowerToPassMps` are figures
-    nothing reads;
-  - a walker's sidestep (PER-28): `Sidestepping.DrawThePass` is called by nothing;
-  - the room kept to step out behind a body going nowhere (S-2a, CAR-50's "says it is going nowhere") — the zebra
-    cards above;
-  - a light's hold lying over a body only standing on its way: it now ends at the first body of any kind (TLT-1's
-    third bullet);
-  - TER-5e's tier "ground its holder already stands on".
-
-  A reading of the bodies ahead off the world view, by place — at rest or not, travelling which way — handed to the
-  actor that asks, and never carried on a claim, closes it, with the skipped tests and the cards.
+- **Two decisions that turned on what a body is doing are still dropped** (since the claims redesign, 2026-10-12;
+  the pass, the backing, a call's pass, the move across, the sidestep and the room kept are read again off the bodies
+  ahead since 2026-10-29 — road decision log):
+  - a light's hold lying over a body only standing on its way: it still ends at the first body of any kind
+    (`SignalHolds.ReachOf`, TLT-1's third bullet). Reading that body's heading against the way the hold is on
+    (`LaneOccupancy.ReadTheBody`, as `DrivingGround.ReadTheBodyAhead` does) and ending the hold only at one travelling
+    it closes it;
+  - TER-5e's tier "ground its holder already stands on" — not a reading of a body at all but a rung of the answer, and
+    the one try at it failed five cards (road decision log, 2026-10-12). It waits on a design of its own.
+- **A walker's reading of the body ahead is its own** (`Sidestepping.ComesUpToOneItMayPass`, 2026-10-29): at rest and
+  nothing past it, but neither read at two turns running nor against which way it points, as a car's is
+  (`DrivingGround.ReadAgain`). Nothing has been seen to come of it; one reading of a body for both, in the road's
+  slice, closes it.
+- **The reading of what cut a car's plan costs a walk of its line every turn** (`DrivingGround.ReadTheBodyAhead`,
+  2026-10-29): `WaysAlong` to the line's end and a `Spline.SampleAt` for every car cut by a body, at its turn, whether
+  or not anything reads it — not measured. Reading it only for a car that may pass, move across or keep room, or
+  `--bench drive`'s turn-stage figures showing it does not matter, closes it.
 - **Two town-wide gates went with the claims' hold and line metres** (`ClaimGateTests`): "no hold is in two pieces"
   (TER-5c.2) and "the rung never grows along a hold" (TER-5g.1). The first holds by construction — a refused hold asks
   nothing more — and has a unit test; the second rests on `Following.LevelTheRungs` alone, and a town gate on it, read

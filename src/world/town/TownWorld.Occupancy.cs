@@ -119,7 +119,12 @@ internal sealed partial class TownWorld
 
         at = Spent(TurnStage.Answer, at);
         foreach (var car in CarsAsked) _backingUp.Read(car);
-        foreach (var car in CarsAsked) _ground.ReadTheGrant(car);
+        foreach (var car in CarsAsked)
+        {
+            _ground.ReadTheGrant(car);
+            _overtaking.KeepRoomToStepOut(car, ToTheSceneM(car));
+        }
+
         ReadTheWalkersGrants();
         _turnEdges++;
         Spent(TurnStage.Grants, at);

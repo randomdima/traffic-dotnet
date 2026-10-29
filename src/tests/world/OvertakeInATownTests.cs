@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
@@ -25,16 +26,10 @@ public class OvertakeInATownTests
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>
-    /// Why every case here is skipped: no pass is decided (CAR-46, CAR-50, PER-28), since whether what cut a grant is
-    /// something to get past is what that body is doing, and the claims say only where it is (TER-4c.5).
-    /// </summary>
-    const string NoPassIsDecided = "no pass is decided until a reading of the bodies ahead says what they are doing — docs/tech-debt.md";
-
-    /// <summary>
     /// <b>A car gets past a wreck in its lane over the lane beside</b>, and is back in its own lane past it having
     /// touched nothing: the lane beside was free for the whole of the pass, so nothing was ever there to touch.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarGetsPastAWreckInItsLaneWithoutTouchingAnything()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -74,7 +69,7 @@ public class OvertakeInATownTests
     /// of either is the last point it takes in, and a body a hair from the sweep's last station can take in the next
     /// point down the way where the station did not (TER-4c.4).
     /// </remarks>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarOnAPassStandsOnlyOnTheGroundItsPassHeldWhenItBegan()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -103,10 +98,12 @@ public class OvertakeInATownTests
     }
 
     /// <summary>
-    /// And a walker's: every tick of its pass, its body stands on nothing but what its pass held the tick it began,
-    /// to within a tick's walk.
+    /// And a walker's: every tick of its pass, its body stands on nothing of its route or the road but what its pass held
+    /// the tick it began, to within a tick's walk and a lattice step, as a car's is. <b>The lane beside it walks down is not
+    /// its pass's</b> (TER-4c.6): its
+    /// ground is its own route, and the lane beside is ground the world reads its body onto as it goes.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void AWalkerOnAPassStandsOnlyOnTheGroundItsPassHeldWhenItBegan()
     {
         using var world = new TownWorld(Towns.Built, Config);
@@ -124,15 +121,18 @@ public class OvertakeInATownTests
             if (!people.Pass[walker].Begun) continue;
 
             held ??= TheGroundItsPassHolds(world, world.GroundHeldAs(walker, out var roster), roster);
-            var count = world.Atlas.UnderDisc(people.PositionM[walker], people.RadiusM[walker], under);
-            var off = OffTheGround(held, under[..count], Config.PersonStepM);
-            Assert.True(off == null, $"walker {walker} on tick {tick} of its pass stood on {off}");
+            var count = OffTheLaneBeside(world, held, under[..world.Atlas.UnderDisc(people.PositionM[walker], people.RadiusM[walker], under)]);
+            var off = OffTheGround(held, under[..count], Config.PersonStepM + Config.RibbonLatticeStepM);
+            Assert.True(off == null, $"walker {walker} on tick {tick} of its pass stood on {off}; its pass held {string.Join(", ", held)}");
         }
 
         Assert.True(held != null, $"walker {walker} never began a pass");
     }
 
-    /// <summary>Every stretch of every way one holder's plans hold this tick — its pass's among them.</summary>
+    /// <summary>
+    /// Every stretch of every way one holder's plans hold this tick — its pass's among them — and the bodies laid as its
+    /// ground, which its plans begin past (TER-4c.1): a walker going to its car is laid as the car (PER-29).
+    /// </summary>
     static List<(int Way, float FromM, float ToM)> TheGroundItsPassHolds(TownWorld world, int holder, LaneRoster of)
     {
         var held = new List<(int Way, float FromM, float ToM)>();
@@ -144,9 +144,28 @@ public class OvertakeInATownTests
             {
                 if (claims.HoldersOf(main)[0] == key) held.Add((way, main.FromM, main.ToM));
             }
+
+            foreach (var body in claims.Bodies(way))
+            {
+                if (claims.HoldersOf(body).Contains(key)) held.Add((way, body.FromM, body.ToM));
+            }
         }
 
         return held;
+    }
+
+    /// <summary>The ground a walker stands on but the walked ways its pass held nothing of — the lane beside — kept first, as how many.</summary>
+    static int OffTheLaneBeside(TownWorld world, List<(int Way, float FromM, float ToM)> held, Span<WayCover> under)
+    {
+        var kept = 0;
+        foreach (var cover in under)
+        {
+            if (world.Ways.IsWalked(cover.Way) && !held.Exists(stretch => stretch.Way == cover.Way)) continue;
+
+            under[kept++] = cover;
+        }
+
+        return kept;
     }
 
     /// <summary>The first stretch of ground a body stands on that none of what was held covers, to within a tolerance — or none.</summary>
@@ -154,14 +173,14 @@ public class OvertakeInATownTests
     {
         foreach (var cover in under)
         {
-            var covered = false;
-            foreach (var stretch in held)
+            // Stretches that run into one another hold the ground between them: read as one from the cover's near edge on.
+            var coveredToM = cover.FromM;
+            foreach (var stretch in held.Where(stretch => stretch.Way == cover.Way).OrderBy(stretch => stretch.FromM))
             {
-                covered |= stretch.Way == cover.Way
-                           && stretch.FromM - withinM <= cover.FromM && cover.ToM <= stretch.ToM + withinM;
+                if (stretch.FromM - withinM <= coveredToM) coveredToM = MathF.Max(coveredToM, stretch.ToM + withinM);
             }
 
-            if (!covered) return $"way {cover.Way} from {cover.FromM:F2} m to {cover.ToM:F2} m";
+            if (coveredToM < cover.ToM) return $"way {cover.Way} from {cover.FromM:F2} m to {cover.ToM:F2} m";
         }
 
         return null;
@@ -172,8 +191,15 @@ public class OvertakeInATownTests
     /// park's, on the town that lays them — is got past through the box, the car coming back onto its own line in
     /// the lane beyond it.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact(Skip = NoZebraFreeBox)]
     public void ACarGetsPastAWreckShortOfAJunctionThroughTheBox() => GetsPastAWreckAtABox(inTheBox: false);
+
+    /// <summary>
+    /// Why the two cases at a box are skipped: neither suite town has a car on a street a pass may be had on, going
+    /// straight on through a box with no zebra on its arms — every one of <see cref="Towns.Built"/>'s and
+    /// <see cref="Towns.City"/>'s is painted (2026-10-29). Staging, and not the pass.
+    /// </summary>
+    const string NoZebraFreeBox = "no suite town has a passable street through a box with no zebra — docs/tech-debt.md";
 
     /// <summary>
     /// <b>Nor is a box an end to what may be passed</b>: a wreck standing in the middle of the movement a car goes
@@ -181,7 +207,7 @@ public class OvertakeInATownTests
     /// against every plan, and its body read only where the pass's body goes — held whole against bodies too, the
     /// pass would stand over the very thing it is getting past.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact(Skip = NoZebraFreeBox)]
     public void ACarGetsPastAWreckStandingInABox() => GetsPastAWreckAtABox(inTheBox: true);
 
     static void GetsPastAWreckAtABox(bool inTheBox)
@@ -246,7 +272,7 @@ public class OvertakeInATownTests
             var beyondBack = roads.LaneReverse[beyond];
             var atM = roads.LaneLengthM[lane] - ShortOfTheBoxM;
             var fromM = cars.ProgressM[driver];
-            if (back < 0 || beyondBack < 0 || atM - fromM < WreckAheadM) continue;
+            if (back < 0 || beyondBack < 0 || atM - fromM < WreckAheadM || !Overtaking.IsALaneToPassFrom(roads, lane)) continue;
 
             // Quiet over what a pass through the box covers: the end of this street both ways, and the start of the next.
             var backM = roads.LaneLengthM[back];
@@ -282,7 +308,7 @@ public class OvertakeInATownTests
     /// <b>The lane beside must be free</b>: with a second wreck standing in it alongside the first, a car never
     /// asks for a pass, and waits behind what is in its lane.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarAsksForNoPassWhileTheLaneBesideIsHeld()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -303,7 +329,7 @@ public class OvertakeInATownTests
     /// it</b> (CAR-14.7): held behind a wreck with a second one standing in the lane beside, it has no pass and is
     /// indicating towards the lane beside all the same.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarWaitingForTheLaneBesideIndicatesTowardsIt()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -337,7 +363,7 @@ public class OvertakeInATownTests
     /// <b>A car that finds the lane beside free gets past without stopping</b>: its pass is drawn for the speed it is
     /// doing and asked for before it would begin to slow, so it never comes to a stand behind the wreck.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarWithTheLaneBesideFreeGetsPastWithoutStopping()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -365,7 +391,7 @@ public class OvertakeInATownTests
     /// the pass it asks for begins ahead of where it is when it asks — at the last place its body clears the wreck —
     /// and the pass it drives is that one.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarTurnsOutWhereThePassItDecidedBegins()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -391,7 +417,7 @@ public class OvertakeInATownTests
     /// it is let pick up pace on the straight alongside them rather than held to the crawl its step out was drawn for,
     /// and steps back at the pace it has picked up.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarPullsAwayAlongItsPass()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -436,7 +462,7 @@ public class OvertakeInATownTests
     /// beside clears it begins its pass from where it stands, and what it passes is less than a step in front of it —
     /// its step out runs on alongside what it passes rather than being done behind it.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarHeldBehindAWreckStepsOutRoundItFromWhereItStands()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -482,7 +508,7 @@ public class OvertakeInATownTests
     /// clears, and the car backs down its own lane until it can step out — never past the room it keeps to — before
     /// its pass, having touched nothing.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarStandingTooNearAWreckBacksUpForTheRoomAndGetsPast()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -492,11 +518,18 @@ public class OvertakeInATownTests
         var (driver, lane, clearsM, beside) = StandTooNearAWreck(world, loop);
         var cars = world.Cars;
         var stoodAtM = cars.ProgressM[driver];
-        var shortM = -cars.GrantLeftM(driver);
-        Assert.True(shortM > 0f, $"car {driver} put a stand-off from the wreck was granted {cars.GrantLeftM(driver):F2} m, and is not too near");
-
         PutDown(world, beside, FarOffTheTownM, 0f);
-        var leastM = stoodAtM;
+
+        // The pass drawn round the wreck where it stood is let go and drawn again round where it stands now.
+        for (var tick = 0; tick < WatchedTicks && cars.Action[driver] != CarAction.BackUp && !cars.Pass[driver].Begun; tick++)
+        {
+            loop.Advance(1);
+        }
+
+        var shortM = stoodAtM - world.Overtaking.StepsOutAtM(driver);
+        Assert.True(shortM > 0f, $"car {driver} put a stand-off from the wreck stands {shortM:F2} m past where its step out begins, and is not too near");
+
+        var leastM = MathF.Min(stoodAtM, cars.ProgressM[driver]);
         var touched = false;
         var furthestM = float.NegativeInfinity;
         for (var tick = 0; tick < WatchedTicks && cars.LaneOf(driver) == lane; tick++)
@@ -524,7 +557,7 @@ public class OvertakeInATownTests
     /// <b>A car too near a wreck to step out round it, with no room behind it to back up into, goes nowhere</b> (CAR-50):
     /// it does not back into ground a body stands on.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void ACarTooNearAWreckWithNoRoomBehindItGoesNowhere()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
@@ -594,7 +627,7 @@ public class OvertakeInATownTests
     /// <b>A walker gets past somebody standing on its way</b> (PER-28): over onto the lane beside and back onto
     /// its own way past them, having touched nobody.
     /// </summary>
-    [Fact(Skip = NoPassIsDecided)]
+    [Fact]
     public void AWalkerGetsPastSomebodyStandingOnItsWayWithoutTouchingThem()
     {
         using var world = new TownWorld(Towns.Built, Config);
@@ -792,7 +825,7 @@ public class OvertakeInATownTests
     internal static readonly Vector2 FarOffTheTownM = new(-10_000f, -10_000f);
 
     /// <summary>How far in front of the car's nose the wreck is put down: a town speed's stop and more.</summary>
-    const float WreckAheadM = 45f;
+    const float WreckAheadM = 35f;
 
     /// <summary>How far on from the first a second wreck nose to tail with it stands: too little room between to come back into.</summary>
     const float NoseToTailM = 8f;
@@ -801,7 +834,7 @@ public class OvertakeInATownTests
     const float PulledAwayShare = 1.2f;
 
     /// <summary>How much of its lane a car must have ahead of it for a wreck and the whole of a pass round it.</summary>
-    const float RoomAheadM = 140f;
+    const float RoomAheadM = 75f;
 
     /// <summary>How far short of the box at a lane's end a wreck is put down: less than a pass needs to come back in.</summary>
     const float ShortOfTheBoxM = 8f;

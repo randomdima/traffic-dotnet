@@ -16,8 +16,8 @@ namespace TrafficSimulation.Agents.Person.Actions;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Nothing decides a pass</b> (<see cref="DrawThePass"/>): whether what ended the grant is somebody standing still is
-/// what that body is doing, and the claims say only where it is (TER-4c.5).
+/// <b>Who is somebody to get past is read where they stand</b> (<see cref="ComesUpToOneItMayPass"/>, TER-4c.5): at rest,
+/// and nothing laid just past them down the walker's own walk.
 /// </para>
 /// <para>
 /// <b>Its ground is its own route's</b> (<see cref="GroundOfThePass"/>), from where it stands to the gap past where it
@@ -87,7 +87,26 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         var occupant = ground.HeldAs(person, out var roster);
         var hold = _holds[person] = Occupancy.BeginHold(occupant, roster, whole: !begun);
         var rung = begun ? ClaimPriority.Committed : ClaimPriority.Afoot;
-        foreach (ref readonly var way in left[..count]) Occupancy.Ask(hold, way.Way, way.FromM, way.ToM, way.LineFromM, rung);
+        foreach (ref readonly var way in left[..count]) AskAround(hold, way, _passed[person], rung);
+    }
+
+    /// <summary>
+    /// <b>A stretch of the walker's route asked round the one it passes</b> (TER-4c.6): all of it but where they stand,
+    /// to within a tick's walk — ground nobody else may plan while they stand there, and the walker is on the lane beside
+    /// alongside them. Asked over them, a pass would be refused by the very one it gets past.
+    /// </summary>
+    void AskAround(int hold, in LineWay way, in BodySeen passed, ClaimPriority rung)
+    {
+        var withinM = ground.Config.PersonStepM;
+        var (gapFromM, gapToM) = passed.Way == way.Way ? (passed.FromM - withinM, passed.ToM + withinM) : (way.ToM, way.ToM);
+        if (gapFromM > way.FromM)
+        {
+            var toM = MathF.Min(way.ToM, gapFromM);
+            Occupancy.Ask(hold, way.Way, way.FromM, toM, way.LineFromM, rung);
+        }
+
+        var fromM = MathF.Max(way.FromM, gapToM);
+        if (way.ToM > fromM) Occupancy.Ask(hold, way.Way, fromM, way.ToM, OnTheLineM(way, fromM), rung);
     }
 
     /// <summary>
@@ -142,13 +161,23 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     }
 
     /// <summary>
-    /// <b>A walker's pass, on its own clock</b>: while it waits, looked round every
-    /// <see cref="PersonFigures.SidestepAskEveryS"/> — asked for, or let go where the one it passes has gone or it has
-    /// waited its patience out.
+    /// <b>A walker's pass, on its own clock</b>: decided where the grant was ended by somebody it may get past; and while
+    /// it waits, looked round every <see cref="PersonFigures.SidestepAskEveryS"/> — asked for, or let go where the one it
+    /// passes has gone or it has waited its patience out.
     /// </summary>
     /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
     public void Decide(int person, float sinceLastDecisionS)
     {
+        if (People.Action[person] == PersonAction.Walk)
+        {
+            if (ComesUpToOneItMayPass(person, out var cutBy) && DrawThePass(person, sinceLastDecisionS, cutBy.Way, cutBy.FromM))
+            {
+                actions.Enter(person, PersonAction.Sidestep);
+            }
+
+            return;
+        }
+
         if (People.Action[person] != PersonAction.Sidestep || People.Pass[person].Any) return;
 
         _waitedS[person] += sinceLastDecisionS;
@@ -310,10 +339,6 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// <b>As short as a walker can make it</b>: straight across from where it stands, along the lane beside until
     /// its back is the gap it keeps past them, and straight back (<see cref="Sidestep"/>).
     /// </para>
-    /// <para>
-    /// <b>Nothing calls it</b>: which body is one to get past is what the body is doing, which the claims do not say
-    /// (TER-4c.5) — <c>docs/tech-debt.md</c>.
-    /// </para>
     /// </remarks>
     public bool DrawThePass(int person, float sinceLastDecisionS, int cutOn, float cutAtM)
     {
@@ -349,6 +374,38 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         _looksInS[person] = 0f;
         _waitedS[person] = 0f;
         return true;
+    }
+
+    /// <summary>
+    /// <b>Whether a walker's walk was ended by somebody it may get past</b> (PER-28), walking a way of its route on its
+    /// feet: a body at rest where the walk was cut, read where it stands (TER-4c.5), with nothing laid a standstill gap
+    /// past it down the walk (<see cref="LaneOccupancy.IsHeldPast"/>) — somebody standing on the way, and not somebody
+    /// waiting on what the walker would wait on too. Read off the walk's last turn.
+    /// </summary>
+    bool ComesUpToOneItMayPass(int person, out BodySeen cutBy)
+    {
+        cutBy = default;
+        var hold = ground.WalkHold[person];
+        var code = People.CurrentRouteWay(person);
+        if (hold == LaneOccupancy.NoHold || code == PersonFleet.NoWay || WalkingNetwork.IsACorner(code)) return false;
+        if (!People.Walking[person] || !People.IsOnItsFeet(person) || ground.IsHopping(person)) return false;
+
+        var cut = Occupancy.CutOf(hold);
+        var occupant = ground.HeldAs(person, out var roster);
+        if (!cut.Refused || cut.Kind != ClaimKind.Body
+            || !Occupancy.FirstBodySeen(cut.Way, cut.AtM, Occupancy.WayLengthM(cut.Way), occupant, roster, out cutBy)
+            || !Occupancy.ReadTheBody(cutBy, occupant, roster, out var velocityMps, out _, out _))
+        {
+            return false;
+        }
+
+        var atRestMps = ground.Config.Person.AtRestBelowMps;
+        if (velocityMps.Length() > atRestMps) return false;
+
+        var gapM = ground.Config.PersonStandstillGapM;
+        Span<LineWay> walk = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
+        var count = ground.WaysAlongTheWalk(person, ground.PlansAheadM + ground.Config.PersonDiameterM + gapM, walk);
+        return !Occupancy.IsHeldPast(cutBy, walk[..count], gapM, atRestMps, occupant, roster);
     }
 
     /// <summary>The gap a walker keeps in front of where it steps back onto its route.</summary>

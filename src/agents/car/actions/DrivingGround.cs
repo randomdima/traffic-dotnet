@@ -190,6 +190,7 @@ internal sealed class DrivingGround(
     {
         _grantLeftM[car] = Cars.GrantLeftM(car);
         PlanHold[car] = LaneOccupancy.NoHold;
+        _whatCutIt[car] = BodyAhead.Nothing;
 
         var noseM = Cars.ProgressM[car] + LeadingEdgeAheadOfTheAxleM(car);
         Cars.ClaimFromM[car] = noseM;
@@ -227,10 +228,12 @@ internal sealed class DrivingGround(
     /// </remarks>
     public void ReadTheGrant(int car)
     {
+        _whatCutIt[car] = BodyAhead.Nothing;
         var hold = PlanHold[car];
+        var cut = Occupancy.CutOf(hold);
+        if (hold == LaneOccupancy.NoHold || !cut.Refused || cut.Kind != ClaimKind.Body) _wasAlongMps[car] = float.NaN;
         if (hold == LaneOccupancy.NoHold) return;
 
-        var cut = Occupancy.CutOf(hold);
         if (!cut.Refused)
         {
             Cars.AuthorityM[car] = float.PositiveInfinity;
@@ -241,6 +244,56 @@ internal sealed class DrivingGround(
         Cars.AuthorityM[car] = cut.CutLineM - marginM - Cars.ClaimFromM[car];
         Cars.GrantMarginM[car] = marginM;
         Cars.GrantCutBy[car] = KindOf(cut);
+        if (cut.Kind == ClaimKind.Body) _whatCutIt[car] = ReadAgain(car, ReadTheBodyAhead(car, cut.Way, cut.AtM));
+    }
+
+    /// <summary>How fast the body that cut each car's plan at its last turn was going down its line, or NaN where none did.</summary>
+    readonly float[] _wasAlongMps = Enumerable.Repeat(float.NaN, cars.Capacity).ToArray();
+
+    /// <summary>
+    /// <b>A body read against the car's reading of it at its last turn</b>: going nowhere only where it was so then too
+    /// (<see cref="TwiceGoingNowhere"/>), and holding its pace only where a body cut the plan then too and this one has
+    /// gained no more than <see cref="DrivingFigures.PullingAwayMps2"/> over the turn — a queue moving off or traffic
+    /// getting up to pace is holding nobody up.
+    /// </summary>
+    BodyAhead ReadAgain(int car, in BodyAhead read)
+    {
+        ref var wasMps = ref _wasAlongMps[car];
+        var gainedMps2 = (read.AlongMps - wasMps) / MathF.Max(Config.Sim.AgentDecisionIntervalS, Config.TickSeconds);
+        var steady = read.Read && float.IsFinite(gainedMps2) && gainedMps2 <= Config.Driving.PullingAwayMps2;
+        wasMps = read.Read ? read.AlongMps : float.NaN;
+        return TwiceGoingNowhere(car, read) with { Steady = steady };
+    }
+
+    /// <summary>Where the body each car read going nowhere at its last turn stood, or nothing.</summary>
+    readonly BodySeen[] _seenGoingNowhere = new BodySeen[cars.Capacity];
+
+    /// <summary>
+    /// <b>A body read going nowhere only at the second turn running it is read so</b>, standing where it stood to within
+    /// the pass's spare: a body that has only just come to rest, or whose holder has yet to take its first turn and lay
+    /// its plan, holds nothing past it for a turn and is not going nowhere for that.
+    /// </summary>
+    BodyAhead TwiceGoingNowhere(int car, in BodyAhead read)
+    {
+        ref var was = ref _seenGoingNowhere[car];
+        var spareM = Config.Driving.PassSpareM;
+        var again = was.Way == read.Seen.Way && was.ToM > was.FromM
+                    && MathF.Abs(was.FromM - read.Seen.FromM) <= spareM && MathF.Abs(was.ToM - read.Seen.ToM) <= spareM;
+        was = read.GoesNowhere ? read.Seen : default;
+        return read.GoesNowhere && !again ? read with { GoesNowhere = false } : read;
+    }
+
+    /// <summary>
+    /// <b>A car's grant kept further off the body that cut it</b> (S-2a, CAR-46): <paramref name="keptOffM"/> short of it
+    /// rather than its stand-off, where that is more — the room to step out round something it may come to pass.
+    /// </summary>
+    public void KeepOffWhatCutIt(int car, float keptOffM)
+    {
+        var marginM = Cars.GrantMarginM[car];
+        if (keptOffM <= marginM || Cars.GrantCutBy[car] != HeadwayKind.Body) return;
+
+        Cars.AuthorityM[car] -= keptOffM - marginM;
+        Cars.GrantMarginM[car] = keptOffM;
     }
 
     /// <summary>The holds each car nobody is driving holds the road it cannot stop short of in, one a way under it.</summary>
@@ -469,6 +522,72 @@ internal sealed class DrivingGround(
         : cut.Kind == ClaimKind.Body ? HeadwayKind.Body
         : cut.ByALight ? HeadwayKind.Light
         : HeadwayKind.Claimed;
+
+    readonly BodyAhead[] _whatCutIt = new BodyAhead[cars.Capacity];
+
+    /// <summary>
+    /// <b>The body that ended a car's plan at its last turn, as it was read then</b> (<see cref="ReadTheGrant"/>) — or
+    /// <see cref="BodyAhead.Nothing"/> where no body did. Read once a turn, as the grant is (TER-49).
+    /// </summary>
+    public ref readonly BodyAhead WhatCutIt(int car) => ref _whatCutIt[car];
+
+    /// <summary>
+    /// <b>The first body on one of a car's ways from a place on it, read where it stands</b> (TER-4c.5): how it moves along
+    /// the car's own line, and whether it goes nowhere the car's way — at rest, and nothing laid a stand-off past it down
+    /// the car's line (<see cref="LaneOccupancy.IsHeldPast"/>) — or waits on what the car would wait on: a queue.
+    /// </summary>
+    public BodyAhead ReadTheBodyAhead(int car, int way, float atM)
+    {
+        if (!Occupancy.FirstBodySeen(way, atM, Occupancy.WayLengthM(way), car, LaneRoster.Driving, out var seen))
+        {
+            return BodyAhead.Nothing;
+        }
+
+        if (!Occupancy.ReadTheBody(seen, car, LaneRoster.Driving, out var velocityMps, out var headingRad, out var wheeled))
+        {
+            return new BodyAhead(seen, Read: false, AtRest: false, GoesNowhere: false, AlongMps: 0f, Wheeled: false);
+        }
+
+        Span<LineWay> line = stackalloc LineWay[MostWaysAlongALine];
+        var count = WaysAlong(car, Cars.ClaimFromM[car], Cars.Line[car].LengthM + LeadingEdgeAheadOfTheAxleM(car), line);
+        var direction = OnTheLine(line[..count], way, (seen.FromM + seen.ToM) * 0.5f, out var lineM)
+            ? Spline.SampleAt(Cars.LineOf(car), Math.Clamp(lineM, 0f, Cars.Line[car].LengthM)).Direction
+            : Vector2.Zero;
+        var clearsAtM = OnTheLine(line[..count], way, seen.ToM, out var farM) ? farM : float.PositiveInfinity;
+        var atRest = velocityMps.Length() <= Config.Driving.StopSpeedMps;
+        var travelsTheLine = Vector2.Dot(Heading.Unit(headingRad), direction) >= Config.TravelsTheLineCos;
+        var goesNowhere = atRest
+                          && (!travelsTheLine
+                              || !Occupancy.IsHeldPast(
+                                  seen, line[..count], Config.Driving.StandOffM, Config.Driving.StopSpeedMps, car, LaneRoster.Driving));
+        return new BodyAhead(seen, Read: true, atRest, goesNowhere, Vector2.Dot(velocityMps, direction), wheeled, clearsAtM);
+    }
+}
+
+/// <summary>
+/// <b>A body ahead as a driver reads it, by place</b> (TER-4c.5): where it stands and how it moves — never who, and never
+/// carried on a claim.
+/// </summary>
+/// <param name="Read">Whether its motion was read at all: a body laid as another holder's ground is not, and is never got past.</param>
+/// <param name="GoesNowhere">At rest, with nothing laid just past it down the reader's line: a wreck, a car stood down, somebody standing in the road.</param>
+/// <param name="AlongMps">How fast it goes down the reader's line — negative coming the other way.</param>
+/// <param name="Wheeled">Whether it is traffic rather than somebody on foot.</param>
+/// <param name="ClearsAtM">Where along the reader's line its far edge stands, or infinity where that is off the line.</param>
+/// <param name="Steady">
+/// Whether a body cut the reader's plan at its last turn too and this one has gained no more than
+/// <see cref="DrivingFigures.PullingAwayMps2"/> since — not a queue moving off or traffic getting up to pace.
+/// </param>
+internal readonly record struct BodyAhead(
+    BodySeen Seen, bool Read, bool AtRest, bool GoesNowhere, float AlongMps, bool Wheeled,
+    float ClearsAtM = float.PositiveInfinity, bool Steady = false)
+{
+    public static BodyAhead Nothing => default;
+
+    /// <summary>
+    /// <b>Whether it is traffic holding the reader up</b> (CAR-53, AMB-4.4): wheeled, holding its pace, and going slower
+    /// than the reader means to by more than <paramref name="byMps"/>.
+    /// </summary>
+    public bool IsTrafficSlowerThan(float meansMps, float byMps) => Wheeled && Steady && AlongMps < meansMps - byMps;
 }
 
 /// <summary>
