@@ -47,6 +47,7 @@ const kernels = {
     scratch: null,
     fill: null,
     landed: null,
+    proofs: [],
 };
 
 /// What runs each time a batch has landed: the ticks a frame put off until the device answered (town.js `ticker`).
@@ -126,19 +127,16 @@ export function kernelSource(code) {
             workgroup.has(name) ? `= workgroupUniformLoad(&${name}${index});` : load));
 }
 
-function kernelPipeline(id, name, wgsl, pushBytes) {
-    const device = kernels.device;
-    const code = kernelSource(wgsl);
-    const module = device.createShaderModule({ code, label: name });
-    module.getCompilationInfo().then(info => {
-        for (const message of info.messages) {
-            if (message.type === 'error') console.error(`${name} ${message.lineNum}:${message.linePos}: ${message.message}`);
-        }
-    });
-
-    // The bindings the kernel declares, read off its WGSL: naga writes one only where the GLSL used it.
-    const bindings = [...code.matchAll(/@group\(0\) @binding\((\d+)\)\s*var<storage(?:,\s*(read_write|read))?>/g)]
+/// The storage buffers a kernel declares, read off its WGSL: naga writes one only where the GLSL used it.
+function storageBindings(code) {
+    return [...code.matchAll(/@group\(0\) @binding\((\d+)\)\s*var<storage(?:,\s*(read_write|read))?>/g)]
         .map(m => ({ binding: Number(m[1]), writable: m[2] === 'read_write' }));
+}
+
+/// A kernel's pipeline as both its maker and its proof ask for it, and its bindings.
+function kernelDescriptor(name, code, push) {
+    const device = kernels.device;
+    const bindings = storageBindings(code);
     const storage = device.createBindGroupLayout({
         label: name,
         entries: bindings.map(b => ({
@@ -149,17 +147,53 @@ function kernelPipeline(id, name, wgsl, pushBytes) {
     });
 
     const layouts = [storage];
-    if (pushBytes > 0) layouts.push(pushLayout());
-    const pipeline = device.createComputePipeline({
+    if (push) layouts.push(pushLayout());
+    const descriptor = {
         label: name,
         layout: device.createPipelineLayout({ bindGroupLayouts: layouts }),
-        compute: { module, entryPoint: 'main' },
+        compute: { module: device.createShaderModule({ code, label: name }), entryPoint: 'main' },
+    };
+
+    return { descriptor, storage, bindings };
+}
+
+function kernelPipeline(id, name, wgsl, pushBytes) {
+    const { descriptor, storage, bindings } = kernelDescriptor(name, kernelSource(wgsl), pushBytes > 0);
+    descriptor.compute.module.getCompilationInfo().then(info => {
+        for (const message of info.messages) {
+            if (message.type === 'error') console.error(`${name} ${message.lineNum}:${message.linePos}: ${message.message}`);
+        }
     });
+
+    const pipeline = kernels.device.createComputePipeline(descriptor);
     kernels.pipelines.set(id, {
         pipeline, storage, name,
         bindings: bindings.map(b => b.binding),
         writable: new Set(bindings.filter(b => b.writable).map(b => b.binding)),
     });
+}
+
+/// One kernel built on this device ahead of any town, the answer kept for `kernelsProven`.
+///
+/// **A driver may refuse a kernel the limits allow**: a handset's Vulkan answered `tyre_pass.comp` with
+/// VK_ERROR_UNKNOWN, and a world stepped through a pipeline that failed is every batch refused — bodies that never move,
+/// read back off views nobody wrote. **A kernel binding more storage buffers than the device gives is not proved**: it is
+/// one the page never builds (the desktop's emit, WEB-10).
+function proveKernel(name, wgsl) {
+    const code = kernelSource(wgsl);
+    if (storageBindings(code).length > kernels.device.limits.maxStorageBuffersPerShaderStage) return;
+
+    const { descriptor } = kernelDescriptor(name, code, code.includes('@group(1)'));    kernels.proofs.push(kernels.device.createComputePipelineAsync(descriptor).then(() => null, e => `${name}: ${e.message}`));
+}
+
+/// The kernels `proveKernel` was given, built or refused: the refusals newline apart, or "". **Any refusal and the device
+/// no longer fits**, so every town after steps the managed world (WEB-10).
+async function kernelsProven() {
+    const refused = (await Promise.all(kernels.proofs)).filter(line => line !== null);
+    kernels.proofs = [];
+    if (refused.length > 0) kernels.fits = false;
+    for (const line of refused) console.warn(`This device cannot build a world kernel — ${line}`);
+    return refused.join('\n');
 }
 
 function pushLayout() {
@@ -354,4 +388,7 @@ export function kernelBufferOf(id) {
     return kernels.buffers.get(id)?.buffer ?? null;
 }
 
-export const compute = { kernelsFit, heapBytes, kernelBuffer, kernelBufferGone, kernelWrite, kernelPipeline, kernelBind, kernelSubmit };
+export const compute = {
+    kernelsFit, heapBytes, kernelBuffer, kernelBufferGone, kernelWrite, kernelPipeline, proveKernel, kernelsProven, kernelBind,
+    kernelSubmit,
+};

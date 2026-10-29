@@ -226,6 +226,8 @@ one question is about the browser and the other about the device it gave out.
 **WEB-10** `P4` **A page steps its world on its device where the device can hold the kernels, and in managed code
 where it cannot.** The kernels want sixteen storage buffers a stage and a workgroup of 1 024 threads
 ([`compute.js`](../wwwroot/compute.js)'s `NEEDED`), which a desktop's browser gives and a handset's often does not;
-a device short of either steps the managed world and says so, and `?managed-world` asks for it by name. **And a page
+a device short of either steps the managed world and says so, and `?managed-world` asks for it by name. **Holding them
+is building them**: a driver may refuse a kernel the limits allow, so every kernel is built once before the first town
+lays its world ([`WebGpu.ProveKernels`](../../../runtime/web/WebGpu.cs)), and one refused is a device that cannot. **And a page
 never waits on its device**: a tick whose step has not been answered is not taken that frame, as a slow frame's
 ticks are not ([`Game`](../../main/Game.cs)), so a device that answers late slows the town and stalls nothing.

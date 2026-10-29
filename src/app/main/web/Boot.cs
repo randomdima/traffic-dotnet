@@ -36,6 +36,9 @@ try
         return;
     }
 
+    // Built while the figures are read and the menu stands, and waited on before the first town lays its world (WEB-10).
+    var proven = options.ManagedWorld || !WebGpu.KernelsFit() ? Task.FromResult(string.Empty) : WebGpu.ProveKernels();
+
     Say("reading the figures…");
     var config = SimConfig.Load();
 
@@ -103,6 +106,7 @@ try
     // is asked for a moment before the open awaits it, since a run that named a map started it beside
     // the engine (main.js) and one that did not has been showing a menu that draws none of it.
     Data.ExpectArt();
+    await proven;
     await Open(options.Map ?? Game.IdleMap, behindTheMenu: options.Map is null);
 
     // And Main never returns, which is the whole of what keeps the town standing between those

@@ -212,14 +212,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   as well. A `qq web --map Twinford --ui frame` with the window in view closes it; Highmoor's 3.2 GiB says whether it
   is the desktop map the readme calls it.
 - **A phone runs the page at about 5 fps, Showroom and Saltbay alike, its opening card included, and its cars stand
-  still and blink** (owner's report, 2026-10-29; not measured here). The sprite page fixed that day did not stop the
-  blinking. Cars that never move and drop out on alternate frames is what a step whose batch the device refuses would
-  show: the view's two slots copied back each tick, one still holding the first view and the other never written. The
-  page now puts its first WebGPU fault in the banner (`town.js` `fault`) and offers its log at the first error
-  (`log.js`, with the device's limits); a log saved on the phone says whether that is so. Lavapipe does not reproduce it here: it cannot hold the kernels, so its page steps the managed world.
-  The rate is a cost that does not follow the town. Two suspects, unweighed. The device world (WEB-10) — every tick a round trip
-  with one batch in flight, the solver one workgroup of 1 024 threads, which a handset's GPU runs on one core while the
-  frames queue behind it. Or the fill — the canvas at the whole `devicePixelRatio` (`town.js` `resize`), 3–3.5 Mpx under
+  still and blink** (owner's report, 2026-10-29). The cars were the device world refused: the phone's Vulkan answered
+  `tyre_pass.comp` with `VK_ERROR_UNKNOWN` (a log saved off it, `log.js`), so every step's batch was invalid and the
+  view's two slots copied back each tick were one holding the first view and one never written. A page now builds every
+  kernel before its first town and steps the managed world where one is refused (WEB-10, `WebGpu.ProveKernels`), so
+  that phone runs the managed world. **Why its driver refuses `tyre_pass.comp`** is open: which GPU it is, and a kernel
+  cut so that driver builds it, closes it. The rate is not measured since, and was a cost that did not follow the town.
+  Two suspects, unweighed. The device world (WEB-10) — every tick a round trip with one batch in flight, the solver one
+  workgroup of 1 024 threads, which a handset's GPU runs on one core while the frames queue behind it. Or the fill — the canvas at the whole `devicePixelRatio` (`town.js` `resize`), 3–3.5 Mpx under
   the ground's noise, its looks' samples and its blend. `?managed-world&ui=frame` on the phone tells them apart: a
   frame rate back near 60 is the device world, and a stricter `NEEDED` or a step-time budget falling back to the managed
   world closes it; one still slow is the fill, and a capped render scale closes it.

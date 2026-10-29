@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices.JavaScript;
 
 namespace TrafficSimulation.Runtime;
@@ -378,6 +379,31 @@ internal static partial class WebGpu
         KernelPipelineJs(id, name, wgsl, pushBytes);
     }
 
+    /// <summary>
+    /// <b>Every kernel the build shipped, built on this device before any town asks for one</b> (WEB-10): a driver may
+    /// refuse a kernel the limits allow, and a world stepped through a pipeline that failed is every batch refused. Answers
+    /// the refusals, newline apart, or the empty string; where there is any, <see cref="KernelsFit"/> answers no from then on.
+    /// </summary>
+    public static Task<string> ProveKernels()
+    {
+        foreach (var resource in Assembly.GetExecutingAssembly().GetManifestResourceNames())
+        {
+            if (!resource.StartsWith(KernelResource, StringComparison.Ordinal) || !resource.EndsWith(".comp.wgsl", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var shader = resource[KernelResource.Length..^".wgsl".Length];
+            Count();
+            ProveKernelJs(shader, Vk.KernelSource(shader));
+        }
+
+        Count();
+        return KernelsProvenJs();
+    }
+
+    const string KernelResource = "Shaders/";
+
     /// <summary>A kernel's buffers bound as one group, by their ids in binding order; made again in place under the same id.</summary>
     public static void KernelBind(int id, int kernel, Span<int> buffers)
     {
@@ -417,6 +443,12 @@ internal static partial class WebGpu
 
     [JSImport("town.kernelPipeline", "town.js")]
     static partial void KernelPipelineJs(int id, string name, string wgsl, int pushBytes);
+
+    [JSImport("town.proveKernel", "town.js")]
+    static partial void ProveKernelJs(string name, string wgsl);
+
+    [JSImport("town.kernelsProven", "town.js")]
+    private static partial Task<string> KernelsProvenJs();
 
     [JSImport("town.kernelBind", "town.js")]
     static partial void KernelBindJs(int id, int kernel, [JSMarshalAs<JSType.MemoryView>] Span<int> buffers);
