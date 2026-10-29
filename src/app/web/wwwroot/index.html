@@ -15,6 +15,7 @@
        behind dotnet.js are not preloaded, because a browser that cannot run this page should not spend
        them to find out (main.js). -->
   <link rel="modulepreload" href="main.js">
+  <link rel="modulepreload" href="log.js">
   <link rel="modulepreload" href="town.js">
   <link rel="modulepreload" href="compute.js">
   <link rel="modulepreload" href="loading.js">
@@ -73,6 +74,12 @@
     @keyframes sweep {
       0% { transform: translateX(-110%); }
       100% { transform: translateX(300%); }
+    }
+    /* In front of the opening too, since a page that fails while standing up never takes the opening away (log.js). */
+    #save-log {
+      position: fixed; right: 0.6rem; bottom: 2.4rem; z-index: 10; padding: 0.6rem 0.9rem;
+      font: 13px/1.4 ui-monospace, monospace; color: #16181d; background: #e8a99f;
+      border: 0; border-radius: 4px; cursor: pointer;
     }
     #opening.trouble h1 { color: #d97a6c; }
     #opening.trouble #opening-stage { color: #e8a99f; }

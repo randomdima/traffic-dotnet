@@ -146,6 +146,11 @@ behind the card**, a stage at a time with a frame painted between two: the bar s
 open each stage ends at and moves on toward the next at the pace the open has kept so far, on the browser's
 compositor, so a stage that holds the page's one thread for seconds is still a bar that moves.
 
+**A page that errs offers its log** ([`log.js`](../wwwroot/log.js)): everything the console was told from the first
+line, the runtime's output with it, is kept, and the first error puts up a button that saves it as text beside what
+the browser, the screen and the device are — the limits given against the adapter's. A handset has no console
+anybody reads, and its fault is otherwise one nobody can answer.
+
 ## What a publish holds
 
 **WEB-7** `P4` **What `dotnet publish` writes is the whole of what gets deployed.** The target is a stateless

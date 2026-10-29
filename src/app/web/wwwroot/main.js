@@ -7,6 +7,7 @@
 // megabytes of engine to be told the engine cannot start. Everything checked here is checked in
 // milliseconds and against no download at all.
 
+import './log.js'
 import { adapter, prefetch, town, useHeap } from './town.js'
 import { counting, detail, stage, trouble } from './loading.js'
 

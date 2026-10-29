@@ -19,6 +19,7 @@
 
 import * as opening from './loading.js'
 import { compute, kernelBufferOf, kernelLimits, onLanded, useDevice } from './compute.js'
+import { addContext } from './log.js'
 
 const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6, standing: 7, fans: 8 };
 const TEXTURE = { pages: 0, glyphs: 1, surfaces: 2 };
@@ -109,6 +110,38 @@ export function adapter() {
 
 let asked = null;
 
+/// A fault of the device's, on the console and the first of them in the banner: a handset has no console anybody reads,
+/// and a step that fails every tick says the same thing sixty times a second. **The banner and not `say`**, which while
+/// the opening is up writes a stage the boot's next line replaces.
+function fault(line) {
+    console.error(line);
+    const banner = document.getElementById('banner');
+    if (faulted || !banner) return;
+
+    faulted = true;
+    banner.textContent = line;
+    banner.style.display = 'block';
+}
+
+let faulted = false;
+
+/// The device as a saved log tells it (log.js): what the browser calls it, what it was given against what the adapter
+/// has, and so whether its world steps on it (WEB-10).
+function described(found, device) {
+    const info = found.info ?? {};
+    const fallback = info.isFallbackAdapter ?? found.isFallbackAdapter;
+    const lines = [
+        `gpu ${info.vendor} / ${info.architecture} / ${info.device} / ${info.description}${fallback ? ' (a fallback adapter)' : ''}`,
+        `the world's kernels fit: ${compute.kernelsFit()}; indirect-first-instance: ${state.firstInstance}`,
+        `canvas ${state.canvas?.width}x${state.canvas?.height} ${state.format}`,
+        `features ${[...device.features].sort().join(' ')}`,
+        'limits, given / the adapter\'s:',
+    ];
+
+    for (const name in device.limits) lines.push(`  ${name} ${device.limits[name]} / ${found.limits[name]}`);
+    return lines;
+}
+
 /// The device, the canvas and the shaders. Answers the reason it could not, or "" — a page that cannot
 /// have a device says so in words rather than drawing nothing.
 async function start(wgsl) {
@@ -125,8 +158,9 @@ async function start(wgsl) {
         requiredLimits: kernelLimits(found),
     });
     useDevice(state.device);
-    state.device.addEventListener('uncapturederror', e => console.error('WebGPU:', e.error.message));
-    state.device.lost.then(info => console.error('WebGPU device lost:', info.message));
+    addContext(() => described(found, state.device));
+    state.device.addEventListener('uncapturederror', e => fault(`WebGPU: ${e.error.message}`));
+    state.device.lost.then(info => fault(`WebGPU device lost: ${info.message}`));
 
     state.canvas = document.getElementById('town');
     state.context = state.canvas.getContext('webgpu');
