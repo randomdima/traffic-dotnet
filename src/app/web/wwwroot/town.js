@@ -94,6 +94,7 @@ const state = {
     // Whether an indirect draw may start part way into its buffer; without it the buildings' stretch is drawn
     // from the first of them, which is more than the frame sees and never less.
     firstInstance: false,
+    mostPixelRatio: Infinity,
 };
 
 /// The adapter, asked for once and answered to everybody who asks.
@@ -277,6 +278,14 @@ function buildPipelines(module) {
         primitive: { topology: 'triangle-strip' },
     });
 
+    // The clouds' shadows (OBJ-8): one triangle out of the vertex index, and no buffer.
+    state.pipelines.cloud = state.device.createRenderPipeline({
+        layout,
+        vertex: { module, entryPoint: 'cloudVertex' },
+        fragment: { module, entryPoint: 'cloudFragment', targets: [{ format: state.format, blend }] },
+        primitive: { topology: 'triangle-list' },
+    });
+
     state.pipelines.overlay = state.device.createRenderPipeline({
         layout,
         vertex: {
@@ -420,6 +429,11 @@ function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, und
     pass.setVertexBuffer(0, state.buffers[SLOT.sprites], aboveOffset);
     pass.drawIndirect(state.indirect, DRAW.above);
 
+    // The clouds' shadows, over everything the town stands and under everything that reads it, where the desktop draws
+    // them (TownRenderer.Recording.cs); a clear sky's frame puts the triangle out of the picture (town.wgsl).
+    pass.setPipeline(state.pipelines.cloud);
+    pass.draw(3);
+
     // The interface and everything that annotates a body, over all of it.
     pass.setPipeline(state.pipelines.overlay);
     engineRuns(pass, [ENGINE.over]);
@@ -523,8 +537,16 @@ function frame(camera, under, over, above, overlay, underlay, underlayAbove, fra
     queue.submit([encoder.finish()]);
 }
 
+/// The most device pixels the canvas is drawn at to the point (src/core/config `PageMostPixelRatio`), handed over once
+/// the figures are read and the canvas laid again at it. **The interface is laid in points either way**: the scale the
+/// run is told is the one drawn at, so a pointer and a panel stand where they did.
+function mostPixelRatio(ratio) {
+    state.mostPixelRatio = ratio;
+    resize();
+}
+
 function resize() {
-    const scale = window.devicePixelRatio || 1;
+    const scale = Math.min(window.devicePixelRatio || 1, state.mostPixelRatio);
     const width = Math.max(1, Math.round(state.canvas.clientWidth * scale));
     const height = Math.max(1, Math.round(state.canvas.clientHeight * scale));
     if (state.canvas.width === width && state.canvas.height === height) return;
@@ -932,7 +954,7 @@ export { useHeap } from './compute.js'
 
 export const town = {
     ...compute,
-    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say, engine,
+    start, mostPixelRatio, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say, engine,
     progress: opening.progress, standUp: opening.standUp, standing: opening.standing, painted: opening.painted, prefetch, unpack, grab, grabHeld, park, take, picture, decode, texels,
     ticker: (step, between) => {
         onLanded(between);

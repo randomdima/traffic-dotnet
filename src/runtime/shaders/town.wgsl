@@ -1,6 +1,6 @@
-// The whole town in one module: three vertex stages, three fragment stages and the one bind group all
-// of them read. It is one file and not three because WGSL has no include and the group is what the
-// three share — three copies of it would be three chances to disagree about a binding number.
+// The whole town in one module: four vertex stages, four fragment stages and the one bind group all
+// of them read. It is one file and not four because WGSL has no include and the group is what the
+// four share — four copies of it would be four chances to disagree about a binding number.
 //
 // It is the GLSL beside it said again, and there are exactly three differences worth knowing:
 //   * a page is sampled with an explicit sampler, because WGSL has no combined image sampler;
@@ -25,7 +25,7 @@ struct Camera {
     // How a selected unit's ring is drawn (CameraView.Rings, RingLook): its two hues and its edge's, each four bytes,
     // then its width and the edge's in interface pixels as two halves.
     rings: vec4u,
-    // The clouds' shadows (CameraView.Clouds), which a page does not draw: here so what follows lands where it is written.
+    // The clouds' shadows (CameraView.Clouds, cloudVertex).
     cloudField: vec4f,
     cloudLook: vec4f,
     // The patches every surface wears its looks by (GroundPatches): the field's mean and one over its spread; then each
@@ -743,6 +743,98 @@ fn ringAt(frag: SpriteOut, uv: vec2f) -> vec4f {
     let hue = frag.ringHue.a * nearHue * outside;
     let edge = frag.edgeHue.a * max(nearHue, nearEdge) * outside * (1.0 - hue);
     return vec4f(frag.ringHue.rgb * hue + frag.edgeHue.rgb * edge, hue + edge);
+}
+
+// cloud.vert and cloud.frag said again (OBJ-8, CloudShadows): one triangle over the whole target, the ground darkened
+// wherever the clouds' field stands above its threshold. CloudShadows' FieldMean, FieldSpread and FieldSlope are this
+// field's as much as the GLSL's.
+struct CloudOut {
+    @builtin(position) position: vec4f,
+    @location(0) field: vec3f,
+    @location(1) @interpolate(flat) look: vec3f,
+};
+
+@vertex
+fn cloudVertex(@builtin(vertex_index) vertex: u32) -> CloudOut {
+    var result: CloudOut;
+
+    // A clear sky: the triangle put past the far plane, so nothing of it is rasterised.
+    if (camera.cloudLook.w <= 0.0) {
+        result.position = vec4f(0.0, 0.0, 2.0, 1.0);
+        result.field = vec3f(0.0);
+        result.look = vec3f(0.0);
+        return result;
+    }
+
+    // The desktop's clip, y down, which the town's point under each corner is read off; drawn y up as toClip draws.
+    let clip = vec2f(f32((vertex & 1u) << 2u), f32((vertex & 2u) << 1u)) - 1.0;
+    result.position = vec4f(clip.x, -clip.y, 0.0, 1.0);
+
+    let turnedM = clip / camera.clipPerM;
+    let fromCentreM = vec2f(
+        turnedM.x * camera.facing.x + turnedM.y * camera.facing.y,
+        -turnedM.x * camera.facing.y + turnedM.y * camera.facing.x);
+    let atM = camera.centreM + fromCentreM;
+
+    result.field = vec3f((atM + camera.cloudField.xy) * camera.cloudLook.x, camera.cloudField.z);
+    result.look = camera.cloudLook.yzw;
+    return result;
+}
+
+fn cloudHash(cell: vec3i) -> u32 {
+    let u = bitcast<vec3u>(cell);
+    var h = (u.x * 0x8da6b343u) ^ (u.y * 0xd8163841u) ^ (u.z * 0xcb1ab31fu);
+    h ^= h >> 16u;
+    h *= 0x7feb352du;
+    h ^= h >> 15u;
+    h *= 0x846ca68bu;
+    h ^= h >> 16u;
+    return h;
+}
+
+fn cloudLattice(cell: vec3i) -> f32 {
+    return f32(cloudHash(cell) >> 8u) / 16777215.0;
+}
+
+fn cloudValue(at: vec3f) -> f32 {
+    let floored = floor(at);
+    let cell = vec3i(floored);
+    let f = at - floored;
+    let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    let x00 = mix(cloudLattice(cell), cloudLattice(cell + vec3i(1, 0, 0)), u.x);
+    let x10 = mix(cloudLattice(cell + vec3i(0, 1, 0)), cloudLattice(cell + vec3i(1, 1, 0)), u.x);
+    let x01 = mix(cloudLattice(cell + vec3i(0, 0, 1)), cloudLattice(cell + vec3i(1, 0, 1)), u.x);
+    let x11 = mix(cloudLattice(cell + vec3i(0, 1, 1)), cloudLattice(cell + vec3i(1, 1, 1)), u.x);
+    return mix(mix(x00, x10, u.y), mix(x01, x11, u.y), u.z);
+}
+
+fn cloudOctaves(first: vec3f, octaves: i32) -> f32 {
+    let turn = mat2x2f(0.8, 0.6, -0.6, 0.8);
+    var at = first;
+    var sum = 0.0;
+    var amplitude = 0.5;
+    var total = 0.0;
+    for (var octave = 0; octave < octaves; octave++) {
+        sum += amplitude * cloudValue(at);
+        total += amplitude;
+        at = vec3f(2.0 * (turn * at.xy) + vec2f(17.0, 31.0), at.z * 2.0);
+        amplitude *= 0.5;
+    }
+
+    return sum / total;
+}
+
+fn cloudField(at: vec3f) -> f32 {
+    let warpInClouds = 0.6;
+    let push = vec2f(
+        cloudOctaves(at + vec3f(5.2, 1.3, 0.0), 2),
+        cloudOctaves(at + vec3f(9.7, 2.8, 0.0), 2)) * 2.0 - 1.0;
+    return cloudOctaves(vec3f(at.xy + warpInClouds * push, at.z), 6);
+}
+
+@fragment
+fn cloudFragment(frag: CloudOut) -> @location(0) vec4f {
+    return vec4f(0.0, 0.0, 0.0, frag.look.z * smoothstep(frag.look.x, frag.look.y, cloudField(frag.field)));
 }
 
 struct OverlayOut {

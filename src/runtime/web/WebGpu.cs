@@ -51,6 +51,13 @@ internal static partial class WebGpu
         return StartJs(wgsl);
     }
 
+    /// <summary>The most device pixels the canvas is drawn at to the display's point (WEB-11), the canvas laid again at it.</summary>
+    public static void MostPixelRatio(float ratio)
+    {
+        Count();
+        MostPixelRatioJs(ratio);
+    }
+
     /// <summary>A buffer laid for what a frame may write into it, and left empty.</summary>
     public static void Reserve(int slot, int byteLength, int usage)
     {
@@ -460,6 +467,9 @@ internal static partial class WebGpu
 
     [JSImport("town.start", "town.js")]
     private static partial Task<string> StartJs(string wgsl);
+
+    [JSImport("town.mostPixelRatio", "town.js")]
+    static partial void MostPixelRatioJs(float ratio);
 
     [JSImport("town.reserve", "town.js")]
     static partial void ReserveJs(int slot, int byteLength, int usage);

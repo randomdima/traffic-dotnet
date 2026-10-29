@@ -41,6 +41,7 @@ try
 
     Say("reading the figures…");
     var config = SimConfig.Load();
+    WebGpu.MostPixelRatio(config.View.PageMostPixelRatio);
 
     using var game = new Game(
         config, width: 0, height: 0, validate: false, options.UiScale, Pacing.Fifo,

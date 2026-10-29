@@ -231,3 +231,8 @@ is building them**: a driver may refuse a kernel the limits allow, so every kern
 lays its world ([`WebGpu.ProveKernels`](../../../runtime/web/WebGpu.cs)), and one refused is a device that cannot. **And a page
 never waits on its device**: a tick whose step has not been answered is not taken that frame, as a slow frame's
 ticks are not ([`Game`](../../main/Game.cs)), so a device that answers late slows the town and stalls nothing.
+
+**WEB-11** `P6` **A page draws at no more device pixels to the point than `PageMostPixelRatio`**, and the browser scales
+the canvas up to the glass. What a frame costs a handset's GPU is its pixels under the ground's shading, whatever
+the town holds: three to the point is three million of them. **The interface is laid in points either way** — the run is told the ratio it is drawn at, so a panel and a
+finger stand where they did.

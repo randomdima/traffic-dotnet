@@ -92,7 +92,7 @@ retired number, which the owning slice's log records.
 | `CTL-1…9` | Selection, orders, a car's four of them, hand driving, a hand that names its car, the unit's own action, fingers | [app/playercontrol](../src/app/playercontrol/docs/requirements.md) |
 | `SHT-1…6` | The frame taken with no window, its caption, the sheet and the document that asks for one | [app/shot](../src/app/shot/docs/requirements.md) |
 | `DRV-1…8` | The script at the wheel: what it may hold, what it reads back, what it photographs, and the second seat | [app/drive](../src/app/drive/docs/requirements.md) |
-| `WEB-1…10` | The browser head: what is halved, the crossing budget, the query string, what a page carries and weighs, what a publish holds, the opening card, what nothing waits for, and where a page steps its world | [app/web](../src/app/web/docs/requirements.md) |
+| `WEB-1…11` | The browser head: what is halved, the crossing budget, the query string, what a page carries and weighs, what a publish holds, the opening card, what nothing waits for, where a page steps its world, and how many pixels it draws | [app/web](../src/app/web/docs/requirements.md) |
 ## Known gaps
 
 Absences that are gaps rather than decisions, and none of them is silent. Why each came about is the

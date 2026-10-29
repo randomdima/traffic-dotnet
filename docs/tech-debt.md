@@ -211,18 +211,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   98 % idle (`--cpu-steady`), but every run that day read the compositor's 1 Hz for a window out of view, the idle ring
   as well. A `qq web --map Twinford --ui frame` with the window in view closes it; Highmoor's 3.2 GiB says whether it
   is the desktop map the readme calls it.
-- **A phone runs the page at about 5 fps, Showroom and Saltbay alike, its opening card included, and its cars stand
-  still and blink** (owner's report, 2026-10-29). The cars were the device world refused: the phone's Vulkan answered
-  `tyre_pass.comp` with `VK_ERROR_UNKNOWN` (a log saved off it, `log.js`), so every step's batch was invalid and the
-  view's two slots copied back each tick were one holding the first view and one never written. A page now builds every
-  kernel before its first town and steps the managed world where one is refused (WEB-10, `WebGpu.ProveKernels`), so
-  that phone runs the managed world. **Why its driver refuses `tyre_pass.comp`** is open: which GPU it is, and a kernel
-  cut so that driver builds it, closes it. The rate is not measured since, and was a cost that did not follow the town.
-  Two suspects, unweighed. The device world (WEB-10) — every tick a round trip with one batch in flight, the solver one
-  workgroup of 1 024 threads, which a handset's GPU runs on one core while the frames queue behind it. Or the fill — the canvas at the whole `devicePixelRatio` (`town.js` `resize`), 3–3.5 Mpx under
-  the ground's noise, its looks' samples and its blend. `?managed-world&ui=frame` on the phone tells them apart: a
-  frame rate back near 60 is the device world, and a stricter `NEEDED` or a step-time budget falling back to the managed
-  world closes it; one still slow is the fill, and a capped render scale closes it.
+- **The owner's phone steps the managed world, and its frame rate is not taken since the pixel ratio was capped**
+  (2026-10-29, web log). Its Vulkan refuses `tyre_pass.comp` (`VK_ERROR_UNKNOWN`) though its limits fit; which GPU it is,
+  off a saved log's header, and a kernel cut so that driver builds it, close the first. It ran 20 fps on a test map as
+  on Saltbay before WEB-11's cap of 2: a phone's `?ui=frame` read-out — `cpu` against `blocked` — sets
+  `PageMostPixelRatio`, and says whether the ground's shading (four octaves of noise and up to six samples a pixel)
+  wants a cheaper form there as well.
 
 - **The ground pass's GPU time is not taken since the water's waves** (`WaterWaves`, 2026-10-25): three sines and three
   lumps of value noise a water pixel and one varying every ground corner, judged negligible but not measured; the browser head held 60 Hz on River
@@ -952,13 +946,19 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **A building's `tags` repeats its `describe` and nothing reads it** _owner_ (`BuildingVariantFile.Tags`, 365 files):
   dropping the field from the type and the files, or naming what it is kept for, closes it.
 
-- **A page draws no clouds' shadows** (`OBJ-8`, 2026-10-24): the Vulkan heads draw them (`CloudShadows`, `cloud.vert`,
-  `cloud.frag`) and the browser's `town.wgsl` has no pass for them, so the same town at the same tick has a sky on the
-  desktop and none in a browser. A page's camera block already carries `CameraView.Clouds`; a WGSL triangle and its
-  pipeline in `town.js`, drawn where `TownRenderer.Recording.cs` draws it, closes it.
-- **The clouds' field is stated twice** (`OBJ-8`, 2026-10-24): `CloudShadows`' `FieldMean`, `FieldSpread` and
-  `FieldSlope` were measured off `cloud.frag`'s noise and are not re-derived from it, so a change to its octaves moves
-  the cover and the edge the figures ask for and nothing fails. A device-tier test reading the shaded share of a frame
+- **A page draws no smoke** (`CAR-54`, `OBJ-7`, 2026-10-29): exhausts, stacks and chimneys are tracked by
+  `smoke_track.comp` in the device world's step and drawn by the desktop's emit (`sprites_write.comp`, 19 storage
+  buffers), and a page draws what moves off the CPU's fill, which draws none — so no browser smokes, and a page on the
+  managed world (a phone's) has no track to draw from either. _owner_: a host half of the track and the puffs (a second
+  statement of both, to the CPU fill), or the emit packed to sixteen buffers with a web half of `DeviceSprites` (device
+  world only, so not that phone), closes it.
+- **A page's clouds are a full-frame pass of ten octaves of value noise** (`OBJ-8`, `town.wgsl` `cloudFragment`,
+  2026-10-29): not measured on a phone, whose frame was already bound by its pixels (WEB-11). A phone's `?ui=frame`
+  with a clear sky against a cloudy one closes it.
+- **The clouds' field is stated three times** (`OBJ-8`, 2026-10-24): `CloudShadows`' `FieldMean`, `FieldSpread` and
+  `FieldSlope` were measured off `cloud.frag`'s noise and are not re-derived from it, and `town.wgsl`'s `cloudFragment`
+  says the noise again for the page (2026-10-29), so a change to either moves the cover and the edge the figures ask for
+  and nothing fails, nor anything asks whether the two agree. A device-tier test reading the shaded share of a frame
   against `CloudFigures.CoverShare` closes it.
 
 - **Some drawn fans stand still** (found 2026-10-23, `OBJ-6`): the catalogue's fans were cut with `qq props seed` and

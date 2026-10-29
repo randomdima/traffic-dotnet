@@ -2,6 +2,15 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-10-29 — a phone's page, made to run
+
+The owner's phone stood every map with its cars frozen and blinking, at about 5 fps; a log saved off it (`log.js`)
+showed its Vulkan refusing `tyre_pass.comp` with `VK_ERROR_UNKNOWN`, so every step's batch was invalid. A page now
+builds every kernel before its first town and steps the managed world where one is refused (WEB-10). That phone then
+ran at 20 fps on a test map as on Saltbay, where the desktop page's whole CPU frame is 0.3 ms at the phone's viewport —
+so what is left is per pixel, and the canvas is drawn at no more than `PageMostPixelRatio` (WEB-11). Two is the
+figure as a first cut, which a phone's `?ui=frame` read-out after it sets.
+
 ## 2026-10-16 — the opening says its runtime and version from the build
 
 **The owner asked for the title to stop naming the wrong .NET**: the opening's prose said .NET 10 a release after the

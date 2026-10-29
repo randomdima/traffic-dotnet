@@ -462,6 +462,13 @@ internal sealed class ViewFigures
     public float InterfaceLeastWidthPx { get; init; } = 360f;
 
     public float InterfaceLeastHeightPx { get; init; } = 300f;
+
+    /// <summary>
+    /// The most device pixels a page's canvas is drawn at to the display's point (WEB-11). A handset's ratio of three
+    /// is three million pixels under the ground's shading every frame, whatever the town holds; the browser scales the
+    /// canvas up to the glass.
+    /// </summary>
+    public float PageMostPixelRatio { get; init; } = 2f;
 }
 
 /// <summary>
