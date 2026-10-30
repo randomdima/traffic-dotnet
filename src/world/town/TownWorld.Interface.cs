@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
 
@@ -607,7 +608,7 @@ internal sealed partial class TownWorld
             }
         }
 
-        Cars.Command[car] = HandCommand(car, Cars.BuildOf(car), alongMps, WheelOn(car));
+        Cars.Command[car] = HandCommand(Cars.Command[car], Cars.BuildOf(car), alongMps, WheelOn(car), _config);
         Cars.Hold[car] = DrivingHold.None;
 
         // Nothing was asked of the world on this car's behalf, so the layer has nothing about it to
@@ -626,12 +627,15 @@ internal sealed partial class TownWorld
     /// follower is held to, so what a hand gets is the car the town's own drivers are driving. Without it
     /// a press puts the steering on its stop and the throttle on the floor in one tick, which at speed is
     /// a lock the tyres cannot hold and a car that will not turn while it is accelerating.
+    /// <para>
+    /// <b>A tick's work off the last tick's command alone</b>, so a player's page runs the same keys through it to show
+    /// its own car's wheel and pedals before the server's answer arrives (<c>OwnKeysShown</c>).
+    /// </para>
     /// </remarks>
-    DriveCommand HandCommand(int car, in CarBuild build, float alongMps, in HandInput hand)
+    internal static DriveCommand HandCommand(in DriveCommand was, in CarBuild build, float alongMps, in HandInput hand, SimConfig config)
     {
-        var was = Cars.Command[car];
-        var steerRad = build.WheelWoundTo(was.SteerRad, hand.Steer * build.MaxSteerRad, _config.TickSeconds);
-        var reverse = hand.Throttle < 0f && alongMps <= _config.Driving.StopSpeedMps;
+        var steerRad = build.WheelWoundTo(was.SteerRad, hand.Steer * build.MaxSteerRad, config.TickSeconds);
+        var reverse = hand.Throttle < 0f && alongMps <= config.Driving.StopSpeedMps;
 
         // The gear's own cap, which is a hard rule and stays one whoever is at the wheel — and it is the
         // cap of the car the hand is in (CAR-11), so taking the wheel of a truck feels like a truck. A boost
@@ -639,16 +643,16 @@ internal sealed partial class TownWorld
         // coasts back down to it.
         var boosted = hand.Boost && !reverse;
         var capMps = reverse ? build.ReverseMaxMps
-            : boosted ? build.MaxSpeedMps * _config.Control.HandBoostSpeedShare
+            : boosted ? build.MaxSpeedMps * config.Control.HandBoostSpeedShare
             : build.MaxSpeedMps;
         var wanted = reverse ? -hand.Throttle : hand.Throttle;
         if (wanted > 0f && MathF.Abs(alongMps) >= capMps) wanted = 0f;
 
-        var pullMps2 = boosted ? build.AccelerationMps2 * _config.Control.HandBoostPullShare : build.AccelerationMps2;
+        var pullMps2 = boosted ? build.AccelerationMps2 * config.Control.HandBoostPullShare : build.AccelerationMps2;
         var askedMps2 = wanted >= 0f
             ? MathF.Max(0f, wanted) * pullMps2
             : wanted * build.BrakingMps2;
-        var travelMps2 = build.PedalRateMps3 * _config.TickSeconds;
+        var travelMps2 = build.PedalRateMps3 * config.TickSeconds;
         var pedalMps2 = Math.Clamp(
             askedMps2, CarFollower.PedalMps2(was) - travelMps2, CarFollower.PedalMps2(was) + travelMps2);
 

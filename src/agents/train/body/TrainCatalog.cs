@@ -127,6 +127,7 @@ internal sealed class TrainCatalog
     {
         Vehicles = vehicles;
         _ofKind = new int[Enum.GetValues<VehicleKind>().Length][];
+        foreach (var vehicle in vehicles) MostExhaustsOnALook = Math.Max(MostExhaustsOnALook, vehicle.ExhaustsM.Length);
         for (var kind = 0; kind < _ofKind.Length; kind++)
         {
             var of = Enumerable.Range(0, vehicles.Length).Where(vehicle => (int)vehicles[vehicle].Kind == kind).ToArray();
@@ -173,6 +174,9 @@ internal sealed class TrainCatalog
     }
 
     public TrainVehicle[] Vehicles { get; }
+
+    /// <summary>The most exhaust stacks any one look opens (TRN-15), at most <see cref="TrainVehicle.MostExhausts"/>.</summary>
+    public int MostExhaustsOnALook { get; }
 
     /// <summary>The looks of one kind, as indices into <see cref="Vehicles"/>.</summary>
     public ReadOnlySpan<int> OfKind(VehicleKind kind) => _ofKind[(int)kind];

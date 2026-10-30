@@ -308,6 +308,7 @@ internal sealed class TownSprites
         Standing = StandingSprites.Lay(plan, Buildings, uses, Props, FirstBuildingSheet, FirstPropSheet, config.Grid.Main);
         Scenery = ScenerySprites.Lay(plan.Scenery, plan.WorldSizeM, Props, FirstPropSheet, config.Grid.Main, config.View.SceneryMostDrawn);
         Chimneys = ChimneySprites.Pots(plan, Buildings, uses, config.Chimneys);
+        MarksAbove = plan.Roads.AnyAbove;
     }
 
     public void Clear()
@@ -315,7 +316,14 @@ internal sealed class TownSprites
         Standing = StandingSprites.Nothing;
         Scenery = ScenerySprites.Nothing;
         Chimneys = [];
+        MarksAbove = false;
     }
+
+    /// <summary>
+    /// <b>Whether the town's marks are drawn a second time, over its level above</b> (PHY-1b): only where a road is on one,
+    /// since only a car on a deck lays them there — so a town with none goes without a draw that reads its whole ring.
+    /// </summary>
+    public bool MarksAbove { get; private set; }
 
     /// <summary>
     /// How many instances each run of the town needs at most, which is what the buffers are laid for — none of which
@@ -346,7 +354,7 @@ internal sealed class TownSprites
             ScenerySprites.CapacityFor(plan, config.View.SceneryMostDrawn),
             StandingSprites.CapacityFor(plan),
             walkers + carSprites + SignalHeads.MostFor(plan) + wagons + CrossingSprites.MostFor(plan, config),
-            (Array.Exists(plan.Roads.Level, static level => level != CityPlan.RoadArrays.Ground) ? walkers + carSprites : 0)
+            (plan.Roads.AnyAbove ? walkers + carSprites : 0)
             + (Array.Exists(plan.Rails.Level, static level => level != CityGen.Map.TownMap.RailArrays.AtGrade) ? wagons : 0),
             Math.Max(1, marks),
             Math.Max(1, plan.Scenery.Count),

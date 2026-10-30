@@ -18,7 +18,7 @@ internal readonly struct WireShape
 
     public WireShape(
         float positionQuantumM, float angleQuantumDeg, float smallAngleQuantumDeg, Vector2 worldSizeM, MoverIds movers,
-        float smallMoveM)
+        float smallMoveM, int seats)
     {
         PositionQuantumM = positionQuantumM;
         AngleQuantumRad = angleQuantumDeg * MathF.PI / 180f;
@@ -33,7 +33,11 @@ internal readonly struct WireShape
         IdBits = BitsFor((uint)Math.Max(1, movers.Count));
         MostSmallMove = (int)MathF.Ceiling(smallMoveM / positionQuantumM);
         SmallMoveBits = BitsFor(Zigzag.Encode(MostSmallMove));
+        DriverBits = BitsFor((uint)Math.Max(0, seats));
     }
+
+    /// <summary>Enough for a mover's driver: a seat plus one, or nought (<see cref="MoverState.Driver"/>).</summary>
+    public int DriverBits { get; }
 
     public float PositionQuantumM { get; }
 

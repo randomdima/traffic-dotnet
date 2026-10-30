@@ -82,14 +82,11 @@ internal sealed class Player : IDisposable
 
     int _state;
 
-    /// <summary>The newest input the town has applied, which every snapshot says back.</summary>
-    public uint InputApplied
-    {
-        get => Volatile.Read(ref _inputApplied);
-        set => Volatile.Write(ref _inputApplied, value);
-    }
-
-    uint _inputApplied;
+    /// <summary>
+    /// The newest input the town has applied; the town's thread's own, which lays it down with each capture
+    /// (<see cref="CapturedTown.InputApplied"/>) for the snapshot of that tick to say back.
+    /// </summary>
+    public uint InputApplied { get; set; }
 
     /// <summary>The tick its body was found down at, or −1; the town's thread's own.</summary>
     public long DownAtTick { get; set; } = -1;
@@ -213,7 +210,7 @@ internal sealed class Player : IDisposable
         into.Count = _area.Gather(town, own, _town.TakeUpQuanta, _town.LetGoQuanta, into.Movers);
 
         var w = new BitWriter(_buffer);
-        new SnapshotHeader(sequence, baselineSequence, town.Tick, InputApplied, own, State).Write(ref w, _town.Shape);
+        new SnapshotHeader(sequence, baselineSequence, town.Tick, town.InputApplied[Seat], own, State).Write(ref w, _town.Shape);
         TellTheSeats(ref w, into.Movers.AsSpan(0, into.Count), seated);
         SnapshotCodec.Write(ref w, _town.Shape, into.Movers.AsSpan(0, into.Count), baseline);
         Send(Protocol.Done(ref w));

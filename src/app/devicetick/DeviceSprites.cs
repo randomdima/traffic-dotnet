@@ -202,7 +202,6 @@ internal sealed partial class DeviceSprites : IMovingEmit, IDisposable
         public float PuffEveryS;
         public float PuffPerEveryS;
         public uint PuffSplits;
-        public float PuffGapM;
         public float ScatterMps;
         public float DragS;
         public ExhaustLook Tailpipe;
@@ -352,11 +351,13 @@ internal sealed partial class DeviceSprites : IMovingEmit, IDisposable
 
         // The puffs of smoke a car may have out (CAR-54), which no fill draws and so no fill's room holds: the over run's
         // for every car, and the run above's where it holds any car; a rail vehicle's (TRN-15) in whichever run it is
-        // drawn in. And the chimneys' (OBJ-7), last of the over run, so a frame that would draw more than the room holds
-        // cuts its furthest chimneys' and nothing else.
+        // drawn in, as many stacks as the most any look opens, since which look a wagon wears is drawn as its train is sent.
+        // And the chimneys' (OBJ-7), last of the over run, so a frame that would draw more than the room holds
+        // cuts chimneys' puffs and nothing else — the last pots in the order they were laid, building by building, and not
+        // the furthest from the view.
         var wagons = world.View.Wagons.Length;
         var puffs = cars.Capacity * looks.PuffsEach;
-        var wagonPuffs = wagons * TrainVehicle.MostExhausts * looks.Smoke.Stack.PuffsEach;
+        var wagonPuffs = wagons * looks.Rolling.MostExhaustsOnALook * looks.Smoke.Stack.PuffsEach;
         var chimneys = looks.Chimneys;
         var chimneyPuffs = (int)Math.Min((long)chimneys.Length * looks.Chimney.PuffsEach, looks.Chimney.MostPuffsDrawn);
         _room = room = room with
@@ -683,7 +684,6 @@ internal sealed partial class DeviceSprites : IMovingEmit, IDisposable
             PuffEveryS = looks.Smoke.EveryS,
             PuffPerEveryS = looks.Smoke.PerEveryS,
             PuffSplits = (uint)looks.Smoke.Splits,
-            PuffGapM = looks.Smoke.GapM,
             ScatterMps = looks.Smoke.ScatterMps,
             DragS = looks.Smoke.DragS,
             Tailpipe = looks.Smoke.Tailpipe,

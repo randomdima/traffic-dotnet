@@ -9,13 +9,15 @@ namespace TrafficSimulation.App.Render;
 /// <b>What a running car's exhaust puts out</b> (CAR-54): a run of soft grey puffs off each tailpipe, a fifth car part
 /// laid over every car, so a car's own rear and one driving through its trail are hazed by it — <b>drawn on the device alone</b>, off the track of
 /// its car's way the device's step keeps (<c>smoke_track.comp</c>), by the emit (<c>sprites.glsl</c>'s <c>spritesPuff</c>).
-/// A world stepped in managed code, and so a page's or a picture's, draws none. This is what both are laid from.
+/// A world stepped in managed code, and so a picture's, draws none; nor does a page, whose world may be the device's but
+/// whose moving is filled on the host. This is what both are laid from.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>A puff is where the car was when it left, and the run it has made since.</b> A puff leaves each pipe every
 /// <see cref="SmokeFigures.PuffEveryS"/>, and halved again up to <see cref="SmokeFigures.PuffSplits"/> times over where the
-/// car's speed would leave them further apart than <see cref="SmokeFigures.PuffGapM"/>; the one that left <c>a</c> seconds ago left the pipe where the car's track has
+/// car's speed would leave them further apart than <see cref="SmokeFigures.PuffGapM"/> (a stack's wider puffs
+/// <see cref="SmokeFigures.StackPuffGapM"/>); the one that left <c>a</c> seconds ago left the pipe where the car's track has
 /// it then — in a straight line between the two points of its way either side, or the newest and the car now — with the
 /// car's velocity then and the pipe's outflow on it, and has been giving that up to the air since
 /// (<see cref="SmokeFigures.DragS"/>), so it runs on after its car a little, is left behind on the road the car drove, and
@@ -55,21 +57,21 @@ internal static class SmokeSprites
         var tailpipe = Kind(
             "car's", finestS, smoke.IdleOpacity, smoke.FullOpacity, smoke.IdleBirthWidthM, smoke.FullBirthWidthM,
             smoke.IdleLifeS, smoke.FullLifeS, smoke.IdleOutflowMps, smoke.FullOutflowMps, smoke.SpreadMps, smoke.ThickestAt,
-            smoke.Shade, smoke.ReachM, smoke.TrackPoints, smoke.TrackEveryS, smoke.FullThrottleMps2);
+            smoke.PuffGapM, smoke.Shade, smoke.ReachM, smoke.TrackPoints, smoke.TrackEveryS, smoke.FullThrottleMps2);
 
         // A stack blows straight up, which from above is no way at all.
         var stack = Kind(
             "rail vehicle's", finestS, smoke.StackIdleOpacity, smoke.StackFullOpacity, smoke.StackIdleBirthWidthM,
             smoke.StackFullBirthWidthM, smoke.StackIdleLifeS, smoke.StackFullLifeS, 0f, 0f, smoke.StackSpreadMps,
-            smoke.StackThickestAt, smoke.StackShade, smoke.StackReachM, smoke.StackTrackPoints, smoke.StackTrackEveryS,
-            smoke.FullRailThrottleMps2);
-        return new SmokeLook(finestS, 1f / finestS, smoke.PuffSplits, smoke.PuffGapM, smoke.ScatterMps, smoke.DragS, smoke.ResetMps, tailpipe, stack);
+            smoke.StackThickestAt, smoke.StackPuffGapM, smoke.StackShade, smoke.StackReachM, smoke.StackTrackPoints,
+            smoke.StackTrackEveryS, smoke.FullRailThrottleMps2);
+        return new SmokeLook(finestS, 1f / finestS, smoke.PuffSplits, smoke.ScatterMps, smoke.DragS, smoke.ResetMps, tailpipe, stack);
     }
 
     static ExhaustLook Kind(
         string whose, float finestS, float idleOpacity, float fullOpacity, float idleBirthWidthM, float fullBirthWidthM,
         float idleLifeS, float fullLifeS, float idleOutflowMps, float fullOutflowMps, float spreadMps, float thickestAt,
-        float shade, float reachM, int trackPoints, float trackEveryS, float fullThrottleMps2)
+        float puffGapM, float shade, float reachM, int trackPoints, float trackEveryS, float fullThrottleMps2)
     {
         var longestS = MathF.Max(idleLifeS, fullLifeS);
         var trackS = (trackPoints - 1) * trackEveryS;
@@ -86,7 +88,7 @@ internal static class SmokeSprites
 
         return new ExhaustLook(
             idleOpacity, fullOpacity, idleBirthWidthM, fullBirthWidthM, idleLifeS, fullLifeS, idleOutflowMps, fullOutflowMps,
-            spreadMps, thickestAt, shade, reachM, MathF.Max(idleBirthWidthM, fullBirthWidthM) + (spreadMps * longestS), longestS,
+            spreadMps, thickestAt, puffGapM, shade, reachM, MathF.Max(idleBirthWidthM, fullBirthWidthM) + (spreadMps * longestS), longestS,
             (int)MathF.Floor(longestS / finestS) + 1, trackPoints, 1f / trackEveryS, 1f / fullThrottleMps2);
     }
 
@@ -132,7 +134,7 @@ internal static class SmokeSprites
 /// <param name="Tailpipe">A car's (CAR-54).</param>
 /// <param name="Stack">A diesel's stack (TRN-15).</param>
 internal readonly record struct SmokeLook(
-    float EveryS, float PerEveryS, int Splits, float GapM, float ScatterMps, float DragS, float ResetMps, ExhaustLook Tailpipe,
+    float EveryS, float PerEveryS, int Splits, float ScatterMps, float DragS, float ResetMps, ExhaustLook Tailpipe,
     ExhaustLook Stack);
 
 /// <summary>
@@ -141,6 +143,7 @@ internal readonly record struct SmokeLook(
 /// come to at their most.
 /// </summary>
 /// <param name="ThickestAt">How far through its life a puff is thickest, as a share of it.</param>
+/// <param name="PuffGapM">The widest gap its puffs are left at before one is split again (<see cref="SmokeLook.Splits"/>).</param>
 /// <param name="ReachM">How far from its body's middle a puff may be drawn.</param>
 /// <param name="WidestM">The widest a puff is drawn, at the end of its longest life: a frame whose least part is wider draws none.</param>
 /// <param name="LongestS">The longest a puff lives, idling or at full throttle.</param>
@@ -150,5 +153,5 @@ internal readonly record struct SmokeLook(
 [StructLayout(LayoutKind.Sequential)]
 internal readonly record struct ExhaustLook(
     float IdleOpacity, float FullOpacity, float IdleBirthWidthM, float FullBirthWidthM, float IdleLifeS, float FullLifeS,
-    float IdleOutflowMps, float FullOutflowMps, float SpreadMps, float ThickestAt, float Shade, float ReachM, float WidestM,
+    float IdleOutflowMps, float FullOutflowMps, float SpreadMps, float ThickestAt, float PuffGapM, float Shade, float ReachM, float WidestM,
     float LongestS, int PuffsEach, int TrackPoints, float PerTrackEveryS, float PerFullThrottle);

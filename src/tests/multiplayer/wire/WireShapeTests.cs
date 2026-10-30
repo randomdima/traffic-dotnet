@@ -9,7 +9,7 @@ namespace TrafficSimulation.Tests.Multiplayer.Wire;
 [Trait(Priority.Key, Priority.P6)]
 public class WireShapeTests
 {
-    static readonly WireShape Shape = new(0.01f, 0.1f, 0.5f, new Vector2(1_000f, 400f), new MoverIds(10, 10, 0), 8f);
+    static readonly WireShape Shape = new(0.01f, 0.1f, 0.5f, new Vector2(1_000f, 400f), new MoverIds(10, 10, 0), 8f, seats: 4);
 
     [Fact]
     public void APositionComesBackWithinHalfItsQuantum()

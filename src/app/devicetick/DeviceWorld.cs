@@ -608,6 +608,8 @@ internal sealed partial class DeviceWorld : WorldLayer
         RecordTheView(commands, into, readCovers, stepped: true);
         if (Smoke is { } smoke)
         {
+            // Not only the solver's: the stepped view rewrites each car's row flags (world_view.comp's frozen bits),
+            // the word the track reads whether the car runs from.
             _vk.BetweenKernels(commands);
             smoke.Record(commands, dtS);
         }

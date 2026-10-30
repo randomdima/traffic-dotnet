@@ -58,6 +58,9 @@ internal sealed class TownServer : IDisposable
     readonly long _holdTicks;
     readonly long _releaseTicks;
     readonly long _respawnTicks;
+
+    /// <summary>Each seat's newest input applied, laid down with the capture; the town's thread's own.</summary>
+    readonly uint[] _inputApplied;
     long _tick;
 
     /// <param name="page">The published page to hand out on the same port (MP-11), or null to answer players alone.</param>
@@ -84,10 +87,12 @@ internal sealed class TownServer : IDisposable
                 WidestViewM = figures.WidestViewM,
                 InterpolationDelayS = figures.InterpolationDelayS,
                 LongestExtrapolationS = figures.LongestExtrapolationS,
+                Seats = Math.Min(figures.MostSeats, world.Seats),
             },
             config);
-        _capture = new TownCapture(movers);
-        _players = new Player?[Math.Min(figures.MostSeats, world.Seats)];
+        _capture = new TownCapture(movers, _town.Welcome.Seats);
+        _players = new Player?[_town.Welcome.Seats];
+        _inputApplied = new uint[_players.Length];
         _middleM = plan.WorldSizeM * 0.5f;
         _holdTicks = SecondsAsTicks(figures.HoldAfterSilenceS);
         _releaseTicks = SecondsAsTicks(figures.ReleaseAfterSilenceS);
@@ -182,7 +187,7 @@ internal sealed class TownServer : IDisposable
             var heard = player.Heard;
             var hand = silence > _holdTicks
                 ? new HandInput(Held: true, Throttle: 0f, Steer: 0f, Handbrake: true, WalkDirection: Vector2.Zero)
-                : new HandInput(Held: true, heard.Throttle, heard.Steer, heard.Handbrake, NorthUp(heard), heard.Boost);
+                : new HandInput(Held: true, heard.Throttle, heard.Steer, heard.Handbrake, heard.WalkDirection, heard.Boost);
             world.HandOnPlayer(seat, hand);
             if (heard.Acts != player.ActsTaken)
             {
@@ -195,12 +200,6 @@ internal sealed class TownServer : IDisposable
             player.State = world.IsDown(seat) ? SeatState.Down : SeatState.Playing;
         }
     }
-
-    /// <summary>
-    /// The way a player's keys walk its body: up the screen is north and a player's camera is never turned (MP-9), so
-    /// forward is the world's −y and the wheel's right is its +x — as a walker's keys are read on the town's own screen.
-    /// </summary>
-    static Vector2 NorthUp(in InputMessage heard) => new(heard.Steer, -heard.Throttle);
 
     /// <summary>
     /// A player down: its body is the town's to come for, and after <c>RespawnS</c> the player is stood up afresh off the
@@ -251,7 +250,8 @@ internal sealed class TownServer : IDisposable
     {
         if (tick % _config.Multiplayer.TicksPerSnapshot != 0) return;
 
-        _capture.Take(world, _town.Shape, (uint)tick);
+        for (var seat = 0; seat < _players.Length; seat++) _inputApplied[seat] = Volatile.Read(ref _players[seat])?.InputApplied ?? 0;
+        _capture.Take(world, _town.Shape, (uint)tick, _inputApplied);
         _published.Set();
     }
 

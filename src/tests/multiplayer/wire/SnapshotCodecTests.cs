@@ -14,7 +14,7 @@ public class SnapshotCodecTests
 {
     static readonly WireShape Shape = new(
         positionQuantumM: 0.01f, angleQuantumDeg: 0.1f, smallAngleQuantumDeg: 0.5f, worldSizeM: new Vector2(800f, 600f),
-        movers: new MoverIds(Cars: 100, People: 200, Wagons: 10), smallMoveM: 10f);
+        movers: new MoverIds(Cars: 100, People: 200, Wagons: 10), smallMoveM: 10f, seats: 16);
 
     static MoverState Car(int id, int x, int y, int heading = 0, byte lamps = 0, byte driver = 0, short steer = -40) =>
         new()

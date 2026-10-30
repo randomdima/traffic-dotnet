@@ -484,29 +484,47 @@ uint spritesRingPoints(uint track)
     return track < figures.firstWagonTrack ? figures.tailpipe.trackPoints : figures.stack.trackPoints;
 }
 
+// The point of a track's way `back` points before its newest.
+SmokePoint spritesPointBack(uint track, SmokeHead head, uint back)
+{
+    uint points = spritesRingPoints(track);
+    return smokePoints[spritesRingFrom(track) + (head.newest + points - back) % points];
+}
+
 // The body at bornS off its track: between the two points of its way either side, newest back, the newest of them and
 // the body as the step left it — or nothing where the track does not reach back that far, or it was not running then.
-bool spritesThen(uint track, float bornS, out SmokePoint then)
+// A point is laid at the first step past each mark of its kind's grid, and the body as the step left it is on the newest
+// one's mark (smoke_track.comp), so the point at or before bornS is the marks between it and the body back — give or take
+// the one a step's lateness or a skipped mark moves it by, walked.
+bool spritesThen(uint track, float perTrackEveryS, float bornS, out SmokePoint then)
 {
     SmokeHead head = smokeHeads[track];
-    uint ring = spritesRingFrom(track);
-    uint points = spritesRingPoints(track);
-    SmokePoint later = head.live;
-    for (uint back = 0u; back < head.count; back++)
-    {
-        SmokePoint earlier = smokePoints[ring + (head.newest + points - back) % points];
-        if (bornS >= earlier.timeS)
-        {
-            float spanS = later.timeS - earlier.timeS;
-            then = smokeBetween(earlier, later, spanS > 0.0 ? clamp((bornS - earlier.timeS) / spanS, 0.0, 1.0) : 1.0);
-            return then.running > 0.0;
-        }
+    then = head.live;
+    if (head.count == 0u) return false;
 
-        later = earlier;
+    float marksBack = floor(head.live.timeS * perTrackEveryS) - floor(bornS * perTrackEveryS);
+    uint back = uint(clamp(marksBack, 0.0, float(head.count - 1u)));
+    SmokePoint earlier = spritesPointBack(track, head, back);
+    SmokePoint later = back == 0u ? head.live : spritesPointBack(track, head, back - 1u);
+    while (back > 0u && later.timeS <= bornS)
+    {
+        back--;
+        earlier = later;
+        later = back == 0u ? head.live : spritesPointBack(track, head, back - 1u);
     }
 
-    then = head.live;
-    return false;
+    while (earlier.timeS > bornS)
+    {
+        back++;
+        if (back == head.count) return false;
+
+        later = earlier;
+        earlier = spritesPointBack(track, head, back);
+    }
+
+    float spanS = later.timeS - earlier.timeS;
+    then = smokeBetween(earlier, later, spanS > 0.0 ? clamp((bornS - earlier.timeS) / spanS, 0.0, 1.0) : 1.0);
+    return then.running > 0.0;
 }
 
 // One pipe's run of puffs at the shown moment, on the finest grid a puff is laid on: the newest's number, how long it has
@@ -550,14 +568,14 @@ vec2 spritesPuffAt(SmokePoint then, AirBack air, vec2 pipeM, float outflowMps, f
     return pipeThenM + air.sinceM + (leftWithMps - air.mps) * runS;
 }
 
-// How many of the finest grid's puffs the one left at `then` stands for (SmokeFigures.PuffSplits, PuffGapM): all of a
-// split, halved while the next would be left further off it than the gap — how far the body ran off the air between them,
-// and at a standstill the outflow, or the eddies off a stack.
-uint spritesPuffStride(SmokePoint then, vec2 airMps, float outflowMps)
+// How many of the finest grid's puffs the one left at `then` stands for (SmokeFigures.PuffSplits, and its kind's gap,
+// PuffGapM or StackPuffGapM): all of a split, halved while the next would be left further off it than the gap — how far
+// the body ran off the air between them, and at a standstill the outflow, or the eddies off a stack.
+uint spritesPuffStride(SmokePoint then, vec2 airMps, float outflowMps, float gapM)
 {
     float apartM = max(length(then.velocityMps - airMps), max(outflowMps, figures.scatterMps)) * figures.puffEveryS;
     uint stride = figures.puffSplits;
-    while (stride > 1u && apartM * float(stride) > figures.puffGapM) stride >>= 1u;
+    while (stride > 1u && apartM * float(stride) > gapM) stride >>= 1u;
     return stride;
 }
 
@@ -570,7 +588,7 @@ bool spritesPuff(uint track, SmokePipe pipe, PuffRun run, uint puff, out SpriteO
     if (puff > run.born || ageS > kind.longestS) return false;
 
     SmokePoint then;
-    if (!spritesThen(track, smokeHeads[track].shownS - ageS, then)) return false;
+    if (!spritesThen(track, kind.perTrackEveryS, smokeHeads[track].shownS - ageS, then)) return false;
 
     // As hard as its driver worked the engine when it left: how long it lives, how wide it leaves, how hard it is blown
     // out and how thick it gets (ExhaustLook).
@@ -582,7 +600,7 @@ bool spritesPuff(uint track, SmokePipe pipe, PuffRun run, uint puff, out SpriteO
     uint born = run.born - puff;
     float outflowMps = mix(kind.idleOutflowMps, kind.fullOutflowMps, then.throttle);
     AirBack air = spritesAirSince(ageS);
-    uint stride = spritesPuffStride(then, air.mps, outflowMps);
+    uint stride = spritesPuffStride(then, air.mps, outflowMps, kind.puffGapM);
     if (born % stride != 0u) return false;
 
     uint which = spritesHash(born ^ run.seed);
@@ -679,65 +697,96 @@ bool spritesChimneySmokes(uint chimney)
            && !spritesOutside(spritesChimney(chimney).atM, vec2(figures.chimneyReachM));
 }
 
+// ChimneySprites.PotBits: how many of a row's key's low bits are its pot within its stack.
+const uint ChimneyPotBits = 4u;
+
+// Which turn of a stack's fire `atS` falls in (ChimneyFigures.FirePeriodS): the clock cut into turns, each fire's
+// staggered off its own key.
+uint spritesChimneyTurn(uint fire, float atS)
+{
+    return uint(max(atS, 0.0) * figures.chimneyPerFireS + spritesShare(spritesHash(spritesHash(fire))));
+}
+
+// Whether a stack's fire burns through a turn (ChimneyFigures.SmokingShare): lit or let out afresh off its key and the
+// turn alone.
+bool spritesChimneyLit(uint fire, uint turn)
+{
+    return spritesShare(spritesHash(fire ^ spritesHash(turn))) < figures.chimneySmokingShare;
+}
+
+bool spritesChimneyBurning(uint fire, float atS) { return spritesChimneyLit(fire, spritesChimneyTurn(fire, atS)); }
+
+// Whether a stack's fire burned at any moment from `fromS` to `toS`: every turn between asked.
+bool spritesChimneyBurnedWithin(uint fire, float fromS, float toS)
+{
+    uint last = spritesChimneyTurn(fire, toS);
+    for (uint turn = spritesChimneyTurn(fire, fromS); turn <= last; turn++)
+    {
+        if (spritesChimneyLit(fire, turn)) return true;
+    }
+
+    return false;
+}
+
 // A chimney's pot as its plume is drawn off it (ChimneySprites), k times as wide as a house's: a puff leaves it as wide as
-// it, as opaque as k of a house's laid one over the other, and lives √k times as long; and so how many it has out.
+// it, as opaque as k of a house's laid one over the other, and lives √k times as long; and so how many it has out — none
+// where its fire has been out for a whole life. And what every puff of it shares this frame: where the pot stands, its
+// key and its stack's fire, the newest puff's number on the clock and how long it has been out in puffs, and where the
+// fire's stoking starts its swing.
 struct ChimneyPot
 {
+    vec2 atM;
+    uint seed;
+    uint fire;
     float birthWidthM;
     float opacity;
     float lifeS;
     uint puffs;
+    uint newest;
+    float sinceNewest;
+    float stokedFrom;
 };
 
 ChimneyPot spritesChimneyPot(uint chimney)
 {
-    float potWidthM = spritesChimney(chimney).potWidthM;
-    float k = potWidthM * figures.chimneyPerPotWidthM;
+    ChimneyRow row = spritesChimney(chimney);
+    uint fire = row.seed >> ChimneyPotBits;
+    float k = row.potWidthM * figures.chimneyPerPotWidthM;
     float lifeS = figures.chimneyLifeS * sqrt(k);
+    float slots = frame.elapsedS * figures.chimneyPerEveryS + spritesShare(spritesHash(row.seed));
+    float newest = floor(slots);
+    uint puffs = spritesChimneyBurnedWithin(fire, frame.elapsedS - lifeS, frame.elapsedS)
+                     ? min(uint(lifeS * figures.chimneyPerEveryS) + 1u, figures.chimneyPuffsEach)
+                     : 0u;
     return ChimneyPot(
-        potWidthM, 1.0 - pow(1.0 - figures.chimneyOpacity, k), lifeS,
-        min(uint(lifeS * figures.chimneyPerEveryS) + 1u, figures.chimneyPuffsEach));
-}
-
-// ChimneySprites.PotBits: how many of a row's key's low bits are its pot within its stack.
-const uint ChimneyPotBits = 4u;
-
-// Whether a stack's fire burns at `atS` (ChimneyFigures.SmokingShare, FirePeriodS): the clock cut into turns, each fire's
-// staggered off its own key, and in every turn the fire lit or let out afresh off its key and the turn alone.
-bool spritesChimneyBurning(uint fire, float atS)
-{
-    uint turn = uint(max(atS, 0.0) * figures.chimneyPerFireS + spritesShare(spritesHash(spritesHash(fire))));
-    return spritesShare(spritesHash(fire ^ spritesHash(turn))) < figures.chimneySmokingShare;
+        row.atM, row.seed, fire, row.potWidthM, 1.0 - pow(1.0 - figures.chimneyOpacity, k), lifeS, puffs, uint(newest),
+        slots - newest, spritesShare(spritesHash(fire)));
 }
 
 // One puff of a chimney's plume, the `puff`-th youngest: whether the frame draws it — out, left while its fire burned, no
 // older than its life, as wide as a part is drawn and in view — and the instance.
-bool spritesChimneyPuff(uint chimney, ChimneyPot pot, uint puff, out SpriteOut sprite)
+bool spritesChimneyPuff(ChimneyPot pot, uint puff, out SpriteOut sprite)
 {
-    ChimneyRow row = spritesChimney(chimney);
-    uint fire = row.seed >> ChimneyPotBits;
-    float slots = frame.elapsedS * figures.chimneyPerEveryS + spritesShare(spritesHash(row.seed));
-    float newest = floor(slots);
-    float ageS = (slots - newest + float(puff)) * figures.chimneyEveryS;
+    float ageS = (pot.sinceNewest + float(puff)) * figures.chimneyEveryS;
     float widthM = pot.birthWidthM + figures.chimneySpreadMps * ageS;
-    if (float(puff) > newest || ageS > pot.lifeS || widthM < frame.leastPartM) return false;
-    if (!spritesChimneyBurning(fire, frame.elapsedS - ageS)) return false;
+    if (puff > pot.newest || ageS > pot.lifeS || widthM < frame.leastPartM) return false;
+    if (!spritesChimneyBurning(pot.fire, frame.elapsedS - ageS)) return false;
 
     // Up out of the pot first, which from above is standing on it (ChimneyFigures.RiseS); then the air and the eddy it
     // left on carry it, the eddy given up to the wind over the drag as a car's puff gives up its speed (spritesPuffAt).
-    uint which = spritesHash((uint(newest) - puff) ^ row.seed);
+    uint which = spritesHash((pot.newest - puff) ^ pot.seed);
     uint eddy = spritesHash(which);
     float wayRad = spritesShare(eddy) * 6.28318548;
     vec2 eddyMps = vec2(cos(wayRad), sin(wayRad)) * (spritesShare(spritesHash(eddy)) * figures.chimneyScatterMps);
     float carriedS = max(ageS - figures.chimneyRiseS, 0.0);
     float runS = carriedS * figures.chimneyDragS / (figures.chimneyDragS + carriedS);
-    vec2 atM = row.atM + spritesAirSince(carriedS).sinceM + eddyMps * runS;
+    vec2 atM = pot.atM + spritesAirSince(carriedS).sinceM + eddyMps * runS;
     if (spritesOutside(atM, vec2(widthM))) return false;
 
     // Thickening as it rises out of the pot, thickest as it leaves it, thinning to nothing over its life; and as thick as
     // the fire was stoked when it left, which swings slowly, each fire from its own start.
     float lived = ageS / pot.lifeS;
-    float stoked = 0.5 + 0.5 * sin(6.28318548 * ((frame.elapsedS - ageS) * figures.chimneyPerBreathS + spritesShare(spritesHash(fire))));
+    float stoked = 0.5 + 0.5 * sin(6.28318548 * ((frame.elapsedS - ageS) * figures.chimneyPerBreathS + pot.stokedFrom));
     float alpha = pot.opacity * (1.0 - figures.chimneyBreathShare * stoked) * min(ageS / figures.chimneyRiseS, 1.0)
                   * (1.0 - lived);
     uint shade = spritesByte(figures.chimneyShade);
@@ -756,7 +805,7 @@ uint spritesChimneyPuffsShown(uint chimney)
     for (uint puff = 0u; puff < pot.puffs; puff++)
     {
         SpriteOut sprite;
-        if (spritesChimneyPuff(chimney, pot, puff, sprite)) shown++;
+        if (spritesChimneyPuff(pot, puff, sprite)) shown++;
     }
 
     return shown;

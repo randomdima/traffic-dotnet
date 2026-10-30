@@ -40,6 +40,7 @@ internal enum JoinPhase
 internal sealed class JoinedTown(ServerLink link, SimConfig config, SeatCard card)
 {
     readonly byte[] _out = new byte[64];
+    readonly OwnKeysShown _shown = new(config);
     bool _helloSaid;
     uint _inputs;
     ServerClock? _clock;
@@ -54,6 +55,9 @@ internal sealed class JoinedTown(ServerLink link, SimConfig config, SeatCard car
     public Refusal Refused { get; private set; }
 
     public Replica? Replica { get; private set; }
+
+    /// <summary>How long the keys sent take to come back, to the snapshot and to the picture.</summary>
+    public InputLatency Latency { get; } = new();
 
     /// <summary>
     /// What arrived since the last frame read, at the local <paramref name="localS"/>: the welcome, a refusal, or the
@@ -84,7 +88,10 @@ internal sealed class JoinedTown(ServerLink link, SimConfig config, SeatCard car
                     Refused = Protocol.ReadRefused(message, out var why) ? why : Refusal.Malformed;
                     break;
                 case MessageKind.Snapshot when Phase == JoinPhase.Playing:
-                    if (Replica!.Take(message, out var serverTick)) _clock!.Arrived(serverTick / (double)Welcome!.TickRateHz, localS);
+                    if (!Replica!.Take(message, out var serverTick)) break;
+
+                    _clock!.Arrived(serverTick / (double)Welcome!.TickRateHz, localS);
+                    Latency.Answered(Replica.InputApplied, serverTick, localS);
                     break;
             }
         }
@@ -128,6 +135,7 @@ internal sealed class JoinedTown(ServerLink link, SimConfig config, SeatCard car
 
         _sent = input;
         _sentAtS = localS;
+        Latency.Sent(input.Sequence, localS);
     }
 
     /// <summary>A press to get into the nearest vehicle, or out of the one the player is in (MP-13), counted into every input from now on.</summary>
@@ -136,15 +144,20 @@ internal sealed class JoinedTown(ServerLink link, SimConfig config, SeatCard car
     byte _acts;
 
     /// <summary>
-    /// <b>The area posed at the instant drawn</b> (MP-7) and that instant on the server's clock in seconds, or NaN before
-    /// the first snapshot.
+    /// <b>The area posed at the instant drawn</b> (MP-7), the player's own keys shown on what it is
+    /// (<see cref="OwnKeysShown"/>), and that instant on the server's clock in seconds, or NaN before the first snapshot.
     /// </summary>
     public double Pose(double localS)
     {
         if (Phase != JoinPhase.Playing) return double.NaN;
 
         var drawnS = _clock!.Drawn(localS);
-        if (!double.IsNaN(drawnS)) Replica!.Pose(drawnS * Welcome!.TickRateHz);
+        if (double.IsNaN(drawnS)) return drawnS;
+
+        var tick = drawnS * Welcome!.TickRateHz;
+        Replica!.Pose(tick);
+        _shown.Show(Replica, _held, localS, Welcome.InterpolationDelayS);
+        Latency.Drawn(tick, localS);
         return drawnS;
     }
 

@@ -67,6 +67,7 @@ public class MessagesTests
             WidestViewM = 160f,
             InterpolationDelayS = 0.15f,
             LongestExtrapolationS = 0.25f,
+            Seats = 16,
         };
         var buffer = new byte[256];
 
@@ -80,7 +81,7 @@ public class MessagesTests
     [Fact]
     public void ASnapshotHeaderReadsBackAsWritten()
     {
-        var shape = new WireShape(0.01f, 0.1f, 0.5f, new Vector2(100f, 100f), new MoverIds(50, 10, 0), 5f);
+        var shape = new WireShape(0.01f, 0.1f, 0.5f, new Vector2(100f, 100f), new MoverIds(50, 10, 0), 5f, seats: 4);
         var sent = new SnapshotHeader(Sequence: 8, Baseline: 6, ServerTick: 999, InputApplied: 30, OwnMover: 59, SeatState.Down);
         var buffer = new byte[64];
         var w = new BitWriter(buffer);
@@ -94,7 +95,7 @@ public class MessagesTests
     [Fact]
     public void ASnapshotHeaderNamingABaselineAtOrPastItselfIsRefused()
     {
-        var shape = new WireShape(0.01f, 0.1f, 0.5f, new Vector2(100f, 100f), new MoverIds(50, 10, 0), 5f);
+        var shape = new WireShape(0.01f, 0.1f, 0.5f, new Vector2(100f, 100f), new MoverIds(50, 10, 0), 5f, seats: 4);
         var buffer = new byte[64];
         var w = new BitWriter(buffer);
         w.Write((uint)MessageKind.Snapshot, 8);

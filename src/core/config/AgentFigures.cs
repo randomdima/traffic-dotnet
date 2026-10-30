@@ -436,6 +436,15 @@ internal sealed class SmokeFigures
 
     public float StackThickestAt { get; init; } = 0.05f;
 
+    /// <summary>
+    /// The widest gap a stack's puffs are left at before one is split again (<see cref="PuffSplits"/>), a stack's own and
+    /// not a tailpipe's <see cref="PuffGapM"/>: about as wide as a stack's puff as it leaves, between
+    /// <see cref="StackIdleBirthWidthM"/> and <see cref="StackFullBirthWidthM"/>. A young puff is carried on with its stack
+    /// (<see cref="DragS"/>) and has grown by the time it falls back a gap behind the one before, so each is still over the
+    /// next.
+    /// </summary>
+    public float StackPuffGapM { get; init; } = 1f;
+
     /// <summary>The grey smoke is drawn, as a share of white: a car's, and a locomotive's stack's (TRN-15), which is a diesel's soot.</summary>
     public float Shade { get; init; } = 0.7f;
 

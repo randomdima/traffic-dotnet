@@ -458,7 +458,16 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _fanTable.Upload<uint>(
             looks.Fans, PipelineStageFlags2.VertexShaderBit | PipelineStageFlags2.FragmentShaderBit, AccessFlags2.UniformReadBit);
         _propLeastPx = propLeastPx;
+        if (looks.MarksAbove == _marksAbove) return;
+
+        Vk.Count();
+        _vk.Api.DeviceWaitIdle(_vk.Device);
+        _marksAbove = looks.MarksAbove;
+        for (var image = 0; image < _commands.Length; image++) Record(image);
     }
+
+    /// <summary>Whether the recording draws the marks over the level above (<see cref="TownSprites.MarksAbove"/>).</summary>
+    bool _marksAbove;
 
     /// <summary>
     /// <b>What lies under everything that stands, for the frame being filled</b>: the marks laid on the host since this

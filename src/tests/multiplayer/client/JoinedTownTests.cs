@@ -34,6 +34,7 @@ public class JoinedTownTests
         WidestViewM = 160f,
         InterpolationDelayS = 0.15f,
         LongestExtrapolationS = 0.25f,
+        Seats = 16,
     };
 
     /// <summary>The instants, over a second of 144 Hz frames, at which an input left — the keys at each frame chosen by <paramref name="keysAt"/>.</summary>

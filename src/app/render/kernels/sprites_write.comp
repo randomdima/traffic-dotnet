@@ -180,18 +180,19 @@ void main()
         return;
     }
 
-    // A chimney's puffs oldest first, the first pass's verdict asked again puff by puff, as a car's are.
+    // A chimney's puffs oldest first, the first pass's verdict asked again puff by puff, as a car's are — and none asked
+    // past the over run's room, which cuts them.
     unit -= figures.lightCount;
     if (unit >= figures.chimneyCount) return;
 
     uint chimneySlot = spritesChimneysFrom() + unit;
-    if (countAt(chimneySlot) == 0u) return;
-
     uint at = starts[chimneySlot];
+    if (countAt(chimneySlot) == 0u || at >= figures.roomOver) return;
+
     ChimneyPot pot = spritesChimneyPot(unit);
-    for (uint left = pot.puffs; left > 0u; left--)
+    for (uint left = pot.puffs; left > 0u && at < figures.roomOver; left--)
     {
         SpriteOut sprite;
-        if (spritesChimneyPuff(unit, pot, left - 1u, sprite)) put(RunOver, at++, sprite);
+        if (spritesChimneyPuff(pot, left - 1u, sprite)) put(RunOver, at++, sprite);
     }
 }

@@ -445,6 +445,9 @@ internal sealed class CityPlan
         /// <inheritdoc cref="Level"/>
         public byte LevelOf(int road) => Level.Length > 0 ? Level[road] : Ground;
 
+        /// <summary>Whether any road is driven above the ground (<see cref="Level"/>): whether the town has a level above it at all.</summary>
+        public bool AnyAbove => Array.Exists(Level, static level => level != Ground);
+
         /// <summary>The level a road on the ground is driven on, which is every road but a bridge over others.</summary>
         public const byte Ground = 0;
 

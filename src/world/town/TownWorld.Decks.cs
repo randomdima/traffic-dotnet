@@ -8,7 +8,7 @@ namespace TrafficSimulation.World.Town;
 /// <summary>
 /// <b>Cars on the decks over other roads, and what of them stands past a deck's edge</b> (PHY-1b): a wheel there stands
 /// on nothing — it carries nothing, grips nothing and the body leans over it (<see cref="ControlAction.Hang"/>) — and a
-/// car with a whole side there has gone over and falls.
+/// car with its centre of mass there has gone over and falls.
 /// </summary>
 /// <remarks>
 /// <b>A car stands on the deck's own width and not on the ways on it</b>: a deck carries its pavement out to its edges, and
@@ -18,6 +18,9 @@ internal sealed partial class TownWorld
 {
     /// <summary>The bridges whose decks stand over other roads, by their place in the plan's; a deck on the ground has no edge to fall from.</summary>
     readonly int[] _raisedDecks;
+
+    /// <summary>The length of each bridge's road, by its place in the plan's: the line its deck is measured across from.</summary>
+    readonly float[] _deckLineM;
 
     /// <summary>Which of each car's wheels the world was last told stand on nothing (<see cref="ControlAction.Hang"/>).</summary>
     readonly byte[] _sentOverNothing;
@@ -31,6 +34,14 @@ internal sealed partial class TownWorld
         }
 
         return [.. raised];
+    }
+
+    static float[] DeckLinesM(CityPlan plan)
+    {
+        var linesM = new float[plan.Bridges.Count];
+        for (var bridge = 0; bridge < linesM.Length; bridge++) linesM[bridge] = Spline.TotalLengthM(plan.Roads.SegmentsOf(plan.Bridges.Road[bridge]));
+
+        return linesM;
     }
 
     /// <summary>
@@ -47,9 +58,9 @@ internal sealed partial class TownWorld
         {
             // A car set somewhere the view has not read yet is not where the fleet says it is in the world.
             var onADeck = (Cars.Channels[car] & CityPlan.RoadArrays.GroundChannel) == 0 && _carSetBy[car] <= signalsTaken;
-            var deck = onADeck ? DeckNearest(Cars.PositionM[car]) : -1;
-            var overNothing = onADeck ? OverNothing(car, deck) : (byte)0;
-            var gone = overNothing != 0 && HasGoneOverTheEdge(car, deck, overNothing);
+            var side = onADeck ? DeckSideOf(Cars.PositionM[car]) : default;
+            var overNothing = onADeck ? OverNothing(car, side) : (byte)0;
+            var gone = overNothing != 0 && HasGoneOverTheEdge(car, side, overNothing);
             if (gone)
             {
                 PutOnChannels(car, CityPlan.RoadArrays.GroundChannel);
@@ -80,7 +91,10 @@ internal sealed partial class TownWorld
     {
         if (_raisedDecks.Length == 0) return;
 
+        // A view whose step went without its covers (a page's) shows every walker on nothing.
         var view = _world.View;
+        if (!view.CoversRead) return;
+
         for (var person = 0; person < People.Count; person++)
         {
             if (People.Inside[person].Any || _walkerSetBy[person] > view.SignalsTaken) continue;
@@ -109,11 +123,22 @@ internal sealed partial class TownWorld
     /// </summary>
     Vector2 OffTheDeckMps(Vector2 atM)
     {
-        var arcs = _plan.Roads.SegmentsOf(_plan.Bridges.Road[DeckNearest(atM)]);
-        var lengthM = Spline.TotalLengthM(arcs);
-        var offM = atM - Spline.SampleAt(arcs, Spline.ProjectM(arcs, atM, lengthM * 0.5f, lengthM)).PositionM;
+        var (deck, alongM) = DeckNearest(atM);
+        var offM = atM - Spline.SampleAt(LineOf(deck), alongM).PositionM;
         var offLengthM = offM.Length();
         return offLengthM > 0f ? offM * (_config.Road.DeckFallShoveMps / offLengthM) : Vector2.Zero;
+    }
+
+    /// <summary>
+    /// <b>Where a body stands against the deck nearest it</b>: the place on the deck's line square to it, and the line's
+    /// right there — what its parts are measured across from (<see cref="DeckSide.IsPastTheEdge"/>).
+    /// </summary>
+    DeckSide DeckSideOf(Vector2 atM)
+    {
+        var (deck, alongM) = DeckNearest(atM);
+        var line = Spline.SampleAt(LineOf(deck), alongM);
+        var halfM = _plan.Bridges.DeckWidthM[deck] * 0.5f;
+        return new DeckSide(line.PositionM, line.Right, alongM <= 0f || alongM >= _deckLineM[deck], halfM * halfM);
     }
 
     /// <summary>
@@ -121,7 +146,7 @@ internal sealed partial class TownWorld
     /// half its width. Past an end is its bridgehead, which holds a wheel off the line by no more than that either; a car on
     /// a deck's channel far from every deck stands on nothing at all.
     /// </summary>
-    byte OverNothing(int car, int deck)
+    byte OverNothing(int car, in DeckSide side)
     {
         var atM = Cars.PositionM[car];
         ref readonly var build = ref Cars.BuildOf(car);
@@ -131,52 +156,39 @@ internal sealed partial class TownWorld
         for (var wheel = 0; wheel < build.WheelCount; wheel++)
         {
             var onBodyM = TyreModel.WheelAtM(build, wheel);
-            if (OffTheDeckSq(deck, atM + (forward * onBodyM.X) + (right * onBodyM.Y)) > HalfDeckSq(deck)) over |= (byte)(1 << wheel);
+            if (side.IsPastTheEdge(atM + (forward * onBodyM.X) + (right * onBodyM.Y))) over |= (byte)(1 << wheel);
         }
 
         return over;
     }
 
-    /// <summary>The raised deck whose line is nearest a point.</summary>
-    int DeckNearest(Vector2 pointM)
+    /// <summary>The raised deck whose line is nearest a point, and how far along that line the point stands square to it.</summary>
+    (int Deck, float AlongM) DeckNearest(Vector2 pointM)
     {
-        var nearest = _raisedDecks[0];
-        var nearestSq = float.MaxValue;
+        var (nearest, nearestAlongM, nearestSq) = (_raisedDecks[0], 0f, float.MaxValue);
         foreach (var deck in _raisedDecks)
         {
-            var offSq = OffTheDeckSq(deck, pointM);
+            var lineM = _deckLineM[deck];
+            var alongM = Spline.ProjectM(LineOf(deck), pointM, lineM * 0.5f, lineM, out var offSq);
             if (offSq >= nearestSq) continue;
 
-            nearest = deck;
-            nearestSq = offSq;
+            (nearest, nearestAlongM, nearestSq) = (deck, alongM, offSq);
         }
 
-        return nearest;
+        return (nearest, nearestAlongM);
     }
 
-    /// <summary>How far a point stands off a deck's line, squared — the line the whole of its road, so past its ends is past its bridgeheads.</summary>
-    float OffTheDeckSq(int deck, Vector2 pointM)
-    {
-        var arcs = _plan.Roads.SegmentsOf(_plan.Bridges.Road[deck]);
-        var lengthM = Spline.TotalLengthM(arcs);
-        Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM, out var offSq);
-        return offSq;
-    }
-
-    float HalfDeckSq(int deck)
-    {
-        var halfM = _plan.Bridges.DeckWidthM[deck] * 0.5f;
-        return halfM * halfM;
-    }
+    /// <summary>A deck's line: the whole of its road, so past its ends is past its bridgeheads.</summary>
+    ReadOnlySpan<ArcSeg> LineOf(int deck) => _plan.Roads.SegmentsOf(_plan.Bridges.Road[deck]);
 
     /// <summary>
     /// <b>Whether a car on a deck has gone over its edge</b>: its centre of mass past it, where nothing holds it up. Asked
     /// only once a whole side of it — every wheel ahead of its middle, behind it, to its left or to its right — stands on
     /// nothing; short of either it only hangs there.
     /// </summary>
-    bool HasGoneOverTheEdge(int car, int deck, byte overNothing) =>
+    bool HasGoneOverTheEdge(int car, in DeckSide side, byte overNothing) =>
         HasASideOverNothing(car, overNothing)
-        && OffTheDeckSq(deck, Cars.PositionM[car] + (Cars.Forward[car] * Cars.BuildOf(car).CgAheadOfCentreM)) > HalfDeckSq(deck);
+        && side.IsPastTheEdge(Cars.PositionM[car] + (Cars.Forward[car] * Cars.BuildOf(car).CgAheadOfCentreM));
 
     bool HasASideOverNothing(int car, byte overNothing)
     {
@@ -194,5 +206,24 @@ internal sealed partial class TownWorld
         }
 
         return !(ahead && behind && left && right);
+    }
+}
+
+/// <summary>
+/// <b>Where a body stands against a deck</b> (<see cref="TownWorld"/>'s <c>DeckSideOf</c>): the place on the deck's line
+/// square to it, the line's right there, and half the deck's width squared — so a body's wheels and its centre of mass are
+/// measured across off one projection of it rather than one each.
+/// </summary>
+/// <remarks>
+/// <b>The edge is taken as straight along a body's length</b>, which a deck's bend is far too gentle to tell from. Past an
+/// end of its line nothing is square to it, and a point is measured straight to that end.
+/// </remarks>
+readonly record struct DeckSide(Vector2 LineM, Vector2 Right, bool PastAnEnd, float HalfWidthSq)
+{
+    public bool IsPastTheEdge(Vector2 pointM)
+    {
+        var offM = pointM - LineM;
+        var acrossM = Vector2.Dot(offM, Right);
+        return (PastAnEnd ? offM.LengthSquared() : acrossM * acrossM) > HalfWidthSq;
     }
 }

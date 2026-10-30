@@ -456,12 +456,13 @@ function texture(slot, view, width, height, layers, layer, level, levels) {
 
 /// The bind group and the recording, made again whenever what they are made of changes — a map opened,
 /// a canvas resized — and never while a frame is being drawn.
-function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, underlayAboveOffset) {
+function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, underlayAboveOffset, marksAbove) {
     state.groundIndexCount = groundIndexCount;
     state.aboveIndexCount = aboveIndexCount;
     state.overOffset = overOffset;
     state.aboveOffset = aboveOffset;
     state.underlayAboveOffset = underlayAboveOffset;
+    state.marksAbove = marksAbove;
     if (!state.indirect) {
         state.indirect = state.device.createBuffer({
             size: INDIRECT_BYTES,
@@ -520,7 +521,7 @@ function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, und
     movingRun(pass, MOVING.over, overOffset, DRAW.over);
 
     // The level above, over the bodies on the ground, its marks over it, and the bodies on it over those. A town with
-    // nothing above its ground draws nothing in any of them.
+    // nothing above its ground draws nothing in any of them, and no road above leaves out the marks', which read the whole ring.
     pass.setPipeline(state.pipelines.ground);
     pass.setVertexBuffer(0, state.buffers[SLOT.ground]);
     pass.setIndexBuffer(state.buffers[SLOT.indices], 'uint32');
@@ -531,7 +532,7 @@ function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, und
     pass.drawIndirect(state.indirect, DRAW.underlayAbove);
     engineRuns(pass, [ENGINE.above]);
 
-    if (marks) {
+    if (marks && state.marksAbove) {
         pass.setPipeline(state.pipelines.marksAbove);
         pass.setBindGroup(1, marks.group);
         pass.drawIndirect(marks.ring, 0);
@@ -574,11 +575,18 @@ function engineRuns(pass, runs) {
     }
 }
 
+/// The recording made again over what the last rebuild was handed.
+function rebuildAsBefore() {
+    rebuild(
+        state.groundIndexCount, state.aboveIndexCount, state.overOffset, state.aboveOffset, state.underlayAboveOffset,
+        state.marksAbove);
+}
+
 /// The engine layers' quads and draws, kernel buffers both, drawn from the next recording on — or none, for nought.
 function engine(quads, draws, runBytes) {
     state.engine = quads > 0 ? { quads, draws, runBytes } : null;
     if (state.bundle) {
-        rebuild(state.groundIndexCount, state.aboveIndexCount, state.overOffset, state.aboveOffset, state.underlayAboveOffset);
+        rebuildAsBefore();
     }
 }
 
@@ -628,7 +636,7 @@ function markRing() {
 function deviceMarks(knots, ring) {
     state.deviceMarks = { knots, ring };
     if (state.bundle) {
-        rebuild(state.groundIndexCount, state.aboveIndexCount, state.overOffset, state.aboveOffset, state.underlayAboveOffset);
+        rebuildAsBefore();
     }
 }
 
@@ -636,7 +644,7 @@ function deviceMarks(knots, ring) {
 function moving(instances, draws, aboveBytes) {
     state.moving = { instances, draws, aboveBytes };
     if (state.bundle) {
-        rebuild(state.groundIndexCount, state.aboveIndexCount, state.overOffset, state.aboveOffset, state.underlayAboveOffset);
+        rebuildAsBefore();
     }
 }
 

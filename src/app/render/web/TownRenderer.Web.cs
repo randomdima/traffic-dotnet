@@ -266,7 +266,8 @@ internal sealed class TownRenderer : IDisposable
     /// <summary>The recording again, over the buffers as they now are: a buffer given anew is a buffer the last recording does not read.</summary>
     void Rebuild() => WebGpu.Rebuild(
         _groundIndexCount, _aboveIndexCount, Room.Under * Unsafe.SizeOf<SpriteInstance>(),
-        (Room.Under + Room.Over) * Unsafe.SizeOf<SpriteInstance>(), UnderlayCapacity * Unsafe.SizeOf<OverlayQuad>());
+        (Room.Under + Room.Over) * Unsafe.SizeOf<SpriteInstance>(), UnderlayCapacity * Unsafe.SizeOf<OverlayQuad>(),
+        _looks?.MarksAbove ?? false);
 
     public Span<OverlayQuad> Overlay => MemoryMarshal.Cast<byte, OverlayQuad>(_overlay.AsSpan());
 

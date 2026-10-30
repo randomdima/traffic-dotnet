@@ -43,6 +43,16 @@ every frame: a 144 Hz page sent seven inputs for each one the server read.
 **A served town's page is cached**: a framework file named by its hash for good, everything else revalidated by its tag,
 so joining again downloads nothing that has not changed — the art alone is 28 MB.
 
+## A player's keys are shown before they are answered, and nothing they move is (2026-10-31)
+
+A joined page measured its keys at 200 ms to the picture over loopback, 150 of it the interpolation delay
+(`InputLatency`). **What the keys show on the player's own mover — its wheels, its pedal lamps, the way its body faces —
+is worked out on the page at once**, by the same hand the server runs (`TownWorld.HandCommand`, the walker's turn): each
+tracks its keys to a stop, so the server's answer arrives where the page already stands and nothing is reconciled.
+**Where it stands is not**: drawing the player's own mover ahead of the town it is drawn among puts a car at 15 m/s two
+metres off the traffic beside it, so a near miss reads as a hit. That waits for prediction with a reconciliation
+(network/mvp-plan.md, "After the MVP" 1). The camera's lead stays the drawn speed's, which its spring already smooths.
+
 ## The bodies are laid with the town, not added to it
 
 The roster is laid once and never grown (network/fit.md, "identity is free"), and a player's mover number has to mean

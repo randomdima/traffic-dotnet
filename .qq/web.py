@@ -290,8 +290,10 @@ def shoot(base: Path, bundle: Path | None, a) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         cpu = (Path(a.cpu), a.limit, bundle, a.cpu_steady) if a.cpu else None
         address = a.url.rstrip("/") + "/" if a.url else f"http://localhost:{a.port}/"
-        capture(page, address + query, out, a.seconds, a.click, a.drag, a.ask, a.device, cpu, a.hz, a.key, a.after)
-        print(f"{out} written after {a.seconds:g} s on {a.map or 'the start menu over the idle ring'}")
+        capture(page, address + query, out, a.seconds, a.click, a.drag, a.ask, a.device, cpu, a.hz, a.key, a.after,
+                a.hold)
+        shown = f"the town served at {a.join}" if a.join else a.map or 'the start menu over the idle ring'
+        print(f"{out} written after {a.seconds:g} s on {shown}")
         return 0
     finally:
         shut_down(a.debug_port, browser)
@@ -382,7 +384,7 @@ new Promise(done => {
 def capture(page: dict, url: str, out: Path, seconds: float, click: str | None = None,
             pull: str | None = None, ask: str | None = None, device: str | None = None,
             cpu: tuple[Path, int, Path, bool] | None = None, hz: float | None = None, key: str | None = None,
-            after: float = 0.0):
+            after: float = 0.0, hold: str | None = None):
     """Navigate, let the town run for real seconds, then ask what it is painting at and photograph it."""
     sock = connect(page["webSocketDebuggerUrl"])
     send(sock, {"id": 1, "method": "Runtime.enable"})
@@ -422,13 +424,17 @@ def capture(page: dict, url: str, out: Path, seconds: float, click: str | None =
         front(sock)
         type_key(sock, key)
 
+    if hold:
+        front(sock)
+        type_key(sock, hold, up=False)
+
     # After the click, so a gesture can be aimed at a panel the click opened.
     if pull:
         front(sock)
         drag(sock, pull)
 
     # What the click started — a lobby's CONNECT, a town opened off the menu — given its own time to stand.
-    if after and (click or key or pull):
+    if after and (click or key or hold or pull):
         front(sock)
         settle(sock, after)
 
@@ -687,10 +693,11 @@ def press(sock: socket.socket, point: str):
     settle(sock, 4.0)
 
 
-def type_key(sock: socket.socket, code: str):
+def type_key(sock: socket.socket, code: str, up: bool = True):
     """
     One key pressed and let go, named by its `KeyboardEvent.code` (`KeyM`, `Escape`, `F11`) — the field the page's
-    key table reads (town.js `KEYS`), so a key it does not name is pressed into nothing.
+    key table reads (town.js `KEYS`), so a key it does not name is pressed into nothing. Not let go (`up=False`), it
+    is held until the page closes and nothing waits after it: the caller's `--after` is the hold.
     """
     sock.settimeout(30.0)
     letter = code[3:] if code.startswith("Key") and len(code) == 4 else None
@@ -698,12 +705,13 @@ def type_key(sock: socket.socket, code: str):
     if letter:
         named["windowsVirtualKeyCode"] = ord(letter)
 
-    for kind in ("keyDown", "keyUp"):
+    for kind in ("keyDown", "keyUp") if up else ("keyDown",):
         send(sock, {"id": 91, "method": "Input.dispatchKeyEvent", "params": {"type": kind, **named}})
         await_reply(sock, 91)
 
-    print(f"   pressed {code}")
-    settle(sock, 4.0)
+    print(f"   {'pressed' if up else 'holding'} {code}")
+    if up:
+        settle(sock, 4.0)
 
 
 #: How many moves a drag is drawn in. **The gesture is read as the difference between two frames**
@@ -1017,6 +1025,9 @@ def parse_args():
     parser.add_argument("--key", metavar="CODE",
                         help="press and let go of this key before the picture, after any click, by its "
                              "KeyboardEvent.code (KeyM, Escape)")
+    parser.add_argument("--hold", metavar="CODE",
+                        help="press this key and keep it down through the picture, after any --key: a joined "
+                             "player's walk or drive, with --after for how long it is held before the shot")
     parser.add_argument("--drag", metavar="X,Y:X,Y",
                         help="draw a finger from one point to the other, in interface pixels: the touch "
                              "gestures, which a click cannot stand in for")

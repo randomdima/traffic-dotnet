@@ -30,6 +30,7 @@ public class ReplicaTests
         WidestViewM = 160f,
         InterpolationDelayS = 0.15f,
         LongestExtrapolationS = 0.25f,
+        Seats = 16,
     };
 
     static readonly WireShape Shape = Town.Shape;

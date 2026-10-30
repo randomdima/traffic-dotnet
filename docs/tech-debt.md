@@ -156,14 +156,18 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 - **A served town's figures are half taken** (2026-10-30, `src/multiplayer/`): `--serve` reports a seated player's
   snapshots a second, bytes a second and bytes a snapshot every ten seconds — Saltbay, one page standing still on foot:
-  20 a second, 1.6 KiB/s, about 80 B a snapshot (protocol 4). Not read: a player driving through a busy street, entities
-  a snapshot, encode time a player, input-to-picture latency, and a traced city — the plan's success criteria 5 and 6
-  ([network/mvp-plan.md](../network/mvp-plan.md)). A `--bench net` probe — N scripted players over loopback, driving —
-  closes it, and its latency figure decides whether own-car prediction comes next.
+  20 a second, 1.6 KiB/s, about 80 B a snapshot (protocol 4). A joined page says its latency on its console
+  (`InputLatency`): Saltbay over loopback at 60 Hz, on foot, keys to the snapshot answering them 50 ms (33–67) and to
+  the frame drawing it 200 ms (183–217), 150 of it `InterpolationDelayS` (2026-10-31, `qq web --join`). Not read: a
+  player driving through a busy street, entities a snapshot, encode time a player, latency over a real line, and a
+  traced city — the plan's success criterion 5 ([network/mvp-plan.md](../network/mvp-plan.md)). A `--bench net` probe —
+  N scripted players over loopback, driving — closes it.
 - **A player's page has been looked at, and not driven** (2026-10-30): `qq web --shot --join ws://127.0.0.1:8740` of a
   served Test town and of Saltbay shows the town, no interface, the player on foot wearing its ring at the middle and
-  its arrow on the map. Nothing has yet held a key down on a page and watched the body or a car move, pressed `E` beside
-  one, nor joined two pages at once. Closes with a scripted `qq web` drive and a second page.
+  its arrow on the map. Nothing has yet watched a held key move the body or a car, pressed `E` beside one, nor joined
+  two pages at once; `qq web --hold KeyD` holds a key through a shot (2026-10-31), but a still is not a walk. Closes
+  with a scripted `qq web` drive — shots at two `--after`s — and a second page. Nor has anything looked at a player's
+  own wheels, lamps and facing shown ahead of the server (`OwnKeysShown`): its unit tests are the whole of its check.
 - **Getting into a train is written and not tested** (2026-10-30, `TownWorld.TakeTheTrain`, MP-13): the suite's
   players get into cars (`PlayerBodiesTests`), and nothing has pressed beside a running train, driven one, stepped off
   one, or ridden one off the map (which stands the player up afresh at the middle). A case on a town of the suite's
@@ -249,7 +253,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   town, where it was 540 — an eighth of a 120 Hz frame on the browser head, which fills the scenery on the CPU. The desktop
   hands the device runs (`ScenerySprites.Spans`) and is untouched, 43 µs at 300 m. A budget halved for a view wide enough
   that a tree is a pixel or two, or the page drawing runs as the desktop does, closes it; `qq prof` on the page, which was
-  not taken, says whether it is felt.
+  not taken, says whether it is felt. **What it fills it uploads every frame** (`town.js` `frame`), 28 B a piece — up to
+  1.8 MB a frame, a player's page included; a padded rectangle filled and sent only when the camera leaves it closes
+  that half.
 
 - **The ground's looks cost up to six texture samples and the patches' field per ground fragment, not measured**
   (`ground.frag`, `town.wgsl`, `GroundPatches`, 2026-10-25): four octaves of value noise, then each look read by the
@@ -259,9 +265,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   the figure that closes it.
 - **The smoke's cost was not taken against itself** (`CAR-54`, `OBJ-7`, 2026-10-23): OdesaOsm's 16.6 % busy with every
   chimney and car smoking is set beside the 16–19 % the render log quotes from before any smoke, another session's. The
-  over run is laid 2 × 57 instances a car, 2 × 234 a rail vehicle (a stack's longest-lived grid, laid for every wagon and
-  not only a diesel) and 16 384 for the chimneys larger, and the emit walks a pipe's whole fine grid of puffs twice a
-  frame — a wide pot's where a house's is 31, and a twin stack's two pots each. Not retaken since puffs vary with
+  over run is laid 2 × 57 instances a car, 234 a rail vehicle (a stack's longest-lived grid, as many stacks as the most
+  on one look — one — and laid for every wagon and not only a locomotive; a slot's kind is fixed (TRN-7), so the room a
+  kind's looks need closes that) and 16 384 for the chimneys larger, and the emit walks a pipe's whole fine grid of puffs
+  twice a frame — a wide pot's where a house's is 31, and a twin stack's two pots each. Not retaken since puffs vary with
   throttle and pot, nor since a twin stack smokes from both its pots, which doubled the pots smoking (OdesaOsm 69 753),
   nor since 75 more roofs' flues and cowls were marked (2026-10-24, 198 of 376 roofs hold chimneys), nor since every pot
   is laid and its fire takes turns (2026-10-24, Odesa 4 291 pots where two in five were laid). Two `qq prof --gpu`
@@ -273,8 +280,24 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   velocity, closes it.
 - **A rushing diesel's trail is thin** (`TRN-15`, 2026-10-23): a stack's puffs are split over its way at speed, each its
   share of the time's thickness, so at 40 km/h its 40 m trail reads fainter than its plume standing and pulling, where
-  real soot behind a working diesel is darkest. A stack's puff grown wider or thicker with the speed it left at, an
-  authored relation in `SimConfig.Smoke`, closes it, if the owner wants it darker.
+  real soot behind a working diesel is darkest — and since the stack's puffs are split at their own wider gap
+  (`StackPuffGapM`, 2026-10-30) a little fainter again: half the puffs at 70 km/h, its summed opacity 2–8 % less by a
+  disc-composited estimate. A stack's puff grown wider or thicker with the speed it left at, an authored relation in
+  `SimConfig.Smoke`, closes it, if the owner wants it darker.
+- **No diesel's smoke was seen in a live Saltbay drive** (`TRN-15`, 2026-10-30): `qq drive --live` following train 0
+  (`diesel_blue`, 70 km/h, pulling and coasting, 60 m and 200 m framings) drew no puff in any frame
+  (`.tmp/smoke-drive/before/`), where a car's on the Test map did and the emit read back off Saltbay's device world counts
+  the locomotive's puffs (`--bench deviceworld`, +24 at its first moment out). Not found why; seen before and after the
+  stack's gap changed, so neither the look nor what it costs could be compared on the glass. A live frame of a diesel
+  showing its smoke, or the reason it does not, closes it.
+- **The emit's write pass asks every puff again** (`CAR-54`, `TRN-15`, `OBJ-7`, `sprites_write.comp`): a pipe's or a
+  pot's whole grid is culled once to count and again to build, about three in four refused both times. The count pass
+  handing the write pass a mask of the puffs it kept — a word a car's pipes, eight a stack's, two a pot's, laid beside
+  the slots — closes it; it is a buffer more on the emit's set, which the page does not run.
+- **Chimneys past the emit's room are cut in the order their pots were laid** (`OBJ-7`, `MostPuffsDrawn`): building by
+  building, so a frame that draws more puffs than the room holds may drop a near chimney's plume and keep a far one's.
+  Seen only past 16 384 puffs in a frame. Cutting the furthest needs the pots ordered by their distance from the view
+  each frame, before the scan; a sort of the pots in reach, or a coarse count of them by distance band, closes it.
 - **`pickup_silver` and `hightopvan_white` keep their far side's lamps as drawn** (2026-10-22): `qq props mirror` left
   grey paint on the bonnet inboard of the copy-side headlamp (the copy side drawn 1.75–2 texels off the mirror image),
   so both are on their unmirrored pictures (`-v3`) with their lamps cut on them. A mirror that paints only the lamp's
@@ -434,6 +457,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     staging, the views and the covers' lists, on OdesaOsm 677–851 MiB through `writeBuffer` in six seconds at about
     80 submits a second (River 37 MiB; a hook on `GPUQueue` through `qq web --ask`, 2026-10-16), where only the rows
     marked or written need to. In the first seconds stood it is 1–13 fps with 74 ms of each frame waiting. Sending marked runs (`ResidentRows`) and reading back the counted rows closes it;
+  - **every read-back buffer comes back whole, each on its own map** (`compute.js` `land`, 2026-10-30): a copy and a
+    `mapAsync` of `held.byteLength` a buffer — the commands' whole capacity where `ResidentRows.Read` asks for the cars',
+    the tyres' and the solver's contacts alike — and the tick lands when the slowest does, so a device world takes at
+    most one tick a round trip (not measured; pace 3 on River against `?managed-world` says). A byte count on the read,
+    one staging area a batch at offsets under one map, and two such areas, close it;
   - **covers that ran past their lists leave that view without covers** (`DeviceWorld.Finish`): the desktop reads
     them again and waits; a page goes a tick without the turns those covers would have fed;
   - **a fill of any word but nought makes a uniform buffer and a bind group each time** (`compute.js`'s `fill`), and
@@ -545,6 +573,25 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   about ten of a car's sixty-odd arrays (its line, route and controller state among the rest), so the replica's
   thousand slots hold about a megabyte where a pose of each would be a tenth of it. A view of the fields `MovingScene`
   reads, which the town's fleets and the replica both answer, closes it.
+- **A town with a road above draws its whole ring of marks twice** (2026-10-30, `TownRenderer.Recording`, `town.js`,
+  PHY-1b): the level above's draw reads every knot to find its own few, up to `MarkFigures.Capacity` × 18 vertices a
+  frame (1.44 M at 80 000) thrown away. A town with no road above records no such draw (`TownSprites.MarksAbove`).
+  Closes with the raised knots laid into a small ring of their own — a second ring and stroke lasts in `DriftMarks` and
+  `DeviceTyres`, `tyre_pass.comp` laying into either, and both heads drawing the level above's from it.
+- **A page times its device every frame whether or not anything shows it** (2026-10-30, `town.js`, `gputime.js`): a
+  resolve, a copy and a `mapAsync` a frame and a batch on every adapter with `timestamp-query`. Starting the clocks
+  only while `?ui=frame` is open or the ten-second console line is due closes it.
+- **A page's frame makes about thirty JS objects** (2026-10-30, `town.js` `frame`, `pumpLink`, `compute.js` `run`):
+  a wrapper and a `Uint8Array` for each of `Frame`'s ten `MemoryView` spans and `Pump`'s four, the pass descriptor and
+  its arrays, and each batch a `Set`, an array and a promise and closure a read. Not measured against GC pauses. One
+  pinned table of addresses and lengths read as `writeBuffer(buffer, offset, heap, address, length)`, and a descriptor
+  kept, close it.
+- **An atlas block is written with its whole file as the source** (2026-10-30, `town.js` `sheetBlocks`): each box's
+  `writeTexture` is handed the file at an offset, which a browser may stage to the file's end. `blocks.subarray` of the
+  box's own bytes closes it.
+- **An adapter with neither BC7 nor ASTC takes each sheet through a 2D canvas and the heap** (2026-10-30, `town.js`,
+  `TownRenderer.Web.cs`): `getImageData` into a 64 MB page buffer the heap never gives back. `copyExternalImageToTexture`
+  from each bitmap into its box closes it.
 
 ### The ground
 
@@ -839,7 +886,10 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **A player's page draws what moves without everything a watched one does** (2026-10-30, `src/multiplayer/`): a level
   crossing's barriers stand open (their state is the server's actors' and is not sent), a tow arm is not drawn (the
   hitch is not sent), and nothing but the player itself wears a ring. Each is a field or two more in a snapshot
-  (`MoverState`) or a short list beside it; the crossing gear is the one a player would notice first.
+  (`MoverState`) or a short list beside it; the crossing gear is the one a player would notice first. **Nor are there
+  skid marks or smoke** (`TownScene.Marks` is laid at capacity 0, and a joined page runs no emit): neither needs the
+  wire — marks from each car's slip between its interpolated velocity and heading, raised off its `Channels`; chimney
+  smoke off the plan and the wind the plan seeds; exhaust off a throttle guessed from the interpolated speed.
 - **The page's key table is two lists nothing holds together** (2026-10-30, `town.js` `KEYS` and
   `AppWindow.Web.Index`): a key named on one side only does nothing, which is how `M` first reached no player's map. A
   test reading `KEYS` out of `town.js` against the desktop's `Key` names, or one table generated into both, closes it.
@@ -876,6 +926,45 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **An input is sent once** (2026-10-30, `InputMessage`): over a socket that delivers everything that is all an input
   needs, but the plan writes the protocol for datagrams, which would want the last few inputs carried redundantly. Part
   of moving to WebTransport.
+- **A player draws a fixed `InterpolationDelayS` behind whatever line it is on** (2026-10-30, `ServerClock`, MP-7): the
+  0.15 s is sized to survive two lost snapshots, a datagram's reasoning; over a WebSocket a loss is a stall of a
+  retransmit, at least one RTO, so the delay is about 100 ms more than a LAN's jitter wants and less than a lossy line's.
+  Not measured; by reading, a LAN's input-to-picture is ≈ 220 ms, 150 of them this delay, against the plan's 250. A delay
+  derived from the spread of the arrivals the clock already samples, floored at a snapshot and a frame, with MP-2's
+  margin sized from its cap, closes it.
+- **A snapshot's arrival is stamped at the frame that reads it** (2026-10-30, `JoinedTown.Receive`, `town.js`
+  `pumpLink`): `localS` is the frame's, so the clock's offsets carry up to a frame of the page's own jitter — 33 ms and
+  more on a handset at 30 fps. `performance.now()` taken in `onmessage` and laid beside each message in the inbox, which
+  crosses nothing more, closes it.
+- **A slow line holds up to `MostSnapshotsUnacknowledged` of stale snapshots in the kernel's buffer** (2026-10-30,
+  `Player.Pump`, MP-14): `SendAsync` completes as soon as the socket's send buffer takes the bytes, so "never queued" holds
+  in the server and not under it, and a line slower than its feed draws up to 8 × 50 ms behind before the window shuts. A
+  window from the measured round trip (⌈RTT / snapshot⌉ + 2), or a bound on unacknowledged bytes, closes it.
+- **An area past `MostMoversSent` drops by mover number, not by distance** (2026-10-30, `PlayerArea.Gather`, MP-2): the
+  area is filled in mover order, so cars come first and the walkers and wagons nearest the player are the ones left out —
+  and, not held, taken up again on the next snapshot with room, so they come and go. Nothing counts a drop. Filling
+  nearest first, a count of the dropped on `--serve`'s line, and the plan's priority accumulator ("After the MVP" 2)
+  close it.
+- **A served town quantises every mover on the town's thread every snapshot, players or none** (2026-10-30,
+  `TownCapture.Take`, MP-8), and `PlayerArea.Gather` walks every mover a player a snapshot on the sender: both O(town),
+  a traced city's tens of thousands. Not measured; `qq prof` of OdesaOsm under `--serve` says whether the tick feels it.
+  A grid of cells about the margin wide, captured only where some area covers it and walked by `Gather`, closes it.
+- **A moving car is sent as a move from its baseline and its lean every snapshot** (2026-10-30, `SnapshotCodec`): a car
+  at a steady 15 m/s fits only the 9-bit short move, and `TiltAlong`/`TiltAcross` cost ~12 bits a moving car for a look.
+  By estimate a busy street's 150 cars and 100 walkers are ~220 kbit/s, past the plan's 100. A move written against the
+  baseline carried on at its own speed (two baselines held), and the lean worked out by the page from the interpolated
+  acceleration as MP-6 does the clock's pieces, close it — once `--bench net` (above) says the budget is broken.
+- **A mover is posed on a straight line between two snapshots** (2026-10-30, `Replica.Place`): at twenty a second a car
+  turning a corner is drawn as a polygon, and one carried past its newest snapshot jumps back when the late one lands.
+  A Hermite segment off the neighbouring snapshots' speeds, and the correction eased over a tenth of a second, close it.
+- **A page makes four calls out a frame where the crossing budget counts three** (2026-10-30, WEB-2,
+  `Game.Web.RunTheFrameKernels`): the frame's
+  kernels are a batch submitted every frame, and their read-less batch lands at once and calls `landed` →
+  `TickBetweenFrames` back in each frame. Calling back only for a batch with reads or a world step, and WEB-2 counting
+  the frame kernels' submit, close it.
+- **A page misses a change of its pixel ratio at the same CSS size** (2026-10-30, `town.js` `resize`): it is asked only
+  on the window's `resize`, so a window dragged to a screen of another scale draws at the old one. A `ResizeObserver` on
+  `devicePixelContentBoxSize`, or a `matchMedia` resolution listener, closes it.
 
 - **`blouse_bun` may have its north diagonals swapped** (2026-10-28, raw_assets/agents/person/prompting.md): its
   up-left row reads as facing up-right by eye, as `recovery_a`'s and `recovery_c`'s did before they were cut again with

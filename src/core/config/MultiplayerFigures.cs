@@ -51,6 +51,12 @@ internal sealed class MultiplayerFigures
     public float InputKeepAliveS { get; init; } = 0.25f;
 
     /// <summary>
+    /// How often a player says on its console how long its keys took to come back since it last said (<c>InputLatency</c>):
+    /// a console and not the page, which carries no instrument (MP-9), so a log saved off a handset holds it.
+    /// </summary>
+    public float LatencyReportS { get; init; } = 10f;
+
+    /// <summary>
     /// <b>The widest a player may look</b>: the longer side of its view at the farthest it may zoom out. What it is
     /// sent is the ground this wide round its car and a margin past it (<see cref="SimConfig.PlayerAreaHalfSpanM"/>).
     /// </summary>

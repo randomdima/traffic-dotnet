@@ -21,21 +21,25 @@ internal sealed class TownCapture
     CapturedTown _reading;
     bool _fresh;
 
-    public TownCapture(MoverIds movers)
+    public TownCapture(MoverIds movers, int seats)
     {
         Movers = movers;
-        _writing = new CapturedTown(movers.Count);
-        _ready = new CapturedTown(movers.Count);
-        _reading = new CapturedTown(movers.Count);
+        _writing = new CapturedTown(movers.Count, seats);
+        _ready = new CapturedTown(movers.Count, seats);
+        _reading = new CapturedTown(movers.Count, seats);
     }
 
     public MoverIds Movers { get; }
 
-    /// <summary>The town as it stands after <paramref name="tick"/>, on the thread that stepped it. Allocates nothing.</summary>
-    public void Take(TownWorld world, in WireShape shape, uint tick)
+    /// <summary>
+    /// The town as it stands after <paramref name="tick"/>, on the thread that stepped it, with the newest input each seat
+    /// had applied by then. Allocates nothing.
+    /// </summary>
+    public void Take(TownWorld world, in WireShape shape, uint tick, ReadOnlySpan<uint> inputApplied)
     {
         var frame = _writing;
         frame.Tick = tick;
+        inputApplied.CopyTo(frame.InputApplied);
         var cars = world.Cars;
         for (var car = 0; car < Movers.Cars; car++)
         {
@@ -113,7 +117,7 @@ internal sealed class TownCapture
 }
 
 /// <summary>One frame of <see cref="TownCapture"/>: every mover by its number, and whether it is drawn at all.</summary>
-internal sealed class CapturedTown(int movers)
+internal sealed class CapturedTown(int movers, int seats)
 {
     public uint Tick;
 
@@ -121,4 +125,10 @@ internal sealed class CapturedTown(int movers)
 
     /// <summary>Whether the mover is drawn: a walker indoors and a wagon out of the world are not, and are sent as nothing.</summary>
     public readonly bool[] Shown = new bool[movers];
+
+    /// <summary>
+    /// The newest input each seat's player had applied by <see cref="Tick"/>, which its snapshot says back: read at the
+    /// capture and not at the send, so a player timing its keys off it is told of this tick and not a later one.
+    /// </summary>
+    public readonly uint[] InputApplied = new uint[seats];
 }

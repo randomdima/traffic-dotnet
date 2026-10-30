@@ -343,6 +343,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _sentShow = new ushort[drivers];
         _sentOverNothing = new byte[drivers];
         _raisedDecks = RaisedDecks(plan);
+        _deckLineM = DeckLinesM(plan);
         _followedLaid = new uint[drivers];
         Array.Fill(_followedLaid, NeverFollowed);
         _followSerial = new ushort[drivers];

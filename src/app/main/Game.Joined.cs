@@ -105,6 +105,7 @@ internal sealed partial class Game
         var localS = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
         joined.Read(localS);
         _joinedDrawnS = joined.Pose(localS);
+        SayTheLatency(joined.Latency, localS);
 
         var said = joined.Said;
         if (!string.Equals(said, _joinSaid, StringComparison.Ordinal))
@@ -112,6 +113,36 @@ internal sealed partial class Game
             _joinSaid = said;
             Banner(said);
         }
+    }
+
+    /// <summary>When the latency was last said, in local seconds, or NaN before the first frame of a join.</summary>
+    double _latencySaidS = double.NaN;
+
+    /// <summary>The latency's line, laid once: written into rather than built, so the saying allocates nothing.</summary>
+    readonly char[] _latencyLine = new char[192];
+
+    /// <summary>
+    /// How long the keys took to come back since it was last said, on the console every <c>LatencyReportS</c> where
+    /// anything was timed (<see cref="InputLatency"/>).
+    /// </summary>
+    void SayTheLatency(InputLatency latency, double localS)
+    {
+        if (double.IsNaN(_latencySaidS)) _latencySaidS = localS;
+        if (localS - _latencySaidS < _config.Multiplayer.LatencyReportS) return;
+
+        _latencySaidS = localS;
+        var (roundTrip, toPicture) = latency.Take();
+        if (toPicture.Count == 0) return;
+
+        var line = _latencyLine.AsSpan();
+        if (!line.TryWrite(
+                $"latency, {toPicture.Count} inputs timed: keys to the snapshot answering them {roundTrip.MeanS * 1000d:0} ms " +
+                $"({roundTrip.LeastS * 1000d:0}–{roundTrip.MostS * 1000d:0}), to the frame drawing it {toPicture.MeanS * 1000d:0} ms " +
+                $"({toPicture.LeastS * 1000d:0}–{toPicture.MostS * 1000d:0})",
+                out var written))
+            return;
+
+        Console.Out.WriteLine(_latencyLine, 0, written);
     }
 
     /// <summary>A line on the page's banner, or the console's.</summary>

@@ -739,7 +739,7 @@ internal sealed class ChimneyFigures
 
     /// <summary>
     /// The most puffs a frame draws off the chimneys: what the emit's room holds for them past every car's, and what a
-    /// frame's further chimneys are cut at. A street's framing draws a few hundred.
+    /// frame's chimneys are cut at, the pots laid last first. A street's framing draws a few hundred.
     /// </summary>
     public int MostPuffsDrawn { get; init; } = 16384;
 }

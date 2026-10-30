@@ -54,7 +54,7 @@ internal enum SeatState : byte
 /// <summary>The wire's own version: a player and a server that differ in it differ in everything after it.</summary>
 internal static class Protocol
 {
-    public const ushort Version = 6;
+    public const ushort Version = 7;
 
     /// <summary>A key's travel either way in steps: a pedal or the wheel as a signed byte.</summary>
     public const int KeySteps = 127;
@@ -178,6 +178,12 @@ internal readonly record struct InputMessage(
     }
 
     /// <summary>Whether two inputs hold the same keys and presses as the wire carries them, whatever their counts.</summary>
+    /// <summary>
+    /// The way the keys walk a body: up the screen is north and a player's camera is never turned (MP-9), so forward is
+    /// the world's −y and the wheel's right is its +x — as a walker's keys are read on the town's own screen.
+    /// </summary>
+    public Vector2 WalkDirection => new(Steer, -Throttle);
+
     public bool HoldsTheSameAs(in InputMessage other) =>
         ToSteps(Throttle) == ToSteps(other.Throttle) && ToSteps(Steer) == ToSteps(other.Steer) &&
         Handbrake == other.Handbrake && Acts == other.Acts && Boost == other.Boost;
@@ -281,7 +287,10 @@ internal sealed class Welcome
 
     public required float LongestExtrapolationS { get; init; }
 
-    public WireShape Shape => new(PositionQuantumM, AngleQuantumDeg, SmallAngleQuantumDeg, WorldSizeM, Movers, SmallMoveM);
+    /// <summary>How many seats the town holds, which bounds the driver a snapshot names (<see cref="WireShape.DriverBits"/>).</summary>
+    public required int Seats { get; init; }
+
+    public WireShape Shape => new(PositionQuantumM, AngleQuantumDeg, SmallAngleQuantumDeg, WorldSizeM, Movers, SmallMoveM, Seats);
 
     public int Write(Span<byte> into)
     {
@@ -310,6 +319,7 @@ internal sealed class Welcome
         Protocol.WriteFloat(ref w, WidestViewM);
         Protocol.WriteFloat(ref w, InterpolationDelayS);
         Protocol.WriteFloat(ref w, LongestExtrapolationS);
+        w.Write((uint)Seats, 16);
         return Protocol.Done(ref w);
     }
 
@@ -338,6 +348,7 @@ internal sealed class Welcome
             WidestViewM = Protocol.ReadFloat(ref r),
             InterpolationDelayS = Protocol.ReadFloat(ref r),
             LongestExtrapolationS = Protocol.ReadFloat(ref r),
+            Seats = (int)r.Read(16),
         };
 
         var sane = welcome.TickRateHz > 0 && welcome.TicksPerSnapshot > 0 && welcome.PositionQuantumM > 0f &&

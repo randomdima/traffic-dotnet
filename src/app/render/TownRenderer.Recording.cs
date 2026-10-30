@@ -377,7 +377,7 @@ internal sealed unsafe partial class TownRenderer
         // <b>The level above, over the bodies on the ground, its marks over it, and the bodies on it over those</b>
         // (TER-7b, PHY-1a): the ground's second draw — its last part, past the first draw's — then the marks and the
         // instances laid past the ground's own in their buffers. A town with nothing above its ground draws nothing in
-        // any of the three, and records them the same.
+        // any of the three, and records the marks' not at all (TownSprites.MarksAbove): theirs reads the whole ring.
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _pipeline);
         Vk.Count();
@@ -394,10 +394,13 @@ internal sealed unsafe partial class TownRenderer
             commands, _underlayIndirect[image].Handle, (ulong)sizeof(DrawIndirectCommand), 1, (uint)sizeof(DrawIndirectCommand));
         DrawTheEngine(commands, EngineRun.Above);
 
-        Vk.Count();
-        api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _markAbovePipeline);
-        Vk.Count();
-        api.CmdDrawIndirect(commands, markRing, 0, 1, (uint)sizeof(DrawIndirectCommand));
+        if (_marksAbove)
+        {
+            Vk.Count();
+            api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _markAbovePipeline);
+            Vk.Count();
+            api.CmdDrawIndirect(commands, markRing, 0, 1, (uint)sizeof(DrawIndirectCommand));
+        }
 
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);

@@ -49,7 +49,9 @@ light turning and the car stopping for it are drawn at one instant.
 snapshots' arrival, draws `InterpolationDelayS` behind it, and places each mover between the two snapshots either
 side of that instant. Past its newest snapshot it carries each mover on at its last speed for at most
 `LongestExtrapolationS`, then holds the picture. Its estimate follows a server that slows (`SIM-9`) rather than
-running ahead of it.
+running ahead of it. **Its own keys are shown at once on what it is** — its car's road wheels and brake and reversing
+lamps, the way its body on foot faces while a key is held — worked out by the server's own hand from the keys held now;
+where it stands, and everything else, is the server's as drawn.
 
 **MP-8** `P2` **Serving a town costs the tick nothing it can count.** What the thread stepping the town does for its
 players — reading their keys and laying down what was drawn for the snapshot — allocates nothing and crosses nothing

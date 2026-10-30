@@ -112,10 +112,12 @@ internal static partial class WebGpu
     /// <param name="overOffset">Where the sprites drawn over the buildings start in their buffer, in bytes.</param>
     /// <param name="aboveOffset">Where the sprites on the level above start in the same buffer, in bytes.</param>
     /// <param name="underlayAboveOffset">Where the marks on the level above start in the underlay's, in bytes.</param>
-    public static void Rebuild(int groundIndexCount, int aboveIndexCount, int overOffset, int aboveOffset, int underlayAboveOffset)
+    /// <param name="marksAbove">Whether the ring of marks is drawn over the level above as well as under the bodies on the ground.</param>
+    public static void Rebuild(
+        int groundIndexCount, int aboveIndexCount, int overOffset, int aboveOffset, int underlayAboveOffset, bool marksAbove)
     {
         Count();
-        RebuildJs(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, underlayAboveOffset);
+        RebuildJs(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, underlayAboveOffset, marksAbove);
     }
 
     /// <summary>Everything the device holds for a town being taken down, and the recording that read it.</summary>
@@ -537,7 +539,8 @@ internal static partial class WebGpu
         int width, int height, int layers, int layer, int level, int levels);
 
     [JSImport("town.rebuild", "town.js")]
-    static partial void RebuildJs(int groundIndexCount, int aboveIndexCount, int overOffset, int aboveOffset, int underlayAboveOffset);
+    static partial void RebuildJs(
+        int groundIndexCount, int aboveIndexCount, int overOffset, int aboveOffset, int underlayAboveOffset, bool marksAbove);
 
     [JSImport("town.release", "town.js")]
     static partial void ReleaseJs();

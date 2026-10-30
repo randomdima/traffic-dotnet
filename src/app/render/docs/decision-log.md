@@ -3,6 +3,25 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-30 — a stack's puffs are split at a gap of their own, and the emit asks less of each puff
+
+**A review of the smoke's cost** (`CAR-54`, `TRN-15`, `OBJ-7`).
+
+- **A stack splits its puffs at its own gap** (`SmokeFigures.StackPuffGapM`, 1 m, a stack's puff's width as it leaves):
+  at the tailpipe's fifth of a metre a diesel past 24 km/h off the air drew every puff of its finest grid, 233 at 70 km/h, each
+  0.6–5.6 m wide and several deep, all by one thread of the emit. At 1 m it draws 117; composited as discs, the trail
+  differs by 0.02 in opacity on average and 0.15 at most, 5 % less in all (`DeviceSmokeTests`' pulling diesel, gaps
+  0.2–1.4 m tried: 0.6 m drew 189, 1.4 m 59 and 0.46 at most).
+- **A puff's moment on its track is looked up, not walked to**: the point at or before it is the marks between it and
+  the body back, a step either way walked. A stack's lookup was up to sixteen points a puff.
+- **A pot whose fire has been out for a whole life draws nothing and asks no puff**; a pot past the over run's room asks
+  none in the write pass. With both and the stack's gap, `--bench deviceworld` on Saltbay (RX 9070 XT): a locomotive's
+  framing 255 → 139 µs to count and 315 → 156 µs to write, the busiest street's 51 → 44 and 80 → 52.
+- **Kept: the barrier before the smoke's track** (`DeviceWorld.Begin`): the stepped view rewrites each car's row flags
+  (`world_view.comp`'s frozen bits), the word the track reads whether a car runs from, so the track runs after it.
+- **Not done: the count pass handing the write pass which puffs it kept** — a buffer more on the emit's set for a share
+  of the write pass (`docs/tech-debt.md`).
+
 ## 2026-10-30 — a casualty is its stance, reddened, and a walker has one sheet
 
 **The owner: "animation should be reddened standing frame."** A body down in the road is the walk sheet's standing cell
@@ -325,7 +344,8 @@ to building chimneys"), `CAR-54`, `OBJ-7`.
   ruled in metres and its pots ringed on a second to check.
 - **A chimney's puff is where the wind has carried it since** and the eddy it left on, given up as a car's puff gives
   up its speed. It is drawn last of the over run, over the roofs and the cars, and its room is a figure (`MostPuffsDrawn`) rather than
-  every chimney's whole plume — a frame that would draw more cuts its own furthest chimneys and nothing else.
+  every chimney's whole plume — a frame that would draw more cuts its chimneys' puffs and nothing else, the pots laid
+  last first (not the furthest: `docs/tech-debt.md`).
 - **What it costs, measured** (`qq prof --gpu --no-cpu`, the default framing, RX 9070 XT): OdesaOsm 16.6 % busy at 60 fps
   with its 35 648 smoking chimneys, against the 16–19 % taken before any smoke (2026-10-23, below); Odesa 5.9 %. A
   chimney out of view costs its thread a cull.

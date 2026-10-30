@@ -49,6 +49,7 @@ struct SmokeKind
     float fullOutflowMps;
     float spreadMps;
     float thickestAt;
+    float puffGapM;
     float shade;
     float reachM;
     float widestM;
@@ -125,13 +126,12 @@ struct SpriteFigures
     uint bridged;
     uint bridgeChannel;
     // The smoke (CAR-54, TRN-15, SmokeLook): its sheet and the tailpipes' stride, what every pipe shares, the rates divided
-    // out, and each kind's own.
+    // out, and each kind's own, its gap among them.
     uint smokeSheet;
     uint mostExhausts;
     float puffEveryS;
     float puffPerEveryS;
     uint puffSplits;
-    float puffGapM;
     float scatterMps;
     float dragS;
     SmokeKind tailpipe;

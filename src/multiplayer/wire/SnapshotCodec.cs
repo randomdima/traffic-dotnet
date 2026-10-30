@@ -1,3 +1,5 @@
+using TrafficSimulation.CityGen;
+
 namespace TrafficSimulation.Multiplayer.Wire;
 
 /// <summary>
@@ -47,6 +49,12 @@ internal static class SnapshotCodec
     const int TurnBits = 7;
 
     const int NudgeBits = 5;
+
+    /// <summary>Enough for every <see cref="MoverFlags"/> at once.</summary>
+    static readonly int FlagBits = WireShape.BitsFor((uint)(MoverFlags.Wrecked | MoverFlags.Walking | MoverFlags.Down));
+
+    /// <summary>A bit a level of the town (<see cref="CityPlan.RoadArrays.ChannelOf"/>), which is all a mover's channels are.</summary>
+    const int ChannelBits = CityPlan.RoadArrays.Over + 1;
 
     public static void Write(ref BitWriter w, in WireShape shape, ReadOnlySpan<MoverState> now, ReadOnlySpan<MoverState> baseline)
     {
@@ -155,9 +163,9 @@ internal static class SnapshotCodec
         if ((fields & Field.Lamps) != 0) w.Write(now.Lamps, 8);
         if ((fields & Field.Marks) != 0)
         {
-            w.Write((uint)now.Flags, 8);
-            w.Write(now.Channels, 8);
-            w.Write(now.Driver, 8);
+            w.Write((uint)now.Flags, FlagBits);
+            w.Write(now.Channels, ChannelBits);
+            w.Write(now.Driver, shape.DriverBits);
         }
 
         if (entered) w.Write(now.Look, LookBits);
@@ -180,9 +188,9 @@ internal static class SnapshotCodec
         if ((fields & Field.Lamps) != 0) mover.Lamps = (byte)r.Read(8);
         if ((fields & Field.Marks) != 0)
         {
-            mover.Flags = (MoverFlags)r.Read(8);
-            mover.Channels = (byte)r.Read(8);
-            mover.Driver = (byte)r.Read(8);
+            mover.Flags = (MoverFlags)r.Read(FlagBits);
+            mover.Channels = (byte)r.Read(ChannelBits);
+            mover.Driver = (byte)r.Read(shape.DriverBits);
         }
 
         if (entered) mover.Look = (ushort)r.Read(LookBits);
@@ -294,7 +302,7 @@ internal static class SnapshotCodec
     public static int MostBits(in WireShape shape, int movers)
     {
         var recordBits = 2 + shape.IdBits + FieldBits + 3 + 2 * shape.PositionBits + 1 + shape.HeadingBits +
-                         3 * (1 + shape.SmallAngleBits) + 8 + 24 + LookBits;
+                         3 * (1 + shape.SmallAngleBits) + 8 + FlagBits + ChannelBits + shape.DriverBits + LookBits;
         return 2 * shape.IdBits + movers * (recordBits + 2 + shape.IdBits);
     }
 

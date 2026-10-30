@@ -157,7 +157,7 @@ internal sealed partial class TownWorld
         {
             var roadsAt = Stopwatch.GetTimestamp();
             Roads = RoadGraph.Build(plan, config);
-            Levelled = Array.Exists(plan.Roads.Level, level => level != CityPlan.RoadArrays.Ground);
+            Levelled = plan.Roads.AnyAbove;
             RoadsMs = Stopwatch.GetElapsedTime(roadsAt).TotalMilliseconds;
 
             // The bays' streets come before the network that prices them: the one movement a route may make that
