@@ -1,13 +1,12 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
 
 /// <summary>
-/// What the traffic has written on the ground, as instances of the same quad everything else is drawn
-/// with — laid first, so every body in the town passes over its own marks.
+/// How what the traffic has written on the ground is drawn — each stroke of knots (<see cref="DriftKnot"/>) as a curved
+/// strip through a brush, laid first, so every body in the town passes over its own marks.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -63,73 +62,14 @@ internal static class MarkSprites
     /// <summary>Resolution of the brush across the width of a mark. Small: it is a gradient read through a linear sampler, not a picture.</summary>
     const int BrushSamples = 32;
 
-    /// <summary>How each kind is drawn, for a stage that builds a mark's quad itself (<c>mark.vert</c>): the same figures <see cref="Drawn"/> uses.</summary>
+    /// <summary>How each kind is drawn, for the stage that builds a stroke's curve (<c>mark.vert</c>, <c>town.wgsl</c>'s <c>markVertex</c>).</summary>
     public static MarkLook Look(int rubberSheet, int soilSheet) => new(
         new Vector4(Soil, 1f), (uint)rubberSheet, (uint)soilSheet, RubberBleed, SoilBleed, RubberAlpha, SoilAlpha);
 
-    /// <remarks>
-    /// <b>The rows the view reaches and not the ring</b> (<see cref="DriftMarks"/>), unless the view reaches more than
-    /// half of them, where the ring read straight through is the cheaper walk. A row's own margin covers any mark's
-    /// reach. The order is a row's oldest first, which over one ground is the order they were laid; two marks of one
-    /// colour laid over each other come out the same either way round.
-    /// </remarks>
-    public static int Fill(
-        DriftMarks marks, int rubberSheet, int soilSheet, Vector2 viewCentreM, Vector2 viewSpanM,
-        Span<SpriteInstance> into)
-    {
-        var written = 0;
-        var halfView = viewSpanM * 0.5f;
-        var (fromRow, toRow) = marks.Rows(viewCentreM.Y - halfView.Y - marks.RowM, viewCentreM.Y + halfView.Y + marks.RowM);
-
-        if ((toRow - fromRow + 1) * 2 > marks.RowCount)
-        {
-            foreach (ref readonly var mark in marks.Laid)
-            {
-                if (written >= into.Length) break;
-                if (InView(mark, viewCentreM, halfView)) into[written++] = Drawn(mark, rubberSheet, soilSheet);
-            }
-
-            return written;
-        }
-
-        for (var row = fromRow; row <= toRow; row++)
-        {
-            for (var slot = marks.OldestIn(row); slot >= 0; slot = marks.YoungerThan(slot))
-            {
-                if (written >= into.Length) return written;
-
-                ref readonly var mark = ref marks.At(slot);
-                if (InView(mark, viewCentreM, halfView)) into[written++] = Drawn(mark, rubberSheet, soilSheet);
-            }
-        }
-
-        return written;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static bool InView(in DriftMark mark, Vector2 viewCentreM, Vector2 halfView)
-    {
-        var reachM = mark.LengthM * 0.5f;
-        var offset = mark.CentreM - viewCentreM;
-        return MathF.Abs(offset.X) <= halfView.X + reachM && MathF.Abs(offset.Y) <= halfView.Y + reachM;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static SpriteInstance Drawn(in DriftMark mark, int rubberSheet, int soilSheet)
-    {
-        var bleed = mark.Ploughed ? SoilBleed : RubberBleed;
-        var colour = mark.Ploughed ? Soil : Vector3.Zero;
-        var alpha = mark.Intensity * (mark.Ploughed ? SoilAlpha : RubberAlpha);
-
-        return new SpriteInstance(
-            mark.CentreM, new Vector2(mark.LengthM, mark.WidthM * bleed) * 0.5f, SpriteCell.Whole,
-            SpriteTint.Pack(new Vector4(colour, alpha)), (uint)(mark.Ploughed ? soilSheet : rubberSheet), mark.HeadingRad);
-    }
-
     /// <summary>
-    /// The stamp a mark is drawn through: white, fading out across the mark's width and uniform along
-    /// its length. Across, because that is the edge that shows — a mark is a chain of quads laid end to
-    /// end, so fading the ends too would scallop every track into beads.
+    /// The brush a stroke is drawn through: white, fading out across the mark's width and uniform along
+    /// its length. Across, because that is the edge that shows — a stroke's curves meet end to end, so
+    /// fading the ends too would scallop every track into beads.
     /// </summary>
     public static SheetSource Brush(float edgeShare)
     {
@@ -158,7 +98,7 @@ internal static class MarkSprites
 }
 
 /// <summary>
-/// <b>How a mark of each kind is drawn</b> (<see cref="MarkSprites.Look"/>), as <c>mark.vert</c>'s uniform block lays it:
+/// <b>How a mark of each kind is drawn</b> (<see cref="MarkSprites.Look"/>), as <c>mark.vert</c>'s uniform block and the page's lay it:
 /// soil's colour, the two brushes' sheets, then each kind's bleed and opacity.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]

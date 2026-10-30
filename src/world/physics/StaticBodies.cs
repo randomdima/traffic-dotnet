@@ -36,6 +36,12 @@ internal sealed class StaticBodies(GridLevel level)
     public void AddBox(Vector2 centreM, Vector2 sizeM, float headingRad, float cornerRadiusM = 0f) => Add(
         centreM, headingRad, Vector2.Max((sizeM * 0.5f) - new Vector2(cornerRadiusM), Vector2.Zero), cornerRadiusM);
 
+    /// <summary>
+    /// <b>One side of a deck's low end</b> (PHY-1b): a box on the ground, as everything here is, which what passes under
+    /// the deck meets and what is on it — on the deck's channel alone — does not.
+    /// </summary>
+    public void AddDeckSide(Vector2 centreM, Vector2 sizeM, float headingRad) => Add(centreM, headingRad, sizeM * 0.5f, 0f);
+
     /// <param name="extentM">The half-extents of the shape's core, which <paramref name="cornerRadiusM"/> is rolled around (SOL-1).</param>
     void Add(Vector2 centreM, float headingRad, Vector2 extentM, float cornerRadiusM)
     {

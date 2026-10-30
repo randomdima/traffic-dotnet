@@ -11,6 +11,9 @@ namespace TrafficSimulation.Runtime;
 /// <summary>One layer's texels, top row first, written into memory the upload already owns.</summary>
 internal delegate void LayerFill(int layer, Span<Texel> into);
 
+/// <summary>One layer's bytes in the texture's own format, written into a span the upload already owns.</summary>
+internal delegate void LayerBytes(int layer, Span<byte> into);
+
 /// <summary>
 /// One ground surface on the GPU, with its own mip chain, decoded at startup: there is no bake step to
 /// forget. The chain is box-filtered here rather than blitted by the driver, so how sharp the ground
@@ -61,13 +64,21 @@ internal sealed unsafe class GpuTexture : IDisposable
     /// The staging buffer is one layer's worth and is reused, so a fifty-megapixel atlas never has
     /// more than one page of it in memory at a time.
     /// </remarks>
-    public static GpuTexture Layered(Vk vk, int width, int height, int layers, LayerFill fill)
+    public static GpuTexture Layered(Vk vk, int width, int height, int layers, LayerFill fill) =>
+        Layered(vk, width, height, layers, Format.R8G8B8A8Unorm, width * height * sizeof(Texel),
+            (layer, into) => fill(layer, MemoryMarshal.Cast<byte, Texel>(into)));
+
+    /// <summary>
+    /// The same in <paramref name="format"/>, a layer <paramref name="layerBytes"/> long as <paramref name="fill"/> writes
+    /// it — BC7's blocks for the sheet atlas (<c>BakedSheets</c>), a copy of which is laid exactly as texels are.
+    /// </summary>
+    public static GpuTexture Layered(Vk vk, int width, int height, int layers, Format format, int layerBytes, LayerBytes fill)
     {
         var info = new ImageCreateInfo
         {
             SType = StructureType.ImageCreateInfo,
             ImageType = ImageType.Type2D,
-            Format = Format.R8G8B8A8Unorm,
+            Format = format,
             Extent = new Extent3D((uint)width, (uint)height, 1),
             MipLevels = 1,
             ArrayLayers = (uint)layers,
@@ -82,10 +93,10 @@ internal sealed unsafe class GpuTexture : IDisposable
         Vk.Check(vk.Api.CreateImage(vk.Device, &info, null, out var image), "vkCreateImage");
         var memory = Bind(vk, image);
 
-        using var staging = vk.CreateBuffer((ulong)(width * height * sizeof(Texel)), BufferUsageFlags.TransferSrcBit, hostVisible: true);
+        using var staging = vk.CreateBuffer((ulong)layerBytes, BufferUsageFlags.TransferSrcBit, hostVisible: true);
         for (var layer = 0; layer < layers; layer++)
         {
-            fill(layer, staging.Span<Texel>());
+            fill(layer, staging.Span<byte>());
             var at = layer;
             vk.OneShot(commands =>
             {
@@ -107,7 +118,7 @@ internal sealed unsafe class GpuTexture : IDisposable
             SType = StructureType.ImageViewCreateInfo,
             Image = image,
             ViewType = ImageViewType.Type2DArray,
-            Format = Format.R8G8B8A8Unorm,
+            Format = format,
             SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, 1, 0, (uint)layers),
         };
 

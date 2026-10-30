@@ -19,6 +19,7 @@
   <link rel="modulepreload" href="town.js">
   <link rel="modulepreload" href="compute.js">
   <link rel="modulepreload" href="loading.js">
+  <link rel="modulepreload" href="lobby.js">
   <link rel="modulepreload" href="build.js">
   <link rel="modulepreload" href="_framework/dotnet.js">
   <script type='module' src="main.js"></script>
@@ -83,6 +84,45 @@
     }
     #opening.trouble h1 { color: #d97a6c; }
     #opening.trouble #opening-stage { color: #e8a99f; }
+
+    /* The lobby (lobby.js, MP-15): in the opening's place and colours, on a page a town handed out. */
+    #lobby {
+      position: fixed; inset: 0; overflow-y: auto; display: flex; align-items: center; justify-content: center;
+      font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #cfcfcf;
+      background: #16181d; padding: 1.5rem 1rem; box-sizing: border-box;
+    }
+    #lobby[hidden] { display: none; }
+    #lobby > div { display: flex; flex-direction: column; gap: 1.1rem; width: min(30rem, 100%); }
+    #lobby h1 { margin: 0; font-size: 1.6rem; font-weight: 600; color: #e8c26a; letter-spacing: 0.02em; text-align: center; }
+    #lobby p { margin: 0; text-align: center; }
+    #lobby .about { color: #8a8f98; }
+    #lobby .keys { color: #6f747d; font-size: 12px; }
+    #lobby kbd { color: #cfcfcf; background: #22262d; border-radius: 3px; padding: 0 0.3em; font: inherit; }
+    #lobby label { display: flex; flex-direction: column; gap: 0.35rem; color: #8a8f98; font-size: 12px; }
+    #lobby .row { display: flex; gap: 0.5rem; align-items: center; }
+    #lobby input[type=text] {
+      flex: 1; min-width: 0; padding: 0.55rem 0.7rem; font: inherit; font-size: 15px; color: #e6e6e6;
+      background: #22262d; border: 1px solid #2e333b; border-radius: 4px;
+    }
+    #lobby input[type=text]:focus { outline: none; border-color: #4fb5a0; }
+    #lobby button { font: inherit; cursor: pointer; border: 0; border-radius: 4px; }
+    #lobby-dice { padding: 0.55rem 0.7rem; color: #cfcfcf; background: #2e333b; }
+    #lobby-dice:hover { background: #3a4049; }
+    #lobby-swatches { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+    #lobby .swatch {
+      width: 1.9rem; height: 1.9rem; border-radius: 50%; padding: 0;
+      outline: 2px solid transparent; outline-offset: 2px;
+    }
+    #lobby .swatch[aria-checked=true] { outline-color: #e6e6e6; }
+    #lobby-colour { width: 1.9rem; height: 1.9rem; padding: 0; border: 0; background: none; cursor: pointer; }
+    /* The name as the town will write it, in the colour chosen, over the shadow the town draws it with. */
+    #lobby-preview { font-size: 15px; min-height: 1.5em; text-shadow: -1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000; }
+    #lobby #lobby-connect {
+      margin-top: 0.4rem; padding: 0.95rem; font-size: 1.15rem; font-weight: 600; letter-spacing: 0.04em;
+      color: #16181d; background: #4fb5a0;
+    }
+    #lobby-connect:hover { background: #63c7b2; }
+    #lobby-connect:disabled { background: #2e333b; color: #6f747d; cursor: default; }
     @media (prefers-reduced-motion: reduce) {
       #opening-bar.sweeping #opening-fill { animation: none; width: 100%; opacity: 0.4; }
     }
@@ -101,6 +141,33 @@
     <p id="opening-stage">checking what this browser can do…</p>
     <p id="opening-detail"></p>
   </div>
+  <form id="lobby" autocomplete="off" hidden>
+    <div>
+      <h1>traffic-dotnet</h1>
+      <p class="about">
+        A small town driving itself — C# on .NET over WebGPU, with no engine under it. Join it as one of its people:
+        walk its pavements, take any car or train, and drive it among everybody else.
+      </p>
+      <p class="keys">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk and drive · <kbd>Shift</kbd> faster · <kbd>Space</kbd> handbrake ·
+        <kbd>E</kbd> get in or out · <kbd>M</kbd> map · wheel to zoom, drag to look round
+      </p>
+      <label>name
+        <span class="row">
+          <input type="text" id="lobby-name" maxlength="24" spellcheck="false" required>
+          <button type="button" id="lobby-dice" title="another name">⚄</button>
+        </span>
+      </label>
+      <label>colour
+        <span id="lobby-swatches" role="radiogroup"><input type="color" id="lobby-colour" title="any colour"></span>
+      </label>
+      <p id="lobby-preview"></p>
+      <label>server
+        <input type="text" id="lobby-server" spellcheck="false" required>
+      </label>
+      <button type="submit" id="lobby-connect">CONNECT</button>
+    </div>
+  </form>
 </body>
 
 </html>

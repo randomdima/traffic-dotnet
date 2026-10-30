@@ -409,24 +409,29 @@ internal sealed partial class TownWorld
     uint[] FreeSpots(ReadOnlySpan<FootPlace> places)
     {
         var free = new uint[places.Length];
+        for (var at = 0; at < places.Length; at++) free[at] = FreeSpotsOf(places[at]);
+
+        return free;
+    }
+
+    /// <summary>Which of one place's spots are on the map and clear of the props and buildings (<see cref="LayTheExits"/>).</summary>
+    uint FreeSpotsOf(in FootPlace place)
+    {
+        if (!place.IsSomewhere) return 0u;
+
+        var free = 0u;
         var half = new Vector2(_config.PersonDiameterM * 0.5f);
         var spots = ExitSpotsOf();
-        for (var at = 0; at < places.Length; at++)
+        for (var spot = 0; spot < spots; spot++)
         {
-            ref readonly var place = ref places[at];
-            if (!place.IsSomewhere) continue;
+            var alongM = place.AlongM + SpotAlongM(spot);
+            if (alongM < 0f || alongM > _foot.LengthM(place.Edge)) continue;
 
-            for (var spot = 0; spot < spots; spot++)
-            {
-                var alongM = place.AlongM + SpotAlongM(spot);
-                if (alongM < 0f || alongM > _foot.LengthM(place.Edge)) continue;
+            var atM = Spline.SampleAt(_foot.ArcsOf(place.Edge), alongM).PositionM;
+            if (atM.X < 0f || atM.Y < 0f || atM.X >= _plan.WorldSizeM.X || atM.Y >= _plan.WorldSizeM.Y) continue;
+            if (Statics.InBox(atM - half, atM + half)) continue;
 
-                var atM = Spline.SampleAt(_foot.ArcsOf(place.Edge), alongM).PositionM;
-                if (atM.X < 0f || atM.Y < 0f || atM.X >= _plan.WorldSizeM.X || atM.Y >= _plan.WorldSizeM.Y) continue;
-                if (Statics.InBox(atM - half, atM + half)) continue;
-
-                free[at] |= 1u << spot;
-            }
+            free |= 1u << spot;
         }
 
         return free;
@@ -578,14 +583,18 @@ internal sealed partial class TownWorld
     FootPlace PlaceBesideTheCar(int car) => ExitBesideTheCar(car).Place;
 
     /// <summary>
-    /// The pavement beside where a car stands, with its free spots: in a bay its way in, and otherwise the kerb beside
-    /// the first lane the world reads its wheels on (TER-4c.2), or the first lane of its line.
+    /// The pavement beside where a car stands, with its free spots: standing in its bay the bay's way in, and otherwise
+    /// the kerb beside the first lane the world reads its wheels on (TER-4c.2), or the first lane of its line.
     /// </summary>
+    /// <remarks>
+    /// <b>A bay only while the car stands in it</b>: a car driven out of its bay by a hand keeps the bay as its own, and
+    /// its way in would put whoever gets out back where the car was taken.
+    /// </remarks>
     (FootPlace Place, uint Free) ExitBesideTheCar(int car)
     {
-        var bay = _parking.BayOf(car);
-        if (bay >= 0)
+        if (StandsInItsBay(car))
         {
+            var bay = _parking.BayOf(car);
             var wayIn = (2 * bay) + (_parking.StandsNoseIn(bay, Cars.HeadingRad[car]) ? 1 : 0);
             return (_wayInPlace[wayIn], _wayInFree[wayIn]);
         }

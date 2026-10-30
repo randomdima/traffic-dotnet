@@ -23,7 +23,7 @@ internal enum DamageOutcome : byte
 {
     None,
 
-    /// <summary>Struck by a vehicle hard enough to put them down the road (PER-23): off their feet, and a casualty until an ambulance has been.</summary>
+    /// <summary>Met by a vehicle moving into them faster than a push (PER-23): off their feet, and a casualty until an ambulance has been.</summary>
     Wounded,
 
     Broken,
@@ -63,14 +63,14 @@ internal readonly record struct DamageSubject(Participant Kind, float MassKg, bo
 internal readonly record struct DamageVerdict(DamageOutcome ToFirst, DamageOutcome ToSecond, float EnergyKj);
 
 /// <summary>
-/// The only place damage is decided: half the pair's reduced mass times the square of their closing
-/// speed along the contact normal, measured against each participant's own tolerance.
+/// The only place damage is decided: a car by half the pair's reduced mass times the square of their closing
+/// speed along the contact normal against its tolerance (PHY-4), a person by how fast the vehicle that met them
+/// was moving into them (PER-23).
 /// </summary>
 /// <remarks>
-/// One energy per contact and one tolerance per kind of body covers every pairing without a special
-/// case — the speed that puts a pedestrian in the road barely marks the car, because the pedestrian
-/// weighs a seventeenth of it. Nothing here touches a body, a roster or a solver: two masses, two kinds
-/// and a closing speed in, two outcomes out, so every ordered pair against every band is checkable as
+/// The speed that puts a pedestrian in the road barely marks the car, because the pedestrian weighs a
+/// seventeenth of it. Nothing here touches a body, a roster or a solver: two masses, two kinds and how each
+/// came into the contact in, two outcomes out, so every ordered pair against every band is checkable as
 /// arithmetic.
 /// </remarks>
 internal static class DamageResolver
@@ -99,20 +99,24 @@ internal static class DamageResolver
         return 0.5f * reducedMassKg * closingMps * closingMps / 1000f;
     }
 
-    /// <param name="closingMps">
-    /// Closing speed along the contact normal, taken from the velocities the pair carried <em>into</em>
-    /// the tick they began touching in — never from what the solver left them with, which is the
-    /// response and not the cause.
+    /// <param name="into">
+    /// How each body was moving into the other along the contact normal, taken from the velocities the pair
+    /// carried <em>into</em> the tick they began touching in — never from what the solver left them with,
+    /// which is the response and not the cause.
     /// </param>
-    public static DamageVerdict Resolve(SimConfig config, in DamageSubject first, in DamageSubject second, float closingMps)
+    public static DamageVerdict Resolve(SimConfig config, in DamageSubject first, in DamageSubject second, in Approach into)
     {
-        var energyKj = EnergyKj(ReducedMassKg(first.MassKg, second.MassKg), closingMps);
+        var energyKj = EnergyKj(ReducedMassKg(first.MassKg, second.MassKg), into.ClosingMps);
 
         return new DamageVerdict(
-            OutcomeFor(config, first, second, energyKj), OutcomeFor(config, second, first, energyKj), energyKj);
+            OutcomeFor(config, first, second, into.SecondMps, energyKj),
+            OutcomeFor(config, second, first, into.FirstMps, energyKj),
+            energyKj);
     }
 
-    static DamageOutcome OutcomeFor(SimConfig config, in DamageSubject subject, in DamageSubject other, float energyKj)
+    /// <param name="otherIntoMps">How fast <paramref name="other"/> was moving into <paramref name="subject"/>.</param>
+    static DamageOutcome OutcomeFor(
+        SimConfig config, in DamageSubject subject, in DamageSubject other, float otherIntoMps, float energyKj)
     {
         if (subject.Kind == Participant.Static) return DamageOutcome.None;
 
@@ -122,12 +126,12 @@ internal static class DamageResolver
 
         if (subject.Kind == Participant.Person)
         {
-            // Person against person and person against static geometry are harmless at any energy, so a
-            // vehicle is the only thing that can harm a person. Who was moving carries no weight — only
-            // the closing speed and the two masses are in the arithmetic.
+            // Person against person and person against static geometry are harmless at any speed, so a
+            // vehicle is the only thing that can harm a person — and only by its own motion, so a walker
+            // arriving at a standing car, or one rolled into slowly, is pushed and stays on their feet.
             if (other.Kind is not (Participant.Car or Participant.Train)) return DamageOutcome.None;
 
-            return energyKj >= config.PersonCasualtyKj ? DamageOutcome.Wounded : DamageOutcome.None;
+            return otherIntoMps > config.Damage.KnockDownAboveMps ? DamageOutcome.Wounded : DamageOutcome.None;
         }
 
         // PHY-4b: a vehicle built not to break takes the contact and keeps its shape. The other side's

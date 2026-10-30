@@ -74,6 +74,7 @@ internal static class TyrePass
     /// <param name="hand">Whether a hand is at the wheel (<see cref="Actions.CarAction.Hand"/>), which the ceiling reads.</param>
     /// <param name="inertiaKgM2">The body's own moment of inertia about its centre, for the hold of a car its locks keep still.</param>
     /// <param name="wheelsOnAWay">Which of its wheels stood on a way when the world last read its covers.</param>
+    /// <param name="overNothing">Which stand on nothing, past a deck's edge (PHY-1b): they carry and grip nothing.</param>
     /// <param name="ground">What each wheel stands on, written unless the car was at rest.</param>
     /// <param name="marks">
     /// The marks laid this tick, at most one a wheel and in wheel order — what the caller files, in that order.
@@ -82,7 +83,7 @@ internal static class TyrePass
     /// <returns>Whether the car was at rest and the tyres had nothing to do (<see cref="AtRest"/>).</returns>
     public static bool Step(
         SimConfig config, in WheelGrounds grounds, in CarBuild car, in CarPose pose, in DriveCommand command,
-        bool hand, float inertiaKgM2, byte wheelsOnAWay, in TyreCarry carry, Span<SurfaceUnderWheel> ground,
+        bool hand, float inertiaKgM2, byte wheelsOnAWay, byte overNothing, in TyreCarry carry, Span<SurfaceUnderWheel> ground,
         Span<WheelImpulse> impulses, Span<TyreScrub> scrub, Span<TyreMark> marks, out int marksLaid)
     {
         marksLaid = 0;
@@ -102,7 +103,7 @@ internal static class TyrePass
         }
 
         Span<float> loadShare = stackalloc float[TyreModel.MostWheels];
-        var acrossMps2 = Suspension.Loads(car, pose.Sprung, loadShare);
+        var acrossMps2 = Suspension.Loads(car, pose.Sprung, loadShare, overNothing);
         var ceilingMps2 = DriveCeilingMps2(config, car, hand, acrossMps2, carry.SlipThrottle);
         Span<Vector2> atM = stackalloc Vector2[TyreModel.MostWheels];
         TyreModel.WheelPointsM(car, pose, atM);

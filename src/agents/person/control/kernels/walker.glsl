@@ -64,9 +64,10 @@ vec2 walkerAtMost(vec2 changeMps, float mostMps)
     return cut;
 }
 
+// At paceMps: the walker's own, or a hand's boost of it (WalkerFollower.PaceOf).
 WalkerStep walkerStep(
-    float headingRad, vec2 positionM, vec2 velocityMps, vec2 declaredMps, vec2 aimM, bool moving, bool onFeet, float massKg,
-    float dtS)
+    float headingRad, vec2 positionM, vec2 velocityMps, vec2 declaredMps, vec2 aimM, bool moving, bool onFeet, float paceMps,
+    float massKg, float dtS)
 {
     float heading = headingRad;
     vec2 desired = vec2(0.0);
@@ -76,7 +77,6 @@ WalkerStep walkerStep(
     precise float distanceSquared = distanceM * distanceM;
     if (distanceSquared > WALKER_FIGURES.aimUnderfootM2)
     {
-        float paceMps = WALKER_FIGURES.walkSpeedMps;
         float bearingRad = trigAtan2(toAim.y, toAim.x);
         precise float mostRad = roundedQuotient(WALKER_FIGURES.turnRateDegPerS * WalkerPi, 180.0) * dtS;
         precise float hopM = paceMps * dtS;
@@ -134,7 +134,8 @@ bool walkerTick(
 {
     if (paused)
     {
-        step = walkerStep(headingRad, positionM, velocityMps, declaredMps, positionM, false, !wounded, massKg, dtS);
+        step = walkerStep(
+            headingRad, positionM, velocityMps, declaredMps, positionM, false, !wounded, WALKER_FIGURES.walkSpeedMps, massKg, dtS);
         return true;
     }
 
@@ -150,6 +151,6 @@ bool walkerTick(
         return false;
     }
 
-    step = walkerStep(headingRad, positionM, velocityMps, declaredMps, aimM, walking, true, massKg, dtS);
+    step = walkerStep(headingRad, positionM, velocityMps, declaredMps, aimM, walking, true, WALKER_FIGURES.walkSpeedMps, massKg, dtS);
     return true;
 }

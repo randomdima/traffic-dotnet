@@ -46,13 +46,11 @@ public class DeviceWalkerOrderTests(Lavapipe device) : IClassFixture<Lavapipe>
 
         for (var at = 1; at < walkers; at++)
         {
-            var behind = PersonSprites.Depth.Of(over[at - 1], looks.FirstDownSheet);
-            var drawn = PersonSprites.Depth.Of(over[at], looks.FirstDownSheet);
+            var behind = PersonSprites.Depth.Of(over[at - 1]);
+            var drawn = PersonSprites.Depth.Of(over[at]);
             Assert.True(behind.CompareTo(drawn) <= 0, $"walker {at} ({drawn}) is drawn after one it ranks before ({behind})");
         }
     }
 
-    static bool IsWalker(in SpriteInstance instance, TownSprites looks) =>
-        instance.Sheet < looks.People.SheetCount
-        || (instance.Sheet >= looks.FirstDownSheet && instance.Sheet < looks.FirstDownSheet + looks.People.SheetCount);
+    static bool IsWalker(in SpriteInstance instance, TownSprites looks) => instance.Sheet < looks.People.SheetCount;
 }

@@ -1,13 +1,13 @@
 // The frame's moving sprites on the device (TownSprites.FillMoving): the walkers, then every part of every car on the
 // ground — the exhausts' smoke, the tyres, the bodies, the tow arms, the lamps — then the signal heads, and the
-// cars on the level above after them, part by part again. Line for line with PersonSprites.Fill,
+// walkers and the cars on the level above after them, part by part again. Line for line with PersonSprites.Fill,
 // CarSprites.FillTyres, Fill and FillBeams, LampSprites.Fill and SignalSprites.Fill, `precise` wherever the host
 // rounds — all but the smoke, which is the device's alone (SmokeSprites); the arm's bearing is
 // trig.glsl's arctangent, and every quotient and root a verdict hangs on is rounded.glsl's.
 //
 // One count a part of a unit, laid in the order the instances are drawn: the walkers', then each part of the
-// cars a run apiece, then the wagons', the heads', the crossings' and the chimneys' smoke (OBJ-7), then the five car
-// parts again for the level above
+// cars a run apiece, then the wagons', the heads', the crossings' and the chimneys' smoke (OBJ-7), then the walkers' and
+// the five car parts again for the level above
 // and the wagons again for those on a bridge (RAIL-8). A count pass writes them, a
 // scan makes them where each part's instances start, and a write pass lays every part there — so the order is the
 // host's whatever order the threads ran in. Every unit is asked, not only those a grid says are near: the cull is the
@@ -67,9 +67,12 @@ uint spritesChimneysFrom() { return spritesWagonSmokeFrom() + figures.wagonCount
 
 uint spritesAboveFrom() { return spritesChimneysFrom() + figures.chimneyCount; }
 
+// The walkers on the level above (PHY-1b), a slot each at the head of the run above, then the cars on it.
+uint spritesCarsAboveFrom() { return spritesAboveFrom() + (figures.levelled != 0u ? figures.personCapacity : 0u); }
+
 // The wagons on a bridge (RAIL-8), a slot each after the cars above, as TownSprites.FillMoving draws them, and the smoke
 // of those that smoke after them.
-uint spritesWagonsAboveFrom() { return spritesAboveFrom() + (figures.levelled != 0u ? CarParts * figures.carCapacity : 0u); }
+uint spritesWagonsAboveFrom() { return spritesCarsAboveFrom() + (figures.levelled != 0u ? CarParts * figures.carCapacity : 0u); }
 
 uint spritesWagonSmokeAboveFrom() { return spritesWagonsAboveFrom() + figures.wagonCount; }
 
@@ -80,19 +83,20 @@ bool spritesAnythingAbove() { return figures.levelled != 0u || figures.bridged !
 
 uint spritesCarSlot(uint run, uint part, uint car)
 {
-    return (run == RunOver ? figures.personCapacity : spritesAboveFrom()) + part * figures.carCapacity + car;
+    return (run == RunOver ? figures.personCapacity : spritesCarsAboveFrom()) + part * figures.carCapacity + car;
 }
 
-// The run a car is drawn in: every car in the one run of a town with nothing above its ground, and otherwise the run of
-// its level, or none for a level neither run draws.
-uint spritesRunOf(CarRow row)
+// The run a body on a level is drawn in: every body in the one run of a town with nothing above its ground, and otherwise
+// the run of its level, or none for a level neither run draws.
+uint spritesRunOfLevel(uint level)
 {
-    if (figures.levelled == 0u) return RunOver;
-
-    uint level = (row.flags >> CarLevelShift) & 0xFFu;
-    if (level == figures.groundLevel) return RunOver;
+    if (figures.levelled == 0u || level == figures.groundLevel) return RunOver;
     return level == figures.aboveLevel ? RunAbove : RunNone;
 }
+
+uint spritesRunOf(CarRow row) { return spritesRunOfLevel((row.flags >> CarLevelShift) & 0xFFu); }
+
+uint spritesRunOfPerson(PersonRow row) { return spritesRunOfLevel((row.flags >> PersonLevelShift) & 0xFFu); }
 
 // The host's cull: a quad whose middle is further off the view's middle than half the view and its own reach, either way.
 bool spritesOutside(vec2 centreM, vec2 reachM)
@@ -194,27 +198,21 @@ bool spritesPersonShown(uint person)
     PersonRow row = people[person];
     if ((row.flags & PersonInside) != 0u) return false;
 
-    PersonLook look = personLooks[row.variant % figures.personSheets];
-    bool down = (row.flags & PersonDown) != 0u;
-    return !spritesOutside(row.positionM, down ? vec2(look.downReachM) : look.standingHalfM);
+    return !spritesOutside(row.positionM, spritesPersonLook(row.variant % figures.personSheets).halfM);
 }
 
-// And its instance: an upright cell of its facing and stride, or one frame lying along the ground.
+// And its instance: an upright cell of its facing and stride — a casualty's the stance, reddened.
 SpriteOut spritesPerson(uint person)
 {
     PersonRow row = people[person];
     uint variant = row.variant % figures.personSheets;
-    PersonLook look = personLooks[variant];
-    uint ring = spritesPersonRing(person);
-    if ((row.flags & PersonDown) != 0u)
-    {
-        return spritesPlain(row.positionM, look.downHalfM, (figures.firstDownSheet + variant) | ring, row.headingRad);
-    }
-
+    PersonLook look = spritesPersonLook(variant);
+    bool down = (row.flags & PersonDown) != 0u;
     int facing = personFacingRow(row.headingRad, figures.facingFromRad, figures.facingStepRad);
-    int column = (row.flags & PersonWalking) != 0u ? personWalkColumn(row.distanceWalkedM, look.heightM) : 0;
+    int column = !down && (row.flags & PersonWalking) != 0u ? personWalkColumn(row.distanceWalkedM, look.heightM) : 0;
     uint cell = spritesCell(uint(column), uint(facing), figures.personColumns, figures.personRows);
-    return spritesQuad(row.positionM, look.standingHalfM, cell, SpritePlain, variant | ring, 0.0);
+    uint tint = down ? figures.casualtyTint : SpritePlain;
+    return spritesQuad(row.positionM, look.halfM, cell, tint, variant | spritesPersonRing(person), 0.0);
 }
 
 // The wagon as the view the frame shows left it (WorldView.Wagons).
@@ -226,7 +224,7 @@ bool spritesWagonShown(uint wagon)
     WagonViewRow row = spritesWagonRow(wagon);
     if ((row.flags & WagonInWorld) == 0u) return false;
 
-    return !spritesOutside(row.positionM, vec2(trainLooks[row.flags & 0xffffu].halfM.x));
+    return !spritesOutside(row.positionM, vec2(spritesTrainLook(row.flags & 0xffffu).halfM.x));
 }
 
 // WagonView.OnABridge: the run a wagon is drawn in is the bridge's where any of it is over one.
@@ -238,7 +236,7 @@ SpriteOut spritesWagon(uint wagon)
     WagonViewRow row = spritesWagonRow(wagon);
     uint look = row.flags & 0xffffu;
     return spritesPlain(
-        row.positionM, trainLooks[look].halfM, (figures.firstTrainSheet + look) | spritesWagonRing(wagon) | (wagon << 16u),
+        row.positionM, spritesTrainLook(look).halfM, (figures.firstTrainSheet + look) | spritesWagonRing(wagon) | (wagon << 16u),
         row.headingRad);
 }
 
@@ -246,7 +244,7 @@ SpriteOut spritesWagon(uint wagon)
 // drive — one each, or none.
 uvec2 spritesGearShown(uint gear)
 {
-    GearRow row = gearRows[gear];
+    GearRow row = spritesGearRow(gear);
     if (spritesOutside(row.pivotM, vec2(row.reachM))) return uvec2(0u);
 
     GearShownRow shown = gearShown[gear];
@@ -263,7 +261,7 @@ SpriteOut spritesBarrier(uint gear)
 
 SpriteOut spritesBarrierDrive(uint gear)
 {
-    GearRow row = gearRows[gear];
+    GearRow row = spritesGearRow(gear);
     precise vec2 centreM = gearShown[gear].armFromM - row.downAlong * figures.driveHalfLengthM;
     return spritesPlain(
         centreM, vec2(figures.driveHalfLengthM, figures.driveHalfWidthM), figures.barrierDriveSheet, row.armHeadingRad);
@@ -272,13 +270,13 @@ SpriteOut spritesBarrierDrive(uint gear)
 // CrossingSprites.Fill's cull for one X light.
 bool spritesLightShown(uint light)
 {
-    return !spritesOutside(lightRows[light].centreM, vec2(length(vec2(figures.lightHalfLengthM, figures.lightHalfWidthM))));
+    return !spritesOutside(spritesLightRow(light).centreM, vec2(length(vec2(figures.lightHalfLengthM, figures.lightHalfWidthM))));
 }
 
 // And the picture its gear's lights show, dark or lit.
 SpriteOut spritesCrossingLight(uint light)
 {
-    LightRow row = lightRows[light];
+    LightRow row = spritesLightRow(light);
     uint sheet = gearShown[row.gear].lit != 0u ? figures.crossingLitSheet : figures.crossingLightSheet;
     return spritesPlain(row.centreM, vec2(figures.lightHalfLengthM, figures.lightHalfWidthM), sheet, row.headingRad);
 }
@@ -289,7 +287,7 @@ uint spritesTyresShown(uint car)
     if (figures.widestTyreM < frame.leastPartM) return 0u;
 
     CarRow row = cars[car];
-    CarLook look = carLooks[row.variant % figures.carSheets];
+    CarLook look = spritesCarLook(row.variant % figures.carSheets);
     return look.wheelWidthM < frame.leastPartM || spritesOutside(row.positionM, vec2(look.tyreReachM)) ? 0u : look.wheelCount;
 }
 
@@ -297,7 +295,7 @@ uint spritesTyresShown(uint car)
 SpriteOut spritesTyre(uint car, uint tyre)
 {
     CarRow row = cars[car];
-    CarLook look = carLooks[row.variant % figures.carSheets];
+    CarLook look = spritesCarLook(row.variant % figures.carSheets);
     precise float steeredRad = row.headingRad + row.steerRad;
     bool steered = (look.steeredWheels & (1u << tyre)) != 0u;
     return spritesPlain(
@@ -311,7 +309,7 @@ bool spritesBodyShown(uint car)
     if (figures.carSheets == 0u) return false;
 
     CarRow row = cars[car];
-    CarLook look = carLooks[row.variant % figures.carSheets];
+    CarLook look = spritesCarLook(row.variant % figures.carSheets);
     bool broken = (row.flags & CarBroken) != 0u;
     return !spritesOutside(row.positionM, vec2(broken ? look.wreckReachM : look.bodyReachM));
 }
@@ -321,7 +319,7 @@ SpriteOut spritesBody(uint car)
 {
     CarRow row = cars[car];
     uint variant = row.variant % figures.carSheets;
-    CarLook look = carLooks[variant];
+    CarLook look = spritesCarLook(variant);
     bool broken = (row.flags & CarBroken) != 0u;
     uint sheet = figures.firstCarSheet + (broken ? figures.carSheets : 0u) + variant;
     return spritesPlain(
@@ -333,7 +331,7 @@ SpriteOut spritesBody(uint car)
 bool spritesBeamShown(uint car)
 {
     CarRow row = cars[car];
-    CarLook look = carLooks[row.variant % figures.carSheets];
+    CarLook look = spritesCarLook(row.variant % figures.carSheets);
     if ((row.flags & CarBroken) != 0u || look.hasBeam == 0u) return false;
 
     return !spritesOutside(row.positionM, vec2(row.towing != -1 ? look.extendedReachM : look.collapsedReachM));
@@ -343,7 +341,7 @@ bool spritesBeamShown(uint car)
 SpriteOut spritesBeam(uint car)
 {
     CarRow row = cars[car];
-    CarLook look = carLooks[row.variant % figures.carSheets];
+    CarLook look = spritesCarLook(row.variant % figures.carSheets);
     bool towing = row.towing != -1;
     vec2 hingeM = spritesOnTiltedBody(row, look.pivotM);
     precise vec2 alongTheArm = vec2(0.0);
@@ -380,7 +378,7 @@ uvec2 spritesLamps(uint car)
 
     CarRow row = cars[car];
     uint variant = row.variant % figures.carSheets;
-    CarLook look = carLooks[variant];
+    CarLook look = spritesCarLook(variant);
     if ((row.flags & CarBroken) != 0u || look.lensCount == 0u) return uvec2(0u);
     if (spritesOutside(row.positionM, vec2(look.lampReachM))) return uvec2(0u);
 
@@ -389,13 +387,13 @@ uvec2 spritesLamps(uint car)
     for (uint lens = 0u; lens < look.lensCount; lens++)
     {
         moment.redGlass = moment.redGlass
-                          || (lenses[variant * figures.mostLenses + lens].fittingAndFirstColour & 0xFFu) == FittingBeaconRed;
+                          || (spritesLensRow(variant * figures.mostLenses + lens).fittingAndFirstColour & 0xFFu) == FittingBeaconRed;
     }
 
     uvec2 shown = uvec2(0u);
     for (uint lens = 0u; lens < look.lensCount; lens++)
     {
-        LensRow at = lenses[variant * figures.mostLenses + lens];
+        LensRow at = spritesLensRow(variant * figures.mostLenses + lens);
         bool lit;
         uint colour = lampsLensColour(moment, at.fittingAndFirstColour & 0xFFu, at.atBodyM, lit);
         if (!lit || at.glowM < frame.leastPartM) continue;
@@ -413,7 +411,7 @@ SpriteOut spritesGlow(CarRow row, LensRow lens, uint colour)
 {
     return spritesQuad(
         spritesOnTiltedBody(row, lens.atBodyM), vec2(lens.glowM * 0.5), lens.firstCell,
-        lampTints[colour], figures.glowSheet, row.headingRad);
+        spritesLampTint(colour), figures.glowSheet, row.headingRad);
 }
 
 // And the lens itself, from whichever of its two cells burns that colour (LampAtlas.StateOf).
@@ -469,7 +467,7 @@ bool spritesTrackSmokes(uint track, SmokeKind kind)
 // And a car, of a look that ends in a pipe.
 bool spritesSmokes(uint car)
 {
-    return figures.carSheets != 0u && carLooks[cars[car].variant % figures.carSheets].exhaustCount != 0u
+    return figures.carSheets != 0u && spritesCarLook(cars[car].variant % figures.carSheets).exhaustCount != 0u
            && spritesTrackSmokes(car, figures.tailpipe);
 }
 
@@ -608,7 +606,7 @@ bool spritesPuff(uint track, SmokePipe pipe, PuffRun run, uint puff, out SpriteO
 // A car's tailpipe of a look, and a rail vehicle's stack.
 SmokePipe spritesTailpipe(uint variant, uint pipe)
 {
-    return SmokePipe(exhausts[variant * figures.mostExhausts + pipe], figures.tailpipe);
+    return SmokePipe(spritesExhaust(variant * figures.mostExhausts + pipe), figures.tailpipe);
 }
 
 SmokePipe spritesStack(TrainLook look, uint stack)
@@ -624,7 +622,7 @@ uint spritesPuffsShown(uint car)
 
     uint variant = cars[car].variant % figures.carSheets;
     uint shown = 0u;
-    for (uint pipe = 0u; pipe < carLooks[variant].exhaustCount; pipe++)
+    for (uint pipe = 0u; pipe < spritesCarLook(variant).exhaustCount; pipe++)
     {
         PuffRun run = spritesPuffRun(car, pipe);
         SmokePipe tailpipe = spritesTailpipe(variant, pipe);
@@ -645,7 +643,7 @@ uint spritesWagonLook(uint wagon) { return spritesWagonRow(wagon).flags & 0xffff
 bool spritesWagonSmokes(uint wagon)
 {
     WagonViewRow row = spritesWagonRow(wagon);
-    return (row.flags & WagonInWorld) != 0u && trainLooks[row.flags & 0xffffu].exhaustCount != 0u
+    return (row.flags & WagonInWorld) != 0u && spritesTrainLook(row.flags & 0xffffu).exhaustCount != 0u
            && spritesTrackSmokes(figures.firstWagonTrack + wagon, figures.stack);
 }
 
@@ -655,7 +653,7 @@ uint spritesWagonPuffsShown(uint wagon)
     if (!spritesWagonSmokes(wagon)) return 0u;
 
     uint track = figures.firstWagonTrack + wagon;
-    TrainLook look = trainLooks[spritesWagonLook(wagon)];
+    TrainLook look = spritesTrainLook(spritesWagonLook(wagon));
     uint shown = 0u;
     for (uint stack = 0u; stack < look.exhaustCount; stack++)
     {
@@ -678,7 +676,7 @@ uint spritesWagonPuffsShown(uint wagon)
 bool spritesChimneySmokes(uint chimney)
 {
     return figures.widestChimneyPuffM >= frame.leastPartM
-           && !spritesOutside(chimneys[chimney].atM, vec2(figures.chimneyReachM));
+           && !spritesOutside(spritesChimney(chimney).atM, vec2(figures.chimneyReachM));
 }
 
 // A chimney's pot as its plume is drawn off it (ChimneySprites), k times as wide as a house's: a puff leaves it as wide as
@@ -693,7 +691,7 @@ struct ChimneyPot
 
 ChimneyPot spritesChimneyPot(uint chimney)
 {
-    float potWidthM = chimneys[chimney].potWidthM;
+    float potWidthM = spritesChimney(chimney).potWidthM;
     float k = potWidthM * figures.chimneyPerPotWidthM;
     float lifeS = figures.chimneyLifeS * sqrt(k);
     return ChimneyPot(
@@ -716,7 +714,7 @@ bool spritesChimneyBurning(uint fire, float atS)
 // older than its life, as wide as a part is drawn and in view — and the instance.
 bool spritesChimneyPuff(uint chimney, ChimneyPot pot, uint puff, out SpriteOut sprite)
 {
-    ChimneyRow row = chimneys[chimney];
+    ChimneyRow row = spritesChimney(chimney);
     uint fire = row.seed >> ChimneyPotBits;
     float slots = frame.elapsedS * figures.chimneyPerEveryS + spritesShare(spritesHash(row.seed));
     float newest = floor(slots);
@@ -765,12 +763,12 @@ uint spritesChimneyPuffsShown(uint chimney)
 }
 
 // SignalSprites.Fill's cull for one head.
-bool spritesHeadShown(uint head) { return !spritesOutside(heads[head].centreM, vec2(figures.headReachM)); }
+bool spritesHeadShown(uint head) { return !spritesOutside(spritesHeadRow(head).centreM, vec2(figures.headReachM)); }
 
 // And the frame of its strip its approach or crossing is showing.
 SpriteOut spritesHead(uint head)
 {
-    HeadRow row = heads[head];
+    HeadRow row = spritesHeadRow(head);
     bool forCars = row.forCars != 0u;
     uint colour = signalForStretch(row.subject, forCars, frame.elapsedS);
     uint column;

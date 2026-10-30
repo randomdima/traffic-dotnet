@@ -30,14 +30,27 @@ internal readonly record struct BodyTag(BodyKind Kind, int Index)
 
 /// <summary>
 /// Two bodies that <b>began</b> touching in the step just taken, and the contact normal, which points
-/// from the first towards the second — and, where the step was taken elsewhere, how fast the two closed along it on
-/// the motion they brought into the tick, which the town's fleets need not hold then.
+/// from the first towards the second — and, where the step was taken elsewhere, how fast each was moving into the other
+/// on the motion they brought into the tick, which the town's fleets need not hold then.
 /// </summary>
 /// <remarks>
 /// The beginning is reported and never the touching, which is the whole of "once per touch": a pair
 /// resting against each other in a queue is one of these and never sixty a second.
 /// </remarks>
-internal readonly record struct Touch(BodyTag First, BodyTag Second, Vector2 Normal, float? ClosingMps = null);
+internal readonly record struct Touch(BodyTag First, BodyTag Second, Vector2 Normal, Approach? Into = null);
+
+/// <summary>
+/// How fast each body of a touch was moving into the other along its normal, on the motion it brought into the tick —
+/// positive towards the other. Their sum is how fast the pair closed; each alone is who was carrying it (PER-23).
+/// </summary>
+internal readonly record struct Approach(float FirstMps, float SecondMps)
+{
+    public float ClosingMps => FirstMps + SecondMps;
+
+    /// <param name="normal">From the first body towards the second.</param>
+    public static Approach Of(Vector2 firstMps, Vector2 secondMps, Vector2 normal) =>
+        new(Vector2.Dot(firstMps, normal), -Vector2.Dot(secondMps, normal));
+}
 
 /// <summary>What is true of a body that is not a number: seven bits, and nothing that needs a branch to read.</summary>
 [Flags]
@@ -420,6 +433,19 @@ internal sealed partial class PhysicsWorld
         var index = body.Index;
         Wake(index);
         var byMps = impulseNs * _inverseMass[index];
+        _velocityMps[index] += byMps;
+    }
+
+    /// <summary>
+    /// <b>A body's velocity changed outright</b>, whatever it weighs — a push from outside it (PHY-9) such as a fall off a
+    /// deck's edge (PHY-1b), woken to take it. <c>world_signals.comp</c>'s <c>SignalShove</c> is this, said again.
+    /// </summary>
+    public void Shove(BodyId body, Vector2 byMps)
+    {
+        if (byMps == Vector2.Zero) return;
+
+        var index = body.Index;
+        Wake(index);
         _velocityMps[index] += byMps;
     }
 

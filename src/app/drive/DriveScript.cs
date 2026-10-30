@@ -111,7 +111,7 @@ internal static class DriveScript
     public const string Verbs =
         "select car N | select train N | select at X Y | select nearest X Y | select walker X Y | cars X Y | people X Y | " +
         "look car | look X Y | view METRES | " +
-        "ui WORDS | drive SECONDS [throttle=N] [brake=N] [steer=N] [handbrake=on] | coast SECONDS | " +
+        "ui WORDS | drive SECONDS [throttle=N] [brake=N] [steer=N] [handbrake=on] [boost=on] | coast SECONDS | " +
         "wait SECONDS | release | order X Y | action | shot NAME | agents on|off | pace N";
 
     public static DriveStep[] Read(string text)
@@ -203,6 +203,7 @@ internal static class DriveScript
         var steer = 0f;
         var steered = false;
         var handbrake = false;
+        var boost = false;
 
         for (var at = 2; at < words.Length; at++)
         {
@@ -226,8 +227,11 @@ internal static class DriveScript
                 case "handbrake":
                     handbrake = Switched(said, line, value);
                     break;
+                case "boost":
+                    boost = Switched(said, line, value);
+                    break;
                 default:
-                    throw Bad(said, line, $"{name} is not a pedal: throttle, brake, steer or handbrake");
+                    throw Bad(said, line, $"{name} is not a pedal: throttle, brake, steer, handbrake or boost");
             }
         }
 
@@ -236,7 +240,7 @@ internal static class DriveScript
         if (throttle > 0f && brake > 0f) throw Bad(said, line, "throttle and brake are one pedal: hold one of them");
 
         return new DriveStep(
-            DriveVerb.Drive, said, line, Seconds: seconds, Hand: Held(throttle - brake, steer, handbrake),
+            DriveVerb.Drive, said, line, Seconds: seconds, Hand: Held(throttle - brake, steer, handbrake, boost),
             Steered: steered);
     }
 
@@ -245,8 +249,8 @@ internal static class DriveScript
     /// go coasts rather than handing the unit back. The walk direction is the same pair of axes a walker
     /// under the same hand reads, so one line drives either kind of unit.
     /// </summary>
-    static HandInput Held(float throttle, float steer, bool handbrake) =>
-        new(true, throttle, steer, handbrake, new Vector2(steer, -throttle));
+    static HandInput Held(float throttle, float steer, bool handbrake, bool boost = false) =>
+        new(true, throttle, steer, handbrake, new Vector2(steer, -throttle), boost);
 
     static Vector2 Place(string said, int line, string[] words, int at)
     {

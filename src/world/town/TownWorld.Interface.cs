@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
@@ -291,21 +292,27 @@ internal sealed partial class TownWorld
     public void Hands(HandInput input) => _hands = _selected.Any ? input : default;
 
     /// <summary>
-    /// <b>CTL-5d — a hand at one named car's wheel</b>, which is not the player's and reads no selection.
-    /// The car is named every tick, exactly as the hand is, so a driver that stops calling this has let go.
+    /// <b>CTL-5d — a hand at one named car's wheel</b>, from one seat, which is not the player's and reads no
+    /// selection. The car is named every tick, exactly as the hand is; a seat holds it until told −1.
     /// </summary>
     /// <remarks>
     /// <b>The player wins a car they are both holding</b>: the selection is a reader saying which car is
-    /// theirs, and a second driver that could take it out from under them would be a fight nobody watching
-    /// could read. Everything else about it is CTL-5's — the same seam, the same envelope, and the town
-    /// told nothing about either hand.
+    /// theirs, and a seat that could take it out from under them would be a fight nobody watching could read.
+    /// Everything else about it is CTL-5's — the same seam, the same envelope, and the town told nothing about
+    /// any hand.
     /// </remarks>
+    /// <param name="seat">Which of the <see cref="Seats"/> holds it.</param>
     /// <param name="car">The car in the fleet, or −1 for nobody, which is how the wheel is given up.</param>
-    public void HandOnCar(int car, HandInput input)
-    {
-        _otherCar = car >= 0 && car < Cars.Count ? car : -1;
-        _otherHand = _otherCar >= 0 ? input : default;
-    }
+    public void HandOnCar(int seat, int car, HandInput input) => _seats.Hold(seat, car < Cars.Count ? car : -1, input);
+
+    /// <summary>How many seats the town holds (<c>MultiplayerFigures.MostSeats</c>).</summary>
+    public int Seats => _seats.Count;
+
+    /// <summary>The car a seat holds, or −1.</summary>
+    public int CarOfSeat(int seat) => _seats.CarOf(seat);
+
+    /// <summary>The seat holding a car, or −1.</summary>
+    public int SeatOfCar(int car) => _seats.SeatOf(car);
 
     /// <summary>
     /// <b>The reset</b> (CTL-4): the wheel is given up and so is manual mode, so every selected unit goes
@@ -404,10 +411,10 @@ internal sealed partial class TownWorld
     public ReadOnlySpan<Selection> HandDriven => _hands.Held ? _selected.Units : default;
 
     /// <summary>
-    /// The one car a second driver has the wheel of, or −1 (CTL-5d) — the same fact as
-    /// <see cref="HandDriven"/> for a hand that names its car instead of picking it out.
+    /// The car the first seat has the wheel of, or −1 (CTL-5d) — the same fact as <see cref="HandDriven"/> for a hand
+    /// that names its car instead of picking it out, and the one second hand a picture rings (the scripted seat's).
     /// </summary>
-    public int HandDrivenCar => _otherHand.Held ? _otherCar : -1;
+    public int HandDrivenCar => _seats.HandOf(0).Held ? _seats.CarOf(0) : -1;
 
     /// <summary>
     /// <b>Whether this car's wheel is held over</b> by either hand (CTL-5, CTL-5d): no leg is decided, no
@@ -416,14 +423,12 @@ internal sealed partial class TownWorld
     bool HandAtTheWheel(int car) => !Cars.Broken[car] && WheelIsHeldOver(car);
 
     /// <summary>
-    /// The hand on this car's wheel, or nothing held. <b>The player's before the second driver's</b>
-    /// (CTL-5d), for a car they are both holding.
+    /// The hand on this car's wheel, or nothing held. <b>The player's before a seat's</b> (CTL-5d), for a car
+    /// they are both holding.
     /// </summary>
-    HandInput WheelOn(int car) => PlayersHandOn(car)
-        ? _hands
-        : _otherCar == car ? _otherHand : default;
+    HandInput WheelOn(int car) => PlayersHandOn(car) ? _hands : _seats.On(car);
 
-    /// <summary>Whether the player's own hand, and not a second driver's (CTL-5d), is on this car's wheel.</summary>
+    /// <summary>Whether the player's own hand, and not a seat's (CTL-5d), is on this car's wheel.</summary>
     bool PlayersHandOn(int car) => _hands.Held && _selected.Holds(SelectionKind.Car, car);
 
     /// <summary>
@@ -629,13 +634,19 @@ internal sealed partial class TownWorld
         var reverse = hand.Throttle < 0f && alongMps <= _config.Driving.StopSpeedMps;
 
         // The gear's own cap, which is a hard rule and stays one whoever is at the wheel — and it is the
-        // cap of the car the hand is in (CAR-11), so taking the wheel of a truck feels like a truck.
-        var capMps = reverse ? build.ReverseMaxMps : build.MaxSpeedMps;
+        // cap of the car the hand is in (CAR-11), so taking the wheel of a truck feels like a truck. A boost
+        // (CTL-5e) raises the pull and the forward cap; let go of above the cap, the car is asked for no pull and
+        // coasts back down to it.
+        var boosted = hand.Boost && !reverse;
+        var capMps = reverse ? build.ReverseMaxMps
+            : boosted ? build.MaxSpeedMps * _config.Control.HandBoostSpeedShare
+            : build.MaxSpeedMps;
         var wanted = reverse ? -hand.Throttle : hand.Throttle;
         if (wanted > 0f && MathF.Abs(alongMps) >= capMps) wanted = 0f;
 
+        var pullMps2 = boosted ? build.AccelerationMps2 * _config.Control.HandBoostPullShare : build.AccelerationMps2;
         var askedMps2 = wanted >= 0f
-            ? MathF.Max(0f, wanted) * build.AccelerationMps2
+            ? MathF.Max(0f, wanted) * pullMps2
             : wanted * build.BrakingMps2;
         var travelMps2 = build.PedalRateMps3 * _config.TickSeconds;
         var pedalMps2 = Math.Clamp(
@@ -658,11 +669,11 @@ internal sealed partial class TownWorld
     /// makes releasing the keys <em>coast</em> rather than hand the walker back: the wheel is given
     /// up by the reset, by a change of selection or by a terminal state, and never by letting go.
     /// </remarks>
-    void HandWalk(int person)
+    void HandWalk(int person, in HandInput hand)
     {
-        var wanted = _hands.WalkDirection;
+        var wanted = hand.WalkDirection;
         People.Manual[person] = true;
-        if (_hands.Handbrake || wanted.LengthSquared() <= 0f)
+        if (hand.Handbrake || wanted.LengthSquared() <= 0f)
         {
             People.Walking[person] = false;
             return;

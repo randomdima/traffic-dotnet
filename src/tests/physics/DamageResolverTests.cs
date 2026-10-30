@@ -6,14 +6,15 @@ namespace TrafficSimulation.Tests.Physics;
 
 /// <summary>
 /// VER-6, and the cheapest place in the project to be exhaustive: every ordered pair of participant
-/// kinds against every band of contact energy, with no solver in the room.
+/// kinds against every band of contact energy, and a person against every vehicle at every band of its
+/// speed, with no solver in the room.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The bands are named by the tolerances that divide them, and the closing speed each case is run at is
-/// computed <em>backwards</em> from the energy it is meant to carry — so a threshold changed in the config
-/// moves the cases with it and none of them can pass because a speed happened to be on the right side
-/// of a number nobody rechecked.
+/// The bands are named by the tolerances that divide them, and the speeds each case is run at are
+/// computed <em>backwards</em> from the energy or the speed it is meant to land against — so a threshold
+/// changed in the config moves the cases with it and none of them can pass because a speed happened to be
+/// on the right side of a number nobody rechecked.
 /// </para>
 /// <para>
 /// The table names its kinds and outcomes as text because both enums are <c>internal</c> and a public
@@ -27,7 +28,7 @@ public class DamageResolverTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    /// <summary>Nothing, a brush too light to move a body, one that puts them in the road, and a wreck-making one.</summary>
+    /// <summary>Nothing, a brush too light to break anything, a harder knock, and a wreck-making one.</summary>
     const float NoneKj = 0f;
 
     const float BrushKj = 1f;
@@ -61,6 +62,9 @@ public class DamageResolverTests
         return MathF.Sqrt(2f * energyKj * 1_000f / reducedKg);
     }
 
+    /// <summary>Head on, half the closing speed each, so neither one is "the one that was moving".</summary>
+    static Approach HeadOn(float closingMps) => new(closingMps * 0.5f, closingMps * 0.5f);
+
     static float MassOf(Participant kind) => kind switch
     {
         Participant.Person => Config.Person.MassKg,
@@ -83,11 +87,12 @@ public class DamageResolverTests
     static DamageVerdict Judge(Participant first, Participant second, float energyKj, bool firstIsSpent = false) =>
         DamageResolver.Resolve(
             Config, SubjectOf(first, firstIsSpent), SubjectOf(second),
-            ClosingMps(energyKj, MassOf(first), MassOf(second)));
+            HeadOn(ClosingMps(energyKj, MassOf(first), MassOf(second))));
 
     /// <summary>
-    /// The whole matrix, spelled out rather than derived: a table that re-computed its own expectations
-    /// would be the resolver checked against itself.
+    /// The whole matrix of what an energy does, spelled out rather than derived: a table that re-computed
+    /// its own expectations would be the resolver checked against itself. A person against a vehicle is
+    /// judged by the vehicle's speed and not the energy, and is <see cref="APersonGoesDownToAVehicleMovingIntoThemFasterThanAPush"/>.
     /// </summary>
     [Theory]
     // A person against a person is harmless at any energy (PHY-4a).
@@ -100,12 +105,6 @@ public class DamageResolverTests
     [InlineData("person", "static", BrushKj, "none")]
     [InlineData("person", "static", KnockKj, "none")]
     [InlineData("person", "static", WreckKj, "none")]
-    // A person against a car, and one band: down in the road is the whole of what a contact makes of
-    // somebody, so the energy that breaks a car does no more to them than the energy that moves them.
-    [InlineData("person", "car", NoneKj, "none")]
-    [InlineData("person", "car", BrushKj, "none")]
-    [InlineData("person", "car", KnockKj, "wounded")]
-    [InlineData("person", "car", WreckKj, "wounded")]
     // A car breaks at its own tolerance and against anything, which is the point of having one rule.
     [InlineData("car", "person", NoneKj, "none")]
     [InlineData("car", "person", BrushKj, "none")]
@@ -124,8 +123,6 @@ public class DamageResolverTests
     [InlineData("static", "car", WreckKj, "none")]
     // A train is a vehicle of unbounded mass (TRN-3): what it meets takes the contact at its own tolerance, as against a
     // car, and it is never harmed.
-    [InlineData("person", "train", BrushKj, "none")]
-    [InlineData("person", "train", KnockKj, "wounded")]
     [InlineData("car", "train", KnockKj, "none")]
     [InlineData("car", "train", WreckKj, "broken")]
     [InlineData("train", "car", WreckKj, "none")]
@@ -134,6 +131,35 @@ public class DamageResolverTests
         string first, string second, float energyKj, string expected)
     {
         Assert.Equal(OutcomeNamed(expected), Judge(KindNamed(first), KindNamed(second), energyKj).ToFirst);
+    }
+
+    /// <summary>
+    /// PER-23: <b>a person goes down to a vehicle moving into them faster than a push, and to nothing else</b>
+    /// — the vehicle's own motion along the normal, whatever the person was doing, and one band: down in the
+    /// road is the whole of what a contact makes of somebody.
+    /// </summary>
+    /// <param name="vehicleInBands">How fast the vehicle was moving into the person, in <c>KnockDownAboveMps</c>; negative is away.</param>
+    /// <param name="personInBands">And the person into the vehicle.</param>
+    [Theory]
+    [InlineData("car", 0f, 0f, "none")]
+    [InlineData("car", 0.5f, 0f, "none")]
+    [InlineData("car", 1.5f, 0f, "wounded")]
+    [InlineData("car", 20f, 0f, "wounded")]
+    [InlineData("car", 1.5f, -1f, "wounded")]
+    [InlineData("car", 0.5f, 10f, "none")]
+    [InlineData("car", -2f, 10f, "none")]
+    [InlineData("car", 0f, 20f, "none")]
+    [InlineData("train", 0.5f, 0f, "none")]
+    [InlineData("train", 1.5f, 0f, "wounded")]
+    public void APersonGoesDownToAVehicleMovingIntoThemFasterThanAPush(
+        string vehicle, float vehicleInBands, float personInBands, string expected)
+    {
+        var bandMps = Config.Damage.KnockDownAboveMps;
+        var verdict = DamageResolver.Resolve(
+            Config, SubjectOf(Participant.Person), SubjectOf(KindNamed(vehicle)),
+            new Approach(personInBands * bandMps, vehicleInBands * bandMps));
+
+        Assert.Equal(OutcomeNamed(expected), verdict.ToFirst);
     }
 
     /// <summary>Guarded in both directions, so the table above cannot name a kind or an outcome that is not one.</summary>
@@ -162,35 +188,15 @@ public class DamageResolverTests
     }
 
     /// <summary>
-    /// PER-23 as a figure to be looked at: <b>the closing speed a casualty costs is a town speed</b> — a car
-    /// meeting a standing body at about the pace this town's traffic runs at, rather than at a crawl or at a
-    /// motorway speed nothing here ever reaches.
-    /// </summary>
-    /// <remarks>
-    /// <b>The band is the whole test.</b> Carrying the energy back through the slide arithmetic and
-    /// asserting it lands on <c>Damage.SlideToCasualtyM</c> is the derivation written out twice (VER-12):
-    /// the tolerance <em>is</em> that slide by definition, so the round trip can only fail on the day the
-    /// definition is changed deliberately.
-    /// </remarks>
-    [Fact]
-    public void ThePersonsToleranceIsMetAtATownSpeed()
-    {
-        var closingMps = ClosingMps(Config.PersonCasualtyKj, Config.Person.MassKg, Config.Car.MassKg);
-
-        Assert.InRange(closingMps, 9.5f, 11f);
-    }
-
-    /// <summary>
-    /// <b>The band sits above the town's own walking pace</b>, which is what makes a knock-down an impact
-    /// rather than a contact. Nothing in PER-23 asks who was carrying the closing speed, so a band under
-    /// <see cref="SimConfig.PersonWalkSpeedMps"/> is one a walker meets by arriving at a car that never moved.
+    /// <b>Who was moving is the whole of PER-23</b>: a walker arriving at a parked car at the town's own pace
+    /// is a contact and not an impact, however fast the pace is.
     /// </summary>
     [Fact]
     public void AWalkerArrivingAtAParkedCarAtItsOwnPaceStaysOnItsFeet()
     {
         var verdict = DamageResolver.Resolve(
             Config, DamageSubject.Person(Config.Person.MassKg, down: false),
-            DamageSubject.Car(Config.Car.MassKg, broken: false), Config.PersonWalkSpeedMps);
+            DamageSubject.Car(Config.Car.MassKg, broken: false), new Approach(Config.PersonWalkSpeedMps, 0f));
 
         Assert.Equal(DamageOutcome.None, verdict.ToFirst);
         Assert.Equal(DamageOutcome.None, verdict.ToSecond);
@@ -203,12 +209,11 @@ public class DamageResolverTests
     [Fact]
     public void TheTableBandsStraddleTheShippedTolerances()
     {
-        Assert.True(BrushKj < Config.PersonCasualtyKj);
-        Assert.True(KnockKj > Config.PersonCasualtyKj && KnockKj < Config.Damage.CarWreckKj);
+        Assert.True(KnockKj < Config.Damage.CarWreckKj);
         Assert.True(WreckKj > Config.Damage.CarWreckKj);
     }
 
-    /// <summary>Only the closing speed and the two masses are in the arithmetic, so which side is passed first cannot matter.</summary>
+    /// <summary>Which side is passed first cannot matter, so long as each keeps the speed it came in at.</summary>
     [Theory]
     [InlineData("person", "car")]
     [InlineData("car", "static")]
@@ -216,8 +221,12 @@ public class DamageResolverTests
     [InlineData("person", "static")]
     public void TheVerdictDoesNotDependOnWhichSideIsGivenFirst(string first, string second)
     {
-        var forward = Judge(KindNamed(first), KindNamed(second), WreckKj);
-        var backward = Judge(KindNamed(second), KindNamed(first), WreckKj);
+        var one = KindNamed(first);
+        var other = KindNamed(second);
+        var into = new Approach(ClosingMps(WreckKj, MassOf(one), MassOf(other)), Config.Damage.KnockDownAboveMps * 2f);
+
+        var forward = DamageResolver.Resolve(Config, SubjectOf(one), SubjectOf(other), into);
+        var backward = DamageResolver.Resolve(Config, SubjectOf(other), SubjectOf(one), new Approach(into.SecondMps, into.FirstMps));
 
         Assert.Equal(forward.ToFirst, backward.ToSecond);
         Assert.Equal(forward.ToSecond, backward.ToFirst);
@@ -243,7 +252,7 @@ public class DamageResolverTests
     {
         var separatingMps = -ClosingMps(WreckKj, Config.Car.MassKg, Config.Car.MassKg);
         var verdict = DamageResolver.Resolve(
-            Config, SubjectOf(Participant.Car), SubjectOf(Participant.Car), separatingMps);
+            Config, SubjectOf(Participant.Car), SubjectOf(Participant.Car), HeadOn(separatingMps));
 
         Assert.Equal(0f, verdict.EnergyKj);
         Assert.Equal(DamageOutcome.None, verdict.ToFirst);
@@ -276,52 +285,55 @@ public class DamageResolverTests
     [Fact]
     public void AnUnbreakableCarTakesNoStateAndDeniesTheOtherSideNothing()
     {
-        var closingMps = ClosingMps(WreckKj, Config.Car.MassKg, Config.Car.MassKg);
+        var into = HeadOn(ClosingMps(WreckKj, Config.Car.MassKg, Config.Car.MassKg));
         var ordinary = DamageSubject.Car(Config.Car.MassKg, broken: false);
         var unbreakable = DamageSubject.Car(Config.Car.MassKg, broken: false, unbreakable: true);
 
-        var verdict = DamageResolver.Resolve(Config, unbreakable, ordinary, closingMps);
+        var verdict = DamageResolver.Resolve(Config, unbreakable, ordinary, into);
 
         Assert.Equal(DamageOutcome.None, verdict.ToFirst);
         Assert.Equal(DamageOutcome.Broken, verdict.ToSecond);
-        Assert.Equal(DamageResolver.Resolve(Config, ordinary, ordinary, closingMps).ToSecond, verdict.ToSecond);
+        Assert.Equal(DamageResolver.Resolve(Config, ordinary, ordinary, into).ToSecond, verdict.ToSecond);
     }
 
     /// <summary>
-    /// And a person is not made safe by what they were struck by: the arithmetic is the two masses and the
-    /// closing speed, and being unbreakable is an outcome the car does not take rather than energy it does
-    /// not carry.
+    /// And a person is not made safe by what they were struck by: being unbreakable is an outcome the car
+    /// does not take, and not a speed it does not carry.
     /// </summary>
     [Fact]
     public void AnUnbreakableCarIsAsDangerousToAPersonAsAnyOther()
     {
-        var closingMps = ClosingMps(KnockKj, Config.Person.MassKg, Config.Car.MassKg);
         var person = DamageSubject.Person(Config.Person.MassKg, down: false);
 
         var verdict = DamageResolver.Resolve(
-            Config, person, DamageSubject.Car(Config.Car.MassKg, broken: false, unbreakable: true), closingMps);
+            Config, person, DamageSubject.Car(Config.Car.MassKg, broken: false, unbreakable: true),
+            new Approach(0f, Config.Damage.KnockDownAboveMps * 2f));
 
         Assert.Equal(DamageOutcome.Wounded, verdict.ToFirst);
         Assert.Equal(DamageOutcome.None, verdict.ToSecond);
     }
 
     /// <summary>
-    /// The thresholds are read from the injected figures and are nowhere in the code: a town whose bodies
-    /// slide further before they are counted as knocked over must give a different outcome at the same
-    /// energy the shipped one wounds at.
+    /// The thresholds are read from the injected figures and are nowhere in the code: a town whose band is
+    /// faster must leave on their feet somebody the shipped one puts down at the same speed.
     /// </summary>
     [Fact]
     public void TheTolerancesComeFromTheFiguresAndNotFromTheResolver()
     {
-        var sturdy = new SimConfig { Damage = new DamageFigures { SlideToCasualtyM = 50f, CarWreckKj = 500f } };
-        var closingMps = ClosingMps(KnockKj, sturdy.Person.MassKg, sturdy.Car.MassKg);
+        var into = new Approach(0f, Config.Damage.KnockDownAboveMps * 2f);
+        var sturdy = new SimConfig
+        {
+            Damage = new DamageFigures { KnockDownAboveMps = Config.Damage.KnockDownAboveMps * 10f, CarWreckKj = 500f },
+        };
 
         var verdict = DamageResolver.Resolve(
             sturdy, DamageSubject.Person(sturdy.Person.MassKg, down: false),
-            DamageSubject.Car(sturdy.Car.MassKg, broken: false), closingMps);
+            DamageSubject.Car(sturdy.Car.MassKg, broken: false), into);
 
         Assert.Equal(DamageOutcome.None, verdict.ToFirst);
         Assert.Equal(DamageOutcome.None, verdict.ToSecond);
-        Assert.Equal(DamageOutcome.Wounded, Judge(Participant.Person, Participant.Car, KnockKj).ToFirst);
+        Assert.Equal(
+            DamageOutcome.Wounded,
+            DamageResolver.Resolve(Config, SubjectOf(Participant.Person), SubjectOf(Participant.Car), into).ToFirst);
     }
 }

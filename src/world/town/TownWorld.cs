@@ -202,13 +202,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     HandInput _hands;
 
-    /// <summary>
-    /// CTL-5d — the car a second driver has the wheel of, or −1, and what that driver is holding. It is
-    /// kept beside the player's own hand rather than inside the selection, because the whole of what it is
-    /// for is to be held while somebody else picks units out.
-    /// </summary>
-    int _otherCar = -1;
-    HandInput _otherHand;
+    /// <summary>CTL-5d — the hands that name their cars, one a seat.</summary>
+    readonly NamedHands _seats;
 
     int _ordered;
 
@@ -220,9 +215,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <param name="worldMaker">
     /// The world the town stands on where it is not the managed one, made as the town is laid (<see cref="IWorldMaker"/>).
     /// </param>
+    /// <param name="served">Whether players are served it, which lays their bodies offstage (MP-4).</param>
     public TownWorld(
-        CityPlan plan, SimConfig config, bool standStatics = true, ulong? agentSeed = null, IWorldMaker? worldMaker = null)
-        : this(Groundwork.Through(plan, config, worldMaker), standStatics, agentSeed)
+        CityPlan plan, SimConfig config, bool standStatics = true, ulong? agentSeed = null, IWorldMaker? worldMaker = null,
+        bool served = false)
+        : this(
+            Groundwork.Through(
+                plan, config, worldMaker, served ? config.Multiplayer.MostSeats * config.Multiplayer.BodiesPerSeat : 0),
+            standStatics, agentSeed)
     {
     }
 
@@ -287,6 +287,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         Cars = new CarFleet(drivers, Math.Max(LineAssembler.ArcsFor(_roads), BayManoeuvre.MostArcsPerPiece), _builds,
             config.Patience.FuseJitterShare);
+        _seats = new NamedHands(config.Multiplayer.MostSeats, drivers);
         _mostArcsOfALane = LineAssembler.MostArcsOfALane(_roads);
         _manoeuvres = new Manoeuvres(drivers);
 
@@ -299,6 +300,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _trainOrders = new TrainOrders(_trains.MostOrdersATick);
         _trainManual = new bool[_trains.Count];
         _trainHold = LaneOccupancy.NoHolds(_trains.Count);
+        _players = new PlayerBodies(config.Multiplayer.MostSeats, laid.PlayerBodies, _trains.Count);
         OpenWatch.Passed("town: crossings and trains");
         _occupancy = new LaneOccupancy(_ways, marks, drivers + walkers + _signalHolds.Count + _crossingHolds.Count + _trains.Count);
         _occupancy.SeeTheBodiesMoveIn(Cars.VelocityMps, Cars.HeadingRad, People.VelocityMps, People.HeadingRad);
@@ -339,6 +341,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _sentWalk = new ushort[walkers];
         Array.Fill(_sentWalk, NeverSent);
         _sentShow = new ushort[drivers];
+        _sentOverNothing = new byte[drivers];
+        _raisedDecks = RaisedDecks(plan);
         _followedLaid = new uint[drivers];
         Array.Fill(_followedLaid, NeverFollowed);
         _followSerial = new ushort[drivers];
@@ -393,6 +397,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         Spawn();
         StandTheServiceVehicles();
         ListTheServiceVehicles();
+        StandThePlayersBodies();
 
         // <b>The roster is the agents there actually are</b>, and not the room that was laid for them: a
         // hospital with no bay near it stands no ambulance, and a slot nothing was put in is a body the
@@ -922,15 +927,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     public bool HoldAgents { get; set; }
 
     /// <summary>
-    /// Whether somebody has this agent's wheel — the player's own hand over the selection, or the second
-    /// driver's over the car it named (CTL-5d). <b>A terminal unit is not handed</b>: a selection may hold a
+    /// Whether somebody has this agent's wheel — the player's own hand over the selection, or a seat's over
+    /// the car it named (CTL-5d). <b>A terminal unit is not handed</b>: a selection may hold a
     /// wreck and a working car at once, so the wheel is refused per unit rather than per selection.
     /// </summary>
     bool Handed(int agent) =>
         !IsTerminal(agent) &&
         (Roster.IsCar(agent)
             ? WheelIsHeldOver(Roster.CarIndex(agent))
-            : _hands.Held && _selected.Holds(SelectionKind.Person, agent));
+            : (_hands.Held && _selected.Holds(SelectionKind.Person, agent)) || PlayerWalks(agent, out _));
 
     /// <summary>The decisions' clock, the loop's own (<c>SimLoop.Decisions</c>).</summary>
     readonly TickGroups _decisions;
@@ -970,12 +975,19 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         // CTL-6's seam, read every tick: the goal is substituted and nothing under it is, so what follows cannot
         // tell this walker from any other. Only a body in the world and on its feet takes a hand (PHY-7, PER-18).
+        var sprints = false;
         if (!People.Inside[agent].Any && People.Acts(agent) && _hands.Held && _selected.Holds(SelectionKind.Person, agent))
         {
-            HandWalk(agent);
+            HandWalk(agent, _hands);
+            sprints = _hands.Boost;
+        }
+        else if (PlayerWalks(agent, out var hand))
+        {
+            HandWalk(agent, hand);
+            sprints = hand.Boost;
         }
 
-        TickTheWalker(agent, paused: false);
+        TickTheWalker(agent, paused: false, sprints);
     }
 
     /// <summary><b>A car's own tick by the town</b>, nothing for one that stands parked.</summary>
@@ -1008,7 +1020,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <b>A walker's own tick</b>: at the aim settled when the grant was read (<see cref="AimTheWalker"/>), handed to the
     /// world, whose footing walks it there (<see cref="SignalTheWalk"/>).
     /// </summary>
-    void TickTheWalker(int person, bool paused) => SignalTheWalk(person, paused);
+    void TickTheWalker(int person, bool paused, bool sprints = false) => SignalTheWalk(person, paused, sprints);
 
     public void DecideAgent(int agent, float sinceLastDecisionS) => DecideNow(agent, sinceLastDecisionS);
 
@@ -1052,6 +1064,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // PER-18: a casualty takes no actions. It is not terminal — an ambulance is on its way — so the
         // body is still stepped, struck and pushed like any other; what it has stopped doing is deciding.
         if (People.Wounded[agent]) return;
+
+        // MP-4: a player's body decides nothing — the keys are the whole of its behaviour, in a vehicle or out of one.
+        if (_players.SeatOf(agent) >= 0) return;
 
         // PER-30: a look on show stands still and takes no trip.
         if (IsOnShow(agent) && !People.Inside[agent].Any)

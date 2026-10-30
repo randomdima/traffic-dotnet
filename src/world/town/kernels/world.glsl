@@ -42,6 +42,12 @@ layout(push_constant) uniform World
     float railFriction;
     float railRolling;
     float railGravityMps2;
+
+    // What a hand's boost multiplies a walker's pace by (ControlFigures.HandBoostSpeedShare, CTL-5e).
+    float handBoostSpeedShare;
+
+    // How far a car's body leans over a wheel standing on nothing (CarFigures.TiltOverNothingMostDeg, PHY-1b).
+    float mostTiltOverNothingRad;
 } world;
 
 #define WALKER_FIGURES world

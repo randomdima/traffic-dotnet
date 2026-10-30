@@ -245,8 +245,7 @@ internal static class DeviceWorldProbe
         var walkers = 0;
         foreach (var instance in run)
         {
-            var looksAt = looks.People.SheetCount;
-            if (instance.Sheet < looksAt || (instance.Sheet >= looks.FirstDownSheet && instance.Sheet < looks.FirstDownSheet + looksAt)) walkers++;
+            if (instance.Sheet < looks.People.SheetCount) walkers++;
         }
 
         return walkers;

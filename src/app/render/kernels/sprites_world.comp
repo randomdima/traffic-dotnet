@@ -5,7 +5,7 @@
 // off the world's own state on the device (app/devicetick/DeviceWorld) and nothing the host sends: in mode 0 a thread a
 // car — where its body is, how it points and tilts, its wheel, what its lamps say and whether it is a wreck as it last
 // signalled them, what its arm holds and where on it, and its level off its channels; in mode 1 a thread a walker — where
-// it stands and faces, how far it has walked, inside, down or walking.
+// it stands and faces, how far it has walked, inside, down or walking, and its level off its channels.
 //
 // **Where a body is and how it points are the view's the host is showing** (WorldView, the slot the frame names), and not
 // the solver's step in flight: what is drawn over a body — its selection, its path, the debug layers — is read off that
@@ -81,7 +81,8 @@ void layTheWalker(uint walker)
     // Drawn striding only while the body moves (PersonSprites.Fill): one held still, meaning to walk or not, stands.
     bool striding = (row.flags & WalkMoving) != 0u
         && dot(seen.velocityMps, seen.velocityMps) >= frame.standingBelowMps * frame.standingBelowMps;
-    uint flags = ((row.flags & WalkOnFeet) == 0u ? PersonDown : 0u) | (striding ? PersonWalking : 0u);
+    uint level = seen.channels == 0u ? 0u : uint(findMSB(seen.channels));
+    uint flags = ((row.flags & WalkOnFeet) == 0u ? PersonDown : 0u) | (striding ? PersonWalking : 0u) | (level << PersonLevelShift);
     people[walker] = PersonRow(seen.positionM, seen.headingRad, row.distanceWalkedM, personVariants[walker], flags);
 }
 

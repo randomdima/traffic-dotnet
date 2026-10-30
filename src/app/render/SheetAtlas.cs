@@ -69,11 +69,13 @@ internal sealed class SheetAtlas
 
     readonly IReadOnlyList<SheetSource> _sources;
     readonly Rect[] _rects;
+    readonly BakedSheets.Baked[]? _blocks;
 
-    SheetAtlas(IReadOnlyList<SheetSource> sources, Rect[] rects, SheetPlace[] places, int pages)
+    SheetAtlas(IReadOnlyList<SheetSource> sources, Rect[] rects, BakedSheets.Baked[]? blocks, SheetPlace[] places, int pages)
     {
         _sources = sources;
         _rects = rects;
+        _blocks = blocks;
         Places = places;
         Pages = pages;
     }
@@ -84,38 +86,79 @@ internal sealed class SheetAtlas
     /// <summary>One entry per sheet, in the order the sheets were handed over, ready to be written into the uniform block.</summary>
     public SheetPlace[] Places { get; }
 
-    public static SheetAtlas Pack(IReadOnlyList<SheetSource> sources)
+    /// <summary>The format its pages are filled in: RGBA texels, or the blocks it was packed from (<see cref="FillBlocks"/>).</summary>
+    public SheetFormat Format { get; private init; }
+
+    /// <remarks>
+    /// <para>
+    /// <b>A sheet takes the room it is packed at</b> (<see cref="Packed"/>) — its art's, or a texel where it is not used —
+    /// <b>and its place keeps its art's size</b>, which is what an aspect is read off: the shader reaches a sheet by its
+    /// share of the page and never by its texels.
+    /// </para>
+    /// <para>
+    /// <b>Packed from <paramref name="baked"/> blocks</b>, a sheet takes its baked box — its gutter already round it, its
+    /// sides whole blocks — so every box lands on a block's corner and a page is filled by copying blocks; and every sheet
+    /// nothing draws shares one clear block.
+    /// </para>
+    /// </remarks>
+    public static SheetAtlas Pack(IReadOnlyList<SheetSource> sources, BakedSheets? baked = null)
     {
         var count = sources.Count;
-        var rects = new Rect[count];
+        var clear = count;
+        var items = count + (baked is null ? 0 : 1);
+        var rects = new Rect[items];
         var places = new SheetPlace[count];
-        var sizes = new (int Width, int Height)[count];
-        for (var sheet = 0; sheet < count; sheet++) sizes[sheet] = Measure(sources[sheet]);
+        var sizes = new (int Width, int Height)[items];
+        var blocks = baked is null ? null : new BakedSheets.Baked[items];
+        var packed = new List<int>(items);
+        for (var sheet = 0; sheet < count; sheet++)
+        {
+            var source = sources[sheet];
+            if (blocks is null)
+            {
+                sizes[sheet] = Packed(source);
+                packed.Add(sheet);
+            }
+            else if (!source.Unused)
+            {
+                blocks[sheet] = baked!.Of(sheet);
+                sizes[sheet] = (blocks[sheet].BoxWidthPx, blocks[sheet].BoxHeightPx);
+                packed.Add(sheet);
+            }
+        }
+
+        if (blocks is not null)
+        {
+            blocks[clear] = baked!.Clear;
+            sizes[clear] = (blocks[clear].BoxWidthPx, blocks[clear].BoxHeightPx);
+            packed.Add(clear);
+        }
 
         // Tallest first, and every open page tried before another is started: the art is a hundred and
         // seventy pictures of thirty different shapes, and a pack that fills only the newest page
         // wastes half of every one it leaves behind.
-        var order = new int[count];
-        for (var sheet = 0; sheet < count; sheet++) order[sheet] = sheet;
+        var order = packed.ToArray();
         Array.Sort(order, (left, right) => sizes[right].Height != sizes[left].Height
             ? sizes[right].Height.CompareTo(sizes[left].Height)
             : sizes[right].Width.CompareTo(sizes[left].Width));
 
+        // A baked box carries its own gutter, and its sides being whole blocks keep every corner the skyline lays on one.
+        var gutterPx = blocks is null ? GutterPx : 0;
         var pages = new List<Skyline>();
-        foreach (var sheet in order)
+        foreach (var item in order)
         {
-            var (width, height) = sizes[sheet];
-            var boxWidth = width + (GutterPx * 2);
-            var boxHeight = height + (GutterPx * 2);
+            var (width, height) = sizes[item];
+            var boxWidth = width + (gutterPx * 2);
+            var boxHeight = height + (gutterPx * 2);
             if (boxWidth > PagePx || boxHeight > PagePx) throw new InvalidOperationException(
-                $"Sheet {sheet} is {width}x{height}, which does not fit a {PagePx} page.");
+                $"Sheet {item} is {width}x{height}, which does not fit a {PagePx} page.");
 
             var placed = false;
             for (var page = 0; page < pages.Count && !placed; page++)
             {
                 if (!pages[page].TryPlace(boxWidth, boxHeight, out var x, out var y)) continue;
 
-                rects[sheet] = new Rect(page, x + GutterPx, y + GutterPx, width, height);
+                rects[item] = new Rect(page, x + gutterPx, y + gutterPx, width, height);
                 placed = true;
             }
 
@@ -124,20 +167,74 @@ internal sealed class SheetAtlas
             var fresh = new Skyline();
             pages.Add(fresh);
             fresh.TryPlace(boxWidth, boxHeight, out var freshX, out var freshY);
-            rects[sheet] = new Rect(pages.Count - 1, freshX + GutterPx, freshY + GutterPx, width, height);
+            rects[item] = new Rect(pages.Count - 1, freshX + gutterPx, freshY + gutterPx, width, height);
         }
 
         for (var sheet = 0; sheet < count; sheet++)
         {
-            var (width, height) = sizes[sheet];
-            var rect = rects[sheet];
+            var source = sources[sheet];
+            var (artWidth, artHeight) = Measure(source);
+            var spanPx = source.Unused ? Vector2.One : new Vector2(artWidth, artHeight);
+
+            // A baked sheet's art starts a gutter into its box; one nothing draws stands inside the clear block.
+            var (rect, insetPx) = blocks is null ? (rects[sheet], 0)
+                : source.Unused ? (rects[clear], 1)
+                : (rects[sheet], BakedSheets.GutterPx);
             places[sheet] = new SheetPlace(
-                new Vector2(rect.X / (float)PagePx, rect.Y / (float)PagePx),
-                new Vector2(width / (float)PagePx, height / (float)PagePx),
-                rect.Page, width, height, sources[sheet].AddsLight ? 1f : 0f);
+                new Vector2(rect.X + insetPx, rect.Y + insetPx) / PagePx, spanPx / PagePx,
+                rect.Page, artWidth, artHeight, source.AddsLight ? 1f : 0f);
         }
 
-        return new SheetAtlas(sources, rects, places, Math.Max(1, pages.Count));
+        return new SheetAtlas(sources, rects, blocks, places, Math.Max(1, pages.Count))
+        {
+            Format = baked?.Format ?? SheetFormat.Rgba,
+        };
+    }
+
+    /// <summary>
+    /// <b>Where each baked box stands</b>: its page, its corner in texels and its blocks — what a page writes to the device
+    /// straight out of the blocks it fetched, a sheet at a time. Empty for an atlas of texels.
+    /// </summary>
+    public IEnumerable<(int Page, int X, int Y, BakedSheets.Baked Blocks)> Boxes()
+    {
+        if (_blocks is null) yield break;
+
+        for (var item = 0; item < _blocks.Length; item++)
+        {
+            if (_blocks[item].BoxWidthPx == 0) continue;
+
+            var rect = _rects[item];
+            yield return (rect.Page, rect.X, rect.Y, _blocks[item]);
+        }
+    }
+
+    /// <summary>One block row of a page, in bytes.</summary>
+    public const int PageBlockRowBytes = PagePx / BakedSheets.BlockPx * BakedSheets.BlockBytes;
+
+    /// <summary>A page of blocks, in bytes.</summary>
+    public const int PageBlockBytes = PageBlockRowBytes * (PagePx / BakedSheets.BlockPx);
+
+    /// <summary>
+    /// One page's blocks, top block row first, each box's read off <paramref name="baked"/> and copied into place — the
+    /// desktop's fill; a page writes its boxes to the device itself (<see cref="Boxes"/>).
+    /// </summary>
+    public void FillBlocks(int page, Span<byte> into, BakedSheets baked)
+    {
+        into.Clear();
+        var box = Array.Empty<byte>();
+        foreach (var (onPage, x, y, blocks) in Boxes())
+        {
+            if (onPage != page) continue;
+
+            if (box.Length < blocks.Bytes) box = new byte[blocks.Bytes];
+            baked.Read(blocks, box);
+            var rowBytes = blocks.BoxWidthPx / BakedSheets.BlockPx * BakedSheets.BlockBytes;
+            for (var row = 0; row < blocks.BoxHeightPx / BakedSheets.BlockPx; row++)
+            {
+                var at = ((y / BakedSheets.BlockPx) + row) * PageBlockRowBytes + (x / BakedSheets.BlockPx * BakedSheets.BlockBytes);
+                box.AsSpan(row * rowBytes, rowBytes).CopyTo(into[at..]);
+            }
+        }
     }
 
     /// <summary>
@@ -146,17 +243,52 @@ internal sealed class SheetAtlas
     /// </summary>
     public void FillPage(int page, Span<Texel> into)
     {
+        if (_blocks is not null) throw new InvalidOperationException("An atlas packed from blocks is filled by FillBlocks.");
+
         into.Clear();
         for (var sheet = 0; sheet < _sources.Count; sheet++)
         {
-            if (_rects[sheet].Page != page) continue;
+            var source = _sources[sheet];
+            if (_rects[sheet].Page != page || source.Unused) continue;
 
-            var rect = _rects[sheet];
-            var pixels = Decode(_sources[sheet]);
-            if (_sources[sheet].OutlineArtPx > 0f) SheetOutline.Ring(pixels, rect.Width, rect.Height, _sources[sheet].OutlineArtPx);
-            Blit(pixels, rect, into);
+            Blit(Prepared(source).Texels, _rects[sheet], into);
         }
     }
+
+    /// <summary>A sheet's texels as they are packed — decoded and its outline laid — and their size.</summary>
+    public static (Texel[] Texels, int Width, int Height) Prepared(SheetSource source)
+    {
+        var (width, height) = Measure(source);
+        var pixels = Decode(source);
+        if (source.OutlineArtPx > 0f) SheetOutline.Ring(pixels, width, height, source.OutlineArtPx);
+
+        return (pixels, width, height);
+    }
+
+    /// <summary>
+    /// <b>A sheet's packed texels as the build bakes them</b>: carried out <see cref="BakedSheets.GutterPx"/> past every
+    /// edge by repeating the edge, and on right and bottom to whole blocks — the gutter <see cref="Blit"/> lays a texel
+    /// wide, a block wide, so a block on the rim holds nothing of a neighbour.
+    /// </summary>
+    public static (Texel[] Texels, int Width, int Height) Boxed(Texel[] texels, int width, int height)
+    {
+        const int gutterPx = BakedSheets.GutterPx;
+        var boxWidth = RoundToBlock(width + (gutterPx * 2));
+        var boxHeight = RoundToBlock(height + (gutterPx * 2));
+        var box = new Texel[boxWidth * boxHeight];
+        for (var y = 0; y < boxHeight; y++)
+        {
+            var fromY = Math.Clamp(y - gutterPx, 0, height - 1);
+            for (var x = 0; x < boxWidth; x++) box[(y * boxWidth) + x] = texels[(fromY * width) + Math.Clamp(x - gutterPx, 0, width - 1)];
+        }
+
+        return (box, boxWidth, boxHeight);
+    }
+
+    static int RoundToBlock(int px) => (px + BakedSheets.BlockPx - 1) / BakedSheets.BlockPx * BakedSheets.BlockPx;
+
+    /// <summary>What a sheet takes on a page: its art's size, or one texel where it is not used.</summary>
+    public static (int Width, int Height) Packed(SheetSource source) => source.Unused ? (1, 1) : Measure(source);
 
     /// <summary>The sheet's own texels at the size <see cref="Measure"/> gives it, for a caller that wants the picture rather than the page.</summary>
     public static Texel[] Decode(SheetSource source)

@@ -10,9 +10,6 @@ internal sealed class PersonVariantFile
 
     public required string Sheet { get; init; }
 
-    /// <summary>The one frame this look is drawn as once it is lying in the road (PER-18), nose along <c>+x</c>.</summary>
-    public required string Down { get; init; }
-
     public required float HeightM { get; init; }
 
     /// <summary>The art brief's own words for the look, which the engine never reads.</summary>

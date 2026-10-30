@@ -1,7 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.TrafficLight.Body;
@@ -13,7 +12,6 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Rail;
 using TrafficSimulation.World.Town;
-using Vk = TrafficSimulation.Runtime.Vk;
 using static TrafficSimulation.App.DeviceTick.DeviceHoldings;
 using static TrafficSimulation.Runtime.GpuBuffer;
 
@@ -23,22 +21,24 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>The frame's moving sprites emitted on the device off the world's own state</b> (<c>app/render/kernels/sprites_world.comp</c>,
 /// <c>sprites_count.comp</c>, <c>sprites_write.comp</c>): the walkers, every part of every car, the signal heads and the
 /// cars on the level above, written into the over and above runs in <see cref="TownSprites.FillMoving"/>'s order and culled
-/// against the view as it culls — drawn where they are written, recorded into the frame that draws them
-/// (<see cref="Record"/>, <see cref="TownRenderer.DrawTheMovingFrom"/>), or read back (<see cref="Emit"/>).
+/// against the view as it culls — drawn where they are written, recorded for the frame that draws them
+/// (<see cref="Record"/>, <c>TownRenderer.DrawTheMovingFrom</c>), or read back (<c>Emit</c>, the desktop's instrument).
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>Nothing of an agent is sent to be drawn</b> (root <c>decision-log.md</c>, 2026-10-11): every row is laid on the
 /// device off the world's bodies, the commands and what each car last signalled it shows (<see cref="DeviceWorld.Drawn"/>).
-/// What a look is, where its lenses are, the heads and the lights' tables are laid once; the view and the clock are a frame
-/// block in a buffer rather than push constants, because the frame that carries this pass is recorded once.
+/// What a look is, where its lenses are, the heads and the lights' tables are laid once, in one run of words
+/// (<see cref="Tables"/>); the view and the clock are a frame block in a buffer rather than push constants, because the
+/// frame that carries this pass is recorded once. <b>Sixteen storage buffers a pass</b>, which is all a page gives a
+/// kernel: the same emit draws on both heads (WEB-12).
 /// </para>
 /// <para>
-/// <b>Recorded once a swapchain image, in that image's own frame</b>: what a frame changes — the view, the clock, and
-/// whether the rows are laid again — is that image's frame words (<see cref="WriteTheFrame"/>), so the emit costs a frame no
-/// crossing and no submit of its own. <b>The rows are laid only when the world has moved</b> (a batch of signals taken,
-/// <see cref="WorldLayer.SignalsTaken"/>): the lay's two dispatches read their workgroups out of the frame words, nought
-/// on a frame no step or signal came between, and the rows laid for an earlier frame stand.
+/// <b>Recorded once a slot</b> — a swapchain image's frame on the desktop, a page's batch ahead of its frame: what a frame
+/// changes — the view, the clock, and whether the rows are laid again — is that slot's words (<see cref="WriteTheFrame"/>),
+/// so the emit costs a frame no crossing of its own. <b>The rows are laid only when the world has moved</b> (a batch of
+/// signals taken, <see cref="WorldLayer.SignalsTaken"/>): the lay's two dispatches read their workgroups out of the frame
+/// words, nought on a frame no step or signal came between, and the rows laid for an earlier frame stand.
 /// </para>
 /// <para>
 /// <b>Count, scan, write.</b> One thread a unit counts what each part of it draws into a slot laid in draw order — a cull
@@ -46,14 +46,10 @@ namespace TrafficSimulation.App.DeviceTick;
 /// every part counted there and the two draws' instance counts — so the order is the host's whatever order the threads ran in.
 /// The walkers alone are built aside and put in the order they are drawn by a third (<c>sprites_order.comp</c>, PER-31),
 /// a workgroup a walker counting those shown that rank before it: the square of the walkers on screen, and nothing sorted.
-/// </para>
-/// <para>
-/// <b>The device must offer doubles</b>: a walker's facing, its stride's cell and a tow arm's bearing are rounded in them,
-/// as the host's fill rounds them, and that is the whole of what they are for — the instances the host fills and these are
-/// one to the bit (<c>--bench deviceworld</c>), which a device without them could not hold.
+/// The instances the host fills and these are one to the bit (<c>--bench deviceworld</c>).
 /// </para>
 /// </remarks>
-internal sealed class DeviceSprites : IMovingEmit, IDisposable
+internal sealed partial class DeviceSprites : IMovingEmit, IDisposable
 {
     /// <summary>
     /// A frame's words (<see cref="WriteTheFrame"/>): its <see cref="FrameRow"/>, copied to where the passes read it, and
@@ -61,10 +57,18 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     /// were last laid.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct FrameWords(FrameRow Frame, DispatchIndirectCommand LayCars, DispatchIndirectCommand LayPeople);
+    readonly record struct FrameWords(FrameRow Frame, Groups3 LayCars, Groups3 LayPeople);
+
+    /// <summary>A dispatch's workgroups, as an indirect dispatch reads them.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct Groups3(uint X, uint Y = 1, uint Z = 1);
+
+    /// <summary>One run's draw, as an indirect draw reads it (<c>SpriteDraw</c>).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct DrawRow(uint VertexCount, uint InstanceCount, uint FirstVertex, uint FirstInstance);
 
     static readonly ulong LayCarsAt = Bytes<FrameRow>(1);
-    static readonly ulong LayPeopleAt = LayCarsAt + (ulong)Marshal.SizeOf<DispatchIndirectCommand>();
+    static readonly ulong LayPeopleAt = LayCarsAt + (ulong)Unsafe.SizeOf<Groups3>();
 
     /// <summary>One walker as the emit reads it (<c>PersonRow</c>).</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -80,9 +84,9 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct LayPush(uint Count, uint Mode);
 
-    /// <summary>One walker's look (<c>PersonLook</c>): its quad standing and lying down.</summary>
+    /// <summary>One walker's look (<c>PersonLook</c>): its quad, standing or down.</summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct PersonLook(Vector2 StandingHalfM, Vector2 DownHalfM, float DownReachM, float HeightM);
+    internal readonly record struct PersonLook(Vector2 HalfM, float HeightM);
 
     /// <summary>
     /// One car's look (<c>CarLook</c>): every part's quad and reach, where its wheels stand and which steer a bit each, and
@@ -108,8 +112,8 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     internal readonly record struct HeadRow(Vector2 CentreM, float HeadingRad, int Subject, uint ForCars, uint Pad = 0);
 
     /// <summary>
-    /// The frame's own words (<c>Frame</c>): the view, the narrowest part, the clock, the rosters, the world's view the host
-    /// is showing, how slow a walker is drawn standing (<c>SimConfig.Person.DrawnStandingBelowMps</c>), and the air of
+    /// The frame's own words (<c>SpriteFrame</c>): the view, the narrowest part, the clock, the rosters, the world's view the
+    /// host is showing, how slow a walker is drawn standing (<c>SimConfig.Person.DrawnStandingBelowMps</c>), and the air of
     /// the moments back from the town's (<see cref="Wind.Back"/>), which carries the smoke (CAR-54, OBJ-7).
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -129,7 +133,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         AirBack _first;
     }
 
-    /// <summary>What is fixed when the town is laid (<c>Figures</c>), field for field.</summary>
+    /// <summary>What is fixed when the town is laid (<c>SpriteFigures</c>), field for field, laid behind the frame's row.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal struct Figures
     {
@@ -141,7 +145,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         public uint RoomAbove;
         public uint MostLenses;
         public uint PersonSheets;
-        public uint FirstDownSheet;
+        public uint CasualtyTint;
         public uint CarSheets;
         public uint FirstCarSheet;
         public uint RubberSheet;
@@ -250,11 +254,32 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct LightRow(Vector2 CentreM, float HeadingRad, uint Gear);
 
+    /// <summary>The tables laid once, in the order of the run's head (<c>sprites_buffers.glsl</c>'s <c>Table…</c>).</summary>
+    enum Table
+    {
+        PersonLooks,
+        CarLooks,
+        Lenses,
+        LampTints,
+        Heads,
+        LaneAxis,
+        LaneJunction,
+        Offsets,
+        CrossingAxis,
+        CrossingJunction,
+        TrainLooks,
+        GearRows,
+        LightRows,
+        Exhausts,
+        Chimneys,
+        Count,
+    }
+
     /// <summary>Where the scan keeps its grand total (<c>TotalAt</c>).</summary>
     const uint TotalAt = 0;
 
     /// <summary>The binding of the counts the scan turns into starts (<c>Starts</c>), its totals the next.</summary>
-    const int StartsAt = 14;
+    const int StartsAt = 4;
 
     /// <summary>
     /// The most workgroups one dispatch is sure of along x (Vulkan's least <c>maxComputeWorkGroupCount[0]</c>): the order
@@ -272,7 +297,10 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     readonly int _people;
     readonly SpriteRoom _room;
 
-    readonly GpuBuffer _frame, _instances, _draws, _frameIn, _drawsOut;
+    /// <summary>The frame's row with the figures laid behind it (<c>FrameAndFigures</c>).</summary>
+    readonly GpuBuffer _frame;
+
+    readonly GpuBuffer _instances, _draws;
 
     /// <summary>The world whose view the host is showing, which the rows are laid off (<see cref="WorldLayer.View"/>).</summary>
     readonly DeviceWorld _world;
@@ -282,36 +310,30 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
     readonly float _airStepS;
 
-    /// <summary>Each swapchain image's frame words (<see cref="FrameWords"/>), laid as its frame is first recorded.</summary>
-    readonly List<GpuBuffer> _frames = [];
+    /// <summary>What each slot's frame is steered by, written by the host as its frame is: its words, its gear and its rings.</summary>
+    sealed class Slot
+    {
+        public required GpuBuffer Words, Gear, Rings;
+    }
+
+    /// <summary>Each slot's, laid the first time it is named.</summary>
+    readonly List<Slot> _frames = [];
 
     /// <summary>The batch of signals the rows were last laid for (<see cref="WorldLayer.SignalsTaken"/>), or −1 before any.</summary>
     long _laidFor = -1;
 
-    /// <summary>Both runs as an emit read back left them, laid by the first that is: an emit drawn where it is reads none.</summary>
-    GpuBuffer? _instancesOut;
-
     readonly ScanKernels _scans;
     readonly PrefixScan _scan;
     readonly ComputeKernel _lay, _count, _write, _order;
-    readonly DescriptorSet _laySet, _countSet, _writeSet, _orderSet;
-    readonly ComputeBatch _batch;
-
-    /// <summary>The stamps an emit read back is timed by (<see cref="EmitMs"/>), laid by the first that is.</summary>
-    GpuTimer? _timer;
+    readonly BoundSet _laySet, _countSet, _writeSet, _orderSet;
 
     /// <summary>The crossings' gear, and what each approach's shows a frame: a row each, written as the frame's words are.</summary>
     readonly CrossingGear _gear;
 
-    readonly GpuBuffer _gearShown, _gearShownIn;
+    readonly GpuBuffer _gearShown;
 
-    /// <summary>Each swapchain image's gear rows, beside its frame words.</summary>
-    readonly List<GpuBuffer> _gearFrames = [];
-
-    /// <summary>Which units wear a ring (<see cref="SpriteRings"/>), written as the frame's words are, and each image's.</summary>
-    readonly GpuBuffer _rings, _ringsIn;
-
-    readonly List<GpuBuffer> _ringFrames = [];
+    /// <summary>Which units wear a ring (<see cref="SpriteRings"/>), copied in from the slot's as the frame's words are.</summary>
+    readonly GpuBuffer _rings;
 
     /// <param name="levelled">Whether the town has a level above its ground (<see cref="TownWorld.Levelled"/>).</param>
     /// <param name="bridged">Whether any of its railway stands on a bridge, so a wagon may be drawn in the run above (RAIL-8).</param>
@@ -348,7 +370,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _gear = gear;
         var lights = gear.Lights;
         _units = people.Capacity + cars.Capacity + wagons + heads.Count + gear.Count + lights.Length + chimneys.Length;
-        _slots = people.Capacity + (CarParts(levelled) * cars.Capacity) + (bridged ? 2 * 2 * wagons : 2 * wagons) + heads.Count
+        _slots = (levelled ? 2 : 1) * people.Capacity + (CarParts(levelled) * cars.Capacity) + (bridged ? 2 * 2 * wagons : 2 * wagons) + heads.Count
                  + (CrossingSprites.EachGear * gear.Count) + lights.Length + chimneys.Length;
         if (_slots > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(cars), _slots, "more sprite slots than one scan covers");
         if (people.Capacity > MostWorkgroups) throw new ArgumentOutOfRangeException(nameof(people), people.Capacity, "more walkers than the order pass has workgroups for");
@@ -364,71 +386,72 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             Bridged = bridged ? 1u : 0u, BridgeChannel = CityPlan.RailArrays.BridgeChannel,
             FirstWagonTrack = (uint)smoke.FirstWagon,
         };
-        var gearRows = new GearRow[Math.Max(1, gear.Count)];
+        var gearRows = new GearRow[gear.Count];
         for (var each = 0; each < gear.Count; each++)
         {
             gearRows[each] = new GearRow(gear.PivotM[each], gear.DownAlong[each], gear.ArmHeadingRad[each], CrossingSprites.ReachM(gear, each, config));
         }
 
-        var lightRows = new LightRow[Math.Max(1, lights.Length)];
+        var lightRows = new LightRow[lights.Length];
         for (var each = 0; each < lights.Length; each++) lightRows[each] = new LightRow(lights[each].CentreM, lights[each].HeadingRad, (uint)lights[each].Approach);
 
-        _gearShown = _held.Device<GearShownRow>(gearRows.Length);
-        _gearShownIn = _held.Own(_vk.CreateBuffer(Bytes<GearShownRow>(gearRows.Length), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
-        var trainLooks = new TrainLookRow[Math.Max(1, looks.Rolling.Vehicles.Length)];
+        var trainLooks = new TrainLookRow[looks.Rolling.Vehicles.Length];
         for (var vehicle = 0; vehicle < looks.Rolling.Vehicles.Length; vehicle++) trainLooks[vehicle] = TrainLookRow.Of(looks.Rolling.Vehicles[vehicle]);
 
+        var tables = new WordTables();
+        tables.Add<PersonLook>(Table.PersonLooks, PersonLooks(looks));
+        tables.Add<CarLook>(Table.CarLooks, CarLooks(looks, cars));
+        tables.Add<LensRow>(Table.Lenses, Lenses(looks, config));
+        tables.Add<uint>(Table.LampTints, Tints());
+        tables.Add<HeadRow>(Table.Heads, Heads(heads));
+        tables.Add<int>(Table.LaneAxis, signals.LaneAxis);
+        tables.Add<int>(Table.LaneJunction, signals.LaneJunction);
+        tables.Add<float>(Table.Offsets, signals.OffsetS);
+        tables.Add<int>(Table.CrossingAxis, signals.CrossingAxis);
+        tables.Add<int>(Table.CrossingJunction, signals.CrossingJunction);
+        tables.Add<TrainLookRow>(Table.TrainLooks, trainLooks);
+        tables.Add<GearRow>(Table.GearRows, gearRows);
+        tables.Add<LightRow>(Table.LightRows, lightRows);
+        tables.Add<Vector2>(Table.Exhausts, Exhausts(looks));
+        tables.Add<ChimneyRow>(Table.Chimneys, chimneys);
+
+        // The frame's row and the figures behind it, sized to the block's alignment of eight, which a page asks the
+        // binding to hold whole.
+        var frameBytes = Bytes<FrameRow>(1) + Bytes<Figures>(1);
+        _frame = _held.Device<uint>((int)((frameBytes + 15) / 16 * 4));
+        _frame.Upload<Figures>([figures], Bytes<FrameRow>(1));
+
+        _gearShown = _held.Device<GearShownRow>(Math.Max(1, gear.Count));
         var personRows = _held.Device<PersonRow>(Math.Max(1, people.Capacity));
         var carRows = _held.Device<CarRow>(Math.Max(1, cars.Capacity));
-        var ringWords = SpriteRings.Length(people.Capacity, cars.Capacity, wagons);
-        _rings = _held.Device<uint>(ringWords);
-        _ringsIn = _held.Own(_vk.CreateBuffer(Bytes<uint>(ringWords), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
+        _rings = _held.Device<uint>(SpriteRings.Length(people.Capacity, cars.Capacity, wagons));
 
         GpuBuffer[] set =
         [
-            _frame = _held.Device<FrameRow>(1),
-            Laid<Figures>([figures]),
-            Laid<PersonLook>(PersonLooks(looks)),
-            Laid<CarLook>(CarLooks(looks, cars)),
-            Laid<LensRow>(Lenses(looks, config)),
-            Laid<uint>(Tints()),
+            _frame,
+            _held.Laid<uint>(tables.ToArray()),
             personRows,
             carRows,
-            Laid<HeadRow>(Heads(heads)),
-            Laid<int>(signals.LaneAxis),
-            Laid<int>(signals.LaneJunction),
-            Laid<float>(signals.OffsetS),
-            Laid<int>(signals.CrossingAxis),
-            Laid<int>(signals.CrossingJunction),
             _held.Device<uint>(_slots),
             _held.Device<uint>(4),
             _held.Device<UInt2>(Math.Max(1, cars.Capacity)),
             // A slot above at the least: a frame binds the run above at its own offset, which may not be the buffer's end.
             _instances = _held.Device<SpriteInstance>(room.Over + Math.Max(1, room.Above), BufferUse.Vertex),
-            _draws = _held.Device<DrawIndirectCommand>(2, BufferUse.Indirect),
-            Laid<TrainLookRow>(trainLooks),
+            _draws = _held.Device<DrawRow>(2, BufferUse.Indirect),
             world.Drawn.WagonViews[0],
             world.Drawn.WagonViews[1],
-            Laid<GearRow>(gearRows),
             _gearShown,
-            Laid<LightRow>(lightRows),
-            Laid<Vector2>(Exhausts(looks)),
             smoke.Heads,
             smoke.Points,
-            Laid<ChimneyRow>(chimneys.Length > 0 ? chimneys : new ChimneyRow[1]),
             _rings,
             _held.Device<SpriteInstance>(Math.Max(1, people.Capacity)),
         ];
 
-        _frameIn = _held.Own(_vk.CreateBuffer(
-            Bytes<FrameWords>(1), BufferUsageFlags.TransferSrcBit | BufferUsageFlags.IndirectBufferBit, HostAccess.Writes));
-        _drawsOut = _held.Readback<DrawIndirectCommand>(2);
-
         _scans = new ScanKernels(vk);
         _scan = new PrefixScan(vk, _scans, set[StartsAt], _held.Device<uint>(ScanKernels.Block), set[StartsAt + 1], TotalAt);
-        _count = new ComputeKernel(vk, "sprites_count.comp", set.Length, pushBytes: 0);
-        _write = new ComputeKernel(vk, "sprites_write.comp", set.Length, pushBytes: 0);
-        _order = new ComputeKernel(vk, "sprites_order.comp", set.Length, pushBytes: 0);
+        _count = _held.Kernel("sprites_count.comp", set.Length, pushBytes: 0);
+        _write = _held.Kernel("sprites_write.comp", set.Length, pushBytes: 0);
+        _order = _held.Kernel("sprites_order.comp", set.Length, pushBytes: 0);
         _countSet = _count.Bind(set);
         _writeSet = _write.Bind(set);
         _orderSet = _order.Bind(set);
@@ -440,13 +463,13 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
 
         var drawn = world.Drawn;
         _world = world;
-        _lay = new ComputeKernel(vk, "sprites_world.comp", 12, (uint)Marshal.SizeOf<LayPush>());
+        _lay = _held.Kernel("sprites_world.comp", 12, (uint)Marshal.SizeOf<LayPush>());
         _laySet = _lay.Bind(
         [
-            carRows, personRows, drawn.Cars, drawn.Walkers, drawn.Commands, Laid<uint>(carVariants), Laid<uint>(personVariants),
-            _frame, drawn.CarViews[0], drawn.CarViews[1], drawn.WalkerViews[0], drawn.WalkerViews[1],
+            carRows, personRows, drawn.Cars, drawn.Walkers, drawn.Commands, _held.Laid<uint>(carVariants),
+            _held.Laid<uint>(personVariants), _frame, drawn.CarViews[0], drawn.CarViews[1], drawn.WalkerViews[0],
+            drawn.WalkerViews[1],
         ]);
-        _batch = new ComputeBatch(vk);
     }
 
     /// <summary>The emit for a running town whose world is on the device.</summary>
@@ -467,95 +490,59 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     /// <summary>Where in <see cref="Instances"/> the run above starts: past the over run's room.</summary>
     public int AboveFrom => _room.Over;
 
-    /// <summary>What a frame's emit writes into mapped memory: its frame words.</summary>
-    public long FrameBytes => (long)Bytes<FrameWords>(1);
-
-    /// <summary>How many instances the last emit wrote into the over run, and into the run above.</summary>
-    public int OverCount => (int)_drawsOut.Span<DrawIndirectCommand>()[0].InstanceCount;
-
-    public int AboveCount => (int)_drawsOut.Span<DrawIndirectCommand>()[1].InstanceCount;
-
-    /// <summary>The over run as the last emit that read it back wrote it.</summary>
-    public ReadOnlySpan<SpriteInstance> Over => ReadBack.Span<SpriteInstance>()[..OverCount];
-
-    /// <summary>And the run above, laid past the over run's room.</summary>
-    public ReadOnlySpan<SpriteInstance> Above => ReadBack.Span<SpriteInstance>().Slice(_room.Over, AboveCount);
-
-    GpuBuffer ReadBack => _instancesOut ?? throw new InvalidOperationException("No emit has read its runs back.");
+    /// <summary>What a frame's emit has the host write: its frame words, its gear and its rings.</summary>
+    public long FrameBytes => (long)(Bytes<FrameWords>(1) + _gearShown.SizeBytes + _rings.SizeBytes);
 
     /// <summary>
-    /// <b>The two runs emitted for one view</b> — the one the fill is handed (<see cref="TownSprites.FillMoving"/>) — and
-    /// read back with their counts, and the passes timed (<see cref="EmitMs"/>).
+    /// <b>The emit for slot <paramref name="slot"/>'s frame</b>, recorded ahead of the pass that draws the two runs
+    /// (<c>TownRenderer.DrawTheMovingFrom</c>): begun behind everything submitted before it — the world's last step, whose
+    /// rows it reads, and the frame before, which may still be drawing the runs this one writes. The caller makes its writes
+    /// visible to the draws.
     /// </summary>
-    public void Emit(TownWorld town, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
-    {
-        _batch.Wait();
-        _frameIn.Span<FrameWords>()[0] = WordsFor(viewCentreM, viewSpanM, pixelsPerMetre, town.ElapsedS, lay: true);
-        WriteTheGear(_gearShownIn, town.ElapsedS);
-        SpriteRings.Mark(town, _ringsIn.Span<uint>());
-        var commands = _batch.Begin();
-        _timer ??= new GpuTimer(_vk, PassStamps);
-        RecordTheEmit(commands, _frameIn, _gearShownIn, _ringsIn, _timer);
-        _vk.BeforeTransfer(commands);
-        _instancesOut ??= _held.Own(_vk.CreateBuffer(_instances.SizeBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads));
-        _vk.Copy(commands, _instances, _instancesOut, _instances.SizeBytes);
-        _vk.Copy(commands, _draws, _drawsOut, _draws.SizeBytes);
-        _batch.SubmitAndWait();
-        _timer.Read();
-        EmitMs = new PassesMs(_timer.BetweenMs(0, 1), _timer.BetweenMs(1, 2), _timer.BetweenMs(2, 3), _timer.BetweenMs(3, 4), _timer.BetweenMs(4, 5));
-    }
-
-    /// <summary>The device's own time each pass of an emit took, in milliseconds.</summary>
-    internal readonly record struct PassesMs(double Lay, double Count, double Scan, double Write, double Order);
-
-    /// <summary>What each pass of the last <see cref="Emit"/> took on the device.</summary>
-    public PassesMs EmitMs { get; private set; }
-
-    /// <summary>A stamp before the emit's first pass and one after each of its five.</summary>
-    const int PassStamps = 6;
+    public void Record(Recording commands, int slot) => RecordTheEmit(commands, For(slot));
 
     /// <summary>
-    /// <b>The emit for one swapchain image's frame</b>, recorded into its command buffer ahead of the pass that draws the two
-    /// runs (<see cref="TownRenderer.DrawTheMovingFrom"/>): begun behind everything submitted before it — the world's last
-    /// step, whose rows it reads, and the frame before, which may still be drawing the runs this one writes — and its writes
-    /// made visible to the draws.
-    /// </summary>
-    public void Record(CommandBuffer commands, int image)
-    {
-        while (_frames.Count <= image)
-        {
-            var words = _held.Own(_vk.CreateBuffer(
-                Bytes<FrameWords>(1), BufferUsageFlags.TransferSrcBit | BufferUsageFlags.IndirectBufferBit, HostAccess.Streams));
-            words.Span<FrameWords>()[0] = default;
-            _frames.Add(words);
-            var gear = _held.Own(_vk.CreateBuffer(_gearShown.SizeBytes, BufferUsageFlags.TransferSrcBit, HostAccess.Streams));
-            gear.Span<GearShownRow>().Clear();
-            _gearFrames.Add(gear);
-            var rings = _held.Own(_vk.CreateBuffer(_rings.SizeBytes, BufferUsageFlags.TransferSrcBit, HostAccess.Streams));
-            rings.Span<uint>().Clear();
-            _ringFrames.Add(rings);
-        }
-
-        RecordTheEmit(commands, _frames[image], _gearFrames[image], _ringFrames[image]);
-        _vk.Barrier(
-            commands, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageWriteBit,
-            PipelineStageFlags2.DrawIndirectBit | PipelineStageFlags2.VertexAttributeInputBit,
-            AccessFlags2.IndirectCommandReadBit | AccessFlags2.VertexAttributeReadBit);
-    }
-
-    /// <summary>
-    /// <b>What image <paramref name="image"/>'s frame emits</b>, written into its frame words before the frame is submitted:
+    /// <b>What slot <paramref name="slot"/>'s frame emits</b>, written into its words before the frame is submitted:
     /// the view, the clock and the rings, and the rows laid again only where the world has taken a batch of signals since
     /// they were last laid (<paramref name="signalsTaken"/>).
     /// </summary>
-    public void WriteTheFrame(int image, TownWorld town, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, long signalsTaken)
+    public void WriteTheFrame(int slot, TownWorld town, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, long signalsTaken)
     {
         var lay = signalsTaken != _laidFor;
         _laidFor = signalsTaken;
-        _frames[image].Span<FrameWords>()[0] = WordsFor(viewCentreM, viewSpanM, pixelsPerMetre, town.ElapsedS, lay);
-        WriteTheGear(_gearFrames[image], town.ElapsedS);
-        SpriteRings.Mark(town, _ringFrames[image].Span<uint>());
+        Write(For(slot), town, viewCentreM, viewSpanM, pixelsPerMetre, lay);
     }
+
+    void Write(Slot at, TownWorld town, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, bool lay)
+    {
+        at.Words.Span<FrameWords>()[0] = WordsFor(viewCentreM, viewSpanM, pixelsPerMetre, town.ElapsedS, lay);
+        WriteTheGear(at.Gear, town.ElapsedS);
+        SpriteRings.Mark(town, at.Rings.Span<uint>());
+    }
+
+    /// <summary>A slot's own words, laid the first time it is named.</summary>
+    Slot For(int slot)
+    {
+        while (_frames.Count <= slot) _frames.Add(Lay());
+        return _frames[slot];
+    }
+
+    Slot Lay()
+    {
+        var at = new Slot
+        {
+            Words = Streamed(Bytes<FrameWords>(1), BufferUse.Indirect),
+            Gear = Streamed(_gearShown.SizeBytes),
+            Rings = Streamed(_rings.SizeBytes),
+        };
+        at.Words.Span<FrameWords>()[0] = default;
+        at.Gear.Span<GearShownRow>().Clear();
+        at.Rings.Span<uint>().Clear();
+        return at;
+    }
+
+    GpuBuffer Streamed(ulong bytes, BufferUse also = 0) =>
+        _held.Own(_vk.CreateBuffer(bytes, BufferUse.TransferSrc | also, HostAccess.Streams));
 
     /// <summary>
     /// What every approach's crossing gear shows at the frame's moment (<see cref="CrossingSprites.ArmDrawn"/>,
@@ -579,7 +566,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             new FrameRow(
                 viewCentreM, viewSpanM, _config.View.CarPartLeastPx / pixelsPerMetre, elapsedS, (uint)_people, (uint)_cars,
                 (uint)_world.View.Slot, _config.Person.DrawnStandingBelowMps, air),
-            new DispatchIndirectCommand(lay ? Groups(_cars) : 0u, 1, 1), new DispatchIndirectCommand(lay ? Groups(_people) : 0u, 1, 1));
+            new Groups3(lay ? Groups(_cars) : 0u), new Groups3(lay ? Groups(_people) : 0u));
     }
 
     /// <summary>
@@ -593,38 +580,46 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     }
 
     /// <summary>
-    /// The emit recorded off frame words <paramref name="words"/>: the frame's row, gear and rings sent, every row laid off
-    /// the world as many workgroups as the words say, then count, scan, write and the walkers' order — each pass stamped
-    /// on <paramref name="timer"/> where there is one.
+    /// The emit recorded off slot <paramref name="at"/>'s words: the frame's row, gear and rings sent, every row laid off the
+    /// world as many workgroups as the words say, then count, scan, write and the walkers' order — each pass stamped where
+    /// an instrument times it (<see cref="Stamp"/>).
     /// </summary>
-    void RecordTheEmit(CommandBuffer commands, GpuBuffer words, GpuBuffer gear, GpuBuffer rings, GpuTimer? timer = null)
+    void RecordTheEmit(Recording commands, Slot at)
     {
         var vk = _vk;
         vk.AfterTheSubmitsBefore(commands);
-        vk.Copy(commands, words, _frame, Bytes<FrameRow>(1));
-        vk.Copy(commands, gear, _gearShown, _gearShown.SizeBytes);
-        vk.Copy(commands, rings, _rings, _rings.SizeBytes);
+        vk.Copy(commands, at.Words, _frame, Bytes<FrameRow>(1));
+        vk.Copy(commands, at.Gear, _gearShown, _gearShown.SizeBytes);
+        vk.Copy(commands, at.Rings, _rings, _rings.SizeBytes);
         vk.AfterTransfer(commands);
-        timer?.Reset(commands);
-        timer?.Stamp(commands, 0);
+        Stamp(commands, 0);
 
-        _lay.DispatchIndirect(commands, _laySet, words, LayCarsAt, new LayPush((uint)_cars, 0u));
-        _lay.DispatchIndirect(commands, _laySet, words, LayPeopleAt, new LayPush((uint)_people, 1u));
+        _lay.DispatchIndirect(commands, _laySet, at.Words, LayCarsAt, new LayPush((uint)_cars, 0u));
+        _lay.DispatchIndirect(commands, _laySet, at.Words, LayPeopleAt, new LayPush((uint)_people, 1u));
         vk.BetweenKernels(commands);
-        timer?.Stamp(commands, 1);
+        Stamp(commands, 1);
 
         var groups = Groups(_units);
         _count.Dispatch(commands, _countSet, groups, default(NoPush));
         vk.BetweenKernels(commands);
-        timer?.Stamp(commands, 2);
+        Stamp(commands, 2);
         _scan.Record(commands, _slots);
-        timer?.Stamp(commands, 3);
+        Stamp(commands, 3);
         _write.Dispatch(commands, _writeSet, groups, default(NoPush));
         vk.BetweenKernels(commands);
-        timer?.Stamp(commands, 4);
+        Stamp(commands, 4);
         _order.Dispatch(commands, _orderSet, (uint)Math.Max(1, _personCapacity), default(NoPush));
-        timer?.Stamp(commands, 5);
+        Stamp(commands, 5);
     }
+
+    /// <summary>
+    /// The device's time stamped after pass <paramref name="pass"/> of an emit an instrument times (<c>Emit</c>), the first
+    /// clearing the rest: the desktop's alone, whose instrument waits for its read-back, which a page cannot.
+    /// </summary>
+    partial void Stamp(Recording commands, int pass);
+
+    /// <summary>What the desktop's instrument laid of its own (<c>DeviceSprites.ReadBack.cs</c>).</summary>
+    partial void DisposeTheReadBack();
 
     /// <summary>A car's five parts, and five again where there is a level above to draw them in.</summary>
     static int CarParts(bool levelled) => levelled ? 10 : 5;
@@ -646,7 +641,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             RoomAbove = (uint)room.Above,
             MostLenses = CarLamps.MostLenses,
             PersonSheets = (uint)looks.People.SheetCount,
-            FirstDownSheet = (uint)looks.FirstDownSheet,
+            CasualtyTint = PersonSprites.CasualtyTint,
             CarSheets = (uint)looks.Cars.SheetCount,
             FirstCarSheet = (uint)looks.FirstCarSheet,
             RubberSheet = (uint)looks.RubberSheet,
@@ -728,16 +723,14 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         return rows;
     }
 
-    /// <summary>Each walker's look as <see cref="PersonSprites.Fill"/> sizes it, standing and down.</summary>
+    /// <summary>Each walker's look as <see cref="PersonSprites.Fill"/> sizes it.</summary>
     static PersonLook[] PersonLooks(TownSprites looks)
     {
         var rows = new PersonLook[looks.People.SheetCount];
         for (var variant = 0; variant < rows.Length; variant++)
         {
             var heightM = looks.People.Variants[variant].HeightM;
-            var standingHalfM = new Vector2(heightM * looks.Aspects[variant], heightM) * 0.5f;
-            var downHalfM = new Vector2(heightM, heightM / looks.Aspects[looks.FirstDownSheet + variant]) * 0.5f;
-            rows[variant] = new PersonLook(standingHalfM, downHalfM, downHalfM.Length(), heightM);
+            rows[variant] = new PersonLook(new Vector2(heightM * looks.Aspects[variant], heightM) * 0.5f, heightM);
         }
 
         return rows;
@@ -832,26 +825,29 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     }
 
     /// <summary>
-    /// A <see cref="DeviceHoldings.Room{T}"/> holding these rows, sent once and made visible to the kernels alone, which are
-    /// all that read them.
+    /// <b>Every table laid once, in one run of words</b> (<c>sprites_buffers.glsl</c>'s <c>Tables</c>): a head naming where
+    /// each starts, then each table's rows as their bytes stand. One binding, where fifteen would take more storage buffers
+    /// than a page gives a kernel.
     /// </summary>
-    GpuBuffer Laid<T>(ReadOnlySpan<T> rows) where T : unmanaged
+    sealed class WordTables
     {
-        var buffer = _held.Room<T>(rows.Length);
-        buffer.Upload(rows, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
-        return buffer;
+        readonly uint[] _head = new uint[(int)Table.Count];
+        readonly List<uint> _words = [];
+
+        public void Add<T>(Table table, ReadOnlySpan<T> rows) where T : unmanaged
+        {
+            _head[(int)table] = (uint)(_head.Length + _words.Count);
+            _words.AddRange(MemoryMarshal.Cast<byte, uint>(MemoryMarshal.AsBytes(rows)));
+        }
+
+        public uint[] ToArray() => [.. _head, .. _words];
     }
 
     public void Dispose()
     {
         // A frame drawing the runs may still be in flight, and its recording names these buffers.
-        _vk.Api.DeviceWaitIdle(_vk.Device);
-        _batch.Dispose();
-        _lay.Dispose();
-        _count.Dispose();
-        _write.Dispose();
-        _order.Dispose();
-        _timer?.Dispose();
+        _vk.WaitIdle();
+        DisposeTheReadBack();
         _scans.Dispose();
         _held.Dispose();
     }

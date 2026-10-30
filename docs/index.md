@@ -47,6 +47,7 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [app/drive/](../src/app/drive/) — those hands, held by a script | [requirements](../src/app/drive/docs/requirements.md) | [log](../src/app/drive/docs/decision-log.md) |
 | [runtime/](../src/runtime/) — the machine | [requirements](../src/runtime/docs/requirements.md) | [log](../src/runtime/docs/decision-log.md) |
 | [app/web/](../src/app/web/) — the town in a browser | [requirements](../src/app/web/docs/requirements.md) | [log](../src/app/web/docs/decision-log.md) |
+| [multiplayer/](../src/multiplayer/) — one town served to several players | [requirements](../src/multiplayer/docs/requirements.md) · [plan](../network/index.md) | [log](decision-log.md) |
 
 **Slices with no document own no rule.** `world/statics/` is an implementation of rules
 stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src/world/routing/docs/requirements.md),
@@ -93,6 +94,7 @@ retired number, which the owning slice's log records.
 | `SHT-1…6` | The frame taken with no window, its caption, the sheet and the document that asks for one | [app/shot](../src/app/shot/docs/requirements.md) |
 | `DRV-1…8` | The script at the wheel: what it may hold, what it reads back, what it photographs, and the second seat | [app/drive](../src/app/drive/docs/requirements.md) |
 | `WEB-1…11` | The browser head: what is halved, the crossing budget, the query string, what a page carries and weighs, what a publish holds, the opening card, what nothing waits for, where a page steps its world, and how many pixels it draws | [app/web](../src/app/web/docs/requirements.md) |
+| `MP-1…13` | A served town: nothing sent outside a player's area, the area, the server's authority, the player as a person of the town, what is never sent, drawing behind the server, what serving costs the tick, the player's page, untrusted messages, the page it hands out, the player's map, getting in and out | [multiplayer](../src/multiplayer/docs/requirements.md) |
 ## Known gaps
 
 Absences that are gaps rather than decisions, and none of them is silent. Why each came about is the
@@ -102,8 +104,7 @@ owning slice's log; this list says only what is absent now and what closes it.
   desktop run and a page step it there by default ([decision-log.md](decision-log.md), WEB-10); `--managed-world`,
   `--shot`, `--sheet`, `--bench`, an unwatched `--drive`, a page whose device cannot hold the kernels, and every tier
   of the suite but `device` step the managed world. **No tier runs the page's device world**: `qq web` is the only
-  look at it. And a page draws what moves off the CPU's sprite fill, since the emit's kernels bind more storage buffers
-  than a page is given.
+  look at it.
 - **A lot's own arithmetic is not reworded**: `GEN-4b` and `GEN-4d` still describe kerbside lots laid along a
   chord, which the plan partly reads (`CarParks.BaysPerLotMost`). A car park is a rank of bays laid off a street
   that stays whole (`GEN-53`, `GEN-4h`), and the rules that size and space one are `GEN-53`'s and the
@@ -193,10 +194,9 @@ owning slice's log; this list says only what is absent now and what closes it.
   courtyard blocks — so most kinds of zone cover seven- to nine-tenths of the ground the place's buildings do, a
   residential or high-rise quarter a little more, and its squares of a hundred metres correlate with the place's at
   about 0.44 (`--bench zones`).
-- **A traced city's bridges over its roads carry no walk** (`PHY-1a`, `TER-7b`). A bridge is a level of its own,
-  drawn over the road under it with its cars over that, but the walk is struck off the ground's boundary and a
-  walker is on the ground, so a walk reaching a bridgehead turns round the ground's end under the deck. A bridge
-  over a bridge is one level with it, and a tunnel is not a level.
+- **A town has two levels and no more** (`PHY-1a`, `TER-7b`, `WLK-1b`). A bridge over a road is a level of its own,
+  drawn over the road under it with its cars and walkers over that, but a bridge over a bridge is one level with it,
+  and a tunnel is not a level.
 - **A traced city's lanes leave its map's inside its junctions** (`--bench fidelity`). Across a junction the map's
   lanes run straight to the node and the engine's connectors turn off its disc. And a corner too tight for its lanes
   is eased off the survey: a U-turn spur OSM draws as two one-way legs meeting at a point, 2 to 5 m apart, turns

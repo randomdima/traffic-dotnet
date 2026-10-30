@@ -2,6 +2,8 @@ using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Evacuator;
+using TrafficSimulation.Agents.Person.Body;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
@@ -214,9 +216,10 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>A walker's aim handed to the world</b>, where it changed: walked at where it walks, faced where it stands, and its
-    /// stance held where it is paused or down (<c>WalkerFollower</c>).
+    /// stance held where it is paused or down (<c>WalkerFollower</c>), at a hand's boosted pace where it
+    /// <paramref name="sprints"/> (CTL-5e).
     /// </summary>
-    void SignalTheWalk(int person, bool paused)
+    void SignalTheWalk(int person, bool paused, bool sprints = false)
     {
         if (People.Inside[person].Any) return;
 
@@ -224,7 +227,8 @@ internal sealed partial class TownWorld
         var still = paused || wounded;
         var aimM = still ? People.PositionM[person] : People.DestinationM[person];
         var flags = (ushort)((!still && People.Walking[person] ? ControlSignal.Moving : 0)
-                             | (wounded ? 0 : ControlSignal.OnFeet) | (still ? 0 : ControlSignal.Faces));
+                             | (wounded ? 0 : ControlSignal.OnFeet) | (still ? 0 : ControlSignal.Faces)
+                             | (!still && sprints ? ControlSignal.Sprints : 0));
 
         // A stance held is held where the body stood when it was taken, not chased as the body slides.
         if (flags == _sentWalk[person] && (still || aimM == _sentAimM[person])) return;
@@ -232,11 +236,14 @@ internal sealed partial class TownWorld
         _sentAimM[person] = aimM;
         _sentWalk[person] = flags;
         Signal(ControlSignal.Walk(person, aimM, flags.Has(ControlSignal.Moving), flags.Has(ControlSignal.OnFeet),
-            flags.Has(ControlSignal.Faces)));
+            flags.Has(ControlSignal.Faces), flags.Has(ControlSignal.Sprints)));
     }
 
-    /// <summary><b>A walker put down</b> out of whatever held it, at rest, facing a heading.</summary>
-    void PlaceTheWalker(int person, Vector2 atM, float headingRad)
+    /// <summary>
+    /// <b>A walker put down</b> out of whatever held it, at rest, facing a heading, on <paramref name="channels"/> — the
+    /// ground's but out of a car on a deck (<see cref="PersonFleet.Channels"/>).
+    /// </summary>
+    void PlaceTheWalker(int person, Vector2 atM, float headingRad, byte channels = CityPlan.RoadArrays.GroundChannel)
     {
         _placements++;
         People.PositionM[person] = atM;
@@ -245,7 +252,18 @@ internal sealed partial class TownWorld
         _sentWalk[person] = NeverSent;
         _walkerSetBy[person] = NextBatch;
         Signal(ControlSignal.Place(Roster.AgentOfPerson(person), atM, headingRad));
+        if (channels != People.Channels[person]) PutTheWalkerOnChannels(person, channels);
     }
+
+    void PutTheWalkerOnChannels(int person, byte channels)
+    {
+        People.Channels[person] = channels;
+        _walkerSetBy[person] = NextBatch;
+        Signal(ControlSignal.Channels(Roster.AgentOfPerson(person), channels));
+    }
+
+    /// <summary>A body's velocity changed by <paramref name="byMps"/> (<see cref="ControlAction.Shove"/>).</summary>
+    void Shove(int agent, Vector2 byMps) => Signal(ControlSignal.Shove(agent, byMps));
 
     /// <summary><b>A walker taken out of the world</b> into a container (PHY-7).</summary>
     void ContainTheWalker(int person)
@@ -326,6 +344,9 @@ internal sealed partial class TownWorld
 
     /// <summary><b>For a staging</b>: a car put on these collision channels (PHY-1a).</summary>
     public void PutTheCarOnChannels(int car, byte channels) => PutOnChannels(car, channels);
+
+    /// <summary><b>For a staging</b>: a walker put on these collision channels (PHY-1a).</summary>
+    public void PutTheWalkerOnTheChannels(int person, byte channels) => PutTheWalkerOnChannels(person, channels);
 
     /// <summary>For an instrument: how deep this car's body was into what it touched at the world's last step.</summary>
     public float OverlapOfCar(int car) => _world.View.Cars[car].OverlapM;

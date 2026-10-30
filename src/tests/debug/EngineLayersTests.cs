@@ -147,15 +147,19 @@ public class EngineLayersTests(Lavapipe device) : IClassFixture<Lavapipe>
         return Drawn(town, centreM, new Vector2(800f), layer).Above;
     }
 
-    /// <summary>Every quad stands on the bridge's own road — between its two ends and inside its width — and there is one.</summary>
+    /// <summary>
+    /// Every quad stands on the bridge's own deck — between its two ends, or on a walk's joint up onto it short of one
+    /// (WLK-1b), and inside the deck's width — and there is one.
+    /// </summary>
     static void AssertAllOnTheBridge(TownWorld town, OverlayQuad[] drawn)
     {
         var plan = town.Plan;
         var bridge = plan.Bridges.Road[0];
         var arcs = plan.Roads.SegmentsOf(bridge);
-        var fromX = MathF.Min(arcs[0].StartM.X, arcs[^1].EndM.X);
-        var toX = MathF.Max(arcs[0].StartM.X, arcs[^1].EndM.X);
-        var halfWidthM = plan.Roads.WidthM[bridge] * 0.5f;
+        var jointM = town.Config.UnderTheDeckM;
+        var fromX = MathF.Min(arcs[0].StartM.X, arcs[^1].EndM.X) - jointM;
+        var toX = MathF.Max(arcs[0].StartM.X, arcs[^1].EndM.X) + jointM;
+        var halfWidthM = plan.Bridges.DeckWidthM[0] * 0.5f;
 
         Assert.NotEmpty(drawn);
         foreach (var quad in drawn)

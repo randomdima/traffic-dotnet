@@ -11,8 +11,8 @@ every facing, every walk frame and any stance are cut from that one clip. A long
 first. The clip: a figure of a cast frame (nine looks standing, 3×3, the
 game's view) laid alone at 3:4 on chroma green, or blue where the figure's own colours stand out in green, and
 HeyGen Video 1 at 480p ($0.05). In the clip the walker walks on the spot facing one way while the camera cuts round
-it, one facing a second: front, front and left side, left side, back and left side, back. The same figure, laid flat,
-is the look's down picture. Step by step:
+it, one facing a second: front, front and left side, left side, back and left side, back. A look down in the road is
+its own stance, reddened by the engine (PER-18), so no picture is drawn for it. Step by step:
 
     qq walkers scaffold --sheet=<S> && qq walkers cast --sheet=<S>   # nine variant files; the cast brief and its call
     #   or, after the owner's photos cropped to each person under .tmp/gen/photos/: --photos=P1,P2,... (one a look)
@@ -21,7 +21,6 @@ is the look's down picture. Step by step:
     qq sprites cut walkorbit_<id>-v1 --as <id>              # flags; look at <id>_walk.gif and the per-facing GIFs
     # before keeping: look at the side row beside the front — the crown and shoulder tops must show (eye level, below)
     qq sprites keep walkorbit_<id>-v1 <id> --score=4 && qq sprites use <id>-vN
-    qq walkers down <id> --cast=walkers_<S>-v1:<N>          # the down picture, kept and installed
     # the look in its catalogue (Catalog.json or Service.json), then the showroom's row of people, captioned:
     dotnet run --project traffic-dotnet.csproj -- --map Showroom --shot .tmp/showroom.png --caption --view 40 --at 340 344 --seconds 3
 

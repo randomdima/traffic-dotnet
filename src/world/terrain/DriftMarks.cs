@@ -1,46 +1,76 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Terrain;
 
 /// <summary>
-/// One stretch of mark: a quad spanning the travel of one wheel since the last one, the width of the
-/// tyre that made it, and how hard that tyre was working the ground over it.
+/// <b>One knot of a mark's stroke</b> (<c>drift_mark_rows.glsl</c>'s <c>DriftKnot</c>): where the wheel was, the way it was
+/// travelling there, the width of the tyre — negative where it was laid on the level above the ground — how hard it
+/// worked the ground — negative where it ploughed rather than laid rubber — and the knot before it on its stroke, by its
+/// place among every knot ever laid (<see cref="DriftMarks.Total"/>), or <see cref="DriftMarks.NoKnot"/> where it starts
+/// one. Twenty-four bytes.
 /// </summary>
 /// <remarks>
-/// <b>Ploughed is what it is and not how it looks</b> — displaced ground rather than rubber laid on a
-/// surface that is still there. What each kind is drawn as belongs to whatever is drawing it.
+/// A knot is drawn as the curve from the knot before it: a cubic through both, leaving one and meeting the other along
+/// each's way of travel (<c>mark.vert</c>), its width and strength running straight between theirs. A stroke's first knot
+/// draws nothing of its own. <b>A knot is drawn with its level</b> (TER-7b): one on a deck over the deck, and one on the
+/// ground under it.
 /// </remarks>
-internal readonly record struct DriftMark(Vector2 CentreM, float LengthM, float WidthM, float HeadingRad, float Intensity, bool Ploughed);
-
-/// <summary>
-/// <b>A mark as it is drawn from</b> (<c>drift_mark_rows.glsl</c>'s <c>DriftMarkRow</c>): twenty-four bytes, whether it
-/// ploughed carried as the sign of its strength — a mark is laid only at a strength over nought.
-/// </summary>
 [StructLayout(LayoutKind.Sequential)]
-internal readonly record struct DriftMarkRow(Vector2 CentreM, float LengthM, float WidthM, float HeadingRad, float Strength)
+internal readonly record struct DriftKnot(Vector2 AtM, float HeadingRad, float WidthM, float Strength, uint Previous)
 {
-    public static DriftMarkRow Of(in DriftMark mark) => new(
-        mark.CentreM, mark.LengthM, mark.WidthM, mark.HeadingRad, mark.Ploughed ? -mark.Intensity : mark.Intensity);
+    /// <summary>Whether the tyre ploughed soft ground here rather than laid rubber on hard.</summary>
+    public bool Ploughed => Strength < 0f;
+
+    /// <summary>
+    /// Whether the tyre's car was drawn on the level above the ground (PHY-1a) — on a deck over other roads or its
+    /// bridgehead, a channel above the ground's among its own.
+    /// </summary>
+    public bool Raised => WidthM < 0f;
 }
 
 /// <summary>
-/// <b>The words a ring of <see cref="DriftMarkRow"/> is drawn by</b> (<c>DriftMarkRing</c>): the draw first — a
-/// four-cornered quad as many times as there are marks — so the block is the indirect buffer of that draw, then the place
-/// the next mark goes, how many places are written, how many the ring holds, and how many a tick on the device has
-/// claimed. The oldest written is at <see cref="Head"/> once the ring is full and at nought before.
+/// <b>The words a ring of <see cref="DriftKnot"/> is drawn by</b> (<c>DriftMarkRing</c>): the draw first — a curve's strip
+/// of <see cref="Corners"/> corners as many times as there are knots — so the block is the indirect buffer of that draw,
+/// then every knot laid since the ring was cleared (the low 32 bits of <see cref="DriftMarks.Total"/>), how many places
+/// are written, how many the ring holds, and how many a tick on the device has claimed. The oldest written is at
+/// <c>Total % Capacity</c> once the ring is full and at nought before.
 /// </summary>
+/// <remarks>
+/// <b>The total is 32 bits on the device</b>, so a ring whose capacity is not a power of two loses its place once
+/// 2³² knots have been laid — years of a town skidding.
+/// </remarks>
 [StructLayout(LayoutKind.Sequential)]
 internal readonly record struct DriftMarkRing(
-    uint Corners, uint Drawn, uint FirstCorner, uint FirstDrawn, uint Head, uint Laid, uint Capacity, uint Claimed)
+    uint Corners, uint Drawn, uint FirstCorner, uint FirstDrawn, uint Total, uint Laid, uint Capacity, uint Claimed)
 {
-    /// <summary>The ring after <paramref name="total"/> marks laid into <paramref name="capacity"/> places.</summary>
+    /// <summary>
+    /// How many pieces a knot's curve is drawn in (<c>DriftKnotPieces</c>): enough that the most a stroke turns between two
+    /// knots (<c>MarkFigures.KnotTurnDeg</c>) reads as a curve.
+    /// </summary>
+    public const int Pieces = 8;
+
+    /// <summary>A curve's strip: two corners a piece and two to close it (<c>DriftKnotCorners</c>).</summary>
+    public const uint StripCorners = 2 * (Pieces + 1);
+
+    /// <summary>The ring after <paramref name="total"/> knots laid into <paramref name="capacity"/> places.</summary>
     public static DriftMarkRing After(long total, int capacity)
     {
         var laid = (uint)Math.Min(total, capacity);
-        return new DriftMarkRing(4, laid, 0, 0, (uint)(total % Math.Max(1, capacity)), laid, (uint)capacity, 0);
+        return new DriftMarkRing(StripCorners, laid, 0, 0, (uint)total, laid, (uint)capacity, 0);
     }
+}
+
+/// <summary>
+/// <b>How far a stroke's last knot may stand from the knot before it before it is left where it is</b>
+/// (<c>SimConfig.MarkKnotTurnCos</c>, <c>MarkFigures.KnotMostM</c>, <c>KnotStrengthStep</c>): turned through, as the
+/// cosine of the most, run along, or grown darker or fainter by.
+/// </summary>
+internal readonly record struct StrokeFit(float TurnCos, float MostM, float StrengthStep)
+{
+    public static StrokeFit Of(SimConfig config) => new(config.MarkKnotTurnCos, config.Marks.KnotMostM, config.Marks.KnotStrengthStep);
 }
 
 /// <summary>
@@ -55,43 +85,45 @@ internal readonly record struct DriftMarkRing(
 /// nothing but the renderer.
 /// </para>
 /// <para>
-/// The buffer is a ring holding its whole capacity: the oldest mark is overwritten once it is full,
+/// <b>A wheel's marks are a stroke of knots</b>, and not a stamp every stretch it lays (<see cref="Lay"/>): its last knot
+/// moves with the wheel while the stroke still bends and darkens within <see cref="StrokeFit"/> of the knot before it,
+/// and is left where it stands only once it does not — so a straight skid is two knots however long, and a ring of
+/// knots holds a town's marks at a small share of the room a stamp a stretch took, which is what a copy of them, to a
+/// frame or to a player, carries. <c>drift_marks.glsl</c> lays them on the device line for line.
+/// </para>
+/// <para>
+/// The buffer is a ring holding its whole capacity: the oldest knot is overwritten once it is full,
 /// which is the only sense in which a permanent mark has a limit. It is laid once and never grows, so
 /// a town driven for an hour costs exactly what one driven for a minute costs.
 /// </para>
 /// <para>
-/// <b>Every mark is also filed by the row of the grid its centre is in</b> (SIM-8), oldest first, so a
-/// picture of a street reads the street's rows and not the ring. Oldest first is what keeps the filing
-/// free: the place the ring overwrites next holds the oldest mark of all, which is the first of its row.
-/// A row and not a cell, because a row costs two words however wide the town is.
+/// <b>Every place written is logged</b> (<see cref="Written"/>, <see cref="WrittenSlot"/>), a knot laid or a last knot
+/// moved alike, so a reader keeping a copy takes only what changed since it last looked.
 /// </para>
 /// </remarks>
 internal sealed class DriftMarks
 {
+    /// <summary>A stroke's first knot's <see cref="DriftKnot.Previous"/>: nothing before it.</summary>
+    public const uint NoKnot = uint.MaxValue;
+
     /// <summary>Shorter than this and there is no mark to speak of.</summary>
     const float MinLengthM = 1e-3f;
 
-    const int None = -1;
+    readonly DriftKnot[] _knots;
+    readonly StrokeFit _fit;
 
-    readonly DriftMark[] _marks;
-    readonly GridLevel _level;
-    readonly int _fromRow;
-    readonly int[] _rowOf;
-    readonly int[] _youngerInRow;
-    readonly int[] _oldestInRow;
-    readonly int[] _youngestInRow;
-    int _next;
+    /// <summary>Each wheel's stroke's last knot, by its place among every knot laid, or <see cref="NoKnot"/>.</summary>
+    readonly uint[] _lastOf;
 
-    /// <param name="leastYM">The town's own extent across its rows; a mark past it is filed in the nearest.</param>
-    public DriftMarks(int capacity, GridLevel level, float leastYM, float mostYM)
+    readonly int[] _log;
+
+    /// <param name="wheels">How many wheels may lay a stroke: a car's <c>TyreModel.MostWheels</c> a car of the roster.</param>
+    public DriftMarks(int capacity, int wheels, StrokeFit fit)
     {
-        _marks = new DriftMark[Math.Max(1, capacity)];
-        _rowOf = new int[_marks.Length];
-        _youngerInRow = new int[_marks.Length];
-        _level = level;
-        _fromRow = level.CellOf(leastYM);
-        _oldestInRow = new int[Math.Max(1, level.CellOf(mostYM) - _fromRow + 1)];
-        _youngestInRow = new int[_oldestInRow.Length];
+        _knots = new DriftKnot[Math.Max(1, capacity)];
+        _log = new int[_knots.Length];
+        _lastOf = new uint[Math.Max(1, wheels)];
+        _fit = fit;
         Clear();
     }
 
@@ -99,79 +131,125 @@ internal sealed class DriftMarks
     public int Count { get; private set; }
 
     /// <summary>How many places the ring holds.</summary>
-    public int Capacity => _marks.Length;
+    public int Capacity => _knots.Length;
 
     /// <summary>
-    /// <b>Every mark laid since the ring was last cleared</b>, the overwritten among them: mark <c>t</c> is at place
-    /// <c>t % Capacity</c> while it is one of the last <see cref="Capacity"/>. What a reader copying the ring as it grows
-    /// asks for what is new since it last looked.
+    /// <b>Every knot laid since the ring was last cleared</b>, the overwritten among them: knot <c>t</c> is at place
+    /// <c>t % Capacity</c> while it is one of the last <see cref="Capacity"/>.
     /// </summary>
     public long Total { get; private set; }
 
-    public ReadOnlySpan<DriftMark> Laid => _marks.AsSpan(0, Count);
+    /// <summary>Every place written since the ring was last cleared, a knot laid or a last knot moved.</summary>
+    public long Written { get; private set; }
 
-    public int RowCount => _oldestInRow.Length;
+    /// <summary>How far back <see cref="WrittenSlot"/> reaches: a reader further behind takes the whole ring.</summary>
+    public int LogCapacity => _log.Length;
 
-    /// <summary>How tall a row is, which is longer than any mark: a stretch is laid every <c>Marks.SpacingM</c> of a wheel's travel.</summary>
-    public float RowM => _level.CellM;
+    /// <summary>The place the <paramref name="written"/>-th write went to, while it is one of the last <see cref="LogCapacity"/>.</summary>
+    public int WrittenSlot(long written) => _log[(int)(written % _log.Length)];
 
-    /// <summary>The rows a band of the map from <paramref name="leastYM"/> to <paramref name="mostYM"/> reaches, the town's edge rows standing for what is past them.</summary>
-    public (int From, int To) Rows(float leastYM, float mostYM) => (RowOf(leastYM), RowOf(mostYM));
+    public ReadOnlySpan<DriftKnot> Laid => _knots.AsSpan(0, Count);
 
-    /// <summary>The oldest mark's place in a row, or −1 where it holds none.</summary>
-    public int OldestIn(int row) => _oldestInRow[row];
+    /// <summary>
+    /// <b>Every place written since a copy last took them</b>, into <paramref name="into"/> at the same places, and
+    /// <paramref name="copied"/> moved up to <see cref="Written"/>: the logged places only, or the whole ring where the log
+    /// has turned over past the copy, or the ring was cleared under it. Answers the run of places that covers every one
+    /// taken, from and past, empty where none was.
+    /// </summary>
+    public (int From, int To) CopyChangedInto(Span<DriftKnot> into, ref long copied)
+    {
+        var written = Written;
+        if (copied > written) copied = 0;
 
-    /// <summary>The next younger mark's place in the same row, or −1 past the youngest.</summary>
-    public int YoungerThan(int slot) => _youngerInRow[slot];
+        var (from, to) = (Capacity, 0);
+        if (written - copied > _log.Length)
+        {
+            _knots.AsSpan(0, Count).CopyTo(into);
+            (from, to) = (0, Count);
+        }
+        else
+        {
+            for (var write = copied; write < written; write++)
+            {
+                var slot = WrittenSlot(write);
+                into[slot] = _knots[slot];
+                (from, to) = (Math.Min(from, slot), Math.Max(to, slot + 1));
+            }
+        }
 
-    public ref readonly DriftMark At(int slot) => ref _marks[slot];
+        copied = written;
+        return from < to ? (from, to) : (0, 0);
+    }
 
-    /// <summary>Lay one stretch, from where the wheel was when the stretch began to where it is now.</summary>
-    public void Mark(Vector2 fromM, Vector2 toM, float widthM, float intensity, bool ploughed)
+    public ref readonly DriftKnot At(int slot) => ref _knots[slot];
+
+    /// <summary>
+    /// <b>Lay one stretch of wheel <paramref name="wheel"/>'s travel</b>, from where it was when the stretch began to where
+    /// it is now: the wheel's stroke drawn on to it where the stretch carries on from its last knot in the same kind, width
+    /// and level, and a stroke begun where it does not. The last knot is moved to the stretch's end while the stroke stays
+    /// within <see cref="StrokeFit"/> of the knot before; past it, it is left where it was and a knot laid on.
+    /// </summary>
+    /// <param name="raised">Whether the wheel's car is drawn on the level above the ground (<see cref="DriftKnot.Raised"/>).</param>
+    public void Lay(int wheel, Vector2 fromM, Vector2 toM, float widthM, float intensity, bool ploughed, bool raised = false)
     {
         var spanM = toM - fromM;
-        var lengthM = spanM.Length();
-        if (lengthM < MinLengthM || intensity <= 0f || widthM <= 0f) return;
+        if (spanM.Length() < MinLengthM || intensity <= 0f || widthM <= 0f) return;
 
-        if (Count == _marks.Length) Unfile(_next);
+        var strength = Math.Clamp(intensity, 0f, 1f) * (ploughed ? -1f : 1f);
+        var leveledWidthM = raised ? -widthM : widthM;
+        var headingRad = Trig.Atan2(spanM.Y, spanM.X);
+        var last = _lastOf[wheel];
+        if (Holds(last) && _knots[SlotOf(last)] is var lastKnot && lastKnot.AtM == fromM && lastKnot.WidthM == leveledWidthM
+            && lastKnot.Ploughed == ploughed)
+        {
+            var pinned = lastKnot.Previous;
+            if (Holds(pinned) && !Bends(_knots[SlotOf(pinned)], toM, headingRad, strength))
+            {
+                Write(SlotOf(last), new DriftKnot(toM, headingRad, leveledWidthM, strength, pinned));
+                return;
+            }
 
-        var centreM = Blend.Lerp(fromM, toM, 0.5f);
-        _marks[_next] = new DriftMark(
-            centreM, lengthM, widthM, Trig.Atan2(spanM.Y, spanM.X), Math.Clamp(intensity, 0f, 1f), ploughed);
-        File(_next, RowOf(centreM.Y));
+            _lastOf[wheel] = Append(new DriftKnot(toM, headingRad, leveledWidthM, strength, last));
+            return;
+        }
 
-        _next = (_next + 1) % _marks.Length;
-        Count = Math.Min(Count + 1, _marks.Length);
+        var first = Append(new DriftKnot(fromM, headingRad, leveledWidthM, strength, NoKnot));
+        _lastOf[wheel] = Append(new DriftKnot(toM, headingRad, leveledWidthM, strength, first));
+    }
+
+    /// <summary>Whether the curve from <paramref name="pinned"/> to a last knot here would stray past <see cref="StrokeFit"/>.</summary>
+    bool Bends(in DriftKnot pinned, Vector2 toM, float headingRad, float strength) =>
+        MathF.Cos(headingRad - pinned.HeadingRad) < _fit.TurnCos
+        || Vector2.DistanceSquared(pinned.AtM, toM) > _fit.MostM * _fit.MostM
+        || MathF.Abs(strength - pinned.Strength) > _fit.StrengthStep;
+
+    /// <summary>Whether knot <paramref name="knot"/> of every knot laid is still in the ring.</summary>
+    bool Holds(uint knot) => knot != NoKnot && (uint)Total - knot <= (uint)Count;
+
+    int SlotOf(uint knot) => (int)(knot % (uint)Capacity);
+
+    uint Append(in DriftKnot knot)
+    {
+        var laid = (uint)Total;
+        Write((int)(Total % Capacity), knot);
+        Count = Math.Min(Count + 1, Capacity);
         Total++;
+        return laid;
+    }
+
+    void Write(int slot, in DriftKnot knot)
+    {
+        _knots[slot] = knot;
+        _log[(int)(Written % _log.Length)] = slot;
+        Written++;
     }
 
     /// <summary>Forget the lot, which is what opening another town does.</summary>
     public void Clear()
     {
-        _next = 0;
         Count = 0;
         Total = 0;
-        Array.Fill(_oldestInRow, None);
-        Array.Fill(_youngestInRow, None);
-    }
-
-    int RowOf(float yM) => Math.Clamp(_level.CellOf(yM) - _fromRow, 0, _oldestInRow.Length - 1);
-
-    void File(int slot, int row)
-    {
-        _rowOf[slot] = row;
-        _youngerInRow[slot] = None;
-        if (_youngestInRow[row] == None) _oldestInRow[row] = slot;
-        else _youngerInRow[_youngestInRow[row]] = slot;
-
-        _youngestInRow[row] = slot;
-    }
-
-    /// <summary>The ring's oldest mark taken off its row, of which it is the oldest too.</summary>
-    void Unfile(int slot)
-    {
-        var row = _rowOf[slot];
-        _oldestInRow[row] = _youngerInRow[slot];
-        if (_youngestInRow[row] == slot) _youngestInRow[row] = None;
+        Written = 0;
+        Array.Fill(_lastOf, NoKnot);
     }
 }

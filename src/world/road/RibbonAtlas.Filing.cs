@@ -106,8 +106,7 @@ internal sealed partial class RibbonAtlas
     /// <b>The atlas laid out for a device to file</b> (<see cref="AtlasFiling"/>): the frame <see cref="Lay"/> files into, and
     /// every piece of every way it files with the box its search reads (<c>Find</c>).
     /// </summary>
-    /// <param name="anyoneWalks">As <see cref="Lay"/>'s: where nobody walks, a walked way is filed only where it is a zebra's paint.</param>
-    public static AtlasFiling Filing(IRibbonLines lines, GridLevel level, bool anyoneWalks)
+    public static AtlasFiling Filing(IRibbonLines lines, GridLevel level)
     {
         var (lengthM, cells) = Framed(lines, level);
         var reachM = ReachOf(level.CellM);
@@ -115,14 +114,14 @@ internal sealed partial class RibbonAtlas
         var count = 0;
         for (var way = 0; way < lines.WayCount; way++)
         {
-            if (Files(lines, way, lengthM[way], anyoneWalks)) count += lines.LineOf(way, out _).Length;
+            if (Files(lines, way, lengthM[way])) count += lines.LineOf(way, out _).Length;
         }
 
         var pieces = new FilingPiece[count];
         var at = 0;
         for (var way = 0; way < lines.WayCount; way++)
         {
-            if (!Files(lines, way, lengthM[way], anyoneWalks)) continue;
+            if (!Files(lines, way, lengthM[way])) continue;
 
             var arcs = lines.LineOf(way, out var widthM);
             var halfM = (widthM * 0.5f) + reachM;
@@ -156,13 +155,11 @@ internal sealed partial class RibbonAtlas
     }
 
     /// <summary>
-    /// Whether a way is filed at all: one with ground to file, and where nobody walks, only the traffic's and a zebra's
-    /// paint (<see cref="Lay"/>).
+    /// Whether a way is filed at all: one with ground to file. <b>A walk is filed in a town nobody walks</b>, because a
+    /// wheel on it grips as on any way (TER-7b).
     /// </summary>
-    static bool Files(IRibbonLines lines, int way, float lengthM, bool anyoneWalks)
+    static bool Files(IRibbonLines lines, int way, float lengthM)
     {
-        if (!(anyoneWalks || lines.IsDriven(way) || lines.ZebraOf(way) != RibbonMarks.NoZebra)) return false;
-
         var arcs = lines.LineOf(way, out var widthM);
         return arcs.Length > 0 && widthM > 0f && lengthM > 0f;
     }

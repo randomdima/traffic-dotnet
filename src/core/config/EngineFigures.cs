@@ -499,4 +499,14 @@ internal sealed class ControlFigures
     /// queue is not a route search a second.
     /// </summary>
     public float FollowRedrawInCarLengths { get; init; } = 3f;
+
+    /// <summary>
+    /// <b>What a hand's boost multiplies a unit's speed by</b> (CTL-5e), held with Shift: a car's gear's forward cap, and a
+    /// walker's pace — its stride with it, which is stepped by distance. Let go of, the unit is asked for its own again and
+    /// nothing slows it but what always does.
+    /// </summary>
+    public float HandBoostSpeedShare { get; init; } = 2f;
+
+    /// <summary>And what it multiplies a car's forward pull and a locomotive's tractive effort by — what it gets there with.</summary>
+    public float HandBoostPullShare { get; init; } = 2f;
 }

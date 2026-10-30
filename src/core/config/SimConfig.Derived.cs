@@ -78,6 +78,9 @@ internal sealed partial class SimConfig
     /// <summary><see cref="DrivingFigures.ParkedSquareWithinDeg"/>, as the angle it is turned through.</summary>
     public float ParkedSquareWithinRad => Driving.ParkedSquareWithinDeg * MathF.PI / 180f;
 
+    /// <summary><see cref="MarkFigures.KnotTurnDeg"/>, as the cosine a stroke's way is held against (≈ 0.94).</summary>
+    public float MarkKnotTurnCos => MathF.Cos(Marks.KnotTurnDeg * MathF.PI / 180f);
+
     /// <summary>
     /// <b>What the nominal car's tyres hold, as an acceleration</b>: the coefficient times a weight.
     /// Derived, and derived here once — nothing authors a grip in m/s², because a grip in m/s² is a
@@ -102,6 +105,9 @@ internal sealed partial class SimConfig
     /// (<see cref="CarFigures.EngineBrakingResistance"/>) — about 1 m/s², where tarmac's own drag is a tenth of it.
     /// </summary>
     public float CarEngineBrakingMps2 => Car.EngineBrakingResistance * Tyre.StandardGravityMps2;
+
+    /// <summary><see cref="CarFigures.TiltOverNothingMostDeg"/> as the springs read it.</summary>
+    public float CarTiltOverNothingMostRad => Car.TiltOverNothingMostDeg * MathF.PI / 180f;
 
     /// <summary>
     /// <b>The widest a line has to be drawn for a car to hold this speed round it</b> — the corner formula
@@ -146,28 +152,7 @@ internal sealed partial class SimConfig
     public float PersonExitSearchRadiusM => PropDiameterM * Person.ExitSearchRadiusInPropDiameters;
 
     /// <summary>What a casualty slides to a stop on, at the same scale as everything else the pace decides.</summary>
-    public float PersonSlidingGripMps2 => PersonFootGripMps2 * Person.SlidingGripInFootGrips;
-
-    /// <summary>
-    /// <b>What a contact has to carry to leave somebody down in the road</b> (PER-23): the work of sliding
-    /// a body <see cref="DamageFigures.SlideToCasualtyM"/> along the ground, which is its mass times the
-    /// grip it slides on times that distance — 3.76 kJ, or a car meeting a standing body at 10 m/s.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>It is the distance in the limit of a heavy vehicle and a little under it otherwise.</b> The
-    /// energy a contact is judged by is the pair's reduced mass, so a person struck by a car of seventeen
-    /// times their mass keeps about 95% of the closing speed and slides about 95% of the distance. The
-    /// figure the town is authored with is the distance, and the arithmetic is honest about the mass it
-    /// actually has to move.
-    /// </para>
-    /// <para>
-    /// <b>The band has to sit above <see cref="PersonWalkSpeedMps"/></b> — several times over it at the
-    /// shipped figures. Nothing about the closing speed says who was carrying it (PER-23), so a band below
-    /// the town's own pace is one a walker meets by arriving at a parked car.
-    /// </para>
-    /// </remarks>
-    public float PersonCasualtyKj => Person.MassKg * PersonSlidingGripMps2 * Damage.SlideToCasualtyM / 1000f;
+    public float PersonSlidingGripMps2 => Person.SlidingFriction * Tyre.StandardGravityMps2;
 
     /// <summary>How far from a place the bays a car may be given there are looked for: a spawn's, and a leg's retarget.</summary>
     public float PersonWalkWorthM => CityGen.BlockSpacingAlongMinM * Person.WalkWorthInBlockSpacings;
@@ -307,7 +292,7 @@ internal sealed partial class SimConfig
     public float PersonTrimSlackM => PersonDiameterM * Person.TrimSlackInDiameters;
 
     /// <summary>
-    /// <b>How far a walker covers in one tick at its pace</b> — 0.044 m at the shipped figures. A walker has no
+    /// <b>How far a walker covers in one tick at its pace</b> — 0.066 m at the shipped figures. A walker has no
     /// acceleration of its own (PER-3), so it is also the whole of what one takes to come to rest.
     /// </summary>
     public float PersonStepM => PersonWalkSpeedMps * TickSeconds;
@@ -677,4 +662,27 @@ internal sealed partial class SimConfig
 
     /// <summary>How many steps in a row a body has to end at rest before it freezes (SOL-37) — never fewer than one.</summary>
     public int SolverRestTicks => Math.Max(1, (int)MathF.Ceiling(Solver.RestS * Sim.TickRateHz));
+
+    /// <summary>The time between two snapshots a player is sent (MP-3).</summary>
+    public float SnapshotIntervalS => Multiplayer.TicksPerSnapshot / (float)Sim.TickRateHz;
+
+    /// <summary>
+    /// <b>How far past its view a player is sent what moves</b> (MP-2): what the fastest car covers in the time the
+    /// player draws behind the server and one snapshot more, so nothing enters the view without having been sent first.
+    /// It is also the hysteresis — a thing is let go of only this far past where it was taken up.
+    /// </summary>
+    public float PlayerAreaMarginM => Car.MaxSpeedMps * (Multiplayer.InterpolationDelayS + SnapshotIntervalS);
+
+    /// <summary>
+    /// Half the side of the square round a player's car whose movers it is sent (MP-1, MP-2): its widest view, stood as
+    /// far in front of the car as its camera leads and dragged as far off it as it may be (MP-9), and the margin.
+    /// </summary>
+    public float PlayerAreaHalfSpanM =>
+        Multiplayer.WidestViewM / 2f * (1f + View.CameraFollowLeadShareOfView) + Multiplayer.MostPanM + PlayerAreaMarginM;
+
+    /// <summary>And half the side of the square a mover has to leave before it is let go of (MP-2).</summary>
+    public float PlayerLeaveHalfSpanM => PlayerAreaHalfSpanM + PlayerAreaMarginM;
+
+    /// <summary>The town's metres to one interface pixel of a player's map (MP-12).</summary>
+    public float MapMetresPerPx => Multiplayer.MapSpanM / Multiplayer.MapSidePx;
 }

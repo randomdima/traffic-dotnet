@@ -51,37 +51,35 @@ internal static class ContactArbiter
         var judged = 0;
         foreach (var touch in physics.BeganTouchingThisStep())
         {
-            // Along the normal, which points from the first body to the second: positive is the two of
-            // them closing, and the resolver reads a negative one as what it is — bodies separating.
-            var closingMps = touch.ClosingMps ?? Vector2.Dot(
-                roster.VelocityIntoTickMps(touch.First) - roster.VelocityIntoTickMps(touch.Second), touch.Normal);
-            if (Judge(touch, closingMps, config, roster)) judged++;
+            var into = touch.Into ?? Approach.Of(
+                roster.VelocityIntoTickMps(touch.First), roster.VelocityIntoTickMps(touch.Second), touch.Normal);
+            if (Judge(touch, into, config, roster)) judged++;
         }
 
         return judged;
     }
 
-    /// <summary>The touches a world stepped elsewhere began, each carrying the speed it closed at (<see cref="Touch.ClosingMps"/>).</summary>
+    /// <summary>The touches a world stepped elsewhere began, each carrying how its bodies came into it (<see cref="Touch.Into"/>).</summary>
     public static int Resolve<TRoster>(ReadOnlySpan<Touch> touches, SimConfig config, TRoster roster)
         where TRoster : IDamageRoster
     {
         var judged = 0;
         foreach (ref readonly var touch in touches)
         {
-            if (Judge(touch, touch.ClosingMps ?? 0f, config, roster)) judged++;
+            if (Judge(touch, touch.Into ?? default, config, roster)) judged++;
         }
 
         return judged;
     }
 
-    static bool Judge<TRoster>(in Touch touch, float closingMps, SimConfig config, TRoster roster)
+    static bool Judge<TRoster>(in Touch touch, in Approach into, SimConfig config, TRoster roster)
         where TRoster : IDamageRoster
     {
         var first = roster.SubjectOf(touch.First);
         var second = roster.SubjectOf(touch.Second);
         if (first.Kind == Participant.Static && second.Kind == Participant.Static) return false;
 
-        var verdict = DamageResolver.Resolve(config, first, second, closingMps);
+        var verdict = DamageResolver.Resolve(config, first, second, into);
         if (verdict.ToFirst != DamageOutcome.None) roster.Apply(touch.First, verdict.ToFirst);
         if (verdict.ToSecond != DamageOutcome.None) roster.Apply(touch.Second, verdict.ToSecond);
         return true;

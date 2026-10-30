@@ -70,10 +70,10 @@ internal static class SpriteProbe
         var instanceBytes = System.Runtime.CompilerServices.Unsafe.SizeOf<SpriteInstance>();
         Console.WriteLine(
             $"instances written a frame in flight {room.Moving} = {room.Moving * instanceBytes / PerMb:F1} MB " +
-            $"(a page's, the marks and scenery too: {room.Written} = {room.Written * instanceBytes / PerMb:F1} MB); " +
+            $"(a page's, the scenery too: {room.Written} = {room.Written * instanceBytes / PerMb:F1} MB); " +
             $"buildings and props laid once {room.Standing} = {room.Standing * instanceBytes / PerMb:F1} MB");
         Console.WriteLine(
-            $"{"view m",8}{"px/m",7}{"marks",8}{"scenery",8}{"standing",9}{"people",8}{"find",8}{"tyres",8}{"bodies",8}" +
+            $"{"view m",8}{"px/m",7}{"scenery",8}{"standing",9}{"people",8}{"find",8}{"tyres",8}{"bodies",8}" +
             $"{"arms",8}{"lamps",8}{"signals",8}{"whole",9}{"frame%",8}{"drawn",8}{"cars",7}{"alloc B",8}");
 
         foreach (var viewM in ViewsM) Row(viewM, openingM, MathF.Min(UiPx.X, UiPx.Y) / viewM);
@@ -85,15 +85,13 @@ internal static class SpriteProbe
         {
             var spanM = UiPx / pxPerM;
             var leastPartM = config.View.CarPartLeastPx / pxPerM;
-            var marks = Us(() => MarkSprites.Fill(world.Marks, looks.RubberBrushSheet, looks.SoilBrushSheet, centreM, spanM, under), out _);
             var scenery = Us(() => looks.Scenery.Fill(centreM, spanM, under), out _);
             var standing = Us(() => looks.Standing.Range(centreM, spanM).Count, out _);
             var reachM = (spanM * 0.5f) + new Vector2(looks.CarReachM);
             var find = Us(() => world.PeopleIn(centreM - reachM, centreM + reachM, peopleInView).Length, out var walkers)
                 + Us(() => world.CarsIn(centreM - reachM, centreM + reachM, inView).Length, out var listed);
             var people = Us(() => PersonSprites.Fill(
-                world.People, peopleInView.AsSpan(0, walkers), looks.People, looks.Aspects, looks.FirstDownSheet,
-                config.Person.DrawnStandingBelowMps, centreM, spanM, into, walkerDepths), out _);
+                world.People, peopleInView.AsSpan(0, walkers), looks.People, looks.Aspects, config.Person.DrawnStandingBelowMps, centreM, spanM, into, walkerDepths), out _);
             var tyres = Us(() => looks.WidestTyreM < leastPartM ? 0 : CarSprites.FillTyres(
                 world.Cars, inView.AsSpan(0, listed), looks.RubberSheet, leastPartM, centreM, spanM, into, level), out _);
             var bodies = Us(() => CarSprites.Fill(
@@ -105,14 +103,14 @@ internal static class SpriteProbe
             var lamps = Us(() => looks.WidestGlowM < leastPartM ? 0 : LampSprites.Fill(
                 world.Cars, inView.AsSpan(0, listed), looks.Cars, config, looks.LensSheet, looks.LampGlowSheet,
                 world.ElapsedS, centreM, spanM, into, level, leastPartM), out _);
-            var signals = Us(() => SignalSprites.Fill(world, config, looks.FirstHeadSheet, centreM, spanM, into), out _);
+            var signals = Us(() => SignalSprites.Fill(world.Heads, world.Signals, world.ElapsedS, config, looks.FirstHeadSheet, centreM, spanM, into), out _);
             var whole = Us(() => looks.Fill(world, config, centreM, spanM, pxPerM, into, above).Drawn, out var drawn);
             var allocatedAt = GC.GetAllocatedBytesForCurrentThread();
             looks.Fill(world, config, centreM, spanM, pxPerM, into, above);
             var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedAt;
 
             Console.WriteLine(
-                $"{viewM,8:F0}{pxPerM,7:F1}{marks,8:F1}{scenery,8:F1}{standing,9:F1}{people,8:F1}{find,8:F1}{tyres,8:F1}{bodies,8:F1}" +
+                $"{viewM,8:F0}{pxPerM,7:F1}{scenery,8:F1}{standing,9:F1}{people,8:F1}{find,8:F1}{tyres,8:F1}{bodies,8:F1}" +
                 $"{arms,8:F1}{lamps,8:F1}{signals,8:F1}{whole,9:F1}{100.0 * whole / FrameUs,7:F1}%{drawn,8}{cars,7}{allocated,7}");
         }
     }

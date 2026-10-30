@@ -4,6 +4,29 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-30 — the two heads keep one flow
+
+**Ruled by the owner (2026-10-30): as little flow branching as possible.** A head branches only where the shared way is
+not compatible with it or for a major reason; otherwise the flow is common (`WEB-12`). Asked first of the moving
+sprites: a page draws them with the desktop's own emit (`DeviceSprites`), packed to fit a page's sixteen storage
+buffers, rather than with a page's half of it or a CPU fill of the smoke.
+
+## 2026-10-30 — one town served to several players
+
+**Asked for by the owner (2026-10-30): multiplayer** — one server running the town as it runs now, and thin clients
+with limited view and zoom, each with an actor of its own to control and the camera held on it, sent minimal updates,
+sending minimal commands, and with no debug abilities or information. The plan and the survey behind it are
+[network/](../network/index.md); the rules are [multiplayer/](../src/multiplayer/docs/requirements.md).
+
+The owner's answers the same day, each of which rewrote [goals.md](goals.md):
+
+- **"Not a game" is dropped**, not reworded. A player character is now something the project has.
+- **A server's sockets join the driver and the window as the unmanaged boundary**, bounded as rule 1 bounds the
+  others: one send and one receive a player per snapshot, whatever the size of the town.
+- **Rule 2 binds the tick and the frame, and not a server's network thread**, which may allocate a little.
+- **`MP-1` is the owner's at `P0`**: a player is never sent anything outside its area. The other rules of the slice
+  are the assistant's.
+
 ## 2026-10-26 — two heads: the desktop and the page
 
 **Asked for by the owner (2026-10-26): Android support is dropped.** `traffic-dotnet.android.csproj`, `app/android/`,
@@ -748,12 +771,11 @@ Three measuring maps each reported differently, so whether a run was right lived
 happened to be looking. A map now carries its claims and one watch answers them (`VER-11`,
 `Bench.ScenarioWatch`): every claim is `waiting`, `kept` or `BROKEN`, and a broken one is the exit code.
 
-## 2026-08-28 — every acceleration in the person model carries the square of its pace scale
+## 2026-08-28 — every acceleration a walker makes carries the square of its pace scale
 
-Walking pace is scaled (`Person.PaceScale`), so an acceleration here carries the square of the scale where no
-figure stated it — `FootGripMps2` was scaled and the sliding grip was not, which put `PER-23`'s casualty band
-under walking pace. The second grip is now a share of the first, which is the only form the scaling cannot be
-forgotten in.
+Walking pace is scaled (`Person.PaceScale`), so an acceleration a walker makes carries the square of the scale where
+no figure stated it. A casualty's slide is not one: it is a car's throw on life's ground (the walker slice's log,
+2026-10-30).
 
 ## 2026-08-26 — nobody in this town dies, and the band that used to kill is where a body starts moving
 

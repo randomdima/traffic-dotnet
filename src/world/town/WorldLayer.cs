@@ -46,7 +46,7 @@ internal abstract class WorldLayer : IDisposable
         Signals = new ControlSignals(laying.Agents);
         View = new WorldView(laying.Walkers.Length, laying.Cars.Length, slot: 0, laying.Wagons.Length);
         _ahead = new WorldView(laying.Walkers.Length, laying.Cars.Length, slot: 1, laying.Wagons.Length);
-        Marks = new DriftMarks(laying.Config.Marks.Capacity, laying.Config.Grid.Main, 0f, laying.WorldSizeM.Y);
+        Marks = new DriftMarks(laying.Config.Marks.Capacity, laying.Cars.Length * TyreModel.MostWheels, StrokeFit.Of(laying.Config));
     }
 
     protected SimConfig Config { get; }

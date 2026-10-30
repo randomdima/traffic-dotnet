@@ -319,6 +319,12 @@ internal static class Theme
 
     public static readonly Vector4 RulerTape = new(1f, 0.95f, 0.35f, 1f);
 
+    /// <summary>
+    /// What a casualty's standing figure is multiplied by (PER-18): its own stance, reddened, so somebody down in the road
+    /// is the person who was walking there and reads as hurt.
+    /// </summary>
+    public static readonly Vector4 Casualty = new(1f, 0.3f, 0.3f, 1f);
+
     /// <summary>The ring round the selected unit: a green no part of the town's chrome wears, so it reads as "picked" and as nothing else.</summary>
     public static readonly Vector4 SelectionMark = new(0.3f, 0.72f, 0.28f, 1f);
 
@@ -357,6 +363,43 @@ internal static class Theme
     /// the two apart with both on screen.
     /// </summary>
     public static readonly Vector4 SelectionGoal = new(0.25f, 1f, 0.38f, 1f);
+
+    /// <summary>A player's map (MP-12): the town's ground, what lies past its edge, its water and its roads.</summary>
+    public static readonly Vector4 MapGround = new(0.16f, 0.20f, 0.17f, 0.92f);
+
+    public static readonly Vector4 MapOffTown = new(0.05f, 0.06f, 0.07f, 0.92f);
+    public static readonly Vector4 MapWater = new(0.20f, 0.36f, 0.55f, 1f);
+    public static readonly Vector4 MapRoad = new(0.72f, 0.74f, 0.76f, 1f);
+
+    /// <summary>
+    /// <b>A seat's colour, by its number</b> (MP-12): what a player is drawn in until the server has said the colour it
+    /// chose (MP-15). As many as the shipped seats; past them the colours repeat.
+    /// <b>Every one saturated</b>: no white or grey, which is the map's roads (<see cref="MapRoad"/>).
+    /// </summary>
+    public static Vector4 Player(int seat) => Players[seat % Players.Length];
+
+    /// <summary>An opaque colour from <c>0xRRGGBB</c> — a player's own as it chose it (MP-15).</summary>
+    public static Vector4 Rgb(uint rgb) => new(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
+
+    static readonly Vector4[] Players =
+    [
+        new(0.95f, 0.25f, 0.25f, 1f),
+        new(1f, 0.55f, 0.10f, 1f),
+        new(1f, 0.90f, 0.15f, 1f),
+        new(0.60f, 0.95f, 0.20f, 1f),
+        new(0.20f, 0.85f, 0.35f, 1f),
+        new(0.20f, 0.90f, 0.95f, 1f),
+        new(0.25f, 0.55f, 1f, 1f),
+        new(0.60f, 0.40f, 1f, 1f),
+        new(0.95f, 0.30f, 0.85f, 1f),
+        new(1f, 0.50f, 0.70f, 1f),
+        new(0.95f, 0.70f, 0.30f, 1f),
+        new(0.45f, 1f, 0.75f, 1f),
+        new(1f, 0.45f, 0.40f, 1f),
+        new(0.50f, 0.80f, 1f, 1f),
+        new(0.75f, 0.35f, 0.95f, 1f),
+        new(0.85f, 0.80f, 0.10f, 1f),
+    ];
 
     public static readonly Vector4 Legend = new(0.97f, 0.97f, 0.97f, 1f);
     public static readonly Vector4 LegendShadow = new(0.05f, 0.05f, 0.06f, 0.85f);

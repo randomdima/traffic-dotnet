@@ -4,6 +4,26 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-30 — a car faster than a crawl puts a walker down, and a casualty is its stance, reddened
+
+**The owner: "threshold of being hit by a car should be lower, if car is pushing him at any non crawl speed — dead."**
+A walker goes down to a vehicle whose own speed into them along the contact's normal is over
+`Damage.KnockDownAboveMps` (PER-23). The energy band it replaces — the work of sliding a body twelve metres, met by a
+car at 10 m/s — left a car leaning in at anything less shoving a braced walker down the street on their feet. Who was
+moving now carries the whole of it: a walker arriving at a car at any pace stays up, since what is measured is the car.
+
+- **3 m/s, not a crawl**: at 1 m/s every nudge at a crossing put somebody down (the owner: "a bit too sensitive now,
+  any touch kills them; up to some degree it should just push them").
+- **A casualty slides on life's ground** (`Person.SlidingFriction`, μ·g, and no longer a share of the pace-scaled foot
+  grip): the owner asked that a real strike throw the body visibly, and at nine times life's grip a car at 5 m/s
+  carried it a third of a metre.
+- **Judged at the touch, not while it lasts** (the owner's choice over reporting a walker–vehicle pair every step it
+  touches): a car that meets somebody slowly and then drives on still pushes them (tech debt).
+- **"Dead" is a casualty** (the owner): nobody in this town dies (PHY-3), and the rescue stays.
+- **A casualty is drawn as its own stance, reddened** (the owner: "animation should be reddened standing frame"): the
+  walk sheet's standing cell at the facing it went down at, multiplied by `Theme.Casualty`. Each look's lying picture
+  and `qq walkers down` are gone; the variants they were kept from stay under `raw_assets/`.
+
 ## 2026-10-29 — a straight holds nothing behind the walker, and a hop once begun is kept
 
 - **A straight holds each way under the body past it only on the side it walks along that way**
@@ -56,9 +76,6 @@ the showroom.** Image models draw no coherent walk and video models drift when a
   police, medic, repairman, 3 variants each"): the town walks the nine orbit-cut civilians, and each service's crews
   wear its three looks in turn (`PersonCatalog.PoliceLook`, as `CarCatalog.PoliceLook` is a car's), a service's looks
   being the service list's ids that start with its name. The uniforms are a cast of their own, `walkers_service_a`.
-- **A look lies down as its cast figure** (the owner: "for dead or standing use the frame we used as input to the
-  video model"): the standing front picture its clip started from, turned head along +x, `qq walkers down`. A body in
-  the road is drawn as a person standing laid flat, not as a fallen pose.
 - **A shot the camera took round the walker's right side is mirrored, not asked again** (`qq sprites cut --mirror`):
   the sheet's left side is the mirror of the right, as its three undrawn facings already are.
 
@@ -159,10 +176,6 @@ watched faster is still watched on the clock, which scales cars and walkers both
 were made to, its square, so the foot grip is four times a real one (≈ 17 m/s²) and a car leaning on somebody below
 the casualty band shoves them a quarter as far as at one — the model's stated wrongness (the foot model in
 [requirements.md](requirements.md)) is harder to see again.
-
-**`Damage.SlideToCasualtyM` is three metres**, which keeps the casualty band (PER-23) at a car meeting a standing
-body at 10 m/s, where it was at one with a dozen metres on a grip a quarter of this. Kept at a dozen, the band went
-to 20 m/s, a speed the town's traffic hardly reaches, and nobody would have been knocked down at all.
 
 ## 2026-10-01 — nobody walks further than a few blocks, and everybody owns a car
 

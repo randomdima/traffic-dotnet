@@ -28,4 +28,7 @@ internal readonly record struct SheetSource(string? Path, byte[]? Rgba, int Widt
     /// (<see cref="SheetOutline"/>). The file is left as it is.
     /// </summary>
     public float OutlineArtPx { get; init; }
+
+    /// <summary>Whether nothing on this page draws from it: it keeps its slot and its size, and is packed as one clear texel.</summary>
+    public bool Unused { get; init; }
 }

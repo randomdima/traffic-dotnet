@@ -2,14 +2,13 @@ namespace TrafficSimulation.App.Render;
 
 /// <summary>
 /// How much room each run of the sprite pass has, in the order they are drawn: what lies under everything that stands
-/// (marks, scenery), the buildings and props — laid on the device once (<see cref="StandingSprites"/>) — what moves over
-/// them (walkers, cars, signal heads), and the bodies on the level above; then the ground's ring of marks and the scenery
-/// as the desktop keeps them on the device.
+/// (the scenery), the buildings and props — laid on the device once (<see cref="StandingSprites"/>) — what moves over
+/// them (walkers, cars, signal heads), and the bodies on the level above; then the ground's ring of knots of marks, which
+/// both heads draw out of, and the scenery as the desktop keeps it on the device.
 /// </summary>
 /// <remarks>
-/// <b>Under is the page's</b>: a browser writes the marks and the scenery as instances, where the desktop draws them out
-/// of their own rows (<see cref="Marks"/>, <see cref="SceneryPieces"/>) and a frame writes only what is new of the one and
-/// the runs in view of the other.
+/// <b>Under is the page's</b>: a browser writes the scenery as instances, where the desktop draws it out of its own rows
+/// (<see cref="SceneryPieces"/>) and a frame writes only the runs in view.
 /// </remarks>
 internal readonly record struct SpriteRoom(
     int Under, int Standing, int Over, int Above, int Marks = 1, int SceneryPieces = 1, int SceneryRows = 1)

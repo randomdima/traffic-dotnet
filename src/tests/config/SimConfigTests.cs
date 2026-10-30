@@ -25,11 +25,7 @@ public class SimConfigTests
     /// that stops in the same ground, which is four times the grip.
     /// </summary>
     /// <remarks>
-    /// <b>What it is really protecting is the casualty band</b>, which is the one place the factor has
-    /// bitten. The band comes off the sliding grip and the walk comes off the pace, so a grip left at real
-    /// scale beside a pace that is not puts the band <em>below</em> walking speed — where somebody becomes a
-    /// casualty by arriving at a parked car. Asked at two scales, because one is a number and two is a
-    /// relation.
+    /// Asked at two scales, because one is a number and two is a relation.
     /// </remarks>
     [Fact]
     public void ThePersonModelCarriesItsPaceScaleThroughEveryAcceleration()
@@ -45,13 +41,6 @@ public class SimConfigTests
         {
             var stoppingM = figures.PersonWalkSpeedMps * figures.PersonWalkSpeedMps / (2f * figures.PersonFootGripMps2);
             Assert.Equal(figures.PersonDiameterM * figures.Person.StopsWithinDiameters, stoppingM, 1e-3f);
-
-            // The speed a body has to be met at to be put down, which must stay clear of the speed this
-            // town walks at — nothing about a contact says who was carrying the closing speed (PER-23).
-            var bandMps = MathF.Sqrt(2f * figures.PersonCasualtyKj * 1000f / figures.Person.MassKg);
-            Assert.True(
-                bandMps > figures.PersonWalkSpeedMps,
-                $"a casualty is made at {bandMps:F1} m/s and this town walks at {figures.PersonWalkSpeedMps:F1}");
         }
     }
 

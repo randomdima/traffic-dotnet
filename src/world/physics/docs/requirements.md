@@ -14,10 +14,24 @@ actuated belongs to the agents that do it ([car](../../../agents/car/docs/requir
 (`CityPlan.RoadArrays.ChannelOf`), and every way is on its own: a lane on its road's, a connector on both of the
 lanes' it joins — so a bridgehead is on the bridge's and the ground's — and the walk on the ground's. **A car is
 on every channel of the ways its wheels stand on** when its body is laid (TER-4c.2), read on its own
-channels alone, and keeps what it had where it stands over none; everything else is on the ground's. So a car
+channels alone, and keeps what it had where it stands over none — on the ground; off a deck it falls (PHY-1b);
+everything else is on the ground's. So a car
 on a bridge over other roads meets the cars on its deck and nothing on the ground it passes over — no car,
 walker, building, prop or casualty — and one at a bridgehead meets both. The channels are a mask on the body
 beside its layer (`PhysicsWorld.PutOnChannels`), so the broad phase decides them as it decides the rest.
+
+**PHY-1b** `P3` **A deck over other roads has edges, and nothing on it is held at them.** For `DeckLowEndM` in from
+each end it is too low to pass under, and its sides there are a wall on the ground's channel: what comes at the deck from
+under it meets them, and what is on it, on the deck's channel alone, does not. A car on the deck's channel alone stands
+wherever its wheels are on the deck — its pavement included — and on nothing past its edge, wherever along it that is: there it is exactly what grass is on the ground, and a wheel there carries nothing, grips nothing,
+and the body's springs rest leaning `TiltOverNothingMostDeg` over it, so it swings over and settles there as it does on
+any ground (`ControlAction.Hang`). **A car with its centre of mass past the edge has gone
+over and falls**: put on the ground's channel, which is what stands under it, and a wreck, unless it cannot break. That
+is asked only once a whole side of it is over — every wheel ahead of its middle, behind it, to its left or to its right
+— and short of it the car hangs there, and may be driven back. **A walker on the deck's channel stands on
+its walk and its lanes** — up onto it by the joints at its ends (WLK-1b), or put out of a car there onto the car's
+channels — **and falls where it stands on neither**: down, on the ground's channel. Whatever falls is pushed straight out from
+the deck's line by `DeckFallShoveMps` (`ControlAction.Shove`), and the marks a deck's traffic lays are drawn over the deck.
 
 **PHY-2** `P3` Static objects cannot move and cannot be damaged or destroyed; they are immovable collision
 geometry.
@@ -49,11 +63,11 @@ is finished when it breaks and a person is not: the worst a contact does to some
 ground, and what happens next is a rescue (`PER-18`) rather than an ending. That is why a broken car is
 terminal (`AGT-5`) and a casualty is not.
 
-**PHY-4** `P3` What a contact does is decided by its energy — half the pair's reduced mass times the square of
-their closing speed along the contact normal — measured against **that participant's own tolerance**. One
-energy per contact, one tolerance per kind of body, and every pairing in the town falls out of the two
-**without a special case**: the same speed that puts a pedestrian in the road barely marks the car that
-hit them, because the pedestrian weighs a seventeenth of it. Below its own tolerance a contact is a
+**PHY-4** `P3` What a contact does is measured against **that participant's own tolerance**: a car's is an
+energy — half the pair's reduced mass times the square of their closing speed along the contact normal — and
+a person's is how fast the vehicle that met them was moving into them (`PER-23`). One tolerance per kind of
+body, and every pairing in the town falls out of them **without a special case**: the same contact that puts
+a pedestrian in the road barely marks the car that hit them, because the pedestrian weighs a seventeenth of it. Below its own tolerance a contact is a
 harmless bump, which is what keeps cars nudging each other in traffic intact. **Every kind of body carries
 exactly one tolerance**, so every pairing has two bands and no pairing has three.
 

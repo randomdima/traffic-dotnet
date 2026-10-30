@@ -371,7 +371,13 @@ internal static class UnitReadout
         {
             var inside = people.Inside[person];
             line = rows.Next("inside");
-            line.Add(inside.Kind == ContainerKind.Car ? "car " : "building ");
+            line.Add(inside.Kind switch
+            {
+                ContainerKind.Car => "car ",
+                ContainerKind.Train => "train ",
+                ContainerKind.Offstage => "offstage ",
+                _ => "building ",
+            });
             line.Add(inside.Index);
             rows.Keep(in line);
         }

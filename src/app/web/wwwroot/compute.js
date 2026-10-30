@@ -187,7 +187,7 @@ function kernelPipeline(id, name, wgsl, pushBytes) {
 /// **A driver may refuse a kernel the limits allow**: a handset's Vulkan answered `tyre_pass.comp` with
 /// VK_ERROR_UNKNOWN, and a world stepped through a pipeline that failed is every batch refused — bodies that never move,
 /// read back off views nobody wrote. **A kernel binding more storage buffers than the device gives is not proved**: it is
-/// one the page never builds (the desktop's emit, WEB-10).
+/// one the page never builds (WEB-10), and every kernel is written to fit (WEB-12).
 function proveKernel(name, wgsl) {
     const code = kernelSource(wgsl);
     if (storageBindings(code).length > kernels.device.limits.maxStorageBuffersPerShaderStage) return;
@@ -278,6 +278,9 @@ function kernelSubmit(operations, push, serial, landedAddress) {
 
     const encoder = device.createCommandEncoder();
     const reads = [];
+    // What the batch writes: a buffer the host reads is copied back only where it did, since one it only read holds what
+    // the batch that last wrote it landed — and its staging may still be mapped for that one.
+    const written = new Set();
     let pass = null;
     let scratchUsed = 0;
 
@@ -289,6 +292,7 @@ function kernelSubmit(operations, push, serial, landedAddress) {
         const code = ops[at];
         if (code === DISPATCH || code === INDIRECT) {
             const bound = kernels.groups.get(ops[at + 2]);
+            for (const id of bound.written) written.add(id);
 
             // A buffer a dispatch writes cannot be its indirect arguments too (Vulkan reads them before the kernel
             // runs; WebGPU refuses the pair), so the three words are copied out first and read from the copy.
@@ -324,12 +328,14 @@ function kernelSubmit(operations, push, serial, landedAddress) {
         }
 
         if (code === COPY) {
+            written.add(ops[at + 2]);
             encoder.copyBufferToBuffer(
                 kernels.buffers.get(ops[at + 1]).buffer, ops[at + 3], kernels.buffers.get(ops[at + 2]).buffer, ops[at + 4],
                 ops[at + 5]);
         } else if (code === FILL) {
+            written.add(ops[at + 1]);
             fill(encoder, kernels.buffers.get(ops[at + 1]).buffer, ops[at + 2], ops[at + 3], ops[at + 4] >>> 0);
-        } else if (code === READ) {
+        } else if (code === READ && written.has(ops[at + 1])) {
             reads.push(kernels.buffers.get(ops[at + 1]));
         }
     }

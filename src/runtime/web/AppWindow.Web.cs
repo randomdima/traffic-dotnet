@@ -58,7 +58,11 @@ internal sealed class AppWindow : IDisposable
     const int GpuDraws = 16;
     const int GpuKernelsMs = 17;
     const int GpuBatches = 18;
-    const int Axes = 19;
+
+    /// <summary>One where the page's browser offers <c>timestamp-query</c>, nought where it does not.</summary>
+    const int GpuTimed = 19;
+
+    const int Axes = 20;
 
     readonly byte[] _keys = new byte[(Keys * 2) + 8];
     readonly double[] _axes = new double[Axes];
@@ -130,14 +134,23 @@ internal sealed class AppWindow : IDisposable
     /// The device's own time since the last pump (<see cref="GpuTimes"/>): what landed of the frames' passes and the
     /// kernels' batches the page timed, which is none on a device without <c>timestamp-query</c>.
     /// </summary>
-    public GpuTimes Gpu => new(_axes[GpuDrawMs], (int)_axes[GpuDraws], _axes[GpuKernelsMs], (int)_axes[GpuBatches]);
+    public GpuTimes Gpu => new(
+        _axes[GpuDrawMs], (int)_axes[GpuDraws], _axes[GpuKernelsMs], (int)_axes[GpuBatches],
+        _axes[GpuTimed] > 0d ? GpuClock.Timed : GpuClock.Refused);
 
     /// <summary>
     /// What the page has seen since the last frame asked. The edges — a press, a click, a notch, a
     /// resize — are handed over and forgotten by the page here, and cleared again as each is read, so
     /// each of them is answered exactly once.
     /// </summary>
-    public void PumpEvents() => WebGpu.Pump(_keys, _axes);
+    public void PumpEvents()
+    {
+        WebGpu.Pump(_keys, _axes, Link.Inbox, Link.Outbox);
+        Link.Rewind();
+    }
+
+    /// <summary>The page's line to a served town (MP-3), carried by the same pump as the keys.</summary>
+    public ServerLink Link { get; } = new();
 
     public bool IsKeyDown(Key key) => _keys[Down + Index(key)] != 0;
 
@@ -230,6 +243,8 @@ internal sealed class AppWindow : IDisposable
         Key.ControlRight => 21,
         Key.Number4 => 22,
         Key.Number5 => 23,
+        Key.M => 24,
+        Key.Enter or Key.KeypadEnter => 25,
         _ => Keys - 1,
     };
 

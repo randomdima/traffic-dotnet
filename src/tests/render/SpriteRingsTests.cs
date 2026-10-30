@@ -102,7 +102,7 @@ public class SpriteRingsTests(StandingTown town) : IClassFixture<StandingTown>
     {
         using var world = Town();
         world.Select(default);
-        world.HandOnCar(1, new HandInput(Held: true, Throttle: 0f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
+        world.HandOnCar(0, 1, new HandInput(Held: true, Throttle: 0f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
 
         Assert.Equal([SpriteRing.SecondHand], Ringed(world).Select(instance => instance.Ring));
 

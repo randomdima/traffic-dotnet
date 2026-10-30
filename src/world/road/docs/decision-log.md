@@ -4,6 +4,14 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-30 — a way's row is laid for every way in the town
+
+**The owner traded memory for rule 2**: `LaneOccupancy`'s way rows were laid at four a holder and doubled the first
+time the town claimed one more, which is how far its holders have been and not how many there are — a walker at three
+times life's pace (the person decision log, same day) moved the doubling into the device allocation gate's window, and
+a longer run reached it at any pace. They are laid for every way at the start: twenty bytes a way, 22 MB on OdesaOsm
+against the 5 MB its 260 000 touched ways used. Still numbered as first claimed, so answering reads a dense front.
+
 ## 2026-10-29 — a body ahead is read where it stands, and never off a claim
 
 **What the claims redesign dropped (2026-10-12) is read again off the bodies themselves**, and nothing is put on a

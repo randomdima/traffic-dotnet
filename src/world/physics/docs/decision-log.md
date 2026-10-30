@@ -3,6 +3,13 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-30 — a touch carries each body's own speed into the other
+
+A person's tolerance became the vehicle's own speed into them (`PER-23`, `PHY-4`), which a closing speed cannot say:
+a walker at 4 m/s into a parked car and a car at 4 m/s into a standing walker close alike. `Touch.Into` is an
+`Approach`, each body's speed along the normal into the other, and the closing speed is their sum; the device writes
+both into the begun row's spare words (`touches.comp`), so its size is unchanged.
+
 ## 2026-10-19 — the solver gained one joint, the link, and damping became each body's
 
 **The owner asked for a real, physics-based solid link for both the tow and the train**, free to spin, with "no
@@ -289,12 +296,9 @@ flag, because the broad phase already reads the mask and a `Wounded` bit would b
 pair in the hottest loop. Statics are kept in the row — a body sliding through a wall is what `SIM-1`
 exists to stop — and the road's claims were left alone.
 
-## 2026-08-26 — the person's tolerance is a distance, and a wreck puts its driver on the road
+## 2026-08-26 — a wreck puts its driver on the road
 
-`PersonShakeKj` and `PersonFatalKj` were kilojoules nobody could picture; what is authored now is
-`SlideToCasualtyM` and the energy is the work of sliding a body that far on its own grip. The reduced mass
-makes it honest rather than exact — a car is seventeen times a person, not infinite — and that is stated
-on the derived figure. `PHY-6` stopped saying "unaffected": a wrecked car's driver is placed beside their
+`PHY-6` stopped saying "unaffected": a wrecked car's driver is placed beside their
 door as a casualty rather than sent through `PHY-7a`, which waits for clear ground and would leave a
 driver inside a wreck no ambulance can reach (`AMB-7`).
 

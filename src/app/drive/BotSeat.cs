@@ -37,6 +37,9 @@ internal readonly record struct BotAsk(
 /// </remarks>
 internal sealed class BotSeat : IDisposable
 {
+    /// <summary>The town's seat this driver holds its car from (<see cref="TownWorld.HandOnCar"/>): the first, whose car a picture rings.</summary>
+    public const int Seat = 0;
+
     readonly DriveTail _tail;
     readonly DriveTape _tape;
     readonly BotEye? _eye;

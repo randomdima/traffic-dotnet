@@ -29,6 +29,13 @@ top of every frame, so **anything the run decides for itself cannot live in them
 the page's copy back over it. [`AppWindow.IsClosing`](../../../runtime/web/AppWindow.Web.cs) is the one
 such thing, a latch beside the arrays rather than a slot in them.
 
+**WEB-12** `P2` **One flow, and a branch only where it is forced.** Both heads run the same steps in the same order
+off the same types; a half under `web/` answers *how* a step is done on its machine and never *whether* it is done. A
+head branches only where the other's way is not possible there — a page cannot wait, has no mapped memory, no
+swapchain image to record into — or for a reason big enough to be named beside the branch, and a feature one head
+lacks is a gap in [tech-debt.md](../../../../docs/tech-debt.md), not a branch. A kernel is written to fit both
+(sixteen storage buffers), so what the device draws on one it draws on the other.
+
 **WEB-2** `P2` **The crossing budget holds, in the browser's own terms.** A standing town crosses the wall
 between managed code and the page **three times a frame, and once more a tick its world steps on the device**:
 the animation callback coming in, the input going out, the frame, and the world's step — and a landed step's callback
@@ -46,7 +53,8 @@ coming in; the figure a frame prints is taken round the frame call alone (`Game.
 layers and the figures a session turns are the town's own picture and are all here. **The offscreen picture, the
 sheet, the probes and the workshop steps are not**: `--shot`, `--sheet`, `--bench` and `--lamps` are how a
 run is *measured*, they need a file system and a process that can exit, and a page has neither. A browser
-is where the town is watched; the desktop is where it is answered for.
+is where the town is watched; the desktop is where it is answered for. **A page joined to a served town
+(`?join=`) carries none of the interface either** (`MP-9`): it is a player, and what it is told is the banner.
 
 **WEB-5** `P7` **The query string is the command line.** `?map=Test&ui=nodes,claims` is `--map Test --ui
 nodes,claims`. The words are the desktop's, and the ones a page cannot answer are not offered.
@@ -154,7 +162,9 @@ anybody reads, and its fault is otherwise one nobody can answer.
 ## What a publish holds
 
 **WEB-7** `P4` **What `dotnet publish` writes is the whole of what gets deployed.** The target is a stateless
-static host: the folder is handed over and nothing of ours runs beside it. So **every file in it is a
+static host: the folder is handed over and nothing of ours runs beside it — **a served town is the one exception,
+and it is not part of the publish**: the desktop's own executable with `--serve`, which hands this same folder out
+on its own port (`MP-11`) and changes nothing in it. So **every file in it is a
 real file** — no symlink into a working copy, which is a page that only serves on the machine it was
 built on — and everything the page will ask for is prepared by the build: the art packed, the maps
 packed and their heads cut, the manifest written from the same item lists. `dotnet build` lays the identical tree beside
@@ -189,7 +199,8 @@ world (`?managed-world`) is held to them to the bit; its device world is the des
 **A page times its device on the device** ([`gputime.js`](../wwwroot/gputime.js)), where the browser gives it
 `timestamp-query`: the frame's render pass and every batch of kernels, read back when the device is done and never
 waited on, shown under the frame's own rows in `?ui=frame` (`gpu frame`, `gpu batch`) and said on the console every
-ten seconds, so a log saved off a handset carries them. A phone's `blocked` says the frame waited and not on what.
+ten seconds, so a log saved off a handset carries them. **A browser that offers no timestamps is a `gpu` row saying
+so**, and not a read-out missing two rows nobody can tell are missing. A phone's `blocked` says the frame waited and not on what.
 
 **`qq web --cpu FILE` is where a page's open went**: the browser's sampling profiler from the navigate until the town
 says it stood, named off the native module's symbol map, self and inclusive by function — and `--cpu-read` with
@@ -229,7 +240,8 @@ refusal inside the run stays**: `WebGpu.Start` can still fail on a device that w
 one question is about the browser and the other about the device it gave out.
 
 **WEB-10** `P4` **A page steps its world on its device where the device can hold the kernels, and in managed code
-where it cannot.** The kernels want sixteen storage buffers a stage and a workgroup of 1 024 threads
+where it cannot** — **and a page joined to a served town steps none** (`MP-7`): it builds no kernel and draws what it
+is sent. The kernels want sixteen storage buffers a stage and a workgroup of 1 024 threads
 ([`compute.js`](../wwwroot/compute.js)'s `NEEDED`), which a desktop's browser gives and a handset's often does not;
 a device short of either steps the managed world and says so, and `?managed-world` asks for it by name. **Holding them
 is building them**: a driver may refuse a kernel the limits allow, so every kernel is built once before the first town

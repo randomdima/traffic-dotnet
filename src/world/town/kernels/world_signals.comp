@@ -97,7 +97,7 @@ void takeACommandOrAnAim(WorldSignal s)
     {
         int walker = agentOf[s.body].y;
         walkers[walker].aimM = s.p01;
-        walkers[walker].flags = (walkers[walker].flags & WalkerInside) | (flags & (WalkMoving | WalkOnFeet | WalkFaces));
+        walkers[walker].flags = (walkers[walker].flags & WalkerInside) | (flags & (WalkMoving | WalkOnFeet | WalkFaces | WalkSprints));
     }
 }
 
@@ -108,6 +108,26 @@ void takeAnEvent(WorldSignal s)
     uint flags = signalFlags(s);
     int walker = agentOf[body].y;
     int car = agentOf[body].x;
+
+    // Which of the car's wheels stand on nothing (ControlAction.Hang, PHY-1b), where its tyres and springs read them.
+    if (action == SignalHang)
+    {
+        carRows[car].flags = (carRows[car].flags & ~0xff0000u) | ((flags & 0xffu) << 16);
+        return;
+    }
+
+    // p01 what the body's velocity changes by (PhysicsWorld.Shove): the motion the step begins from, which the touches
+    // judge a contact off, and the pose a car's tyres read too.
+    if (action == SignalShove)
+    {
+        if (s.p01 == vec2(0.0)) return;
+
+        motion[body].xy += s.p01;
+        motionIntoTick[body].xy += s.p01;
+        if (car >= 0) poses[car].velocityMps += s.p01;
+        thaw(body, car);
+        return;
+    }
 
     if (action == SignalPlace)
     {

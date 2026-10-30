@@ -30,8 +30,7 @@ internal sealed partial class Game
     /// (WEB-10).
     /// </summary>
     /// <remarks>
-    /// What moves is still drawn off the host's fill and the tyres' marks are not drawn: the emit's kernels bind more
-    /// storage buffers than a page is given, and nothing reads the marks' ring back.
+    /// What moves is drawn off the device's own state by the desktop's emit, and the marks out of the device's ring (WEB-12).
     /// </remarks>
     public bool TicksOnTheDevice { get; init; }
 
@@ -59,25 +58,29 @@ internal sealed partial class Game
     private partial Vk? EngineDevice() => WebGpu.KernelsFit() ? _kernels ??= new Vk() : null;
 
     /// <summary>A page has one frame in hand at a time, so one slot.</summary>
-    private partial int EngineSlot() => 0;
+    private partial int FrameSlot() => 0;
 
     private partial int EngineSlots() => 1;
 
-    /// <summary>The engine layers' batch, run ahead of each frame that finds the last one landed.</summary>
-    ComputeBatch? _engineBatch;
+    /// <summary>The frame's kernels' batch, run ahead of each frame that finds the last one landed.</summary>
+    ComputeBatch? _frameBatch;
 
     /// <summary>
-    /// <b>The engine layers' kernels run in a batch of their own ahead of the frame</b>, where a desktop records them into
-    /// it: a page's frame is one call the kernels cannot ride. A frame that finds the last batch still out draws what it
-    /// left.
+    /// <b>The frame's kernels run in a batch of their own ahead of the frame</b> — the emit's, then the engine layers' —
+    /// where a desktop records them into it: a page's frame is one call the kernels cannot ride. A frame that finds the last
+    /// batch still out draws what it left.
     /// </summary>
-    partial void RunTheEngine(EngineLayers engine)
+    partial void RunTheFrameKernels()
     {
-        var batch = _engineBatch ??= new ComputeBatch(_kernels!);
+        var sprites = (_world?.World as DeviceWorld)?.Sprites;
+        if (sprites is null && _engine is null) return;
+
+        var batch = _frameBatch ??= new ComputeBatch(_kernels!);
         if (!batch.Landed) return;
 
         var commands = batch.Begin();
-        engine.Record(commands, 0);
+        sprites?.Record(commands, 0);
+        _engine?.Record(commands, 0);
         batch.Submit();
     }
 
@@ -166,6 +169,8 @@ internal sealed partial class Game
     partial void OpenWhatWasPicked()
     {
     }
+
+    partial void Banner(string line) => WebGpu.Say(line);
 
     /// <summary>The device belongs to the page and outlives the run, so there is nothing to give back.</summary>
     partial void Shutdown()

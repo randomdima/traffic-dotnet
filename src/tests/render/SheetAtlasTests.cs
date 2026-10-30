@@ -90,6 +90,14 @@ public class SheetAtlasTests
         Assert.Equal(120f, atlas.Places[0].HeightPx);
     }
 
+    [Fact]
+    public void AnUnusedSheetTakesOneTexel()
+    {
+        var atlas = SheetAtlas.Pack([Sized(300, 120) with { Unused = true }]);
+
+        Assert.Equal(new Vector2(1f) / SheetAtlas.PagePx, atlas.Places[0].ScaleUv);
+    }
+
     /// <summary>
     /// What the shipped art costs on the GPU. A page is 64 MB and the pages are the whole of the
     /// sprite memory, so this count <em>is</em> the atlas's price: the shipped art takes five, the

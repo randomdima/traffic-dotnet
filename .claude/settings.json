@@ -4,12 +4,20 @@
       "Bash(*)",
       "WebSearch",
       "WebFetch",
+      "WebFetch(*)",
       "WebFetch(domain:gee-community-catalog.org)",
       "WebFetch(domain:data.gov.ua)",
       "WebFetch(domain:mobilitydatabase.org)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Edit(/.claude/skills/remotegen/**)",
-      "Edit(/.claude/skills/imgbench/**)"
+      "Edit(/.claude/skills/imgbench/**)",
+      "WebFetch(domain:gafferongames.com)",
+      "WebFetch(domain:www.gabrielgambetta.com)",
+      "WebFetch(domain:edgegap.com)",
+      "WebFetch(domain:www.snapnet.dev)",
+      "WebFetch(domain:rocketscience.fyi)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developer.valvesoftware.com)"
     ]
   }
 }

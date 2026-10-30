@@ -27,10 +27,10 @@ trains are. The looks stand in one row down the middle of the car park, as many 
 look on show takes no trip, claims no ground and decides nothing of its own. Under a hand it walks where the hand
 says (`CTL-6`); let go, it stands wherever it was left.
 
-**PER-31** `P6` **A walker is drawn over every walker whose feet are further up its picture than its own, and a body
-lying down under every one standing** (`PersonSprites.Depth`). A standing walker is a picture stood up off the ground,
-so where two overlap the nearer one is in front; a casualty lies flat on the ground (PER-18), under anybody standing on
-or beside it. How far up the picture is in the town's axes, so a turned town (`OBS-1c`) changes nothing of the order.
+**PER-31** `P6` **A walker is drawn over every walker whose feet are further up its picture than its own**
+(`PersonSprites.Depth`). A walker is a picture stood up off the ground, so where two overlap the nearer one is in front
+— a casualty too, which is drawn as its own stance, reddened (PER-18). How far up the picture is in the town's axes, so
+a turned town (`OBS-1c`) changes nothing of the order.
 
 ## Soft rules
 
@@ -218,17 +218,15 @@ the town is stood up. A door within a walk of both the person and their car is w
 
 ## Damage
 
-**PER-23** `P3` A person is **knocked down** by a vehicle when the contact carries enough energy to put a body
-off its feet further than a stated distance along the ground — the work of sliding their own mass that far
-on the sliding grip, and nothing anybody chose in kilojoules. **A car is the only thing that can do it**
-(`PHY-4a`), and **who was moving carries no weight**: the closing speed and the two masses are the whole
-of the arithmetic, so a body that arrives at a car is judged as a car that arrives at a body.
+**PER-23** `P3` A person is **knocked down** by a vehicle moving into them **faster than a push**
+(`Damage.KnockDownAboveMps`): the vehicle's own speed along the contact normal, on the motion it brought into
+the tick the touch began in. Slower, the car only pushes them. **A vehicle is the only thing that can do it**
+(`PHY-4a`), and **who was moving is the whole of it**: a walker arriving at a standing car stays on their feet
+at any pace, and a car moving into a standing body faster than a push puts it down — and throws it, visibly,
+down the road.
 
-**The band sits above the town's own walking pace**, and that is what makes the sentence before it
-liveable. A tolerance below the pace is one a walker meets by arriving at a parked car, and then a
-knock-down is a contact rather than an impact — nobody has to be struck for the town to fill with
-casualties. A car meeting a standing body at the pace this town's traffic runs at is what the shipped
-figures give, several times the walking pace.
+**It is judged once, when the touch begins** (`SOL-6`), as every contact is — so a car that meets somebody
+slowly and then drives on is still pushing them, which the foot model below states.
 
 **There is no band above it.** The energy that breaks a car does no more to a person than the energy that
 just moves them, because a person has one tolerance like every other kind of body (`PHY-3`, `PHY-4`).
@@ -237,7 +235,9 @@ just moves them, because a person has one tolerance like every other kind of bod
 own, off their feet, and waiting for an ambulance
 ([agents/ambulance](../../ambulance/docs/requirements.md)). **It is not a terminal state** (AGT-5) — a
 casualty is collected, treated and put back on the pavement free to draw a trip again. **Nothing that moves
-touches it while it is down** — what that means to the solver is `PHY-5b`.
+touches it while it is down** — what that means to the solver is `PHY-5b`. **It is drawn as its own stance,
+reddened**: the standing frame of its walk at the facing it went down at, so the body in the road is plainly the
+walker who was there.
 
 **Going down and losing your feet are one fact.** The body keeps whatever the impact gave it and slides to
 a stop on the ground rather than on any intent of its own, and it is still there when it stops: nothing
@@ -261,21 +261,17 @@ back no faster than its foot friction affords (`WalkerFollower`, PER-3). Everyth
 feet, a body along it, bounding everything, there being nothing it does. A walker is off
 its feet exactly while it is a casualty (`PER-23`), which is what makes the impulse of an impact visible
 after the impact is over — a body sent down the road rather than stopped where it was hit. Neither is
-scaled by the ground under it (TER-2). **The sliding grip is what sizes the band**: the distance a body is
-thrown along it (`Damage.SlideToCasualtyM`) is what being knocked over costs, so the two numbers are one
-decision.
+scaled by the ground under it (TER-2).
 
 > **The relation that is the requirement — the number is not:** a walker shoved at its own pace is carried
 > **inside a fifth of its own body.** Whatever the walk speed is set to, the grip is whatever makes that
 > true.
 
-> **And the second grip is a share of the first, never a figure of its own.** Every acceleration in the
-> model carries the square of the pace scale (`Person.PaceScale`), so a sliding grip authored at one pace
-> beside a foot grip at another is off by that square, and the band it sizes can land underneath walking
-> pace.
+> **And the second grip is life's, never the walkers' pace.** Every acceleration a walker makes carries the
+> square of the pace scale (`Person.PaceScale`); a casualty makes none — it was thrown by a car at life's pace,
+> and slides on a body's own friction along the ground, so a strike carries it visibly down the road.
 
 **One thing this model gets wrong, stated rather than fixed**: a walker's feet resist a car pushing them
-at `mass × grip`, which is about half a car's drive, so a car leaning on a pedestrian *below* `PER-23`'s
-band is pushing something that braces rather than something that gives — and, still on its feet, it can be
-shoved several metres by a car that never knocked it over. The fix needs a contact count kept per walker,
-and a count that fails to come back down is a walker who slides for the rest of the run.
+at `mass × grip`, which is about half a car's drive, so a car that touched a pedestrian slowly and then
+drove on is pushing something that braces rather than something that gives — and, still on its feet, it can
+be shoved several metres by a car that never knocked it over (`PER-23` is judged at the touch).

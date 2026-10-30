@@ -176,13 +176,6 @@ class Walker(Sheet):
     cells = FACING_ROWS
 
 
-class Down(Sheet):
-    """The one frame a walker is drawn as once it is down: lying head along +x, so its width is the person's height
-    (`PersonSprites.Fill`)."""
-
-    measured = property(lambda self: self.width)
-
-
 class Prop(Sheet):
     """
     A prop, whose `diameterM` is the disc the town reserves for it. **The longest side is the
@@ -258,8 +251,6 @@ def survey(base: Path, figures: dict[str, float]) -> list[Sheet]:
             sized[variant.parent / described["sprite"]] = (Prop, float(described["diameterM"]), grid)
         if "sheet" in described and "heightM" in described:
             sized[variant.parent / described["sheet"]] = (Walker, float(described["heightM"]), grid)
-        if "down" in described and "heightM" in described:
-            sized[variant.parent / described["down"]] = (Down, float(described["heightM"]), grid)
 
     sheets = []
     for path in sorted(p for p in (base / "assets").rglob("*") if p.suffix in STORED):

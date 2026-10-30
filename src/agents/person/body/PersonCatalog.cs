@@ -2,17 +2,12 @@ using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.Agents.Person.Body;
 
-/// <summary>One look: a sheet, the one frame it lies down as, and the height it is drawn at. Only the look is data.</summary>
+/// <summary>One look: a sheet and the height it is drawn at. Only the look is data.</summary>
 /// <remarks>
 /// Walk speed, turn rate and the collision circle come from <see cref="SimConfig"/> for
 /// everyone — a variant that could carry its own would be a second place a walker's pace is decided.
 /// </remarks>
-/// <param name="DownSheetPath">
-/// <b>A body in the road is one picture and not a grid</b> (PER-18): the walk sheet draws all eight
-/// facings because a standing body is drawn upright whichever way it faces, and a body lying along the
-/// ground is a shape with a direction — so it is drawn the way a car is, one frame turned to its heading.
-/// </param>
-internal readonly record struct PersonVariant(string Id, string SheetPath, string DownSheetPath, float HeightM);
+internal readonly record struct PersonVariant(string Id, string SheetPath, float HeightM);
 
 /// <summary>
 /// The looks a walker can be drawn as, read from <c>assets/…/Catalog.json</c>, and the uniforms beside
@@ -21,9 +16,8 @@ internal readonly record struct PersonVariant(string Id, string SheetPath, strin
 /// <remarks>
 /// <para>
 /// Every sheet is 8 facing rows × 8 walk-cycle columns, anticlockwise from up, and every facing is drawn.
-/// It is the same fact for every variant, so it is a constant here rather than a field per look. <b>Every
-/// look has a second sheet</b>, which is the one frame it is drawn as once it is down
-/// (<see cref="PersonVariant.DownSheetPath"/>).
+/// It is the same fact for every variant, so it is a constant here rather than a field per look. <b>A
+/// body down in the road is drawn off the same sheet</b> (PER-18): its stance, reddened.
 /// </para>
 /// <para>
 /// <b>Two lists and one array</b>, on <see cref="Car.Body.CarCatalog"/>'s terms and for its reason: a
@@ -142,7 +136,6 @@ internal sealed class PersonCatalog
     static PersonVariant ReadVariant(string path)
     {
         var variant = AssetJson.Read(path, PersonVariantJson.Default.PersonVariantFile);
-        return new PersonVariant(
-            variant.Id, AssetJson.Beside(path, variant.Sheet), AssetJson.Beside(path, variant.Down), variant.HeightM);
+        return new PersonVariant(variant.Id, AssetJson.Beside(path, variant.Sheet), variant.HeightM);
     }
 }

@@ -155,12 +155,31 @@ internal sealed unsafe partial class TownRenderer
 
     /// <summary>
     /// The marks, out of the ground's ring (<c>mark.vert</c>): the sprites' quad and fragment stage, blended, with no vertex
-    /// buffer at all — each instance reads its own row.
+    /// buffer at all — each instance reads its own row. A pipeline a level, each drawing its own knots alone (its
+    /// <c>DrawsRaised</c>).
     /// </summary>
-    void CreateMarkPipeline() =>
-        _markPipeline = BuildPipeline(
+    void CreateMarkPipelines()
+    {
+        _markPipeline = BuildMarkPipeline(drawsRaised: false);
+        _markAbovePipeline = BuildMarkPipeline(drawsRaised: true);
+    }
+
+    Pipeline BuildMarkPipeline(bool drawsRaised)
+    {
+        var raised = drawsRaised ? 1u : 0u;
+        var entry = new SpecializationMapEntry(0, 0, sizeof(uint));
+        var constants = new SpecializationInfo
+        {
+            MapEntryCount = 1,
+            PMapEntries = &entry,
+            DataSize = sizeof(uint),
+            PData = &raised,
+        };
+
+        return BuildPipeline(
             _markVertexShader, _spriteFragmentShader, null, null, 0, PrimitiveTopology.TriangleStrip, blended: true,
-            premultiplied: true);
+            premultiplied: true, vertexConstants: &constants);
+    }
 
     /// <summary>The scenery, out of its pieces by the frame's runs (<c>scenery.vert</c>), on the same terms.</summary>
     void CreateSceneryPipeline() =>
@@ -180,10 +199,11 @@ internal sealed unsafe partial class TownRenderer
     /// Whether the fragment stage writes its colour already times its alpha (<c>sprite.frag</c>): blended One over
     /// OneMinusSrcAlpha, which lays a texel over at its alpha and, with that alpha nought, adds it as light.
     /// </param>
+    /// <param name="vertexConstants">The vertex stage's specialisation constants, or none.</param>
     Pipeline BuildPipeline(
         ShaderModule vertex, ShaderModule fragment, VertexInputBindingDescription? binding,
         VertexInputAttributeDescription* attributes, uint attributeCount, PrimitiveTopology topology, bool blended,
-        bool premultiplied = false)
+        bool premultiplied = false, SpecializationInfo* vertexConstants = null)
     {
         var bound = binding.GetValueOrDefault();
         var api = _vk.Api;
@@ -197,6 +217,7 @@ internal sealed unsafe partial class TownRenderer
                 Stage = ShaderStageFlags.VertexBit,
                 Module = vertex,
                 PName = entry,
+                PSpecializationInfo = vertexConstants,
             };
             stages[1] = new PipelineShaderStageCreateInfo
             {

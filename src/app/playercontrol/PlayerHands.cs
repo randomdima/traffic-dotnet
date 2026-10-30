@@ -70,12 +70,11 @@ internal sealed class PlayerHands
     bool _alsoKeep;
 
     /// <summary>
-    /// One frame's worth of the keys, turned into the hand the world reads every tick inside it.
+    /// The driving keys as they are held: the throttle forward and back, the wheel left and right, and the handbrake —
+    /// what a hand on a car of this town and a player's on a served one both hold (CTL-5, MP-3).
     /// </summary>
-    public HandInput ReadKeys(AppWindow window, TownWorld world)
+    public static (float Throttle, float Steer, bool Handbrake) Pedals(AppWindow window)
     {
-        if (world.SelectedCount == 0) return HandInput.None;
-
         var throttle = 0f;
         if (window.IsKeyDown(Key.W)) throttle += 1f;
         if (window.IsKeyDown(Key.S)) throttle -= 1f;
@@ -84,14 +83,27 @@ internal sealed class PlayerHands
         if (window.IsKeyDown(Key.A)) steer -= 1f;
         if (window.IsKeyDown(Key.D)) steer += 1f;
 
-        var handbrake = window.IsKeyDown(Key.Space);
+        return (throttle, steer, window.IsKeyDown(Key.Space));
+    }
+
+    /// <summary>Shift held: the hand's boost (CTL-5e), on whatever it drives.</summary>
+    public static bool Boost(AppWindow window) => window.IsKeyDown(Key.ShiftLeft) || window.IsKeyDown(Key.ShiftRight);
+
+    /// <summary>
+    /// One frame's worth of the keys, turned into the hand the world reads every tick inside it.
+    /// </summary>
+    public HandInput ReadKeys(AppWindow window, TownWorld world)
+    {
+        if (world.SelectedCount == 0) return HandInput.None;
+
+        var (throttle, steer, handbrake) = Pedals(window);
         var walk = new Vector2(steer, -throttle);
 
         // Taking the wheel is a press; keeping it is not. A frame in which nothing is held still
         // reports a hand, because letting go coasts rather than handing the unit back.
         var pressed = throttle != 0f || steer != 0f || handbrake;
         var held = pressed || world.HandsOn;
-        return held ? new HandInput(true, throttle, steer, handbrake, walk) : HandInput.None;
+        return held ? new HandInput(true, throttle, steer, handbrake, walk, Boost(window)) : HandInput.None;
     }
 
     /// <summary>

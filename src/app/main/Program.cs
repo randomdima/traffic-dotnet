@@ -16,6 +16,7 @@ using TrafficSimulation.Runtime;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Multiplayer.Server;
 using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
 
@@ -67,6 +68,8 @@ internal static class Program
         }
 
         if (options.Lamps) return CutTheLamps();
+        if (options.BakeSheets) return SheetBake.Run(config);
+        if (options.SheetsAsPictures) BakedSheets.Refused = true;
         if (options.Proof is not null)
         {
             Console.WriteLine($"{options.Proof} written — {LampProof.Write(options.Proof, config, glow: !options.NoGlow)} frames");
@@ -77,6 +80,15 @@ internal static class Program
         if (options.Mend is not null) return Mend(options.Mend, config);
         if (options.Park is not null) return Park(options.Park, config);
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, options.Out, options.Seconds, config);
+        if (options.Serve)
+        {
+            return ServeRun.Run(
+                options.Map ?? Options.FixtureMap, config, options.Port >= 0 ? options.Port : config.Multiplayer.Port,
+                options.Page, options.Seconds);
+        }
+
+        if (options.Port >= 0 || options.Page is not null)
+            throw new ArgumentException("--port and --page are where a served town listens and what page it hands out: ask for one with --serve.");
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
 
@@ -796,7 +808,8 @@ internal static class Program
         bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
         string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
         bool BotWaits, string? Brief, bool ManagedWorld, string? Mend = null, string? Park = null,
-        string? Fleet = null, string? Proof = null, bool NoGlow = false)
+        string? Fleet = null, string? Proof = null, bool NoGlow = false, bool Serve = false, int Port = -1, string? Page = null,
+        bool BakeSheets = false, bool SheetsAsPictures = false)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: a small town laid from a
@@ -1050,6 +1063,27 @@ internal static class Program
                     case "--no-glow":
                         options = options with { NoGlow = true };
                         break;
+                    // The atlas's sheets compressed for the build (SheetBake), and a run that packs the pictures regardless.
+                    case "--bake-sheets":
+                        options = options with { BakeSheets = true };
+                        break;
+                    case "--sheets" when i + 1 < args.Length && args[i + 1] == "rgba":
+                        options = options with { SheetsAsPictures = true };
+                        i++;
+                        break;
+                    // MP-1…10: the town served to players with no window, on --port or the figures' own.
+                    case "--serve":
+                        options = options with { Serve = true };
+                        break;
+                    case "--port" when i + 1 < args.Length:
+                        options = options with { Port = int.Parse(args[i + 1]) };
+                        i++;
+                        break;
+                    // MP-11: the published page a served town hands out, when it is not the build's own.
+                    case "--page" when i + 1 < args.Length:
+                        options = options with { Page = args[i + 1] };
+                        i++;
+                        break;
                     case "--title" when i + 1 < args.Length:
                         options = options with { Title = args[i + 1], Caption = true };
                         i++;
@@ -1072,7 +1106,8 @@ internal static class Program
                                                     "--mend MAP, --park MAP, " +
                                                     "--bot FILE, --bot-car N, --bot-eye PX, --bot-view METRES, " +
                                                     "--bot-frames DIR, --bot-out FILE, --bot-waits, " +
-                                                    "--fleet ID,ID,..., --proof FILE.gif, --no-glow");
+                                                    "--fleet ID,ID,..., --proof FILE.gif, --no-glow, --serve, --port N, --page DIR, " +
+                                                    "--bake-sheets, --sheets rgba");
                 }
             }
 

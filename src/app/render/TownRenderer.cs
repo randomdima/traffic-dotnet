@@ -182,6 +182,9 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// <summary>The figures a selected unit's ring is drawn from, at each frame's zoom (<see cref="RingLook.At"/>).</summary>
     ViewFigures _ringFigures = new();
 
+    /// <summary>The colour a selected unit's ring is drawn in: the selection's, or a player's own (MP-15).</summary>
+    public Vector4 RingHue { get; set; } = Theme.SelectionMark;
+
     float _propLeastPx;
 
     uint _shownParts = GroundParts.All;
@@ -192,6 +195,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     Pipeline _spritePipeline;
     Pipeline _overlayPipeline;
     Pipeline _markPipeline;
+    Pipeline _markAbovePipeline;
     Pipeline _sceneryPipeline;
     Pipeline _cloudPipeline;
     ShaderModule _markVertexShader;
@@ -336,9 +340,15 @@ internal sealed unsafe partial class TownRenderer : IDisposable
             $"{vk.DeviceName} binds {vk.MaxUniformBufferRangeBytes} bytes of uniforms, and the sprite shader's table is {tableBytes}.");
 
         // Every sheet onto the layers of one array texture. What a sheet was is then a row of the table
-        // the vertex shader reads.
-        _atlas = SheetAtlas.Pack(sheetTextures);
-        _sheetPages = GpuTexture.Layered(vk, SheetAtlas.PagePx, SheetAtlas.PagePx, _atlas.Pages, _atlas.FillPage);
+        // the vertex shader reads. In BC7 where the device samples it and the build baked these very sheets.
+        var baked = BakedSheets.For(vk.CompressesBc ? SheetFormat.Bc7 : SheetFormat.Rgba, sheetTextures, out var why);
+        if (baked is null) Console.WriteLine($"the atlas is packed as pictures: {why}");
+        _atlas = SheetAtlas.Pack(sheetTextures, baked);
+        _sheetPages = baked is null
+            ? GpuTexture.Layered(vk, SheetAtlas.PagePx, SheetAtlas.PagePx, _atlas.Pages, _atlas.FillPage)
+            : GpuTexture.Layered(
+                vk, SheetAtlas.PagePx, SheetAtlas.PagePx, _atlas.Pages, Format.BC7UnormBlock, SheetAtlas.PageBlockBytes,
+                (page, into) => _atlas.FillBlocks(page, into, baked));
 
         // Read by every sprite's every corner and written once, so it is the device's own memory and not the host's.
         _sheetTable = vk.CreateBuffer(
@@ -473,28 +483,18 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     }
 
     /// <summary>
-    /// The marks laid since this image last drew, from the host's ring into the image's own: <b>only what is new</b>, the
-    /// ring whole only once it has turned over past what the image holds, or been cleared under it.
+    /// The knots written since this image last drew, from the host's ring into the image's own
+    /// (<see cref="DriftMarks.CopyChangedInto"/>): <b>only what changed</b>, the ring whole only once the log has turned
+    /// over past what the image holds, or been cleared under it.
     /// </summary>
     void CopyTheMarks(DriftMarks marks, int image)
     {
-        var rows = _markRows[image].Span<DriftMarkRow>();
-        var capacity = marks.Capacity;
-        if (capacity > rows.Length) return;
+        var rows = _markRows[image].Span<DriftKnot>();
+        if (marks.Capacity > rows.Length) return;
 
-        ref var copied = ref _marksCopied[image];
-        var total = marks.Total;
-        if (copied > total) copied = 0;
-
-        for (var mark = Math.Max(copied, total - capacity); mark < total; mark++)
-        {
-            var slot = (int)(mark % capacity);
-            rows[slot] = DriftMarkRow.Of(marks.At(slot));
-            _written += sizeof(DriftMarkRow);
-        }
-
-        copied = total;
-        _markRings[image].Span<DriftMarkRing>()[0] = DriftMarkRing.After(total, capacity);
+        var (from, to) = marks.CopyChangedInto(rows, ref _marksCopied[image]);
+        _written += (to - from) * sizeof(DriftKnot);
+        _markRings[image].Span<DriftMarkRing>()[0] = DriftMarkRing.After(marks.Total, marks.Capacity);
         _written += sizeof(DriftMarkRing);
     }
 
@@ -697,7 +697,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _cameras[image].Span<CameraView>()[0] = view with
         {
             SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, PropCull = _propCull,
-            CarTilt = _carTilt, Rings = RingLook.At(_ringFigures, view.ClipPerM, view.UiPx), Patches = _mesh.Patches,
+            CarTilt = _carTilt, Rings = RingLook.At(_ringFigures, view.ClipPerM, view.UiPx, RingHue), Patches = _mesh.Patches,
         };
         WriteTheGround((int)image);
         WrittenBytes = _written + sizeof(CameraView);

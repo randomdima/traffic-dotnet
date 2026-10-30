@@ -12,9 +12,9 @@ internal readonly record struct CrashRow(string Name, float EnergyKj, string Exp
 }
 
 /// <summary>
-/// The crash sandbox: nudges are harmless, fast hits kill and break, wrecks persist and
-/// get pushed — each of them staged at a closing speed <b>computed backwards from the energy band it
-/// is meant to land in</b>, so a case that passes for the wrong reason has nowhere to hide.
+/// The crash sandbox: nudges are harmless, fast hits knock down and break, wrecks persist and
+/// get pushed — each of them staged at a speed <b>computed backwards from the band it is meant to land
+/// in</b>, so a case that passes for the wrong reason has nowhere to hide.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -37,9 +37,8 @@ internal static class CrashProbe
     public static void Run(SimConfig config)
     {
         Console.WriteLine(
-            $"crash probe — a person goes down at {config.PersonCasualtyKj:F2} kJ, which is " +
-            $"{config.Damage.SlideToCasualtyM:F2} m of slide, and no harder outcome exists; " +
-            $"a car breaks at {config.Damage.CarWreckKj:F0} kJ");
+            $"crash probe — a person goes down to a vehicle moving into them faster than {config.Damage.KnockDownAboveMps:F1} m/s, " +
+            $"and no harder outcome exists; a car breaks at {config.Damage.CarWreckKj:F0} kJ");
         Console.WriteLine($"{"case",-28}{"kJ",8}  {"expected",-34}{"read",-34}{"",6}");
 
         var failed = 0;
@@ -57,9 +56,9 @@ internal static class CrashProbe
     /// <summary>Every staged case, run. The unit suite asserts on the same rows this prints.</summary>
     public static CrashRow[] Cases(SimConfig config) =>
     [
-        CarIntoPerson(config, "car brushes person", config.PersonCasualtyKj * 0.5f),
-        CarIntoPerson(config, "car knocks person down", config.PersonCasualtyKj * 1.5f),
-        CarIntoPerson(config, "car runs person over", config.Damage.CarWreckKj * 1.5f),
+        CarIntoPerson(config, "car pushes person", config.Damage.KnockDownAboveMps * 0.5f),
+        CarIntoPerson(config, "car knocks person down", config.Damage.KnockDownAboveMps * 1.5f),
+        CarIntoPerson(config, "car runs person over", RunsOverMps(config)),
         PersonIntoParkedCar(config),
         CarIntoCar(config, "cars nudge", config.Damage.CarWreckKj * 0.5f),
         CarIntoCar(config, "cars crash", config.Damage.CarWreckKj * 1.5f),
@@ -83,8 +82,7 @@ internal static class CrashProbe
     /// <remarks>
     /// <b>The approach is drag and the drag is not the case.</b> A coasting car sheds about 1.35 m/s²
     /// through its own tyres, so a staged run of four tenths of a second arrives a full 0.5 m/s down —
-    /// nothing at the speed that breaks a car, and the difference between two bands at the speed that
-    /// knocks somebody over (PER-23).
+    /// nothing at the speed that breaks a car, and well inside the margin either side of a push (PER-23).
     /// </remarks>
     static float GapM(float closingMps) => MathF.Max(0.02f, closingMps * 0.05f);
 
@@ -96,20 +94,24 @@ internal static class CrashProbe
 
     static string CarReads(CrashSandbox rig, int car) => rig.Cars.Broken[car] ? "broken" : "intact";
 
-    static CrashRow CarIntoPerson(SimConfig config, string name, float energyKj)
+    /// <summary>A car fast enough to break on a body, which is the hardest a car-and-person case is staged at.</summary>
+    static float RunsOverMps(SimConfig config) =>
+        ClosingMps(config.Damage.CarWreckKj * 1.5f, config.Car.MassKg, config.Person.MassKg);
+
+    static CrashRow CarIntoPerson(SimConfig config, string name, float carMps)
     {
-        var closingMps = ClosingMps(energyKj, config.Car.MassKg, config.Person.MassKg);
         using var rig = new CrashSandbox(config);
         var car = rig.AddCar(Vector2.Zero, 0f);
         var person = rig.AddPerson(
-            new Vector2(config.Car.LengthM * 0.5f + GapM(closingMps) + config.PersonDiameterM * 0.5f, 0f));
+            new Vector2(config.Car.LengthM * 0.5f + GapM(carMps) + config.PersonDiameterM * 0.5f, 0f));
 
-        rig.Launch(new BodyTag(BodyKind.Car, car), new Vector2(closingMps, 0f));
+        rig.Launch(new BodyTag(BodyKind.Car, car), new Vector2(carMps, 0f));
         Advance(rig, config);
 
-        // The car's own tolerance is in this pairing too: one rule and no special case, so a car that
-        // meets a body at the energy that breaks it against anything else breaks against this as well.
-        var toThePerson = energyKj >= config.PersonCasualtyKj ? "wounded" : "intact";
+        // The car's own tolerance is in this pairing too: a car that meets a body at the energy that breaks
+        // it against anything else breaks against this as well.
+        var energyKj = DamageResolver.EnergyKj(DamageResolver.ReducedMassKg(config.Car.MassKg, config.Person.MassKg), carMps);
+        var toThePerson = carMps > config.Damage.KnockDownAboveMps ? "wounded" : "intact";
         var toTheCar = energyKj >= config.Damage.CarWreckKj ? "broken" : "intact";
         return new CrashRow(
             name, energyKj, $"person {toThePerson}, car {toTheCar}",
@@ -117,24 +119,24 @@ internal static class CrashProbe
     }
 
     /// <summary>
-    /// PER-23's second sentence, which is a rule about the arithmetic and not about blame: <b>only the
-    /// closing speed and the two masses count, never who was moving.</b> The car stands still here and
-    /// the person arrives at it, and the outcome is the one the same energy gives the other way round.
+    /// PER-23's second sentence: <b>only the vehicle's own motion counts.</b> The car stands still here and
+    /// the person arrives at it many times faster than a push — at half the energy that breaks the car, so the
+    /// car's own band is not what the row reads — and stays on their feet.
     /// </summary>
     static CrashRow PersonIntoParkedCar(SimConfig config)
     {
-        var energyKj = config.PersonCasualtyKj * 1.5f;
-        var closingMps = ClosingMps(energyKj, config.Car.MassKg, config.Person.MassKg);
+        var energyKj = config.Damage.CarWreckKj * 0.5f;
+        var personMps = ClosingMps(energyKj, config.Car.MassKg, config.Person.MassKg);
         using var rig = new CrashSandbox(config);
         var car = rig.AddCar(Vector2.Zero, 0f);
         var person = rig.AddPerson(
-            new Vector2(-(config.Car.LengthM * 0.5f + GapM(closingMps) + config.PersonDiameterM * 0.5f), 0f));
+            new Vector2(-(config.Car.LengthM * 0.5f + GapM(personMps) + config.PersonDiameterM * 0.5f), 0f));
 
-        rig.Launch(new BodyTag(BodyKind.Person, person), new Vector2(closingMps, 0f));
+        rig.Launch(new BodyTag(BodyKind.Person, person), new Vector2(personMps, 0f));
         Advance(rig, config);
 
         return new CrashRow(
-            "person shoved into car", energyKj, "person wounded, car intact",
+            "person shoved into car", energyKj, "person intact, car intact",
             $"person {PersonReads(rig, person)}, car {CarReads(rig, car)}");
     }
 

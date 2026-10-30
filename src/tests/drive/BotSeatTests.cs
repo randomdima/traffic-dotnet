@@ -32,7 +32,7 @@ public class BotSeatTests(StandingTown town) : IClassFixture<StandingTown>
     {
         var hands = new BotHands(world, Config, car, ".tmp/bot", viewM: 45f);
         hands.Take(DriveScript.Read(step)[0]);
-        world.HandOnCar(car, hands.Hand);
+        world.HandOnCar(BotSeat.Seat, car, hands.Hand);
         return hands;
     }
 
@@ -92,7 +92,7 @@ public class BotSeatTests(StandingTown town) : IClassFixture<StandingTown>
         Assert.True(hands.Hand.Held);
         Assert.Equal(0f, hands.Hand.Throttle);
 
-        world.HandOnCar(0, hands.Hand);
+        world.HandOnCar(BotSeat.Seat, 0, hands.Hand);
         Assert.True(world.WheelIsHeldOver(0));
     }
 

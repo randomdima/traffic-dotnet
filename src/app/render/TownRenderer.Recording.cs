@@ -21,7 +21,7 @@ internal sealed unsafe partial class TownRenderer
         CreateGroundPipeline();
         CreateSpritePipeline();
         CreateOverlayPipeline();
-        CreateMarkPipeline();
+        CreateMarkPipelines();
         CreateSceneryPipeline();
         CreateCloudPipeline();
 
@@ -178,7 +178,7 @@ internal sealed unsafe partial class TownRenderer
         // The marks' copy starts empty and is filled whole by the first frame drawn into it; the scenery's runs hold none
         // until a frame writes them.
         _markRows[image] = _vk.CreateBuffer(
-            (ulong)(Room.Marks * sizeof(DriftMarkRow)), BufferUsageFlags.StorageBufferBit, HostAccess.Streams);
+            (ulong)(Room.Marks * sizeof(DriftKnot)), BufferUsageFlags.StorageBufferBit, HostAccess.Streams);
         _markRings[image] = _vk.CreateBuffer(
             (ulong)sizeof(DriftMarkRing), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.IndirectBufferBit, HostAccess.Streams);
         _markRings[image].Span<DriftMarkRing>()[0] = DriftMarkRing.After(0, Room.Marks);
@@ -259,7 +259,14 @@ internal sealed unsafe partial class TownRenderer
         Vk.Check(api.BeginCommandBuffer(commands, &begin), "vkBeginCommandBuffer");
 
         // What moves, emitted on the device ahead of the pass that draws it, where the device emits it.
-        _emit?.Record(commands, image);
+        if (_emit is { } emit)
+        {
+            emit.Record(commands, image);
+            _vk.Barrier(
+                commands, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageWriteBit,
+                PipelineStageFlags2.DrawIndirectBit | PipelineStageFlags2.VertexAttributeInputBit,
+                AccessFlags2.IndirectCommandReadBit | AccessFlags2.VertexAttributeReadBit);
+        }
 
         // The engine's own tables drawn as quads, and what the pointer is over read out to the host.
         if (_engine is { } engine)
@@ -335,7 +342,7 @@ internal sealed unsafe partial class TownRenderer
         api.CmdDrawIndirect(commands, _underlayIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
         DrawTheEngine(commands, EngineRun.Ground);
 
-        // What lies under everything that stands, in painter's order: the marks, out of their ring and as many as its
+        // What lies under everything that stands, in painter's order: the ground's marks, out of their ring and as many as its
         // words say (the device's own ring, or this image's copy of the host's), then the scenery, out of its pieces by
         // the runs this image's frame wrote. Neither has a vertex buffer: each instance reads its own row.
         var markRing = (_deviceMarks?.Ring ?? _markRings[image]).Handle;
@@ -386,6 +393,11 @@ internal sealed unsafe partial class TownRenderer
         api.CmdDrawIndirect(
             commands, _underlayIndirect[image].Handle, (ulong)sizeof(DrawIndirectCommand), 1, (uint)sizeof(DrawIndirectCommand));
         DrawTheEngine(commands, EngineRun.Above);
+
+        Vk.Count();
+        api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _markAbovePipeline);
+        Vk.Count();
+        api.CmdDrawIndirect(commands, markRing, 0, 1, (uint)sizeof(DrawIndirectCommand));
 
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);
@@ -592,6 +604,13 @@ internal sealed unsafe partial class TownRenderer
             Vk.Count();
             api.DestroyPipeline(_vk.Device, _markPipeline, null);
             _markPipeline = default;
+        }
+
+        if (_markAbovePipeline.Handle != 0)
+        {
+            Vk.Count();
+            api.DestroyPipeline(_vk.Device, _markAbovePipeline, null);
+            _markAbovePipeline = default;
         }
 
         if (_sceneryPipeline.Handle != 0)

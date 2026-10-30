@@ -61,7 +61,7 @@ public class GroundMarkTests
         var brake = new HandInput(Held: true, Throttle: -1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero);
         for (var tick = 0; tick < StopS * 60 && world.Marks.Count == 0; tick++)
         {
-            world.HandOnCar(car, brake);
+            world.HandOnCar(0, car, brake);
             loop.Advance(1);
         }
 

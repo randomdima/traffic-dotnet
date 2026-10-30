@@ -219,6 +219,47 @@ internal sealed class PavementLanes
         }
     }
 
+    /// <summary>
+    /// <b>The same lanes with every stretch where <paramref name="off"/> holds walked by nobody too</b> — its own gaps
+    /// beside those already there, and no turn at them: what joins their ends is the caller's (<see cref="DeckWalks"/>).
+    /// </summary>
+    /// <param name="off">Whether a point of a lane's ring is walked by nobody, the lane given.</param>
+    public PavementLanes GappedWhere(Func<int, Vector2, bool> off, SimConfig config)
+    {
+        var stepM = config.WalkingLaneWidthM * StepsAWalkingLane;
+        var gaps = new (float FromM, float ToM)[_rings.Length][][];
+        for (var lane = 0; lane < _rings.Length; lane++)
+        {
+            gaps[lane] = new (float, float)[_rings[lane].Length][];
+            for (var ring = 0; ring < _rings[lane].Length; ring++)
+            {
+                var onLane = lane;
+                var more = Gaps(_rings[lane][ring], stepM, atM => off(onLane, atM));
+                gaps[lane][ring] = more.Length == 0 ? _gaps[lane][ring] : Merged(_gaps[lane][ring], more);
+            }
+        }
+
+        return new PavementLanes(_rings, _loose, _offsetM, _runsWithTheRing, gaps, _turns);
+    }
+
+    /// <summary>Two runs of stretches along one ring, each in order, as the one run in order they cover together.</summary>
+    static (float FromM, float ToM)[] Merged(ReadOnlySpan<(float FromM, float ToM)> one, ReadOnlySpan<(float FromM, float ToM)> other)
+    {
+        var all = new List<(float FromM, float ToM)>(one.Length + other.Length);
+        foreach (var gap in one) all.Add(gap);
+        foreach (var gap in other) all.Add(gap);
+        all.Sort(static (a, b) => a.FromM.CompareTo(b.FromM));
+
+        var merged = new List<(float FromM, float ToM)>(all.Count);
+        foreach (var gap in all)
+        {
+            if (merged.Count > 0 && gap.FromM <= merged[^1].ToM) merged[^1] = (merged[^1].FromM, MathF.Max(merged[^1].ToM, gap.ToM));
+            else merged.Add(gap);
+        }
+
+        return [.. merged];
+    }
+
     /// <summary>The turns across the walk, from each of one lane's ends to the other's beside it.</summary>
     (Vector2 OneM, Vector2 OtherM)[] Turned(List<Vector2>[] ends, SimConfig config)
     {

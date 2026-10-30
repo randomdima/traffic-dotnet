@@ -7,10 +7,10 @@ facings by `qq sprites cut`. `cast --sheet=S` writes the brief for a cast frame,
 looks standing, 3×3, read left to right, top to bottom. `orbit ID --cast=FRAME:N` lays figure N of it on a green or
 blue screen (`screen_for`) as `.tmp/gen/templates/walkorbit_<id>.png`, writes ORBIT spoken of the look its variant
 file describes as `.tmp/gen/briefs/walkorbit_<id>.txt`, and prints the remotegen call and the cut, keep and use after
-it. `down ID --cast=FRAME:N` keeps the same figure as the look's down picture and installs it:
+it. A look down in the road is its walk sheet's stance, reddened by the engine (PER-18), so nothing else is drawn:
 
     qq walkers scaffold --sheet=service_a && qq walkers cast --sheet=service_a
-    qq walkers orbit police_a --cast=walkers_service_a-v1:1 && qq walkers down police_a --cast=walkers_service_a-v1:1
+    qq walkers orbit police_a --cast=walkers_service_a-v1:1
 
 `brief` below is the frame flow it replaced — a walk drawn as a 3:2 sheet of stills — kept for a look a clip cannot
 make. A plan is a markdown file of `## sheet <frame>` sections, each one table `id | kind | height | describe`: `kind` is
@@ -23,8 +23,8 @@ rows (`_walkers`), so one look walks in eight frames, two in four each — and f
 `walkers_<sheet>.cells.json`, lays the two pictures sent — the style picture (`qq sprites style`, STYLE_IDS) and the
 pose guide (`_walkers.pose_guide`; the owner, 2026-10-27) — and prints the remotegen call.
 `scaffold` writes `assets/agents/person/variants/<id>/<id>.json` for a sheet's looks (or every look), keeping the
-pictures an existing file names; a look joins its catalogue by hand, once its walk and down pictures are both installed.
-`status` names each look's walk and down picture and what it traces to. `preview IDS` writes each installed look's
+pictures an existing file names; a look joins its catalogue by hand, once its walk is installed.
+`status` names each look's walk picture and what it traces to. `preview IDS` writes each installed look's
 sheet walking its eight facings, `.tmp/gen/walkers/<id>_walk.gif`, as the engine picks its cells.
 
     qq walkers scaffold --sheet=guide_a && qq walkers brief --sheet=guide_a     # prints the remotegen call
@@ -134,10 +134,8 @@ three every second, never a run. Flat {screen} background.
 """
 
 #: The cast frame (`walkers_cast_b-v2`'s wording): nine looks standing on one transparent 3:2 sheet, the front picture
-#: each look's orbit clip starts from and the picture it lies down as.
+#: each look's orbit clip starts from.
 CAST_LOOKS, CAST_COLS = 9, 3
-#: A look's down picture's id, an asset of its own beside the look's walk.
-DOWN = "_down"
 CAST_STYLE = """\
 One image is attached: finished art from the same 2D city game, cars seen from above. Match its finish and light only \
 — not its contents, colours or scale."""
@@ -212,8 +210,6 @@ def main():
         return preview(base, a.ids)
     if a.action == "orbit":
         return orbit(base, a.ids, a.cast)
-    if a.action == "down":
-        return down(base, a.ids, a.cast)
     sheets = read_plan(paths.resolve_in_root(a.plan, base))
     if a.sheet and a.sheet not in sheets:
         cli.fail(f"the plan has no sheet {a.sheet}: {', '.join(sheets)}")
@@ -241,13 +237,12 @@ def parse_args():
         allow_abbrev=False,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("action", choices=["cast", "orbit", "down", "brief", "scaffold", "status", "preview"],
-                        help="cast: a sheet of nine looks' front pictures | orbit: one look's clip brief | down: keep "
-                             "and install a look's down picture | brief one sheet | scaffold variant files | status | "
-                             "preview installed looks")
-    parser.add_argument("ids", nargs="*", help="orbit, down: the one look; preview: the looks to preview")
+    parser.add_argument("action", choices=["cast", "orbit", "brief", "scaffold", "status", "preview"],
+                        help="cast: a sheet of nine looks' front pictures | orbit: one look's clip brief | brief one "
+                             "sheet | scaffold variant files | status | preview installed looks")
+    parser.add_argument("ids", nargs="*", help="orbit: the one look; preview: the looks to preview")
     parser.add_argument("--cast", default="", metavar="FRAME:N",
-                        help="orbit, down: the cast frame the look's front picture is figure N of (walkers_cast_b-v2:3)")
+                        help="orbit: the cast frame the look's front picture is figure N of (walkers_cast_b-v2:3)")
     parser.add_argument("--photos", default="",
                         help=f"cast: photos of real people under {PHOTOS}, one a look in plan order, cropped to the "
                              "person; the looks are drawn after them in one row")
@@ -289,8 +284,7 @@ def path_of(i: str) -> Path:
 def scaffold(base, r) -> str:
     path = base / path_of(r["id"])
     old = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
-    d = {"id": r["id"], "sheet": old.get("sheet", f"{r['id']}.webp"), "down": old.get("down", f"{r['id']}_down.webp"),
-         "heightM": r["heightM"], "describe": r["describe"]}
+    d = {"id": r["id"], "sheet": old.get("sheet", f"{r['id']}.webp"), "heightM": r["heightM"], "describe": r["describe"]}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(d, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     listed = f"../{r['id']}/{r['id']}.json" in json.loads((base / CATALOGS[r["kind"]]).read_text(encoding="utf-8"))["variants"]
@@ -366,7 +360,7 @@ def cast(base, sheet, rows, photos):
     print(f"{_sim.rel(base, out)}: {len(rows)} looks; ids in {_sim.rel(base, cells)}")
     print(".claude/skills/remotegen/remotegen.py edit " + " ".join(f"--image {i}" for i in images)
           + f" --cells {BRIEFS / cells.name} -p \"$(cat {BRIEFS / out.name})\" --aspect 3:2 --name {frame}")
-    print(f"then per look: qq walkers orbit ID --cast={frame}-v1:N && qq walkers down ID --cast={frame}-v1:N")
+    print(f"then per look: qq walkers orbit ID --cast={frame}-v1:N")
 
 
 def cast_figure(base, cast_ref):
@@ -397,59 +391,6 @@ def described(base, i):
     if not path.is_file():
         cli.fail(f"no variant file {path_of(i)}: `qq walkers scaffold` it from the plan first")
     return path
-
-
-def down(base, ids, cast_ref):
-    """A look's down picture is its cast figure (the owner, 2026-10-28): kept whole as `<id>_down-vN` under the look's
-    raw folder, the way a car's wreck is `<car>_broken`, then turned head along +x (`PersonSprites.Fill`), its width the
-    look's `heightM` at the art grid, and installed as `<id>_down.webp` with its `.src.json`."""
-    import time
-
-    import sprites
-    from PIL import Image, PngImagePlugin
-
-    if len(ids) != 1:
-        cli.fail("down keeps one look's: name it")
-    i = ids[0]
-    path = described(base, i)
-    d = json.loads(path.read_text(encoding="utf-8"))
-    frame, n, figure = cast_figure(base, cast_ref)
-    sprites.frame_record(base, frame)
-    name_id = f"{i}{DOWN}"
-    folder = sprites.raw_dir(base, path, i) / name_id
-    folder.mkdir(parents=True, exist_ok=True)
-    version = 1 + max((int(m.group(2)) for p in folder.glob(f"{name_id}-v*.png")
-                       if (m := sprites.VERSIONED.fullmatch(p.stem))), default=0)
-    name = f"{name_id}-v{version}"
-    px_per_m = round(figure.height / float(d["heightM"]), 3)
-    info = PngImagePlugin.PngInfo()
-    info.add_text("cut", json.dumps({"frame": frame, "cell": n, "pxPerM": px_per_m}))
-    figure.save(folder / f"{name}.png", pnginfo=info)
-    sprites.append(folder / sprites.VARIANTS, {"variant": name, "frame": frame, "cell": n, "pxPerM": px_per_m,
-                                               "status": "candidate", "ts": time.strftime("%Y-%m-%dT%H:%M:%S")})
-    for kept in sprites.keep_lineage(base, frame):
-        print(f"  lineage: {kept}")
-
-    density = sprites.grid(sprites.art.read_figures(base), _sim.rel(base, path))
-    lying = figure.transpose(Image.Transpose.ROTATE_270)
-    width = round(float(d["heightM"]) * density)
-    shrunk = sprites.without_dust(sprites.art.shrink(lying, (width, max(1, round(lying.height * width / lying.width)))))
-    data, how = sprites.art.encode(shrunk, "webp", sprites.WEBP_ERROR)
-    now, was = f"{name_id}.webp", d["down"]
-    if was != now:
-        path.write_text(path.read_text(encoding="utf-8").replace(f'"down": "{was}"', f'"down": "{now}"'),
-                        encoding="utf-8")
-        if "/" not in was:
-            (path.parent / was).unlink(missing_ok=True)
-    (path.parent / now).write_bytes(data)
-    (path.parent / f"{name_id}{sprites.SOURCE}").write_text(
-        json.dumps({"variant": _sim.rel(base, folder / f"{name}.png"), "pxPerM": round(density, 2),
-                    "encoding": f"webp {how}"}, indent=1) + "\n", encoding="utf-8")
-    sprites.mark_used(folder / sprites.VARIANTS, name)
-    sprites.off_legacy(base, {_sim.rel(base, path.parent / was), _sim.rel(base, path.parent / now)})
-    print(f"{_sim.rel(base, path.parent / now)} <- {name} (figure {n} of {frame}): {shrunk.width}x{shrunk.height} px "
-          f"at {density:.1f} px/m (webp {how})")
-    return 0
 
 
 def screen_for(figure):
@@ -514,15 +455,12 @@ def status(base, sheets):
             if not path.is_file():
                 print(f"  {r['id']:<20} no variant file: `qq walkers scaffold --sheet={name}`")
                 continue
-            d = json.loads(path.read_text(encoding="utf-8"))
-            parts = []
-            for key in ("sheet", "down"):
-                picture = path.parent / d[key]
-                source = picture.with_name(Path(d[key]).stem + ".src.json")
-                parts.append(f"{key} " + ("missing" if not picture.is_file()
-                                          else json.loads(source.read_text(encoding="utf-8"))["variant"] if source.is_file()
-                                          else "legacy"))
-            print(f"  {r['id']:<20} {', '.join(parts)}")
+            sheet = json.loads(path.read_text(encoding="utf-8"))["sheet"]
+            picture = path.parent / sheet
+            source = picture.with_name(Path(sheet).stem + ".src.json")
+            print(f"  {r['id']:<20} sheet " + ("missing" if not picture.is_file()
+                                               else json.loads(source.read_text(encoding="utf-8"))["variant"] if source.is_file()
+                                               else "legacy"))
 
 
 def preview(base, ids):

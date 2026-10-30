@@ -47,6 +47,9 @@ internal sealed class TownRenderer : IDisposable
     const int TableStream = 6;
     const int StandingStream = 7;
     const int FanStream = 8;
+    const int MarkKnotsStream = 9;
+    const int MarkRingStream = 10;
+    const int MarkLookStream = 11;
 
     const int PagesTexture = 0;
     const int GlyphTexture = 1;
@@ -109,10 +112,18 @@ internal sealed class TownRenderer : IDisposable
         WebGpu.Reserve(UnderlayStream, _underlay.Length, WebGpu.Vertex);
         WebGpu.Reserve(CameraStream, CameraBytes, WebGpu.Uniform);
         WebGpu.Reserve(FanStream, FanTable.Words * sizeof(uint), WebGpu.Uniform);
+        WebGpu.Reserve(MarkKnotsStream, Room.Marks * Unsafe.SizeOf<DriftKnot>(), WebGpu.Storage);
+        _markRing[0] = DriftMarkRing.After(0, Room.Marks);
+        WebGpu.Buffer(MarkRingStream, MemoryMarshal.AsBytes(_markRing.AsSpan()), WebGpu.Storage | WebGpu.Indirect);
 
         // Every sheet onto the layers of one array texture. The table is laid to the shader's full
-        // length, so a slot nothing uses is zero.
-        _atlas = SheetAtlas.Pack(sheetTextures);
+        // length, so a slot nothing uses is zero. Out of the blocks the page fetched in place of the pictures, where it
+        // did — and a page that fetched them holds no picture to pack instead.
+        var baked = BakedSheets.Fetched;
+        if (baked is not null && !baked.Matches(sheetTextures, out var why))
+            throw new InvalidOperationException($"The page's compressed sheets are not this build's: {why}.");
+
+        _atlas = SheetAtlas.Pack(sheetTextures, baked);
         var table = new SheetPlace[SheetAtlas.Slots];
         _atlas.Places.CopyTo(table, 0);
         WebGpu.Buffer(TableStream, MemoryMarshal.AsBytes(table.AsSpan()), WebGpu.Uniform);
@@ -159,23 +170,69 @@ internal sealed class TownRenderer : IDisposable
         _carTilt = new Vector4(
             looks.FirstCarSheet, looks.FirstCarSheet + (2 * looks.Cars.SheetCount), view.CarTiltEyeHeightM, 0f);
         _ringFigures = view;
+
+        // Buffers given anew, which the Rebuild below binds.
+        WebGpu.Buffer(MarkLookStream, Bytes<MarkLook>([looks.MarkLook]), WebGpu.Uniform);
         var standing = looks.Standing.Instances;
         var count = Math.Min(standing.Length, Math.Max(1, Room.Standing));
-        if (count == 0) return;
+        if (count > 0)
+        {
+            WebGpu.Buffer(FanStream, MemoryMarshal.AsBytes(looks.Fans.AsSpan()), WebGpu.Uniform);
+            WebGpu.Buffer(StandingStream, Bytes<SpriteInstance>(standing.Span[..count]), WebGpu.Vertex);
+        }
 
-        // A buffer given anew, which the Rebuild below binds.
-        WebGpu.Buffer(FanStream, MemoryMarshal.AsBytes(looks.Fans.AsSpan()), WebGpu.Uniform);
-
-        WebGpu.Buffer(StandingStream, Bytes<SpriteInstance>(standing.Span[..count]), WebGpu.Vertex);
         Rebuild();
     }
 
-    /// <summary>What lies under everything that stands, written as instances into the run under it; answers how many.</summary>
-    public int FillUnder(DriftMarks marks, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre) =>
-        _underCount = _looks?.FillUnder(marks, viewCentreM, viewSpanM, SpritesUnder) ?? 0;
+    /// <summary>
+    /// What lies under everything that stands: the scenery, written as instances into the run under it, and — where the
+    /// device does not keep the ring (<see cref="DrawTheMarksFrom"/>) — the knots of the host's written since the last
+    /// frame, for <see cref="Frame"/> to hand the page's copy. Answers how many instances.
+    /// </summary>
+    public int FillUnder(DriftMarks marks, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+    {
+        if (!_deviceMarks && marks.Capacity <= Room.Marks)
+        {
+            _markKnots ??= new DriftKnot[Room.Marks];
+            var (from, to) = marks.CopyChangedInto(_markKnots, ref _marksCopied);
+            if (from < to)
+            {
+                _markRange = _markRange.From < _markRange.To
+                    ? (Math.Min(from, _markRange.From), Math.Max(to, _markRange.To))
+                    : (from, to);
+            }
+
+            _markRing[0] = DriftMarkRing.After(marks.Total, marks.Capacity);
+        }
+
+        return _underCount = _looks?.FillUnder(viewCentreM, viewSpanM, SpritesUnder) ?? 0;
+    }
+
+    /// <summary>
+    /// <b>The marks drawn out of the device's own ring</b> (<c>DeviceWorld.GroundMarks</c>) from the next frame on, in place
+    /// of the page's copy of the host's.
+    /// </summary>
+    public void DrawTheMarksFrom(GpuBuffer knots, GpuBuffer ring)
+    {
+        _deviceMarks = true;
+        WebGpu.DeviceMarks(knots.Id, ring.Id);
+    }
 
     TownSprites? _looks;
     int _underCount;
+
+    /// <summary>Whether the device keeps the ring the marks are drawn out of, so the host's is not copied.</summary>
+    bool _deviceMarks;
+
+    /// <summary>The page's copy of the host's ring as this side holds it, laid by the first frame that copies it.</summary>
+    DriftKnot[]? _markKnots;
+
+    long _marksCopied;
+
+    /// <summary>The run of places copied since the last frame handed them over, from and past.</summary>
+    (int From, int To) _markRange;
+
+    readonly DriftMarkRing[] _markRing = new DriftMarkRing[1];
 
     /// <summary>The car bodies' sheets from and past, and the height their tilt is seen from (<see cref="CameraView.CarTilt"/>).</summary>
     Vector4 _carTilt;
@@ -183,12 +240,28 @@ internal sealed class TownRenderer : IDisposable
     /// <summary>The figures a selected unit's ring is drawn from, at each frame's zoom (<see cref="RingLook.At"/>).</summary>
     ViewFigures _ringFigures = new();
 
+    /// <summary>The colour a selected unit's ring is drawn in: the selection's, or a player's own (MP-15).</summary>
+    public Vector4 RingHue { get; set; } = Theme.SelectionMark;
+
     /// <summary>
     /// <b>The engine's own tables drawn where its kernels wrote them</b> (<see cref="IEngineDraw"/>), from the next frame on —
     /// its kernels run in a batch of their own ahead of each frame (<c>Game.Web.cs</c>) — or none of it, for <c>null</c>.
     /// </summary>
     public void DrawTheEngineFrom(IEngineDraw? engine) =>
         WebGpu.Engine(engine?.Quads.Id ?? 0, engine?.Draws.Id ?? 0, (engine?.RunRoom ?? 0) * Unsafe.SizeOf<OverlayQuad>());
+
+    /// <summary>
+    /// <b>What moves drawn where the device's emit wrote it</b> (<see cref="IMovingEmit"/>), from the next frame on — the
+    /// emit run in a batch of its own ahead of each frame (<c>Game.Web.cs</c>) — in place of <see cref="SpritesOver"/> and
+    /// <see cref="SpritesAbove"/>, whose counts are then not read.
+    /// </summary>
+    public void DrawTheMovingFrom(IMovingEmit emit) =>
+        WebGpu.Moving(emit.Instances.Id, emit.Draws.Id, emit.AboveFrom * Unsafe.SizeOf<SpriteInstance>());
+
+    /// <summary>What a frame had written for it besides the runs and quads <see cref="Frame"/> counts — the emit's words.</summary>
+    public void Wrote(long bytes) => _wroteBesides += bytes;
+
+    long _wroteBesides;
 
     /// <summary>The recording again, over the buffers as they now are: a buffer given anew is a buffer the last recording does not read.</summary>
     void Rebuild() => WebGpu.Rebuild(
@@ -271,11 +344,21 @@ internal sealed class TownRenderer : IDisposable
         var camera = view with
         {
             SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, CarTilt = _carTilt,
-            Rings = RingLook.At(_ringFigures, view.ClipPerM, view.UiPx), Patches = _mesh.Patches,
+            Rings = RingLook.At(_ringFigures, view.ClipPerM, view.UiPx, RingHue), Patches = _mesh.Patches,
         };
         MemoryMarshal.Write(_camera, in camera);
+        var knotBytes = Unsafe.SizeOf<DriftKnot>();
+        var (markFrom, markTo) = _markRange;
+        _markRange = default;
+        var markKnots = _markKnots is { } knots
+            ? MemoryMarshal.AsBytes(knots.AsSpan(markFrom, markTo - markFrom))
+            : Span<byte>.Empty;
+        var markRing = _deviceMarks ? Span<byte>.Empty : MemoryMarshal.AsBytes(_markRing.AsSpan());
         WrittenBytes = CameraBytes + ((long)(counts.Under + counts.Over + counts.Above) * size)
-                       + ((long)(_overlayCount + _underlayCount + _underlayAboveCount) * quad);
+                       + ((long)(_overlayCount + _underlayCount + _underlayAboveCount) * quad) + _wroteBesides
+                       + markKnots.Length + markRing.Length;
+        _wroteBesides = 0;
+        _frameCounts[WebGpu.FrameCount.MarkKnotsAt] = markFrom * knotBytes;
         _frameCounts[WebGpu.FrameCount.Under] = counts.Under;
         _frameCounts[WebGpu.FrameCount.StandingFirst] = counts.StandingFirst;
         _frameCounts[WebGpu.FrameCount.Standing] = counts.StandingCount;
@@ -292,6 +375,8 @@ internal sealed class TownRenderer : IDisposable
             _overlay.AsSpan(0, _overlayCount * quad),
             _underlay.AsSpan(0, _underlayCount * quad),
             _underlay.AsSpan(UnderlayCapacity * quad, _underlayAboveCount * quad),
+            markKnots,
+            markRing,
             _frameCounts);
     }
 
@@ -326,6 +411,18 @@ internal sealed class TownRenderer : IDisposable
     /// </summary>
     void Pages()
     {
+        if (BakedSheets.Fetched is { } baked)
+        {
+            var boxes = new List<int>();
+            foreach (var (onPage, x, y, blocks) in _atlas.Boxes())
+            {
+                boxes.AddRange([onPage, x, y, blocks.BoxWidthPx, blocks.BoxHeightPx, checked((int)blocks.At)]);
+            }
+
+            WebGpu.SheetBlocks(PagesTexture, (int)baked.Format, _atlas.Pages, baked.BlocksPath, CollectionsMarshal.AsSpan(boxes));
+            return;
+        }
+
         var page = new byte[SheetAtlas.PagePx * SheetAtlas.PagePx * Unsafe.SizeOf<Texel>()];
         var texels = MemoryMarshal.Cast<byte, Texel>(page.AsSpan());
         for (var at = 0; at < _atlas.Pages; at++)

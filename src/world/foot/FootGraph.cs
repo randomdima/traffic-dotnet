@@ -55,6 +55,7 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     readonly float[] _edgeLengthM;
     readonly float[] _edgeBandM;
     readonly FootEdgeKind[] _edgeKind;
+    readonly byte[] _edgeChannels;
     readonly int[] _edgeArcOffsets;
     readonly ArcSeg[] _edgeArcs;
     readonly int[] _nodeOutOffsets;
@@ -77,8 +78,8 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
 
     FootGraph(
         Vector2[] nodeM, int[] edgeFrom, int[] edgeTo, float[] edgeLengthM, float[] edgeBandM,
-        FootEdgeKind[] edgeKind, int[] edgeArcOffsets, ArcSeg[] edgeArcs, int[] nodeOutOffsets, int[] nodeOutEdges,
-        int[] nodeInOffsets, int[] nodeInEdges, GridLevel nearestLevel)
+        FootEdgeKind[] edgeKind, byte[] edgeChannels, int[] edgeArcOffsets, ArcSeg[] edgeArcs, int[] nodeOutOffsets,
+        int[] nodeOutEdges, int[] nodeInOffsets, int[] nodeInEdges, GridLevel nearestLevel)
     {
         _nodeM = nodeM;
         _edgeFrom = edgeFrom;
@@ -86,6 +87,7 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
         _edgeLengthM = edgeLengthM;
         _edgeBandM = edgeBandM;
         _edgeKind = edgeKind;
+        _edgeChannels = edgeChannels;
         _edgeArcOffsets = edgeArcOffsets;
         _edgeArcs = edgeArcs;
         _nodeOutOffsets = nodeOutOffsets;
@@ -144,6 +146,12 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     public float BandM(int edge) => _edgeBandM[edge];
 
     public FootEdgeKind KindOf(int edge) => _edgeKind[edge];
+
+    /// <summary>
+    /// <b>The collision channels a stretch is on</b> (PHY-1a): the ground's, a deck's for its own walk, and both for a joint
+    /// between the two (WLK-1b, <see cref="DeckWalks"/>).
+    /// </summary>
+    public byte ChannelsOf(int edge) => _edgeChannels[edge];
 
     /// <summary>The stretch's own line, in the direction this edge is walked.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int edge) =>
@@ -212,46 +220,23 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     {
         var pavement = PavementLanes.Of(plan, config);
         var crossings = CrossingWays.Of(plan, pavement, config);
-        return Build(pavement.EndedAtTheCrossings(crossings, config), crossings, config);
+        var (ground, decks) = DeckWalks.Of(plan, pavement.EndedAtTheCrossings(crossings, config), config);
+        return Build(ground, crossings, config, decks);
     }
 
     /// <summary>
     /// The same, off a pavement and a set of crossings somebody already holds — the pavement ended at them
-    /// (<see cref="PavementLanes.EndedAtTheCrossings"/>), or not where a reader asks for the walk as laid.
+    /// (<see cref="PavementLanes.EndedAtTheCrossings"/>), or not where a reader asks for the walk as laid — and the walk
+    /// across the decks over other roads, where there is any (WLK-1b).
     /// </summary>
-    public static FootGraph Build(PavementLanes pavement, CrossingWays crossings, SimConfig config)
+    public static FootGraph Build(PavementLanes pavement, CrossingWays crossings, SimConfig config, DeckWalks? decks = null)
     {
         var weldM = config.Network.FootGraphNodeWeldM;
         var builder = new Builder(weldM, config.Grid);
         var bandM = config.WalkingLaneWidthM;
         Span<ArcSeg> one = stackalloc ArcSeg[1];
-        Span<ArcSeg> turned = stackalloc ArcSeg[1];
         var pieces = new List<ArcSeg>();
-        for (var lane = 0; lane < pavement.Count; lane++)
-        {
-            var withTheRing = pavement.RunsWithTheRing(lane);
-            var rings = pavement.RingsOf(lane);
-            for (var ring = 0; ring < rings.Length; ring++)
-            {
-                Parted(rings[ring], crossings.PartedOn(lane, ring), pavement.GapsOf(lane, ring), weldM, pieces);
-                for (var at = 0; at < pieces.Count; at++)
-                {
-                    // Walked against its ring, a lane is the same pieces in the opposite order and each of
-                    // them turned round: the line is the ground, and the direction is which way a body is
-                    // held on it.
-                    if (withTheRing)
-                    {
-                        one[0] = pieces[at];
-                        builder.AddLane(one, bandM, FootEdgeKind.Pavement);
-                        continue;
-                    }
-
-                    one[0] = pieces[pieces.Count - 1 - at];
-                    Spline.ReverseInto(one, turned);
-                    builder.AddLane(turned, bandM, FootEdgeKind.Pavement);
-                }
-            }
-        }
+        AddTheLanes(pavement, crossings, CityPlan.RoadArrays.GroundChannel);
 
         // And the crossings' own ways, which begin and end at the places they parted (WLK-15): the same
         // points, so the weld joins them to the walk rather than standing a second node beside it.
@@ -269,7 +254,54 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
             builder.AddLane(one, bandM, FootEdgeKind.Pavement);
         }
 
+        // And the decks' own walk on their own channel, and the joints up onto it and down off it (WLK-1b).
+        if (decks is { } raised)
+        {
+            var deck = CityPlan.RoadArrays.ChannelOf(CityPlan.RoadArrays.Over);
+            AddTheLanes(raised.Lanes, CrossingWays.None, deck);
+            foreach (var joint in raised.Joints)
+            {
+                var alongM = joint.ToM - joint.FromM;
+                one[0] = new ArcSeg(joint.FromM, MathF.Atan2(alongM.Y, alongM.X), alongM.Length(), 0f);
+                var (fromChannels, toChannels) = joint.Up
+                    ? (CityPlan.RoadArrays.GroundChannel, deck)
+                    : (deck, CityPlan.RoadArrays.GroundChannel);
+                builder.AddLane(one, bandM, FootEdgeKind.Pavement, fromChannels, toChannels);
+            }
+        }
+
         return builder.Lay();
+
+        void AddTheLanes(PavementLanes lanes, CrossingWays parting, byte channels)
+        {
+            Span<ArcSeg> piece = stackalloc ArcSeg[1];
+            Span<ArcSeg> turned = stackalloc ArcSeg[1];
+            for (var lane = 0; lane < lanes.Count; lane++)
+            {
+                var withTheRing = lanes.RunsWithTheRing(lane);
+                var rings = lanes.RingsOf(lane);
+                for (var ring = 0; ring < rings.Length; ring++)
+                {
+                    Parted(rings[ring], parting.PartedOn(lane, ring), lanes.GapsOf(lane, ring), weldM, pieces);
+                    for (var at = 0; at < pieces.Count; at++)
+                    {
+                        // Walked against its ring, a lane is the same pieces in the opposite order and each of
+                        // them turned round: the line is the ground, and the direction is which way a body is
+                        // held on it.
+                        if (withTheRing)
+                        {
+                            piece[0] = pieces[at];
+                            builder.AddLane(piece, bandM, FootEdgeKind.Pavement, channels, channels);
+                            continue;
+                        }
+
+                        piece[0] = pieces[pieces.Count - 1 - at];
+                        Spline.ReverseInto(piece, turned);
+                        builder.AddLane(turned, bandM, FootEdgeKind.Pavement, channels, channels);
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>

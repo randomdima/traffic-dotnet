@@ -1,9 +1,12 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Numerics;
 using System.Reflection;
 using TrafficSimulation.App.Main;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
+using TrafficSimulation.Multiplayer.Client;
+using TrafficSimulation.Multiplayer.Wire;
 using TrafficSimulation.Runtime;
 
 // The browser's entry, and the counterpart of src/app/main/Program.cs. What it does that the desktop's
@@ -37,7 +40,9 @@ try
     }
 
     // Built while the figures are read and the menu stands, and waited on before the first town lays its world (WEB-10).
-    var proven = options.ManagedWorld || !WebGpu.KernelsFit() ? Task.FromResult(string.Empty) : WebGpu.ProveKernels();
+    // A player steps no world (MP-7), so builds none.
+    var stepsAWorld = !options.ManagedWorld && options.Join is null;
+    var proven = !stepsAWorld || !WebGpu.KernelsFit() ? Task.FromResult(string.Empty) : WebGpu.ProveKernels();
 
     Say("reading the figures…");
     var config = SimConfig.Load();
@@ -47,7 +52,7 @@ try
         config, width: 0, height: 0, validate: false, options.UiScale, Pacing.Fifo,
         fullscreen: false, display: null)
     {
-        TicksOnTheDevice = !options.ManagedWorld,
+        TicksOnTheDevice = stepsAWorld,
         OpeningViewM = options.ViewM,
         OpeningAtM = options.AtM,
     };
@@ -76,7 +81,9 @@ try
             WebGpu.Standing(stage);
         };
 
-        foreach (var _ in game.OpenInStages(map, behindTheMenu)) await WebGpu.Painted();
+        // MP-5: a player lays only what it draws of the town; everything that moves on it is sent.
+        var stages = game.Joined is null ? game.OpenInStages(map, behindTheMenu) : game.OpenTheSceneInStages(map);
+        foreach (var _ in stages) await WebGpu.Painted();
         OpenWatch.Watcher = null;
 
         // What an open cost, on the console: a page keeps the most it was ever given, so the memory is the open's peak.
@@ -108,7 +115,22 @@ try
     // the engine (main.js) and one that did not has been showing a menu that draws none of it.
     Data.ExpectArt();
     await proven;
-    await Open(options.Map ?? Game.IdleMap, behindTheMenu: options.Map is null);
+    if (options.Join is { } url)
+    {
+        // MP-5: a player lays the town the server names, and says it is ready only once it has laid the same one.
+        game.Join(url, new SeatCard(options.ColourRgb, SeatCard.Clean(options.Name)));
+        var joined = game.Joined!;
+        while (joined.Phase == JoinPhase.Connecting) await Task.Delay(50);
+        if (joined.Phase == JoinPhase.Welcomed)
+        {
+            await Open(joined.Welcome!.Map);
+            joined.Laid(game.StandingDigest ?? 0);
+        }
+    }
+    else
+    {
+        await Open(options.Map ?? Game.IdleMap, behindTheMenu: options.Map is null);
+    }
 
     // And Main never returns, which is the whole of what keeps the town standing between those
     // callbacks. <b>A timer and not an infinite wait</b>: the runtime shuts down when nothing is
@@ -122,7 +144,7 @@ try
     // waiting for it is allowed.
     while (!game.Closed)
     {
-        if (game.TakeWanted() is { } picked) await Open(picked);
+        if (game.Joined is null && game.TakeWanted() is { } picked) await Open(picked);
         await Task.Delay(200);
     }
 
@@ -158,12 +180,21 @@ static string Shader(string resource)
     return reader.ReadToEnd();
 }
 
-/// <summary>What the query string asked for. The words are the desktop's, and the ones a page cannot answer are not offered.</summary>
-file readonly record struct Options(string? Map, string[] Ui, float UiScale, bool ManagedWorld, float ViewM, Vector2? AtM)
+/// <summary>
+/// What the query string asked for. The words are the desktop's, and the ones a page cannot answer are not offered —
+/// but for <c>?join=ws://host:port</c>, which only a page answers: a player of a served town (MP-1…9), and the
+/// <c>name</c> and <c>colour</c> (<c>rrggbb</c>) it joins as (MP-15), which the lobby (<c>lobby.js</c>) hands over as arguments.
+/// </summary>
+/// <remarks>A name is every word after <c>--name</c> up to the next option, since main.js splits a query's value at its spaces.</remarks>
+file readonly record struct Options(
+    string? Map, string[] Ui, float UiScale, bool ManagedWorld, float ViewM, Vector2? AtM, string? Join, string Name, uint ColourRgb)
 {
     public static Options Read(string[] args)
     {
         string? map = null;
+        string? join = null;
+        var name = string.Empty;
+        var colourRgb = 0u;
         var ui = Array.Empty<string>();
         var uiScale = 0f;
         var viewM = 0f;
@@ -188,9 +219,20 @@ file readonly record struct Options(string? Map, string[] Ui, float UiScale, boo
                 case "--at" when at + 2 < args.Length:
                     atM = new Vector2(float.Parse(args[at + 1]), float.Parse(args[at + 2]));
                     break;
+                case "--join":
+                    join = args[at + 1];
+                    break;
+                case "--name":
+                    var last = at + 1;
+                    while (last + 1 < args.Length && !args[last + 1].StartsWith("--", StringComparison.Ordinal)) last++;
+                    name = string.Join(' ', args[(at + 1)..(last + 1)]);
+                    break;
+                case "--colour":
+                    uint.TryParse(args[at + 1].TrimStart('#'), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out colourRgb);
+                    break;
             }
         }
 
-        return new Options(map, ui, uiScale, managedWorld, viewM, atM);
+        return new Options(map, ui, uiScale, managedWorld, viewM, atM, join, name, colourRgb);
     }
 }

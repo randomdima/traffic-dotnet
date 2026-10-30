@@ -82,7 +82,14 @@ void readTheCar(uint car)
     uint dropped = 0u;
     uint onAWay;
     int count = atlasUnderWheels(wheelsM, wheels, covers.heldAroundAWheelM, channels, dropped, onAWay);
-    carRows[car].flags = (carRows[car].flags & ~0xff00u) | ((onAWay & 0xffu) << 8);
+
+    // ManagedWorld.ReadCovers: off the ground, a wheel stands wherever it is on its deck — its pavement too, which carries
+    // no way — and nowhere else, so what is not under a way is air (ControlAction.Hang, PHY-1b).
+    if ((channels & GroundChannel) == 0u) onAWay = ~(carRows[car].flags >> 16) & ((1u << uint(wheels)) - 1u);
+
+    // Its marks are laid on the level it is drawn at, its highest channel's — a bridgehead's deck (DriftKnot.Raised).
+    bool raised = (channels & ~GroundChannel) != 0u;
+    carRows[car].flags = (carRows[car].flags & ~(0xff00u | TyreCarRaised)) | ((onAWay & 0xffu) << 8) | (raised ? TyreCarRaised : 0u);
 
     if (covers.hasChannels != 0u)
     {

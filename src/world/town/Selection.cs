@@ -139,7 +139,12 @@ internal sealed class SelectionSet(int capacity)
 /// asks for nothing.
 /// </para>
 /// </remarks>
-internal readonly record struct HandInput(bool Held, float Throttle, float Steer, bool Handbrake, Vector2 WalkDirection)
+/// <param name="Boost">
+/// Shift held (CTL-5e): the unit asked for <see cref="Core.Config.ControlFigures.HandBoostSpeedShare"/> of its own speed and
+/// <see cref="Core.Config.ControlFigures.HandBoostPullShare"/> of its own pull.
+/// </param>
+internal readonly record struct HandInput(
+    bool Held, float Throttle, float Steer, bool Handbrake, Vector2 WalkDirection, bool Boost = false)
 {
     /// <summary>Nobody at the wheel: the unit decides for itself again.</summary>
     public static HandInput None => default;

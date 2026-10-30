@@ -60,6 +60,53 @@ internal sealed partial class TownWorld
                 Statics.AddBox(centreM + (forward * atM.X) + (right * atM.Y), part.SizeM * scale, roof.HeadingRad);
             }
         }
+
+        StandTheDecksLowEnds();
+    }
+
+    /// <summary>
+    /// <b>The sides of each end of a deck over other roads, where it is too low to pass under</b> (PHY-1b): both its edges
+    /// for <see cref="Core.Config.RoadFigures.DeckLowEndM"/> in from either end, as straight pieces on the ground — what
+    /// comes at it from under the deck meets them, and what is on the deck, on its channel alone, goes over its edge
+    /// anywhere. A deck on the ground — over water — has none: nothing passes under it.
+    /// </summary>
+    void StandTheDecksLowEnds()
+    {
+        var figures = _config.Road;
+        var roads = _plan.Roads;
+        var bridges = _plan.Bridges;
+        for (var bridge = 0; bridge < bridges.Count; bridge++)
+        {
+            var road = bridges.Road[bridge];
+            if (roads.LevelOf(road) == CityPlan.RoadArrays.Ground) continue;
+
+            var fromM = bridges.FromM[bridge];
+            var toM = bridges.ToM[bridge];
+            var runM = MathF.Min(figures.DeckLowEndM, (toM - fromM) * 0.5f);
+            var halfM = bridges.DeckWidthM[bridge] * 0.5f;
+            StandTheSides(roads.SegmentsOf(road), fromM, fromM + runM, halfM);
+            StandTheSides(roads.SegmentsOf(road), toM - runM, toM, halfM);
+        }
+    }
+
+    /// <summary>Both edges of a road's deck from <paramref name="fromM"/> to <paramref name="toM"/> along it, in pieces no longer than a side's.</summary>
+    void StandTheSides(ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float halfM)
+    {
+        var figures = _config.Road;
+        var pieces = Math.Max(1, (int)MathF.Ceiling((toM - fromM) / figures.DeckSidePieceM));
+        var pieceM = (toM - fromM) / pieces;
+        for (var piece = 0; piece < pieces; piece++)
+        {
+            var startM = Spline.SampleAt(arcs, fromM + (piece * pieceM)).PositionM;
+            var endM = Spline.SampleAt(arcs, fromM + ((piece + 1) * pieceM)).PositionM;
+            var along = Vector2.Normalize(endM - startM);
+            var right = Heading.RightOf(along);
+            var middleM = (startM + endM) * 0.5f;
+            var sizeM = new Vector2(Vector2.Distance(startM, endM), figures.DeckSideThicknessM);
+            var headingRad = Trig.Atan2(along.Y, along.X);
+            Statics.AddDeckSide(middleM + (right * halfM), sizeM, headingRad);
+            Statics.AddDeckSide(middleM - (right * halfM), sizeM, headingRad);
+        }
     }
 
     void Spawn()
@@ -367,12 +414,11 @@ internal sealed partial class TownWorld
     /// otherwise has.
     /// </summary>
     /// <remarks>
-    /// <b>Either hand</b> (CTL-5d): the player's over the car they picked out, or a second driver's over
-    /// the car it named. What is true of the car is the same for both, which is why everything asks this
-    /// rather than asking whose hand it is.
+    /// <b>Any hand</b> (CTL-5d): the player's over the car they picked out, or a seat's over the car it named.
+    /// What is true of the car is the same for all of them, which is why everything asks this rather than
+    /// asking whose hand it is.
     /// </remarks>
-    public bool WheelIsHeldOver(int car) =>
-        PlayersHandOn(car) || (_otherHand.Held && _otherCar == car);
+    public bool WheelIsHeldOver(int car) => PlayersHandOn(car) || _seats.Holds(car);
 
     /// <summary>
     /// A car starts stopped where the plan put it — in the bay under it, where that bay can be reached — with

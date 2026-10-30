@@ -28,9 +28,13 @@ void main()
     vec2 positionM = pose[body].xy;
     vec4 moving = motion[body];
     vec2 aimM = (row.flags & WalkFaces) != 0u ? row.aimM : positionM;
+
+    // WalkerFollower.PaceOf: a hand's boost of the walker's pace (CTL-5e), the host's one product.
+    precise float boostedMps = world.walkSpeedMps * world.handBoostSpeedShare;
+    float paceMps = (row.flags & WalkSprints) != 0u ? boostedMps : world.walkSpeedMps;
     WalkerStep step = walkerStep(
         row.headingRad, positionM, moving.xy, row.declaredMps, aimM, (row.flags & WalkMoving) != 0u,
-        (row.flags & WalkOnFeet) != 0u, row.massKg, world.dtS);
+        (row.flags & WalkOnFeet) != 0u, paceMps, row.massKg, world.dtS);
 
     walkers[walker].headingRad = step.headingRad;
     walkers[walker].declaredMps = step.desiredMps;

@@ -672,6 +672,92 @@ fn spriteVertex(
     return result;
 }
 
+// The marks, one knot of a stroke an instance out of the ground's ring of knots — the device's, or the frame's copy of
+// the host's — drawn as the curve from the knot before it: mark.vert, said again. Group 1, because group 0's bindings
+// are the town's; MarkSprites' look (MarkLook), DriftMarks.DriftKnot and DriftMarkRing.
+struct MarkLook {
+    soil: vec4f,
+    rubberSheet: u32,
+    soilSheet: u32,
+    rubberBleed: f32,
+    soilBleed: f32,
+    rubberAlpha: f32,
+    soilAlpha: f32,
+    pad: vec2f,
+};
+
+struct DriftKnot {
+    atM: vec2f,
+    headingRad: f32,
+    widthM: f32,
+    strength: f32,
+    previous: u32,
+};
+
+struct DriftMarkRing {
+    draw: vec4u,
+    total: u32,
+    laid: u32,
+    capacity: u32,
+    claimed: u32,
+};
+
+@group(1) @binding(0) var<uniform> markLook: MarkLook;
+@group(1) @binding(1) var<storage, read> markKnots: array<DriftKnot>;
+@group(1) @binding(2) var<storage, read> markRing: DriftMarkRing;
+
+const DRIFT_NO_KNOT: u32 = 0xffffffffu;
+const DRIFT_KNOT_PIECES: u32 = 8u;
+
+// Whether this draw is the level above's (mark.vert's DrawsRaised; town.js's marksAbove).
+override drawsRaised: bool = false;
+
+@vertex
+fn markVertex(@builtin(vertex_index) vertex: u32, @builtin(instance_index) instance: u32) -> SpriteOut {
+    var result: SpriteOut;
+    let ring = markRing;
+    let oldest = select(0u, ring.total % ring.capacity, ring.laid == ring.capacity);
+    let to = markKnots[(oldest + instance) % ring.capacity];
+    if (to.previous == DRIFT_NO_KNOT || ring.total - to.previous > ring.laid || (to.widthM < 0.0) != drawsRaised) {
+        result.position = vec4f(0.0, 0.0, 2.0, 1.0);
+        return result;
+    }
+
+    let before = markKnots[to.previous % ring.capacity];
+    let t = f32(vertex >> 1u) / f32(DRIFT_KNOT_PIECES);
+    let side = f32(vertex & 1u) * 2.0 - 1.0;
+
+    let pullM = length(to.atM - before.atM);
+    let leaving = vec2f(cos(before.headingRad), sin(before.headingRad)) * pullM;
+    let meeting = vec2f(cos(to.headingRad), sin(to.headingRad)) * pullM;
+    let tt = t * t;
+    let ttt = tt * t;
+    let atM = (2.0 * ttt - 3.0 * tt + 1.0) * before.atM + (ttt - 2.0 * tt + t) * leaving
+              + (-2.0 * ttt + 3.0 * tt) * to.atM + (ttt - tt) * meeting;
+    let alongM = (6.0 * tt - 6.0 * t) * before.atM + (3.0 * tt - 4.0 * t + 1.0) * leaving
+                 + (6.0 * t - 6.0 * tt) * to.atM + (3.0 * tt - 2.0 * t) * meeting;
+    var along = vec2f(cos(to.headingRad), sin(to.headingRad));
+    if (dot(alongM, alongM) > 1e-12) {
+        along = normalize(alongM);
+    }
+
+    let ploughed = to.strength < 0.0;
+    let strength = mix(abs(before.strength), abs(to.strength), t);
+    let halfWidthM = mix(abs(before.widthM), abs(to.widthM), t) * select(markLook.rubberBleed, markLook.soilBleed, ploughed) * 0.5;
+    let place = sheets.place[select(markLook.rubberSheet, markLook.soilSheet, ploughed)];
+    let uv = vec2f(t, side * 0.5 + 0.5);
+
+    result.position = toClip(atM + vec2f(-along.y, along.x) * (side * halfWidthM));
+    result.uv = place.originScale.xy + uv * place.originScale.zw;
+    result.page = i32(round(place.layerSize.x));
+    result.tint = vec4f(
+        select(vec3f(0.0), markLook.soil.rgb, ploughed),
+        strength * select(markLook.rubberAlpha, markLook.soilAlpha, ploughed));
+    result.light = place.layerSize.w;
+    result.local = uv;
+    return result;
+}
+
 @fragment
 fn spriteFragment(frag: SpriteOut) -> @location(0) vec4f {
     // The pages carry no mip chain, so the atlas is sampled at the top level.

@@ -75,6 +75,12 @@ internal sealed class CarFigures
     public float CgHeightM { get; init; } = 0.55f;
 
     /// <summary>
+    /// <b>How far a car's body leans over a wheel standing on nothing</b> (PHY-1b) — over a deck's edge: nose down and
+    /// to that side, held there while it hangs.
+    /// </summary>
+    public float TiltOverNothingMostDeg { get; init; } = 5.4f;
+
+    /// <summary>
     /// <b>How stiff a road car is sprung, as the rate at one wheel</b>: what a corner's spring pushes back with per metre it
     /// is compressed, anti-roll bar and all. A variant states its own (<c>wheelRateNPerM</c>) — a van's is twice a
     /// hatchback's — and absent is this one.
@@ -792,7 +798,7 @@ internal sealed class PersonFigures
     /// <summary>
     /// <b>How much faster than life a walker moves</b> — the figure every other pace here is a real one
     /// multiplied by (<see cref="SimConfig.PersonWalkSpeedMps"/>, <see cref="SimConfig.PersonTurnRateDegPerS"/>).
-    /// Two: a brisk jog beside traffic driven at life's pace, where five is a sprint as fast as the cars. A town
+    /// Three: a run beside traffic driven at life's pace, where five is a sprint as fast as the cars. A town
     /// watched faster is watched on the clock (<see cref="SimFigures.SoakMaxTimeScale"/>), which scales both.
     /// </summary>
     /// <remarks>
@@ -800,7 +806,7 @@ internal sealed class PersonFigures
     /// grip authored at one pace beside a pace that is not put the casualty band below walking speed, where
     /// touching a parked car is a fatal contact. Written down, the two are impossible to author out of step.
     /// </remarks>
-    public float PaceScale { get; init; } = 2f;
+    public float PaceScale { get; init; } = 3f;
 
     public float MassKg { get; init; } = 80f;
 
@@ -831,16 +837,16 @@ internal sealed class PersonFigures
     public float StopsWithinDiameters { get; init; } = 0.25f;
 
     /// <summary>
-    /// The grip a body along the ground has rather than a sole pressed into it — what a casualty slides to
-    /// a stop on (<see cref="SimConfig.PersonSlidingGripMps2"/>).
+    /// The coefficient of friction of a body along the ground rather than a sole pressed into it — clothes on
+    /// asphalt — which is what a casualty slides to a stop on (<see cref="SimConfig.PersonSlidingGripMps2"/>).
     /// </summary>
     /// <remarks>
-    /// <b>A ratio, because both grips have to be scaled by the same thing the pace is.</b> Every
-    /// acceleration in the person model carries the square of <see cref="PaceScale"/> — and a sliding grip
-    /// authored at one pace beside a foot grip at another puts the casualty band below walking pace, where
-    /// touching a parked car is a fatal contact.
+    /// <b>Life's ground and not the walkers' pace</b>: what throws a casualty is a car, driven at life's pace, so
+    /// the slide it is given is life's. Scaled with <see cref="PaceScale"/> as the foot grip is, a car at 5 m/s
+    /// carried a body a third of a metre — a strike nobody could see (the owner: "actual collision should push it
+    /// visibly").
     /// </remarks>
-    public float SlidingGripInFootGrips { get; init; } = 0.9f;
+    public float SlidingFriction { get; init; } = 0.6f;
 
     /// <summary>
     /// The clear ground a walker keeps between where it will have stopped and whatever it is stopping
@@ -951,13 +957,16 @@ internal sealed class PersonFigures
 internal sealed class DamageFigures
 {
     /// <summary>
-    /// <b>How far a contact has to be able to put a body down the road for it to have knocked them
-    /// over</b> (PER-23). A distance rather than an energy, because a distance is the thing that can be
-    /// looked at. What it costs follows from the mass being moved and the ground it slides on
-    /// (<see cref="SimConfig.PersonCasualtyKj"/>) — a grip that carries the square of the walker's pace
-    /// (<see cref="PersonFigures.PaceScale"/>), so the same throw costs four times as much at twice the pace.
+    /// <b>The fastest a vehicle may be moving into a person and only push them</b> (PER-23), along the contact
+    /// normal and on the vehicle's own motion — 11 km/h, a car rolling up to somebody rather than driving into them.
+    /// Anything faster puts them in the road.
     /// </summary>
-    public float SlideToCasualtyM { get; init; } = 3f;
+    /// <remarks>
+    /// <b>Life's pace and not the walkers'</b>: the cars are driven at life's, so it does not move with
+    /// <see cref="PersonFigures.PaceScale"/>. At 1 m/s every nudge at a crossing was a casualty (the owner: "any touch
+    /// kills them").
+    /// </remarks>
+    public float KnockDownAboveMps { get; init; } = 3f;
 
     public float CarWreckKj { get; init; } = 20f;
 }

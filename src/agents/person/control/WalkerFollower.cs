@@ -100,7 +100,13 @@ internal static class WalkerFollower
     /// <param name="onFeet">False while dead or inside the stumble window, which is the difference between being knocked over and being sent down the road.</param>
     public static WalkerStep Step(
         SimConfig config, float headingRad, Vector2 positionM, Vector2 velocityMps, Vector2 declaredMps, Vector2 aimM,
-        bool moving, bool onFeet, float massKg, float dtS)
+        bool moving, bool onFeet, float massKg, float dtS) =>
+        Step(config, headingRad, positionM, velocityMps, declaredMps, aimM, moving, onFeet, config.PersonWalkSpeedMps, massKg, dtS);
+
+    /// <summary>The same tick at <paramref name="paceMps"/> — <see cref="PaceOf"/> the walker, boosted or not.</summary>
+    public static WalkerStep Step(
+        SimConfig config, float headingRad, Vector2 positionM, Vector2 velocityMps, Vector2 declaredMps, Vector2 aimM,
+        bool moving, bool onFeet, float paceMps, float massKg, float dtS)
     {
         var heading = headingRad;
         var desired = Vector2.Zero;
@@ -111,8 +117,6 @@ internal static class WalkerFollower
         var distanceM = toAim.Length();
         if (distanceM * distanceM > config.Person.AimUnderfootM2)
         {
-            var paceMps = config.PersonWalkSpeedMps;
-
             // Inside a tick's walk it is a shuffle onto the point and not a turn: the aim of a queue creeping
             // forward, or of a body a hair off its line, swings round it a centimetre away, and a walker
             // turning to face every one of those spins on the spot.
@@ -142,6 +146,13 @@ internal static class WalkerFollower
 
         return new WalkerStep(heading, desired, correctionMps * massKg);
     }
+
+    /// <summary>
+    /// A walker's pace: its own, or <see cref="ControlFigures.HandBoostSpeedShare"/> of it under a hand's boost (CTL-5e) — the
+    /// one product both heads take (<c>walker.glsl</c>'s caller says it again).
+    /// </summary>
+    public static float PaceOf(SimConfig config, bool sprints) =>
+        sprints ? config.PersonWalkSpeedMps * config.Control.HandBoostSpeedShare : config.PersonWalkSpeedMps;
 
     /// <summary>A change of velocity cut down to what a grip affords in one tick.</summary>
     static Vector2 AtMost(Vector2 changeMps, float mostMps)

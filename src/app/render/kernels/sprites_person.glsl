@@ -17,4 +17,7 @@ const uint PersonInside = 1u;
 const uint PersonDown = 2u;
 const uint PersonWalking = 4u;
 
+// The level it stands on off its channels, from this bit up, as a car's (CarLevelShift).
+const uint PersonLevelShift = 16u;
+
 #endif

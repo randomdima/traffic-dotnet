@@ -1,6 +1,7 @@
 // The one binding layout the passes of the emit run over (sprites_count, sprites_write, sprites_order), so one set serves them, and
-// sprites.glsl over it. Every row is app/devicetick/DeviceSprites' of the same name, field for field. The including
-// kernel enables doubles, which rounded.glsl answers its quotients in.
+// sprites.glsl over it. Every row is app/devicetick/DeviceSprites' of the same name, field for field. Sixteen storage
+// buffers and no more, which is all a page gives a kernel (WEB-12): the figures ride behind the frame's words, and every
+// table laid once is one run of words.
 
 #include "app/render/kernels/sprites_car.glsl"
 #include "app/render/kernels/sprites_person.glsl"
@@ -21,7 +22,7 @@ const uint AirMoments = 32u;
 // once (CameraView): the view as the fill takes it, the narrowest part drawn, the town's clock, its live rosters, which
 // of the world's two views the host is showing (sprites_world.comp), how slow a walker is drawn standing, and the air of
 // the moments back from the town's, which carries the smoke.
-layout(std430, binding = 0) readonly buffer Frame
+struct SpriteFrame
 {
     vec2 viewCentreM;
     vec2 viewSpanM;
@@ -32,7 +33,7 @@ layout(std430, binding = 0) readonly buffer Frame
     uint viewSlot;
     float standingBelowMps;
     AirBack air[AirMoments];
-} frame;
+};
 
 // One kind of pipe's smoke (ExhaustLook): each pair idling and at full throttle, how its body's track is laid, and what
 // those come to at their most.
@@ -59,7 +60,7 @@ struct SmokeKind
 };
 
 // What is fixed when the town is laid: the rosters' room, the runs' room, the sheet slots and the figures.
-layout(std430, binding = 1) readonly buffer Figures
+struct SpriteFigures
 {
     uint personCapacity;
     uint carCapacity;
@@ -69,7 +70,8 @@ layout(std430, binding = 1) readonly buffer Figures
     uint roomAbove;
     uint mostLenses;
     uint personSheets;
-    uint firstDownSheet;
+    // SpriteTint: what a casualty's stance is multiplied by (Theme.Casualty).
+    uint casualtyTint;
     uint carSheets;
     uint firstCarSheet;
     uint rubberSheet;
@@ -157,7 +159,14 @@ layout(std430, binding = 1) readonly buffer Figures
     uint firstWagonTrack;
     // One over how far apart the frame's moments of the air are (DeviceSprites.AirStepS).
     float perAirStepS;
-} figures;
+};
+
+// The frame's words, which the host copies in each frame, and the figures laid once behind them.
+layout(std430, binding = 0) readonly buffer FrameAndFigures
+{
+    SpriteFrame frame;
+    SpriteFigures figures;
+};
 
 // One vehicle of the rolling stock as drawn (DeviceSprites.TrainLookRow): its half-size and its exhaust stacks (TRN-15),
 // from its middle with +x its front.
@@ -197,12 +206,10 @@ struct LightRow
     uint gear;
 };
 
-// One walker's look (DeviceSprites.PersonLook): its quad standing and lying down, and how far the latter reaches.
+// One walker's look (DeviceSprites.PersonLook): its quad, standing or down.
 struct PersonLook
 {
-    vec2 standingHalfM;
-    vec2 downHalfM;
-    float downReachM;
+    vec2 halfM;
     float heightM;
 };
 
@@ -247,7 +254,6 @@ struct LensRow
     uint fittingAndFirstColour;
 };
 
-
 // One signal head (DeviceSprites.HeadRow), in the order its rows file it.
 struct HeadRow
 {
@@ -256,6 +262,15 @@ struct HeadRow
     int subject;
     uint forCars;
     uint pad;
+};
+
+// One pot of a chimney (ChimneyRow, OBJ-7), laid once: where it stands in the town, its key — its stack's fire above
+// ChimneyPotBits, which pot of the stack below — and how wide the pot is there.
+struct ChimneyRow
+{
+    vec2 atM;
+    uint seed;
+    float potWidthM;
 };
 
 // One instance as the sprite pipeline reads it (SpriteInstance): twenty-eight bytes, every member four, so the row is
@@ -281,70 +296,150 @@ struct SpriteDraw
     uint firstInstance;
 };
 
-layout(std430, binding = 2) readonly buffer PersonLooks { PersonLook personLooks[]; };
-layout(std430, binding = 3) readonly buffer CarLooks { CarLook carLooks[]; };
-layout(std430, binding = 4) readonly buffer Lenses { LensRow lenses[]; };
-layout(std430, binding = 5) readonly buffer LampTints { uint lampTints[]; };
-layout(std430, binding = 6) readonly buffer People { PersonRow people[]; };
-layout(std430, binding = 7) readonly buffer Cars { CarRow cars[]; };
-layout(std430, binding = 8) readonly buffer Heads { HeadRow heads[]; };
-layout(std430, binding = 9) readonly buffer LaneAxis { int laneAxis[]; };
-layout(std430, binding = 10) readonly buffer LaneJunction { int laneJunction[]; };
-layout(std430, binding = 11) readonly buffer Offsets { float offsetS[]; };
-layout(std430, binding = 12) readonly buffer CrossingAxis { int crossingAxis[]; };
-layout(std430, binding = 13) readonly buffer CrossingJunction { int crossingJunction[]; };
-layout(std430, binding = 14) buffer Starts { uint starts[]; };
-layout(std430, binding = 15) readonly buffer Totals { uint totals[]; };
-layout(std430, binding = 16) buffer LampsShown { uvec2 lampsShown[]; };
-layout(std430, binding = 17) writeonly buffer Instances { SpriteOut instances[]; };
-layout(std430, binding = 18) writeonly buffer Draws { SpriteDraw draws[]; };
+// Every table laid once in one run of words (DeviceSprites.Tables), each table's first word named in the run's own head
+// and each row its DeviceSprites row's words: the looks, the lenses and their tints, the heads and the signals' tables,
+// the rolling stock, the crossings' gear and lights, the tailpipes and the chimneys' pots.
+layout(std430, binding = 1) readonly buffer Tables { uint tables[]; };
 
-// The rolling stock as drawn by vehicle (DeviceSprites.TrainLookRow), and the world's two views of the wagons (the
-// host showing the frame's slot), which every wagon is drawn off.
-layout(std430, binding = 19) readonly buffer TrainLooks { TrainLook trainLooks[]; };
-layout(std430, binding = 20) readonly buffer WagonViews0 { WagonViewRow wagonViews0[]; };
-layout(std430, binding = 21) readonly buffer WagonViews1 { WagonViewRow wagonViews1[]; };
+const uint TablePersonLooks = 0u;
+const uint TableCarLooks = 1u;
+const uint TableLenses = 2u;
+const uint TableLampTints = 3u;
+const uint TableHeads = 4u;
+const uint TableLaneAxis = 5u;
+const uint TableLaneJunction = 6u;
+const uint TableOffsets = 7u;
+const uint TableCrossingAxis = 8u;
+const uint TableCrossingJunction = 9u;
+const uint TableTrainLooks = 10u;
+const uint TableGearRows = 11u;
+const uint TableLightRows = 12u;
+const uint TableExhausts = 13u;
+const uint TableChimneys = 14u;
 
-// The crossings' gear, laid once, what each shows this frame, and their X lights, laid once (RAIL-7).
-layout(std430, binding = 22) readonly buffer GearRows { GearRow gearRows[]; };
-layout(std430, binding = 23) readonly buffer GearShown { GearShownRow gearShown[]; };
-layout(std430, binding = 24) readonly buffer LightRows { LightRow lightRows[]; };
+layout(std430, binding = 2) readonly buffer People { PersonRow people[]; };
+layout(std430, binding = 3) readonly buffer Cars { CarRow cars[]; };
+layout(std430, binding = 4) buffer Starts { uint starts[]; };
+layout(std430, binding = 5) readonly buffer Totals { uint totals[]; };
+layout(std430, binding = 6) buffer LampsShown { uvec2 lampsShown[]; };
+layout(std430, binding = 7) writeonly buffer Instances { SpriteOut instances[]; };
+layout(std430, binding = 8) writeonly buffer Draws { SpriteDraw draws[]; };
 
-// Where each look's tailpipes end, in its body's frame (CAR-54): mostExhausts rows a look; and every car's smoke's track
-// as the step lays it (smoke_track.comp), trackPoints points a car.
-layout(std430, binding = 25) readonly buffer Exhausts { vec2 exhausts[]; };
-layout(std430, binding = 26) readonly buffer SmokeHeads { SmokeHead smokeHeads[]; };
-layout(std430, binding = 27) readonly buffer SmokePoints { SmokePoint smokePoints[]; };
+// The world's two views of the wagons (the host showing the frame's slot), which every wagon is drawn off.
+layout(std430, binding = 9) readonly buffer WagonViews0 { WagonViewRow wagonViews0[]; };
+layout(std430, binding = 10) readonly buffer WagonViews1 { WagonViewRow wagonViews1[]; };
 
-// One pot of a chimney (ChimneyRow, OBJ-7), laid once: where it stands in the town, its key — its stack's fire above
-// ChimneyPotBits, which pot of the stack below — and how wide the pot is there.
-struct ChimneyRow
-{
-    vec2 atM;
-    uint seed;
-    float potWidthM;
-};
+// What each approach's crossing gear shows this frame (RAIL-7).
+layout(std430, binding = 11) readonly buffer GearShown { GearShownRow gearShown[]; };
 
-layout(std430, binding = 28) readonly buffer Chimneys { ChimneyRow chimneys[]; };
+// Every car's and rail vehicle's smoke's track as the step lays it (smoke_track.comp, CAR-54).
+layout(std430, binding = 12) readonly buffer SmokeHeads { SmokeHead smokeHeads[]; };
+layout(std430, binding = 13) readonly buffer SmokePoints { SmokePoint smokePoints[]; };
 
 // Which units wear a ring this frame (SpriteRings, CTL-1, CTL-5d), written by the host: the car somebody else has the
 // wheel of, then a bit a unit — the walkers' to personCapacity, the cars' to carCapacity, then the wagons'.
-layout(std430, binding = 29) readonly buffer Rings
+layout(std430, binding = 14) readonly buffer Rings
 {
     int secondHandCar;
     uint ringBits[];
 };
 
 // The walkers shown, as the write pass builds them in roster order, for sprites_order.comp to put in the order drawn (PER-31).
-layout(std430, binding = 30) buffer WalkersShown { SpriteOut walkersShown[]; };
+layout(std430, binding = 15) buffer WalkersShown { SpriteOut walkersShown[]; };
+
+uint spritesWord(uint table, uint at) { return tables[tables[table] + at]; }
+
+float spritesFloat(uint table, uint at) { return uintBitsToFloat(spritesWord(table, at)); }
+
+vec2 spritesPair(uint table, uint at) { return vec2(spritesFloat(table, at), spritesFloat(table, at + 1u)); }
+
+PersonLook spritesPersonLook(uint variant)
+{
+    uint at = variant * 3u;
+    return PersonLook(spritesPair(TablePersonLooks, at), spritesFloat(TablePersonLooks, at + 2u));
+}
+
+CarLook spritesCarLook(uint variant)
+{
+    uint at = variant * 44u;
+    const uint t = TableCarLooks;
+    vec2 wheelsM[8] = vec2[8](
+        spritesPair(t, at + 8u), spritesPair(t, at + 10u), spritesPair(t, at + 12u), spritesPair(t, at + 14u),
+        spritesPair(t, at + 16u), spritesPair(t, at + 18u), spritesPair(t, at + 20u), spritesPair(t, at + 22u));
+    return CarLook(
+        spritesPair(t, at), spritesPair(t, at + 2u), spritesFloat(t, at + 4u), spritesFloat(t, at + 5u), spritesPair(t, at + 6u),
+        wheelsM, spritesWord(t, at + 24u), spritesWord(t, at + 25u), spritesFloat(t, at + 26u), spritesFloat(t, at + 27u),
+        spritesFloat(t, at + 28u), spritesWord(t, at + 29u), spritesWord(t, at + 30u), spritesWord(t, at + 31u),
+        spritesPair(t, at + 32u), spritesPair(t, at + 34u), spritesPair(t, at + 36u), spritesFloat(t, at + 38u),
+        spritesFloat(t, at + 39u), spritesFloat(t, at + 40u), spritesFloat(t, at + 41u), spritesWord(t, at + 42u),
+        spritesWord(t, at + 43u));
+}
+
+LensRow spritesLensRow(uint lens)
+{
+    uint at = lens * 6u;
+    return LensRow(
+        spritesPair(TableLenses, at), spritesWord(TableLenses, at + 2u), spritesWord(TableLenses, at + 3u),
+        spritesFloat(TableLenses, at + 4u), spritesWord(TableLenses, at + 5u));
+}
+
+uint spritesLampTint(uint colour) { return spritesWord(TableLampTints, colour); }
+
+HeadRow spritesHeadRow(uint head)
+{
+    uint at = head * 6u;
+    return HeadRow(
+        spritesPair(TableHeads, at), spritesFloat(TableHeads, at + 2u), int(spritesWord(TableHeads, at + 3u)),
+        spritesWord(TableHeads, at + 4u), 0u);
+}
+
+int spritesLaneAxis(int lane) { return int(spritesWord(TableLaneAxis, uint(lane))); }
+
+int spritesLaneJunction(int lane) { return int(spritesWord(TableLaneJunction, uint(lane))); }
+
+float spritesOffsetS(int junction) { return spritesFloat(TableOffsets, uint(junction)); }
+
+int spritesCrossingAxis(int crossing) { return int(spritesWord(TableCrossingAxis, uint(crossing))); }
+
+int spritesCrossingJunction(int crossing) { return int(spritesWord(TableCrossingJunction, uint(crossing))); }
+
+TrainLook spritesTrainLook(uint look)
+{
+    uint at = look * 8u;
+    return TrainLook(
+        spritesPair(TableTrainLooks, at), spritesWord(TableTrainLooks, at + 2u), 0u,
+        vec2[2](spritesPair(TableTrainLooks, at + 4u), spritesPair(TableTrainLooks, at + 6u)));
+}
+
+GearRow spritesGearRow(uint gear)
+{
+    uint at = gear * 6u;
+    return GearRow(
+        spritesPair(TableGearRows, at), spritesPair(TableGearRows, at + 2u), spritesFloat(TableGearRows, at + 4u),
+        spritesFloat(TableGearRows, at + 5u));
+}
+
+LightRow spritesLightRow(uint light)
+{
+    uint at = light * 4u;
+    return LightRow(spritesPair(TableLightRows, at), spritesFloat(TableLightRows, at + 2u), spritesWord(TableLightRows, at + 3u));
+}
+
+vec2 spritesExhaust(uint at) { return spritesPair(TableExhausts, at * 2u); }
+
+ChimneyRow spritesChimney(uint chimney)
+{
+    uint at = chimney * 4u;
+    return ChimneyRow(spritesPair(TableChimneys, at), spritesWord(TableChimneys, at + 2u), spritesFloat(TableChimneys, at + 3u));
+}
 
 #define LAMP_FIGURES figures
 #define SIGNAL_FIGURES figures
-#define SIGNAL_LANE_AXIS laneAxis
-#define SIGNAL_LANE_JUNCTION laneJunction
-#define SIGNAL_OFFSETS offsetS
-#define SIGNAL_CROSSING_AXIS crossingAxis
-#define SIGNAL_CROSSING_JUNCTION crossingJunction
+#define SIGNAL_LANE_AXIS(lane) spritesLaneAxis(lane)
+#define SIGNAL_LANE_JUNCTION(lane) spritesLaneJunction(lane)
+#define SIGNAL_OFFSETS(junction) spritesOffsetS(junction)
+#define SIGNAL_CROSSING_AXIS(crossing) spritesCrossingAxis(crossing)
+#define SIGNAL_CROSSING_JUNCTION(crossing) spritesCrossingJunction(crossing)
 
 #include "core/geometry/kernels/rounded.glsl"
 #include "agents/car/body/kernels/lamps.glsl"

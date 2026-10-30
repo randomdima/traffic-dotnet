@@ -17,6 +17,7 @@
     <type fullname="TrafficSimulation.Core.Config.SimFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.ViewFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.ControlFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.MultiplayerFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.TrimFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.RoadFigures" preserve="all" />
     <type fullname="TrafficSimulation.Core.Config.BuildingFigures" preserve="all" />

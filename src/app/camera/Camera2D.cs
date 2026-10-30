@@ -206,8 +206,8 @@ internal sealed class Camera2D
     /// zoom is allowed to magnify it. The scale factor divides it because the claim is about the
     /// display's pixels and not the interface's — on a 2× desktop an interface pixel is two of the
     /// display's, so stopping at the art's own 96 would let the zoom run to twice the resolution the
-    /// sprites carry.
+    /// sprites carry. A player's camera stops there too (<see cref="Chase"/>).
     /// </summary>
-    float ZoomInStopPixelsPerMetre =>
+    public float ZoomInStopPixelsPerMetre =>
         _config.View.CarSpritePixelsPerMetre * _config.View.CameraMaxSpriteMagnification / DevicePxPerUiPx;
 }

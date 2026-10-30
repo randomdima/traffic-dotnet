@@ -1,8 +1,8 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// The emit's first pass: how many instances each part of each unit draws this frame, one thread a unit — a walker, a
-// car (its five parts, in whichever run its level is drawn in), a train's wagon, a signal head, a crossing's gear or its X
+// The emit's first pass: how many instances each part of each unit draws this frame, one thread a unit — a walker and a
+// car (its five parts) in whichever run its level is drawn in, a train's wagon, a signal head, a crossing's gear or its X
 // light, a chimney's smoke — into the slot the scan turns into
 // where they start. A cull and no more: nothing is built here. A car's lit lenses are kept for the second pass, which
 // would otherwise read its line again.
@@ -40,7 +40,9 @@ void main()
     uint unit = gl_GlobalInvocationID.x;
     if (unit < figures.personCapacity)
     {
-        starts[unit] = unit < frame.personCount && spritesPersonShown(unit) ? 1u : 0u;
+        uint run = unit < frame.personCount && spritesPersonShown(unit) ? spritesRunOfPerson(people[unit]) : RunNone;
+        starts[unit] = run == RunOver ? 1u : 0u;
+        if (figures.levelled != 0u) starts[spritesAboveFrom() + unit] = run == RunAbove ? 1u : 0u;
         return;
     }
 

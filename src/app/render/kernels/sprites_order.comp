@@ -17,20 +17,14 @@ const uint Lanes = 64u;
 
 shared uint place;
 
-// PersonSprites.Depth, field for field: upright after lying, then its feet down the picture, then across it.
-vec3 depthOf(SpriteOut walker)
-{
-    bool lying = (walker.sheet & ((1u << SpriteRingShift) - 1u)) >= figures.firstDownSheet;
-    float feetM = lying ? walker.centreY : walker.centreY + unpackHalf2x16(walker.halfSize).y;
-    return vec3(lying ? 0.0 : 1.0, feetM, walker.centreX);
-}
+// PersonSprites.Depth, field for field: its feet down the picture, then across it.
+vec2 depthOf(SpriteOut walker) { return vec2(walker.centreY + unpackHalf2x16(walker.halfSize).y, walker.centreX); }
 
 // Two that rank alike keep their roster order, so no two walkers are ever given one place.
-bool before(vec3 one, uint oneAt, vec3 other, uint otherAt)
+bool before(vec2 one, uint oneAt, vec2 other, uint otherAt)
 {
     if (one.x != other.x) return one.x < other.x;
     if (one.y != other.y) return one.y < other.y;
-    if (one.z != other.z) return one.z < other.z;
     return oneAt < otherAt;
 }
 
@@ -38,22 +32,25 @@ void main()
 {
     uint walker = gl_WorkGroupID.x;
     uint shown = figures.personCapacity < spritesSlotCount() ? starts[figures.personCapacity] : totals[TotalAt];
-    // The whole workgroup or none of it, so both barriers are reached by all of it.
-    if (walker >= shown) return;
-
+    // A workgroup past the walkers shown still reaches both barriers: WGSL refuses one after a return on a figure read
+    // from storage, which it cannot prove the same for every thread.
+    bool placed = walker < shown;
     uint lane = gl_LocalInvocationID.x;
     if (lane == 0u) place = 0u;
     barrier();
 
-    vec3 depth = depthOf(walkersShown[walker]);
     uint ahead = 0u;
-    for (uint other = lane; other < shown; other += Lanes)
+    if (placed)
     {
-        if (before(depthOf(walkersShown[other]), other, depth, walker)) ahead++;
+        vec2 depth = depthOf(walkersShown[walker]);
+        for (uint other = lane; other < shown; other += Lanes)
+        {
+            if (before(depthOf(walkersShown[other]), other, depth, walker)) ahead++;
+        }
     }
 
     atomicAdd(place, ahead);
     barrier();
 
-    if (lane == 0u && place < figures.roomOver) instances[place] = walkersShown[walker];
+    if (placed && lane == 0u && place < figures.roomOver) instances[place] = walkersShown[walker];
 }

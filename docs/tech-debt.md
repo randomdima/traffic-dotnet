@@ -17,22 +17,13 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   120 B `LaneOccupancy` wish table the entry below names. An allocation trace of the first window (`dotnet-trace`'s
   GC allocation ticks) names it; pre-sizing it closes it. **The review is held uncommitted until then**. It passes on
   the towns the realism plan lays (2026-10-27, its core at the water): hidden, not fixed.
-- **`DeviceAllocationGateTests.AWholeTickOnTheDeviceAllocatesNothing` fails on a town that claims more ways than its
-  holders are laid for** (device, `P0`, _owner_): it failed from 2026-10-27, when a bay's kerb was read off every lane its
-  street carries (`CarParks.KerbM`, GEN-67), and passes on 2026-10-29's town — hidden, not fixed. The held-back
-  GEN-55 fix (`BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark` below) moves `Towns.Built` onto it again,
-  68 552 B; not broken down, but the size of the growth below.
-  **Named, and growth and not a leak**: 67 912 B at tick 4 083 of the run, none in the 3 000 after it — `LaneOccupancy.Touch`
-  doubling `_rows`, `_touched` and `_claimsChangedAt` from 1 696 to 3 392 the first time the town claims its 1 697th way.
-  They are laid at `WaysPerHolder` (4) a holder, off OdesaOsm's 3.2; the built town touches more than 8 a holder. Sizing
-  the rows off the town rather than its holders closes it, and trades memory a way for rule 2 — the owner's to weigh.
 - **`DeviceCrossingGateTests.ATickOnTheDeviceCrossesTheWallAsOftenWhateverTheTownsSize` fails** (device, `P0`,
   2026-10-27, _owner_): the busiest tick crosses 167 times on the suite's built town and 177 on it with four times its
   people. It fails as well with that day's bridgeheads-as-joints and track-bridges-as-one-deck switched off, and the
   device tier had not been run on the generator rework's tree before, so when it began is not known. Which pass the
   larger town runs and the smaller does not — a step of another shape rather than per-body calls, or per-body calls —
   is what a per-tick count of `Vk.Crossings` by call site names; that and the fix close it. Still 167 against 177 on
-  2026-10-29.
+  2026-10-29 and 2026-10-30.
 
 - **`ShippedCityTests.NothingStandsInItsWater(OdesaOsm)`** (maps) fails: "2 road places, the first at <3430.4446,
   12487.6455>". A service road traced from OSM curves along a pond, and its carriageway's edge stands about a metre
@@ -141,9 +132,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   tangent there. Building 139's station is on the rank's rounding (along −8.0 m), where the tangent points off the face,
   so the place asked stands past the walk, `SquareOnItsRank` finds no rank owning it and allows it. **The fix is
   written and held back**: asked after the seat, at the face under the wall's middle (`Face.Nearest`), as wide as the
-  front reaches along the face there, the test passes — and `Towns.Built` changes enough to fail the `P0`
-  `DeviceAllocationGateTests` again (68 552 B), which is the _owner_'s `LaneOccupancy` sizing entry above. It lands
-  once that entry is ruled on.
+  front reaches along the face there, the test passes — and `Towns.Built` changed enough to fail the `P0`
+  `DeviceAllocationGateTests` (68 552 B), `LaneOccupancy`'s way rows growing. Those are laid for every way the town has
+  since 2026-10-30, so nothing holds the fix back; it has not been run against them yet.
 - **On a GPU the kernels flush what the host keeps subnormal** (the device tier pointed at the RX 9070 XT by hand,
   2026-10-29; `Lavapipe`'s `deviceNamed`): every class passes but `RoundedKernelTests.EveryQuotientIsTheHostsToTheBit`
   (4 099 of 2 045 004 quotients) and `TrigKernelTests.EveryArctangentAndBearingIsTheHostsToTheBit` (2 658 of 4 197 298).
@@ -155,6 +146,33 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   for it) closes it, or the samplers held to the range the town uses, if the owner rules subnormals out of the parity.
 
 ## Regressions and figures not taken
+
+- **A walker at three times life's pace left one car hunting harder and was weighed on one map** (2026-10-30,
+  `Person.PaceScale`): `--bench stuck --map Saltbay --seconds 180` — 0 cars or walkers stuck at either pace, 75 cars driven
+  against 50, but car 233 at (2035, 1326) changed action 17 times (BackUp↔Overtake) against 10 (Follow↔Overtake) at two:
+  restless at the same spot either way, more so now. `--bench drive` on Saltbay: mean 8.96 m/s against 9.24, 74 cars
+  driving against 58. `qq tests exam` fails only cards 39 and 109, at the figures recorded above. Not taken: OdesaOsm and
+  the other shipped cities (`qq tests maps`) and the walk probe. Running those, and tracing car 233's pass, closes it.
+
+- **A served town's figures are half taken** (2026-10-30, `src/multiplayer/`): `--serve` reports a seated player's
+  snapshots a second, bytes a second and bytes a snapshot every ten seconds — Saltbay, one page standing still on foot:
+  20 a second, 1.6 KiB/s, about 80 B a snapshot (protocol 4). Not read: a player driving through a busy street, entities
+  a snapshot, encode time a player, input-to-picture latency, and a traced city — the plan's success criteria 5 and 6
+  ([network/mvp-plan.md](../network/mvp-plan.md)). A `--bench net` probe — N scripted players over loopback, driving —
+  closes it, and its latency figure decides whether own-car prediction comes next.
+- **A player's page has been looked at, and not driven** (2026-10-30): `qq web --shot --join ws://127.0.0.1:8740` of a
+  served Test town and of Saltbay shows the town, no interface, the player on foot wearing its ring at the middle and
+  its arrow on the map. Nothing has yet held a key down on a page and watched the body or a car move, pressed `E` beside
+  one, nor joined two pages at once. Closes with a scripted `qq web` drive and a second page.
+- **Getting into a train is written and not tested** (2026-10-30, `TownWorld.TakeTheTrain`, MP-13): the suite's
+  players get into cars (`PlayerBodiesTests`), and nothing has pressed beside a running train, driven one, stepped off
+  one, or ridden one off the map (which stands the player up afresh at the middle). A case on a town of the suite's
+  with a railway — walk up to a train held by `HoldAgents`, press, pull, press — closes it.
+- **A body's first steps under a hand grow the world's pools** (2026-10-30, `ManagedWorld`): the first 120 ticks a
+  player's body walks allocate about 40 KB on the world's thread, once, and none after however far it walks — a
+  high-water mark reached, not the steady state, so `ServingAPlayerAllocatesNothingOnTheTownsThread` walks it a few
+  seconds before it counts. Which pool it is has not been found; a town that opened its pools at their high water would
+  take it out of a player's first seconds.
 
 - **A walker look stands shorter than its `heightM`, by how far its walk reaches** (2026-10-28, `.qq/_walkers.py`
   `cut_clip`): a look's cell is its tallest frame and `pxPerM` its cell over `heightM`, so the stance a stopped walker
@@ -412,9 +430,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     its managed one by tick 600 on Odesa: WGSL cannot forbid a driver to fuse (core log), and `fma` in `world_view.comp`
     may run unfused. A tolerance probe of the page's device world against the managed one, driven by `qq web --ask`,
     closes it;
-  - **what moves is drawn off the CPU's fill and no tyre mark is drawn**: `sprites_count.comp` and `sprites_write.comp`
-    bind 19 storage buffers, and the marks' ring is never read back. Packing the emit's tables as the atlas's were, and
-    a web half of `DeviceSprites` feeding `TownRenderer.Web`, closes it;
   - **every touched host buffer crosses whole every batch** (`ComputeBatch.Web.cs`): the signals, the resident rows'
     staging, the views and the covers' lists, on OdesaOsm 677–851 MiB through `writeBuffer` in six seconds at about
     80 submits a second (River 37 MiB; a hook on `GPUQueue` through `qq web --ask`, 2026-10-16), where only the rows
@@ -522,6 +537,15 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Redundant work left in place
 
+- **A player's page still lays the walking network on a town with a railway** (2026-10-30, `TownWorld.LayingTheScene`):
+  a crossing's X lights over a footway are placed off the town's way lines, which are laid over the foot and walking
+  networks, so a scene of a railway town lays both to place a handful of lamps. Placing the walked crossings' lights off
+  the pavement lanes directly closes it.
+- **A player's page carries a whole `CarFleet` and `PersonFleet` a slot** (2026-10-30, `Replica`): the picture reads
+  about ten of a car's sixty-odd arrays (its line, route and controller state among the rest), so the replica's
+  thousand slots hold about a megabyte where a pose of each would be a tenth of it. A view of the fields `MovingScene`
+  reads, which the town's fleets and the replica both answer, closes it.
+
 ### The ground
 
 - **A bridge on the ground fills its whole deck with the deck surface and then covers all of it** (2026-10-25,
@@ -598,7 +622,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     again on the first order rather than kept closes it;
   - the marks in metres (`WayCrossings`, 31 MB) beside the claims' own in decimetres, for `CrossesAZebra`,
     `Overtaking` and `Closure`;
-  - the host's tyre-marks ring (`DriftMarks`, 3 MB), which the device world never fills.
+  - the host's ring of knots of marks (`DriftMarks`, 2.3 MB with its log), which the device world never fills.
 - **`TownWatch.Saw` runs every tick in the live game** (OdesaOsm on the device, 2026-10-14: 5.3 ms a frame), an
   instrument. What it can skip without missing a claim, which is answered over runs of ticks, is not worked out.
 - **A walker is still placed on its way by the host** (`WalkingGround.PlaceItOnItsWay`, every tick): a projection
@@ -803,6 +827,56 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 
 ## Inconsistencies
 
+- **A promenade and a shoulder grip and mark as grass** (2026-10-30, `RibbonAtlas.UnderWheels`, TER-7b): pavement no
+  walk is struck down — Saltbay's waterfront, 29.6 % of its pavement — and an intercity road's shoulder (86 %) have no
+  ribbon near them, so a wheel there ploughs. A probe of the drawn ground against the atlas, the shape-by-shape count
+  the terrain decision log quotes, measured it and is not kept. Closes with a walk struck down a promenade, or the
+  shoulder filed as a way of its own.
+- **A town nobody walks keeps an atlas twice the size** (2026-10-30, `RibbonAtlas.Files`): its walks are filed for the
+  tyres alone, 19 MB to 38 MB on `Towns.City`. A traced city is unchanged (it is walked). Closes with the walks filed
+  as a lighter paving-only table, if a page ever opens a large town nobody walks.
+
+- **A player's page draws what moves without everything a watched one does** (2026-10-30, `src/multiplayer/`): a level
+  crossing's barriers stand open (their state is the server's actors' and is not sent), a tow arm is not drawn (the
+  hitch is not sent), and nothing but the player itself wears a ring. Each is a field or two more in a snapshot
+  (`MoverState`) or a short list beside it; the crossing gear is the one a player would notice first.
+- **The page's key table is two lists nothing holds together** (2026-10-30, `town.js` `KEYS` and
+  `AppWindow.Web.Index`): a key named on one side only does nothing, which is how `M` first reached no player's map. A
+  test reading `KEYS` out of `town.js` against the desktop's `Key` names, or one table generated into both, closes it.
+- **A player's map shows other players only inside its own area** (2026-10-30, `Minimap`, MP-12): the map is
+  `MapSpanM` across and the area about half that, so another player's arrow vanishes well inside the map's edge.
+  Showing every player town-wide means sending positions outside the area, which MP-1 (`P0`) forbids. _owner_: amend
+  MP-1 to allow players' positions town-wide, or shrink the map to the area.
+- **Walkers on a deck are drawn in roster order** (2026-10-30, `TownSprites.FillMoving`, `sprites_write.comp`, PER-31):
+  the depth order is `sprites_order.comp`'s over the ground's run alone, so two walkers overlapping on a deck may draw
+  the far one in front — which, a deck being walked (WLK-1b), any two walkers passing on one may. Closes with the order
+  pass run over the run above's walkers too.
+- **A walker falling off a deck has not been shot** (2026-10-30, PHY-1b): one walking across Saltbay's has
+  (`qq drive` looking at 1864,572 after 60 s), but a town walker keeps to the walk, and only a multiplayer seat is
+  walked off it. A `qq web` join walked off the deck's walk at x ≈ 1860, shot, closes it.
+- **The nearest pavement to a place is asked in plan alone** (2026-10-30, `WalkingNetwork.PlaceNearest`,
+  `FootGraph.NearestEdge`, WLK-1b): over a street a deck carries, the nearest lane may be the deck's walk above it, so
+  a body stood up or a goal laid there is on the other level's walk — walked at the ground's channel along the deck's
+  line until a joint, under the deck. Closes with the lookups asked on a level.
+- **Players' names are seen on the Debug page only** (2026-10-30, `Game.Joined`, MP-15): two pages joined a served
+  Test town through `qq web --debug --join … --name … --colour …`; a Release page handed out by the town itself and
+  joined through its lobby has not been shot. A `qq web` publish, `--serve`, and two shots of the bare address after
+  CONNECT closes it.
+- **A player on foot claims no ground** (2026-10-30, `TownWorld.HandWalk`, MP-13): a body under a hand claims nothing
+  and is granted nothing (PER-25b), so a car does not give way to a player crossing in front of it and a zebra is not
+  held for one — the player is a body to the solver and nothing to the traffic. Fine for the reader's walker, wrong for
+  a game whose players walk among cars. A hand-walked body holding the stretch of way ahead of it that it cannot stop
+  short of, as a hand-driven car does (`HoldWhatCannotBeStoppedShortOf`), closes it.
+- **A player's camera zooms by the wheel alone** (2026-10-30, `Game.ReadJoinedInput`): two fingers do not pinch it, so a
+  handset player is held at the opening span. `PlayerHands.ReadTouches`' pinch, clamped as the wheel is, closes it.
+- **A served town has no way in but plain `ws://`, and asks nobody who they are** (2026-10-30, `WebSocketHandshake`):
+  no TLS of its own, no `Origin` check and no join token, so a page on HTTPS reaches it only through a TLS-terminating
+  proxy, and anybody who can reach the port takes a seat. `SslStream` or the proxy, an origin list and signed join tokens
+  close it (plan, "After the MVP" 5).
+- **An input is sent once** (2026-10-30, `InputMessage`): over a socket that delivers everything that is all an input
+  needs, but the plan writes the protocol for datagrams, which would want the last few inputs carried redundantly. Part
+  of moving to WebTransport.
+
 - **`blouse_bun` may have its north diagonals swapped** (2026-10-28, raw_assets/agents/person/prompting.md): its
   up-left row reads as facing up-right by eye, as `recovery_a`'s and `recovery_c`'s did before they were cut again with
   `--mirror 3`; a silhouette comparison against the side rows does not settle it. Looking at its
@@ -949,12 +1023,16 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **A building's `tags` repeats its `describe` and nothing reads it** _owner_ (`BuildingVariantFile.Tags`, 365 files):
   dropping the field from the type and the files, or naming what it is kept for, closes it.
 
-- **A page draws no smoke** (`CAR-54`, `OBJ-7`, 2026-10-29): exhausts, stacks and chimneys are tracked by
-  `smoke_track.comp` in the device world's step and drawn by the desktop's emit (`sprites_write.comp`, 19 storage
-  buffers), and a page draws what moves off the CPU's fill, which draws none — so no browser smokes, and a page on the
-  managed world (a phone's) has no track to draw from either. _owner_: a host half of the track and the puffs (a second
-  statement of both, to the CPU fill), or the emit packed to sixteen buffers with a web half of `DeviceSprites` (device
-  world only, so not that phone), closes it.
+- **A page's emit is looked at once and measured never** (`DeviceSprites`, WEB-12, 2026-10-30): the Debug page's
+  Showroom draws a chimney's plume and the walkers, cars and lamps off the emit with no WebGPU error, but no frame of
+  running cars has been looked at for their exhaust, and what the emit's batch costs a published page on a city is not
+  taken (3.7 ms on the Debug page's Test). Nor has a page's marks pass (`town.wgsl`'s `markVertex`) drawn a mark that
+  was looked at: it builds with no error, the desktop draws the device's strokes from the same ring, and no page town
+  has been driven to lay one. A `qq web --shot` on a city's traffic, a mark laid on a page (a `qq web` step that holds
+  a key), and a `--ui frame` reading on OdesaOsm close it.
+- **The web build validates the kernels' WGSL and not the page's own** (`Kernels.Web.targets`, 2026-10-30): a word
+  WGSL reserves in `town.wgsl` (`from`) built clean and refused the whole shader on the page. naga over `town.wgsl` in
+  the same target closes it.
 - **A page's clouds are a full-frame pass of ten octaves of value noise** (`OBJ-8`, `town.wgsl` `cloudFragment`,
   2026-10-29): not measured on a phone, whose frame was already bound by its pixels (WEB-11). A phone's `?ui=frame`
   with a clear sky against a cloudy one closes it.
@@ -1346,11 +1424,12 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **The device world keeps no grid the host reads** (`DeviceWorld.InBox` answers none, `FrozenBodyCount` nought): a
   picture of a street walks the whole fleet's places (`TownWorld.CarsPlacedIn`), and the census reads no frozen bodies.
   The managed world answers both off its solver.
-- **A town stepped on the device leaves the host's ring of marks empty** (`WorldLayer.Marks`): the tyres lay their marks
-  into a ring on the device that a frame draws from (`DeviceTyres.GroundMarks`), and nothing is read back, so a reader of
-  `TownWorld.Marks` — a page's fill, `--bench sprites` — sees none there, and a tick's marks land in the order its
-  threads claimed places rather than the host's (car, wheel) order. Nothing decides on a mark; a reader that needs them
-  on the device's host would read the ring back.
+- **A town stepped on the device leaves the host's ring of marks empty** (`WorldLayer.Marks`): the tyres lay their
+  strokes into a ring on the device that a frame draws from (`DeviceTyres.GroundMarks`), and nothing is read back but by
+  an instrument (`DeviceWorld.ReadTheMarks`), so a reader of `TownWorld.Marks` — a server sending a player its marks —
+  sees none there, and a tick's knots land in the order its threads claimed places rather than the host's (car, wheel)
+  order. Nothing decides on a mark; a reader that needs them on the device's host would read back the places the step
+  wrote, which the device keeps no log of as the host's ring does (`DriftMarks.Written`).
 - **The metre↔pixel conversion has no one site** (CLAUDE.md, SIM-3): the screen's factor is `Camera2D`'s and the art
   grid is `qq art`'s. Naming `Camera2D` as the site, or routing both through one, closes it _owner_ (the wording is the
   working agreement's).
@@ -1421,6 +1500,11 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   takes a walk to end past a place only where both its lanes find the end within three setbacks, and otherwise lays the
   junction and the turn back as before. Fixture and Saltbay's intercity crossings looked at end straight; no instrument
   says how many fall back on a whole town. A count beside `Unreached` in `TownCensus`'s foot reading closes it.
+- **A car that touches a walker slowly and then drives on shoves them standing** (2026-10-30, PER-23): a knock-down
+  is judged once, when the touch begins (SOL-6), so a car pulling away from a stop with a walker at its bumper pushes a
+  braced body several metres and never puts it down. Reporting a walker–vehicle pair on every step it touches — the
+  managed solver's roster, `touches.comp` and `DeviceSolver.BegunRow` — closes it; the owner chose the touch alone for
+  now.
 ## Waiting on the owner
 
 - **The physics step waits on the actors' planning** _owner_ (2026-10-14): the owner's model is the physics tick as the
@@ -1438,6 +1522,23 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **The ground rule TER-7b, a P0, still says it is taken "once a laying (TER-49)"** _owner_: there is no laying, and the
   wheels' ground is read on every world step (`WorldLayer.Step`). The code meets the rule more often than it says; the
   wording is the owner's.
+- **A device holding blocks downloads about 78 MB of them** (2026-10-30, `SheetBake`, `sheets/bc7.tar.gz`): every sheet
+  the catalogue has, against 24 MB of the same sheets as webp. UASTC's RDO took only 4–10% off for 1–9 dB of the
+  picture; what would close most of it is ETC1S with a transcoder on the page, or a page encoding its blocks from the
+  webp on the device — each to be weighed against the picture on the showroom first.
+- **A position is sent in steps a player can see at its closest zoom** (2026-10-30, `PositionQuantumM`): a player zooms
+  in as far as a reader, 576 device pixels a metre, where 2 cm is 11.5 of them, so a unit drawn off snapshots may step
+  by that much between two. Not looked at; a shot of a slow walker at the closest zoom says whether it shows, and a
+  finer step closes it at the price of a few bits a mover.
+- **The desktop head's bake is the web build's, or a command** (2026-10-30, `--bake-sheets`): a desktop build does not
+  bake, so a desktop working copy packs pictures until the web build or the command has run, and a bake older than the
+  art is refused and says so (`BakedSheets.Matches`). Baking in the desktop build closes it, at about 1.5 s a build once
+  cached.
+- **A watched page packs every look the catalogue has** (2026-10-30, `TownSprites.Sheets`): a roof or a prop its town
+  stands none of takes its room on a page, as a player's page no longer does (`SheetsAsShown`, Saltbay 141 of the
+  catalogue's sheets). The atlas is packed again on every open already, so handing a watched page the same `Unused`
+  marks closes it — once nothing a watched page draws besides its standing sprites (an instrument, the showroom) is
+  found to name a roof or a prop its plan does not stand.
 - **`TER-5j` was retired and its number given to another rule** _owner_ (road log, 2026-09-14), against "a retired
   number is never reused". The log cites only the new one; renumbering it is the owner's.
 

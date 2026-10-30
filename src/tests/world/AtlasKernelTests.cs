@@ -236,7 +236,7 @@ public class AtlasKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         try
         {
             atlas.File(
-                RibbonAtlas.Filing(lines, Config.RibbonLevel, anyoneWalks: world.People.Capacity > 0),
+                RibbonAtlas.Filing(lines, Config.RibbonLevel),
                 furniture ?? new AtlasFurniture([], [], 0, Driven(world)));
             atlas.Finish();
             return atlas;

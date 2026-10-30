@@ -273,6 +273,9 @@ internal sealed class AppWindow : IDisposable
         ReadThePlatform();
     }
 
+    /// <summary>A line to a served town (MP-3). A desktop window opens none: only a page joins (<see cref="ServerLink"/>).</summary>
+    public ServerLink Link { get; } = new();
+
     public bool IsKeyDown(Key key) => _keyboard?.IsKeyPressed(key) ?? false;
 
     public bool IsMouseDown(MouseButton button) => _mouse?.IsButtonPressed(button) ?? false;

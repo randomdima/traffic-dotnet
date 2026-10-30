@@ -650,11 +650,12 @@ internal sealed class DeviceSolver : IDisposable
 
     /// <summary>
     /// One pair that began touching (<c>Begun</c>, <c>kernels/touches.comp</c>): its two bodies, the normal from the first
-    /// to the second, and how fast the two closed along it on the motion they brought into the tick (<c>ContactArbiter</c>).
+    /// to the second, and how fast each was moving into the other along it on the motion it brought into the tick
+    /// (<see cref="World.Physics.Approach"/>).
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct BegunRow(
-        uint First, uint Second, Vector2 Normal, float ClosingMps, float Pad0 = 0f, float Pad1 = 0f, float Pad2 = 0f);
+        uint First, uint Second, Vector2 Normal, float FirstIntoMps, float SecondIntoMps, float Pad1 = 0f, float Pad2 = 0f);
 
     /// <summary>How many workgroups of 64 the step's contacts can take, each counting its own begun.</summary>
     int BegunGroups => (ContactCapacity + 63) / 64;

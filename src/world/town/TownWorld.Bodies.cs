@@ -66,7 +66,12 @@ internal sealed partial class TownWorld
     /// that decides damage. Contacts themselves are the world's — a walker walked into something stops
     /// because it was stopped — and what is decided here is only what the contact <em>did</em>.
     /// </summary>
-    public void ResolveContacts() => Touches += ContactArbiter.Resolve(_world.View.TouchesBegun, _config, this);
+    public void ResolveContacts()
+    {
+        Touches += ContactArbiter.Resolve(_world.View.TouchesBegun, _config, this);
+        HangOverTheDecks();
+        FallOffTheDecks();
+    }
 
     /// <summary>
     /// How many pairs have begun touching since the town was stood up. An instrument and nothing else:

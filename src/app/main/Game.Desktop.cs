@@ -1,4 +1,3 @@
-using System.Numerics;
 using System.Runtime;
 using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.App.Drive;
@@ -24,8 +23,6 @@ internal sealed partial class Game
 {
     Runtime.Vk _vk = null!;
 
-    DeviceWorld? _deviceWorld;
-
     /// <summary>
     /// The map being laid, or <c>null</c> when nothing is. <b>Written and read on the loop's thread
     /// only</b> — the thread the lay runs on touches nothing of this class.
@@ -45,8 +42,8 @@ internal sealed partial class Game
 
     private partial Runtime.Vk? EngineDevice() => _vk;
 
-    /// <summary>The image the frame being filled is drawn into: the engine layers' kernels ride in its recording.</summary>
-    private partial int EngineSlot() => _renderer.ImageIndex;
+    /// <summary>The image the frame being filled is drawn into: the frame's kernels ride in its recording.</summary>
+    private partial int FrameSlot() => _renderer.ImageIndex;
 
     private partial int EngineSlots() => _renderer.ImageCount;
 
@@ -62,42 +59,14 @@ internal sealed partial class Game
 
     partial void TickOnTheDevice(TownWorld? world)
     {
-        _deviceWorld = null;
         if (world is null || !TicksOnTheDevice) return;
 
         // What the town lets go of with the handover is collected by the handover where the town is big enough to want it,
         // and given back to the machine by the stand's own collection (HandBackTheOpen).
-        world.HandTheWorldTo(laying => _deviceWorld = new DeviceWorld(_vk, laying));
-        _movingOnTheDevice = true;
+        world.HandTheWorldTo(laying => new DeviceWorld(_vk, laying));
     }
 
     private partial DeviceWorldMaker? WorldMaker() => TicksOnTheDevice ? new DeviceWorldMaker(_vk) : null;
-
-    partial void TookTheDeviceWorld(TownWorld town, DeviceWorld world)
-    {
-        _deviceWorld = world;
-        _movingOnTheDevice = true;
-    }
-
-    partial void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room)
-    {
-        if (_deviceWorld is not { } device) return;
-
-        // The marks are the device's whether or not what moves is drawn there: the host's ring is not filled.
-        var (rows, ring) = device.GroundMarks;
-        _renderer.DrawTheMarksFrom(rows, ring);
-        if (!_movingOnTheDevice) return;
-
-        _renderer.DrawTheMovingFrom(device.DrawWith(world, _looks!, room));
-    }
-
-    partial void EmitTheMoving(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
-    {
-        if (_deviceWorld is not { Sprites: { } sprites } device || _world is not { } world) return;
-
-        sprites.WriteTheFrame(_renderer.ImageIndex, world, viewCentreM, viewSpanM, pixelsPerMetre, device.SignalsTaken);
-        _renderer.Wrote(sprites.FrameBytes);
-    }
 
     /// <summary>
     /// The map picked, laid on a thread of its own (<see cref="LaidTown"/>) and stood up on the first

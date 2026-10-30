@@ -74,7 +74,9 @@ CarViewRow viewOf(uint car)
             vec2 pushN = roundedQuotient(spentNs, world.dtS);
             precise float alongN = pushN.x * forward.x + pushN.y * forward.y;
             precise float acrossN = pushN.x * -forward.y + pushN.y * forward.x;
-            sprung = suspensionStep(build, poses[car].sprung, vec2(alongN, acrossN), world.dtS);
+            sprung = suspensionStep(
+                build, poses[car].sprung, vec2(alongN, acrossN), world.dtS, tyreWheelsOverNothingOf(carRows[car]),
+                world.mostTiltOverNothingRad);
         }
 
         poses[car] = TyrePose(placed.xy, moving.xy, forward, heading, moving.z, row.massKg, sprung);

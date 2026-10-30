@@ -63,7 +63,7 @@ void main()
     }
 
     float loadShare[TyreWheels];
-    suspensionLoads(build, pose.sprung, loadShare);
+    suspensionLoads(build, pose.sprung, 0u, loadShare);
     vec4 spent[TyreWheels];
     TyreScrub scrub[TyreWheels];
     tyreStep(build, pose, commands[car], ceilings[car], loadShare, atM, ground, spinMps, figures.dtS, spent, scrub);

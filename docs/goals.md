@@ -18,7 +18,7 @@ and the failures have to be recoverable.** A build that reaches the same picture
 built something that looks like this and is not it.
 
 And it is written with **no engine under it**: C# on .NET 11, and this project's own compute kernels. The
-unmanaged boundary is at the graphics driver and the window and nowhere else. No Godot, no MonoGame, no Unity, no
+unmanaged boundary is at the graphics driver, the window and a server's sockets, and nowhere else. No Godot, no MonoGame, no Unity, no
 retained renderer, no ECS framework — nothing that wants to own the loop, the window, the update order or
 the object model. The physics is not a package either: [world/physics/](../src/world/physics/) is this
 project's own broad phase, narrow phase and contact solver.
@@ -48,6 +48,14 @@ The browser head runs the same world layer on its WebGPU device, from the same k
 managed code where the device cannot hold them — behind the same signals and the same shallow state either way, so
 the actor layer cannot tell which world it is driving.
 
+## One town, many drivers
+
+**A server runs one town and admits players**, each given a car of the town's own to drive, the camera held on it,
+and nothing of the town but the ground round it. The server is the only authority: a player sends the keys it
+holds and is sent what moves in its area — never anything outside it — and lays the static town itself, as
+the two layers do. A player's page carries none of the instruments. How it is arranged is
+[multiplayer/](../src/multiplayer/docs/requirements.md); why, [network/](../network/index.md).
+
 ## The quality bar
 
 **Plausibility, not fidelity.** A human watching the town should find the layout and the agents'
@@ -71,12 +79,19 @@ The boundary is not forbidden — a window has to be opened and a buffer has to 
 making the frame's call count a constant is the goal; being close to the metal is a side effect. How that
 is arranged is [Runtime](../src/runtime/docs/requirements.md).
 
+**A server's socket is the same boundary and is counted the same way**: it costs at most one send and one
+receive per client per snapshot, whatever the size of the town, and a page's network I/O rides the crossing its
+frame already makes. How that is arranged is [multiplayer/](../src/multiplayer/docs/requirements.md) (MP-8).
+
 ### 2. The steady state allocates nothing
 
 Not *little* — nothing. A tick and a frame in a standing town show a flat allocation counter: the roster
 is laid once as structure-of-arrays, transient working sets come from a pool or the stack, and the hot
 path holds no LINQ, no iterator, no closure, no `params`, no boxing and no interface call the JIT cannot
 devirtualise.
+
+**The rule binds the tick and the frame — a server's network thread is outside it.** What a server writes to its
+clients and reads from them may allocate a little there, and never on the thread that steps the town.
 
 This is a rule rather than an optimisation because **a GC pause is a measurement destroyed**. A figure
 taken across a collection is a figure nobody can quote, and a project that has to explain its outliers
@@ -90,8 +105,6 @@ window, the typeface, the test runner, the solver — is decided on the two rule
 
 ## What it is not
 
-- **Not a game.** No player character, no objective, no score, no win or lose. There is a hand that can
-  take over one unit at a time, and that is a debugging instrument with an interface.
 - **Not a scientific simulation.** Nothing is calibrated against real traffic data and there are no
   accuracy targets.
 - **Not a framework, and not a library anybody else is meant to use.** Two pipelines and a handful of

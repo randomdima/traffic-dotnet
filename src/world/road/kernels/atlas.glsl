@@ -374,33 +374,33 @@ void atlasPointNearest(vec2 pointM, out int first, out int end, out int column)
     atlasRunIn(slot, startInSlot, first, end);
 }
 
-// Whether an entry of a point at this column of its cell is a way on one of the channels whose band holds the point
-// (RibbonAtlas.OnTheWay).
-bool atlasOnTheWay(uvec2 entry, int column, uint channels)
+// Whether an entry of a point at this column of its cell is a way on one of the channels, its band holding the point or
+// standing within the reach of it (RibbonAtlas.OnTheChannels).
+bool atlasOnTheChannels(uvec2 entry, int column, uint channels)
 {
-    if (int((entry.x >> 8) & 0xFFu) != column || (entry.x & 0xFFu) != 0u) return false;
+    if (int((entry.x >> 8) & 0xFFu) != column) return false;
 
     return ATLAS_FIGURES.hasChannels == 0u || (atlasChannelsOf(int(entry.y)) & channels) != 0u;
 }
 
 // Every way of a run whose band holds the lattice point at this column, grown into atlasFound at the metre that point
-// stands at; whether there was any.
+// stands at; whether the point is paving — a way's band holding it or within the reach of it (RibbonAtlas.UnderWheels).
 bool atlasGrowOverTheRun(int first, int end, int column, uint channels, inout int written, inout uint dropped)
 {
-    bool onAWay = false;
+    bool paved = false;
     uvec2 next = first < end ? atlasEntry(first) : uvec2(0u);
     for (int at = first; at < end; at++)
     {
         // Each entry asked for before the last is weighed, so its read is in flight meanwhile.
         uvec2 entry = next;
         if (at + 1 < end) next = atlasEntry(at + 1);
-        if (!atlasOnTheWay(entry, column, channels)) continue;
+        if (!atlasOnTheChannels(entry, column, channels)) continue;
 
-        written = atlasGrow(written, int(entry.y), float(entry.x >> 16), dropped);
-        onAWay = true;
+        paved = true;
+        if ((entry.x & 0xFFu) == 0u) written = atlasGrow(written, int(entry.y), float(entry.x >> 16), dropped);
     }
 
-    return onAWay;
+    return paved;
 }
 
 // The same for the lattice point nearest a wheel.

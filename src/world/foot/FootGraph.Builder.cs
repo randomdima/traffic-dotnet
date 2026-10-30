@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Foot;
@@ -29,6 +30,10 @@ internal sealed partial class FootGraph
         readonly List<float> _edgeLengthM = [];
         readonly List<float> _edgeBandM = [];
         readonly List<FootEdgeKind> _edgeKind = [];
+        readonly List<byte> _edgeChannels = [];
+
+        /// <summary>The channels each node stands on (PHY-1a): a node welds onto one standing on the same alone.</summary>
+        readonly List<byte> _nodeChannels = [];
 
         // One array per edge while building and flattened once at the end, a flat store with offsets in it
         // being the shape the graph keeps rather than the shape it is collected in.
@@ -45,28 +50,37 @@ internal sealed partial class FootGraph
         /// lanes of a pavement are two lines a lane's width apart, each walked its own way, and the one
         /// beside this is a lane in its own right rather than this one read backwards.
         /// </remarks>
-        public void AddLane(ReadOnlySpan<ArcSeg> arcs, float bandM, FootEdgeKind kind)
+        /// <param name="fromChannels">The channels its start stands on (PHY-1a): the ground's, a deck's (WLK-1b).</param>
+        /// <param name="toChannels">And its end: another level's for a joint between two, which is on both.</param>
+        public void AddLane(
+            ReadOnlySpan<ArcSeg> arcs, float bandM, FootEdgeKind kind, byte fromChannels = CityPlan.RoadArrays.GroundChannel,
+            byte toChannels = CityPlan.RoadArrays.GroundChannel)
         {
             if (arcs.Length == 0) return;
 
-            var from = NodeAt(arcs[0].StartM);
-            var to = NodeAt(arcs[^1].EndM);
+            var from = NodeAt(arcs[0].StartM, fromChannels);
+            var to = NodeAt(arcs[^1].EndM, toChannels);
             if (from == to) return;
 
-            Add(from, to, arcs.ToArray(), Spline.TotalLengthM(arcs), bandM, kind);
+            Add(from, to, arcs.ToArray(), Spline.TotalLengthM(arcs), bandM, kind, (byte)(fromChannels | toChannels));
         }
 
-        void Add(int fromNode, int toNode, ArcSeg[] arcs, float lengthM, float bandM, FootEdgeKind kind)
+        void Add(int fromNode, int toNode, ArcSeg[] arcs, float lengthM, float bandM, FootEdgeKind kind, byte channels)
         {
             _edgeFrom.Add(fromNode);
             _edgeTo.Add(toNode);
             _edgeLengthM.Add(lengthM);
             _edgeBandM.Add(bandM);
             _edgeKind.Add(kind);
+            _edgeChannels.Add(channels);
             _edgeArcs.Add(arcs);
         }
 
-        int NodeAt(Vector2 pointM)
+        /// <summary>
+        /// The node standing at a point on these channels, or a new one there. <b>Two levels' never weld</b>: a deck's walk
+        /// crosses the walk of the street it carries over, and is not joined to it.
+        /// </summary>
+        int NodeAt(Vector2 pointM, byte channels)
         {
             var cell = _weldLevel.CellOf(pointM);
             var reach = _weldLevel.CellsWithin(weldM);
@@ -76,12 +90,13 @@ internal sealed partial class FootGraph
                 {
                     for (var node = _welds.FirstIn(cell.X + x, cell.Y + y); node >= 0; node = _welds.After(node))
                     {
-                        if ((_nodeM[node] - pointM).LengthSquared() <= weldM * weldM) return node;
+                        if (_nodeChannels[node] == channels && (_nodeM[node] - pointM).LengthSquared() <= weldM * weldM) return node;
                     }
                 }
             }
 
             _nodeM.Add(pointM);
+            _nodeChannels.Add(channels);
             return _welds.Add(cell.X, cell.Y);
         }
 
@@ -140,7 +155,7 @@ internal sealed partial class FootGraph
             for (var edge = 0; edge < edgeTo.Length; edge++) inEdges[cursor[edgeTo[edge]]++] = edge;
 
             return new FootGraph(
-                [.. nodeM], edgeFrom, edgeTo, [.. _edgeLengthM], [.. _edgeBandM], [.. _edgeKind],
+                [.. nodeM], edgeFrom, edgeTo, [.. _edgeLengthM], [.. _edgeBandM], [.. _edgeKind], [.. _edgeChannels],
                 edgeArcOffsets, [.. edgeArcs], outOffsets, outEdges, inOffsets, inEdges, grid.Main);
         }
     }

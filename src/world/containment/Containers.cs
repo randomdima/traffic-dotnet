@@ -1,11 +1,17 @@
 namespace TrafficSimulation.World.Containment;
 
-/// <summary>What a person can be inside. PHY-7's two container kinds and nothing else.</summary>
+/// <summary>What a person can be inside: PHY-7's two container kinds, and the two a player's body adds (MP-4, MP-13).</summary>
 internal enum ContainerKind : byte
 {
     None,
     Building,
     Car,
+
+    /// <summary>A train's cab, which a player drives it from (MP-13). The train's own driver is nobody on the roster.</summary>
+    Train,
+
+    /// <summary>Out of the town altogether: a player's body nobody is being yet (MP-4).</summary>
+    Offstage,
 }
 
 /// <summary>Where a person is, when they are not in the town: which kind of container, and which one.</summary>
@@ -232,7 +238,22 @@ internal sealed class Containers
         return true;
     }
 
-    /// <summary>Who is driving, or <see cref="NoDriver"/> — which every car is, nothing in this build boarding one.</summary>
+    /// <summary>
+    /// <b>Into a train's cab, or offstage</b> (MP-4, MP-13): neither has room to count, since only a player is ever put in
+    /// either and the seat it holds is the register of which.
+    /// </summary>
+    public void PutIn(Contained where, int person)
+    {
+        if (where.Kind is ContainerKind.Train or ContainerKind.Offstage) _personIsIn[person] = where;
+    }
+
+    /// <summary>And out of one again.</summary>
+    public void TakeOut(int person)
+    {
+        if (_personIsIn[person].Kind is ContainerKind.Train or ContainerKind.Offstage) _personIsIn[person] = Contained.Nowhere;
+    }
+
+    /// <summary>Who is driving, or <see cref="NoDriver"/>.</summary>
     public int DriverOf(int car) => _carDriver[car];
 
     public bool IsFree(int car) => _carDriver[car] == NoDriver;

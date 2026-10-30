@@ -69,6 +69,79 @@
           "endsPattern": "^serving "
         }
       }
+    },
+    {
+      // Publishes the browser head and stops — the page `serve Saltbay` hands its players (MP-11). The same ten
+      // minutes as above, and only needed when the page's own code has changed since the last publish.
+      "label": "publish web (release)",
+      "type": "process",
+      "command": "${userHome}/.local/bin/qq",
+      "args": ["web", "--timeout=0"],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      // Saltbay served to players with no window (MP-1…11): open http://localhost:8740/ in a browser and the page
+      // the server hands out joins it. The page is the last `publish web (release)`; with none published the server
+      // says so and takes players from a page served elsewhere. Stop it with Ctrl+C in its terminal.
+      // The Cloudflare tunnel below is started first, so the same page is reachable from outside this machine.
+      "label": "serve Saltbay (multiplayer)",
+      "dependsOn": ["tunnel serve (cloudflare)"],
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/traffic-dotnet.csproj",
+        "-c",
+        "Release",
+        "--",
+        "--serve",
+        "--map",
+        "Saltbay"
+      ],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      // Ready once the town is laid and the port is open: ServeRun's "serving …" line.
+      "problemMatcher": {
+        "owner": "serve",
+        "fileLocation": ["absolute"],
+        "pattern": {
+          "regexp": "^(.*)\\((\\d+),(\\d+)\\): (error|warning) (\\w+): (.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "code": 5,
+          "message": 6
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^laying ",
+          "endsPattern": "^serving "
+        }
+      }
+    },
+    {
+      // A Cloudflare quick tunnel to the multiplayer server, run in the `cf` toolbox, which holds cloudflared. Its
+      // public https://….trycloudflare.com address is new every start and printed in this terminal; anybody holding
+      // it reaches the server, so stop it with Ctrl+C when nobody is playing. 8740 is MultiplayerFigures.Port.
+      "label": "tunnel serve (cloudflare)",
+      "type": "process",
+      "command": "toolbox",
+      "args": ["run", "-c", "cf", "cloudflared", "tunnel", "--no-autoupdate", "--url", "http://localhost:8740"],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      // Ready once the tunnel has its address; nothing it prints is a problem in the code.
+      "problemMatcher": {
+        "owner": "tunnel",
+        "pattern": { "regexp": "^\\b\\B$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Thank you for trying Cloudflare Tunnel",
+          "endsPattern": "trycloudflare\\.com"
+        }
+      }
     }
   ]
 }

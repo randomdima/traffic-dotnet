@@ -17,7 +17,8 @@ namespace TrafficSimulation.Runtime;
 /// </para>
 /// <para>
 /// <b>What a batch touched is what crosses</b>: every buffer a dispatch binds, a copy reads or writes or a fill fills.
-/// A touched buffer the host writes is sent whole ahead of the batch; one the host reads is copied back whole after it.
+/// A touched buffer the host writes is sent whole ahead of the batch; one the host reads is copied back whole after it,
+/// where the batch wrote it (<c>compute.js</c>) — one only read holds what the batch that wrote it last landed.
 /// </para>
 /// </remarks>
 internal sealed class ComputeBatch : IDisposable

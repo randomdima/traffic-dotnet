@@ -12,7 +12,7 @@ internal enum ControlAction : ushort
     /// <summary>A car's wheel and pedals (<see cref="DriveCommand"/>): steer, throttle, brake; flags <see cref="ControlSignal.Handbrake"/>, <see cref="ControlSignal.Reverse"/>, <see cref="ControlSignal.UnderAHand"/>. Kept until the next.</summary>
     Drive = 1,
 
-    /// <summary>A walker's aim (x, y); flags <see cref="ControlSignal.Moving"/>, <see cref="ControlSignal.OnFeet"/>, <see cref="ControlSignal.Faces"/>. Kept until the next.</summary>
+    /// <summary>A walker's aim (x, y); flags <see cref="ControlSignal.Moving"/>, <see cref="ControlSignal.OnFeet"/>, <see cref="ControlSignal.Faces"/>, <see cref="ControlSignal.Sprints"/>. Kept until the next.</summary>
     Walk,
 
     /// <summary>
@@ -57,6 +57,15 @@ internal enum ControlAction : ushort
 
     /// <summary>A switch set (TRN-9): its number in the first parameter's bits, its position in the flags. Any agent may name it.</summary>
     Switch,
+
+    /// <summary>
+    /// Which of a car's wheels stand on nothing (PHY-1b), a bit a wheel in its flags: past a deck's edge, they carry and
+    /// grip nothing and the body leans over them (<see cref="Agents.Car.Body.Suspension"/>). Kept until the next.
+    /// </summary>
+    Hang,
+
+    /// <summary>A body's velocity changed by (x, y), woken to take it (<see cref="PhysicsWorld.Shove"/>, PHY-9).</summary>
+    Shove,
 }
 
 /// <summary>
@@ -69,8 +78,12 @@ internal readonly record struct ControlSignal(int Agent, ControlAction Action, u
 {
     public const ushort Handbrake = 1, Reverse = 2, UnderAHand = 4;
 
-    /// <summary>A walker's flags: it walks at its aim; it stands on its feet rather than sliding; it turns to face its aim rather than holding its stance where it stands.</summary>
-    public const ushort Moving = 1, OnFeet = 2, Faces = 4;
+    /// <summary>
+    /// A walker's flags: it walks at its aim; it stands on its feet rather than sliding; it turns to face its aim rather
+    /// than holding its stance where it stands; it walks at a hand's boosted pace (CTL-5e) — past 8, which the device's
+    /// row keeps for a walker inside (<c>WalkerInside</c>).
+    /// </summary>
+    public const ushort Moving = 1, OnFeet = 2, Faces = 4, Sprints = 16;
 
     public const ushort ByTheTail = 1;
 
@@ -84,8 +97,9 @@ internal readonly record struct ControlSignal(int Agent, ControlAction Action, u
         (ushort)((command.Handbrake ? Handbrake : 0) | (command.Reverse ? Reverse : 0) | (underAHand ? UnderAHand : 0)),
         new Vector4(command.SteerRad, command.ThrottleMps2, command.BrakeMps2, 0f));
 
-    public static ControlSignal Walk(int agent, Vector2 aimM, bool moving, bool onFeet, bool faces) => new(
-        agent, ControlAction.Walk, (ushort)((moving ? Moving : 0) | (onFeet ? OnFeet : 0) | (faces ? Faces : 0)),
+    public static ControlSignal Walk(int agent, Vector2 aimM, bool moving, bool onFeet, bool faces, bool sprints = false) => new(
+        agent, ControlAction.Walk,
+        (ushort)((moving ? Moving : 0) | (onFeet ? OnFeet : 0) | (faces ? Faces : 0) | (sprints ? Sprints : 0)),
         new Vector4(aimM, 0f, 0f));
 
     public static ControlSignal Place(int agent, Vector2 atM, float headingRad, float speedMps = 0f, int look = 0) =>
@@ -103,6 +117,10 @@ internal readonly record struct ControlSignal(int Agent, ControlAction Action, u
     public static ControlSignal Layer(int agent, CollisionLayer layer) => new(agent, ControlAction.Layer, (ushort)layer, default);
 
     public static ControlSignal Channels(int agent, byte channels) => new(agent, ControlAction.Channels, channels, default);
+
+    public static ControlSignal Hang(int agent, byte overNothing) => new(agent, ControlAction.Hang, overNothing, default);
+
+    public static ControlSignal Shove(int agent, Vector2 byMps) => new(agent, ControlAction.Shove, 0, new Vector4(byMps, 0f, 0f));
 
     /// <param name="load">The agent of the body put on the arm, or −1 to empty it.</param>
     public static ControlSignal Tow(int tractor, int load, bool byTheTail) => new(

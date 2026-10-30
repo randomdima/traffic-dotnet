@@ -64,7 +64,7 @@ internal sealed class TownSprites
     /// <summary>And its scenery, laid with it.</summary>
     public ScenerySprites Scenery { get; private set; } = ScenerySprites.Nothing;
 
-    /// <summary>The sheets in slot order — every walker's look and the same again lying down, then every car's, then the tow arms, the roofs, the prop looks, the two head strips, the two mark brushes, the lamp's lens and glow, and the rubber.</summary>
+    /// <summary>The sheets in slot order — every walker's look, then every car's, then the tow arms, the roofs, the prop looks, the two head strips, the two mark brushes, the lamp's lens and glow, and the rubber.</summary>
     public SheetSource[] Sheets { get; }
 
     /// <summary>The widest tyre any car of the catalogue or the nominal car runs on: a frame that would leave it out leaves every tyre out, unasked.</summary>
@@ -90,11 +90,8 @@ internal sealed class TownSprites
     /// <summary>One frame's width over its height, per slot. Only a walker's quad is shaped by it; a car's is its own footprint.</summary>
     public float[] Aspects { get; }
 
-    /// <summary>Where the bodies in the road start: one frame a look, laid straight after that look's walk sheet block.</summary>
-    public int FirstDownSheet => People.SheetCount;
-
-    /// <summary>And where the cars start, which is past both of the walkers' blocks.</summary>
-    public int FirstCarSheet => People.SheetCount * 2;
+    /// <summary>Where the cars start, which is past the walkers' sheets.</summary>
+    public int FirstCarSheet => People.SheetCount;
 
     /// <summary>Where the tow arms start (EVA-5) — a short run, because a beam is a picture almost no look has.</summary>
     public int FirstBeamSheet => FirstCarSheet + (Cars.SheetCount * 2);
@@ -179,21 +176,17 @@ internal sealed class TownSprites
         var buildings = BuildingCatalog.Load();
         var props = PropCatalog.Load();
 
-        // Every look twice over, walkers and cars alike, because both have two: the one it is and the one
-        // it becomes — a body in the road, a wreck. Going down is then a different number in an instance
-        // and nothing else.
+        // Every car look twice over, because it has two: the one it is and the one it becomes, a wreck. Going
+        // down is then a different number in an instance and nothing else. A walker has one, and a body in the
+        // road is drawn off it (PersonSprites).
         var beams = cars.BeamSpritePaths;
         var trains = TrainCatalog.Shared.Vehicles;
-        var firstTrain = (people.SheetCount * 2) + (cars.SheetCount * 2) + beams.Length + buildings.Count + props.Count
+        var firstTrain = people.SheetCount + (cars.SheetCount * 2) + beams.Length + buildings.Count + props.Count
                          + buildings.FanLooks.Length + HeadSheets + GroundworkSheets;
         var sheets = new SheetSource[firstTrain + trains.Length];
-        for (var variant = 0; variant < people.SheetCount; variant++)
-        {
-            sheets[variant] = SheetSource.File(people.Variants[variant].SheetPath);
-            sheets[people.SheetCount + variant] = SheetSource.File(people.Variants[variant].DownSheetPath);
-        }
+        for (var variant = 0; variant < people.SheetCount; variant++) sheets[variant] = SheetSource.File(people.Variants[variant].SheetPath);
 
-        var firstCar = people.SheetCount * 2;
+        var firstCar = people.SheetCount;
         var widestTyreM = config.Tyre.WheelWidthM;
         var widestGlowM = 0f;
         var carReachM = 0f;
@@ -270,20 +263,38 @@ internal sealed class TownSprites
     }
 
     /// <summary>
+    /// <b>The sheets as a player's page packs them</b> (MP-9): a roof or a prop <paramref name="plan"/> stands none of not
+    /// packed at all, and every other sheet whole. Every slot keeps its number, so nothing that names a sheet changes.
+    /// </summary>
+    public SheetSource[] SheetsAsShown(CityPlan plan, BuildingUses uses)
+    {
+        var shown = (SheetSource[])Sheets.Clone();
+        var roofs = new bool[Buildings.Count];
+        for (var building = 0; building < plan.Buildings.Count; building++) roofs[BuildingRoofs.Of(plan, Buildings, uses, building).Variant] = true;
+        for (var variant = 0; variant < Buildings.Count; variant++) shown[FirstBuildingSheet + variant] = shown[FirstBuildingSheet + variant] with { Unused = !roofs[variant] };
+
+        var props = new bool[Props.Count];
+        for (var prop = 0; prop < plan.Props.Count; prop++) props[plan.Props.Look[prop]] = true;
+        for (var variant = 0; variant < Props.Count; variant++) shown[FirstPropSheet + variant] = shown[FirstPropSheet + variant] with { Unused = !props[variant] };
+
+        return shown;
+    }
+
+    /// <summary>
     /// One frame's aspect for the walk sheets, which are a grid, and the whole picture's for everything
-    /// else — a body in the road included, since that is one frame and not a grid. Off the packing alone,
-    /// so a probe that draws nothing measures the same quads. And where the fans' looks were packed, into <see cref="Fans"/>.
+    /// else. Off the packing alone, so a probe that draws nothing measures the same quads. And where the fans'
+    /// looks were packed, into <see cref="Fans"/>.
     /// </summary>
     public void ReadAspects(SheetAtlas atlas)
     {
         var places = atlas.Places;
-        for (var slot = 0; slot < FirstDownSheet; slot++)
+        for (var slot = 0; slot < FirstCarSheet; slot++)
         {
             Aspects[slot] = (places[slot].WidthPx / PersonCatalog.WalkColumns)
                 / (places[slot].HeightPx / PersonCatalog.FacingRows);
         }
 
-        for (var slot = FirstDownSheet; slot < Aspects.Length; slot++) Aspects[slot] = places[slot].WidthPx / places[slot].HeightPx;
+        for (var slot = FirstCarSheet; slot < Aspects.Length; slot++) Aspects[slot] = places[slot].WidthPx / places[slot].HeightPx;
 
         FanTable.PutLooks(Fans, places, FirstFanLookSheet, Buildings.FanLooks.Length);
     }
@@ -315,17 +326,29 @@ internal sealed class TownSprites
     /// them may be on a bridge, and every wagon's again where a track is on one — and none in a town with nothing above
     /// its ground.
     /// </summary>
-    public SpriteRoom RoomFor(CityPlan plan, SimConfig config)
+    /// <param name="mostMoversSent">
+    /// For a player of a served town, the most movers a snapshot carries (MP-1): what moves is never more than that of
+    /// any kind, and a town it steps nothing of marks no ground, so neither is laid room for the whole town.
+    /// </param>
+    public SpriteRoom RoomFor(CityPlan plan, SimConfig config, int? mostMoversSent = null)
     {
-        var carSprites = TownWorld.CarsOfThePlan(plan) * CarSpritesEach;
+        var cars = TownWorld.CarsOfThePlan(plan);
+        var walkers = plan.Spawns.Count;
         var wagons = Trains.WagonsFor(RailGraph.Of(plan.Rails, plan.WorldSizeM), config.Train);
+        var marks = config.Marks.Capacity;
+        if (mostMoversSent is { } most)
+        {
+            (cars, walkers, wagons, marks) = (Math.Min(cars, most), most, Math.Min(wagons, most), 0);
+        }
+
+        var carSprites = cars * CarSpritesEach;
         return new SpriteRoom(
-            config.Marks.Capacity + ScenerySprites.CapacityFor(plan, config.View.SceneryMostDrawn),
+            ScenerySprites.CapacityFor(plan, config.View.SceneryMostDrawn),
             StandingSprites.CapacityFor(plan),
-            plan.Spawns.Count + carSprites + SignalHeads.MostFor(plan) + wagons + CrossingSprites.MostFor(plan, config),
-            (Array.Exists(plan.Roads.Level, static level => level != CityPlan.RoadArrays.Ground) ? carSprites : 0)
+            walkers + carSprites + SignalHeads.MostFor(plan) + wagons + CrossingSprites.MostFor(plan, config),
+            (Array.Exists(plan.Roads.Level, static level => level != CityPlan.RoadArrays.Ground) ? walkers + carSprites : 0)
             + (Array.Exists(plan.Rails.Level, static level => level != CityGen.Map.TownMap.RailArrays.AtGrade) ? wagons : 0),
-            Math.Max(1, config.Marks.Capacity),
+            Math.Max(1, marks),
             Math.Max(1, plan.Scenery.Count),
             Math.Max(1, ScenerySprites.RowsFor(plan.WorldSizeM, config.Grid.Main)));
     }
@@ -352,15 +375,11 @@ internal sealed class TownSprites
     public MarkLook MarkLook => MarkSprites.Look(RubberBrushSheet, SoilBrushSheet);
 
     /// <summary>
-    /// <b>What lies under everything that stands, as instances</b> — the marks, then the scenery, in painter's order: a
-    /// skid is on the road, so everything that stands or drives passes over its own, and nothing of the town's comes near
-    /// the scenery but its own neighbours. What a page draws them as; the desktop draws both out of their own rows.
+    /// <b>The scenery, as instances</b>: what lies under everything that stands but the marks, which both heads draw out of
+    /// their ring (<c>mark.vert</c>). What a page draws it as; the desktop draws it out of its own rows.
     /// </summary>
-    public int FillUnder(DriftMarks marks, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> under)
-    {
-        var underCount = MarkSprites.Fill(marks, RubberBrushSheet, SoilBrushSheet, viewCentreM, viewSpanM, under);
-        return underCount + Scenery.Fill(viewCentreM, viewSpanM, under[underCount..]);
-    }
+    public int FillUnder(Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> under) =>
+        Scenery.Fill(viewCentreM, viewSpanM, under);
 
     /// <summary>
     /// The town as instances, in the runs of <see cref="SpriteRoom"/>: the stretch of the buildings and props laid on the
@@ -397,33 +416,62 @@ internal sealed class TownSprites
         TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre,
         Span<SpriteInstance> over, Span<SpriteInstance> above)
     {
-        var leastPartM = config.View.CarPartLeastPx / pixelsPerMetre;
-
         // Who may be in the frame, off the solver's grids rather than out of the whole town (TownWorld.CarsIn).
         if (_peopleInView.Length < world.People.Capacity) _peopleInView = new int[world.People.Capacity];
-        if (_walkerDepths.Length < world.People.Capacity) _walkerDepths = new PersonSprites.Depth[world.People.Capacity];
         if (_carsInView.Length < world.Cars.Capacity) _carsInView = new int[world.Cars.Capacity];
         var reachM = (viewSpanM * 0.5f) + new Vector2(CarReachM);
-        var people = world.PeopleIn(viewCentreM - reachM, viewCentreM + reachM, _peopleInView);
-        var cars = world.CarsIn(viewCentreM - reachM, viewCentreM + reachM, _carsInView);
-
         var wagons = world.World.View.Wagons;
         var ringWords = SpriteRings.Length(world.People.Capacity, world.Cars.Capacity, wagons.Length);
         if (_rings.Length < ringWords) _rings = new uint[ringWords];
         SpriteRings.Mark(world, _rings.AsSpan(0, ringWords));
-        var rings = new SpriteRings(_rings, world.People.Capacity, world.Cars.Capacity);
 
+        return FillMoving(
+            new MovingScene
+            {
+                Cars = world.Cars,
+                People = world.People,
+                CarsDrawn = world.CarsIn(viewCentreM - reachM, viewCentreM + reachM, _carsInView),
+                PeopleDrawn = world.PeopleIn(viewCentreM - reachM, viewCentreM + reachM, _peopleInView),
+                Wagons = wagons,
+                Hitches = world.Hitches,
+                Levelled = world.Levelled,
+                ElapsedS = world.ElapsedS,
+                Heads = world.Heads,
+                Signals = world.Signals,
+                CrossingGear = world.CrossingGear,
+                Rings = new SpriteRings(_rings, world.People.Capacity, world.Cars.Capacity),
+            },
+            config, viewCentreM, viewSpanM, pixelsPerMetre, over, above);
+    }
+
+    /// <summary>
+    /// <b>What moves, from whoever holds it</b> (<see cref="MovingScene"/>): the town's own fleets on a run that steps it,
+    /// or a player's copy of its area on a run that is served one (MP-7) — the same pictures from the same fields either way.
+    /// </summary>
+    public (int Over, int Above) FillMoving(
+        in MovingScene scene, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre,
+        Span<SpriteInstance> over, Span<SpriteInstance> above)
+    {
+        var leastPartM = config.View.CarPartLeastPx / pixelsPerMetre;
+        if (_walkerDepths.Length < scene.People.Capacity) _walkerDepths = new PersonSprites.Depth[scene.People.Capacity];
+        var cars = scene.CarsDrawn;
+        var wagons = scene.Wagons;
+        var rings = scene.Rings;
+
+        // The walkers parted by level as the cars are below (PHY-1b): those on the ground ranked by depth, and the few on
+        // the level above in the order listed, as the device lays them (sprites_write.comp).
+        var (walkersOnTheGround, walkersAbove) = scene.Levelled ? WalkersByLevel(scene.People, scene.PeopleDrawn) : (0, 0);
         var overCount = PersonSprites.Fill(
-            world.People, people, People, Aspects, FirstDownSheet, config.Person.DrawnStandingBelowMps, viewCentreM,
-            viewSpanM, over, _walkerDepths, rings);
+            scene.People, scene.Levelled ? _peopleOnTheGround.AsSpan(0, walkersOnTheGround) : scene.PeopleDrawn, People,
+            Aspects, config.Person.DrawnStandingBelowMps, viewCentreM, viewSpanM, over, _walkerDepths, rings);
 
         // <b>The cars parted by level once</b>, in the order they were listed, so each level's five passes walk its own
         // cars rather than every car eight times over asking each which it is on.
-        var (ground, aboveCars) = world.Levelled ? ByLevel(world.Cars, cars) : (0, 0);
-        var onTheGround = world.Levelled ? _carsOnTheGround.AsSpan(0, ground) : cars;
+        var (ground, aboveCars) = scene.Levelled ? ByLevel(scene.Cars, cars) : (0, 0);
+        var onTheGround = scene.Levelled ? _carsOnTheGround.AsSpan(0, ground) : cars;
         var onTheLevelAbove = _carsAbove.AsSpan(0, aboveCars);
         overCount += FillCars(
-            world.Cars, world.Hitches, wagons, onTheGround, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM,
+            scene.Cars, scene.Hitches, wagons, onTheGround, config, scene.ElapsedS, viewCentreM, viewSpanM, leastPartM,
             over[overCount..], CarSprites.EveryLevel, rings);
 
         // The trains over the cars: a car on the crossing a train is on is under it.
@@ -431,17 +479,23 @@ internal sealed class TownSprites
 
         // The heads last of all: a signal hangs over the carriageway, so nothing driving under it passes
         // in front of it.
-        overCount += SignalSprites.Fill(world, config, FirstHeadSheet, viewCentreM, viewSpanM, over[overCount..]);
+        overCount += SignalSprites.Fill(
+            scene.Heads, scene.Signals, scene.ElapsedS, config, FirstHeadSheet, viewCentreM, viewSpanM, over[overCount..]);
 
         // And the crossings' gear with them: an arm stands up off the road, and an X light hangs over it as a head does.
         overCount += CrossingSprites.Fill(
-            world.CrossingGear, world.ElapsedS, config, new CrossingSheets(BarrierSheet, BarrierDriveSheet, CrossingLightSheet, CrossingLitSheet),
+            scene.CrossingGear, scene.ElapsedS, config, new CrossingSheets(BarrierSheet, BarrierDriveSheet, CrossingLightSheet, CrossingLitSheet),
             viewCentreM, viewSpanM, over[overCount..]);
 
-        var aboveCount = world.Levelled
+        var aboveCount = scene.Levelled
+            ? PersonSprites.Fill(
+                scene.People, _peopleAbove.AsSpan(0, walkersAbove), People, Aspects, config.Person.DrawnStandingBelowMps,
+                viewCentreM, viewSpanM, above, _walkerDepths, rings, byDepth: false)
+            : 0;
+        aboveCount += scene.Levelled
             ? FillCars(
-                world.Cars, world.Hitches, wagons, onTheLevelAbove, config, world.ElapsedS, viewCentreM, viewSpanM, leastPartM, above,
-                CarSprites.EveryLevel, rings)
+                scene.Cars, scene.Hitches, wagons, onTheLevelAbove, config, scene.ElapsedS, viewCentreM, viewSpanM, leastPartM,
+                above[aboveCount..], CarSprites.EveryLevel, rings)
             : 0;
 
         // And the wagons on a bridge over the bridge, as the cars on one are (RAIL-8).
@@ -459,8 +513,8 @@ internal sealed class TownSprites
     /// </summary>
     (int Ground, int Above) ByLevel(CarFleet fleet, ReadOnlySpan<int> cars)
     {
-        if (_carsOnTheGround.Length < cars.Length) _carsOnTheGround = new int[_carsInView.Length];
-        if (_carsAbove.Length < cars.Length) _carsAbove = new int[_carsInView.Length];
+        if (_carsOnTheGround.Length < cars.Length) _carsOnTheGround = new int[fleet.Capacity];
+        if (_carsAbove.Length < cars.Length) _carsAbove = new int[fleet.Capacity];
 
         var (ground, above) = (0, 0);
         foreach (var car in cars)
@@ -477,6 +531,28 @@ internal sealed class TownSprites
     int[] _carsOnTheGround = [];
 
     int[] _carsAbove = [];
+
+    /// <summary>The walkers listed, parted by level as <see cref="ByLevel"/> parts the cars (<see cref="PersonFleet.LevelOf"/>).</summary>
+    (int Ground, int Above) WalkersByLevel(PersonFleet fleet, ReadOnlySpan<int> people)
+    {
+        if (_peopleOnTheGround.Length < people.Length) _peopleOnTheGround = new int[fleet.Capacity];
+        if (_peopleAbove.Length < people.Length) _peopleAbove = new int[fleet.Capacity];
+
+        var (ground, above) = (0, 0);
+        foreach (var person in people)
+        {
+            var level = fleet.LevelOf(person);
+            if (level == CityPlan.RoadArrays.Ground) _peopleOnTheGround[ground++] = person;
+            else if (level == CityPlan.RoadArrays.Over) _peopleAbove[above++] = person;
+        }
+
+        return (ground, above);
+    }
+
+    /// <summary>The frame's walkers parted by level (<see cref="WalkersByLevel"/>).</summary>
+    int[] _peopleOnTheGround = [];
+
+    int[] _peopleAbove = [];
 
     /// <summary>The cars of one level, every part of each in the order it is seen from above.</summary>
     /// <param name="drawn">The cars the frame may show (<see cref="TownWorld.CarsIn"/>).</param>

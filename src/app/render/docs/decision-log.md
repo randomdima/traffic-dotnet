@@ -3,6 +3,35 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-30 — a casualty is its stance, reddened, and a walker has one sheet
+
+**The owner: "animation should be reddened standing frame."** A body down in the road is the walk sheet's standing cell
+at the facing it went down at, multiplied by `Theme.Casualty` through the instance's tint (`PersonSprites`,
+`sprites.glsl`), on host and device alike. A tint now says what a walker is as well as how hard a mark was pressed; the
+second sheet a look carried for lying down, and its atlas slot, are gone, and so is the depth order's rank for a body
+lying flat (PER-31): a casualty stands among the others by its feet.
+
+## 2026-10-30 — the atlas is held in BC7 or ASTC, baked by the build
+
+**The owner installed KTX-Software and chose the build-time route**: every sheet is encoded once to UASTC and transcoded in
+the build to BC7 and to ASTC 4×4 (`SheetBake`), and a device fetches the one it samples — BC7 on desktops, ASTC on phones,
+the pictures where neither — so a page carries no transcoder and a device never downloads a format it cannot use. A
+quarter of the device memory of `rgba8unorm` pages, and a page's heap holds no blocks: they go to the device straight out
+of the archive that brought them.
+
+- **Boxes on block corners, a gutter a block wide**, extruded in the build: a block on a sheet's rim holds nothing of a
+  neighbour, so clamping at a sheet's edge stays true as the one-texel gutter made it for texels.
+- **The generated sheets are baked like the rest** — they depend on the catalogues and the figures alone — and a run
+  checks every sheet against the record (`BakedSheets.Matches`): a desktop whose art or figures moved since the bake packs
+  pictures and says so; a page, which holds no picture to fall back to, refuses.
+- **UASTC at effort 2, no RDO**: effort 4 bought 0.3 dB for 15× the time; RDO 4–10% of the download for 1–9 dB.
+- **No ETC2 pack**: every device that runs WebGPU samples BC or ASTC.
+- **One size a sheet**: blocks are not resized on a device, so a player's cars and walkers packed at half their texels
+  were a second copy of each in every pack. The owner chose the one size and a player's zoom as close as a reader's
+  (multiplayer log, 2026-10-30).
+- **Measured**: the showroom drawn from BC7 differs from the pictures by more than 24 levels in none of its pixels on the
+  desktop, and the page draws it alike in BC7 and in ASTC (SwiftShader, `qq web --sheets astc`).
+
 ## 2026-10-28 — walkers are put in the order drawn by counting, on the device, every frame
 
 **Walkers were drawn in roster order**, so two that overlapped were drawn either way round (PER-31). The owner asked for
@@ -787,10 +816,3 @@ divergent index the driver scalarises. [SheetAtlas](../SheetAtlas.cs) packs the 
 texture, where a layer is a coordinate. The five ground surfaces stay out, being different sizes and
 wrap-seamless.
 
-## 2026-08-26 — a casualty is art, not a tint
-
-A red multiply on the per-instance `Tint` was two lines and refused: the tint says how hard a mark was
-pressed, and what a body *is* is which sheet it samples. A look ships a second sheet, cut from the first
-offline by [tools/personsheets](../../../tools/personsheets/make-down-sheets.py) on the same footing as a
-signal head's lit frames. Drawing it fresh was refused too: seven looks of new art are seven ways to be
-out of style beside the walker they belong to.

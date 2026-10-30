@@ -22,7 +22,10 @@ import { compute, kernelBufferOf, kernelLimits, kernelTimes, onLanded, useDevice
 import { GpuClock } from './gputime.js'
 import { addContext } from './log.js'
 
-const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6, standing: 7, fans: 8 };
+const SLOT = {
+    ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6, standing: 7, fans: 8, markKnots: 9,
+    markRing: 10, markLook: 11,
+};
 const TEXTURE = { pages: 0, glyphs: 1, surfaces: 2 };
 
 // Draws in painter's order, at their offsets in the indirect buffer. The ground is indexed and so is
@@ -37,7 +40,9 @@ const DRAW = {
 const INDIRECT_BYTES = 176;
 
 // Where each of a frame's counts stands in the array it hands over (WebGpu.FrameCount).
-const COUNT = { under: 0, standingFirst: 1, standing: 2, over: 3, above: 4, overlay: 5, underlay: 6, underlayAbove: 7 };
+const COUNT = {
+    under: 0, standingFirst: 1, standing: 2, over: 3, above: 4, overlay: 5, underlay: 6, underlayAbove: 7, markKnotsAt: 8,
+};
 
 // The keys the town reads, in the order src/runtime/web/AppWindow.Web.cs names them. The two lists are
 // one list, and a key added to either without the other is a key that does nothing.
@@ -47,7 +52,7 @@ const KEYS = {
     Escape: 10, F11: 11, Backquote: 12, Pause: 13, Space: 14,
     Digit1: 15, Digit2: 16, Digit3: 17,
     ShiftLeft: 18, ShiftRight: 19, ControlLeft: 20, ControlRight: 21,
-    Digit4: 22, Digit5: 23,
+    Digit4: 22, Digit5: 23, KeyM: 24, Enter: 25, NumpadEnter: 25,
 };
 
 const KEY_COUNT = 32;
@@ -65,12 +70,14 @@ const AXIS = {
     // The device's own time since the last pump (gputime.js): the frames' passes and the kernels' batches whose
     // timestamps landed, summed, and how many of each.
     gpuDrawMs: 15, gpuDraws: 16, gpuKernelsMs: 17, gpuBatches: 18,
+    // Whether the browser offers `timestamp-query` at all, so a read-out with no device rows says why.
+    gpuTimed: 19,
 };
 
 /// How many of them there are, which is the length the run's own array is made at. **Whether the
 /// run is over is not one of them**: an axis is something the page saw, a pump copies the page's
 /// copy over the run's, and the page has no opinion about that one.
-const AXIS_COUNT = 19;
+const AXIS_COUNT = 20;
 
 const state = {
     device: null,
@@ -149,6 +156,67 @@ function described(found, device) {
     return lines;
 }
 
+/// What the atlas's pages may be held in, in BakedSheets.cs's SheetFormat order: the feature a device needs to sample
+/// it, and the texture format it is created in.
+const SHEETS = [
+    { name: 'rgba', feature: null, format: 'rgba8unorm' },
+    { name: 'bc7', feature: 'texture-compression-bc', format: 'bc7-rgba-unorm' },
+    { name: 'astc', feature: 'texture-compression-astc', format: 'astc-4x4-unorm' },
+];
+
+/// BC7 where the adapter samples BC — every desktop's — else ASTC — every phone's — else texels; or what `?sheets=` names,
+/// for a comparison shot. Whether the build baked any is the run's to find out (Data.cs), which falls back to texels.
+function sheetFormatOf(found) {
+    const asked = SHEETS.findIndex(each => each.name === new URLSearchParams(location.search).get('sheets'));
+    if (asked >= 0) return SHEETS[asked].feature === null || found.features.has(SHEETS[asked].feature) ? asked : 0;
+
+    const offered = SHEETS.findIndex(each => each.feature !== null && found.features.has(each.feature));
+    return offered < 0 ? 0 : offered;
+}
+
+/// The format the device was opened for, as an index of SHEETS.
+function sheetFormat() {
+    return state.sheets ?? 0;
+}
+
+/// The archives' block files the atlas was written from, kept for the run: a second map packs the atlas again out of
+/// the same blocks, as it does out of the same decoded pictures.
+const blockFiles = new Map();
+
+/// **The atlas written as blocks, a box at a time, straight out of the archive that brought them** (BakedSheets.cs): the
+/// run's heap never holds them. `boxes` is six numbers a box — page, x, y, width, height in texels, and where its
+/// blocks start in the file — every corner on a block's.
+function sheetBlocks(slot, format, pages, path, boxes) {
+    let blocks = blockFiles.get(path);
+    if (blocks === undefined) {
+        blocks = held.get(path);
+        if (!(blocks instanceof Uint8Array)) throw new Error(`the atlas's blocks were not fetched: ${path}`);
+
+        held.delete(path);
+        blockFiles.set(path, blocks);
+    }
+
+    if (state.textures[slot]) state.textures[slot].destroy();
+    state.textures[slot] = state.device.createTexture({
+        size: [PAGE_PX, PAGE_PX, pages],
+        format: SHEETS[format].format,
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        dimension: '2d',
+    });
+
+    const table = bytes(boxes);
+    const words = new Int32Array(table.buffer, table.byteOffset, table.byteLength / 4);
+    for (let at = 0; at + 6 <= words.length; at += 6) {
+        const [page, x, y, width, height, from] = words.subarray(at, at + 6);
+        state.device.queue.writeTexture(
+            { texture: state.textures[slot], origin: [x, y, page] },
+            blocks, { offset: from, bytesPerRow: (width / 4) * 16, rowsPerImage: height / 4 }, [width, height, 1]);
+    }
+}
+
+/// An atlas page's side in texels (SheetAtlas.PagePx).
+const PAGE_PX = 4096;
+
 /// The device, the canvas and the shaders. Answers the reason it could not, or "" — a page that cannot
 /// have a device says so in words rather than drawing nothing.
 async function start(wgsl) {
@@ -160,10 +228,13 @@ async function start(wgsl) {
     if (!found) return 'No WebGPU adapter: the browser has the API but no device it will hand out.';
 
     state.firstInstance = found.features.has('indirect-first-instance');
-    const features = ['indirect-first-instance', 'timestamp-query'].filter(feature => found.features.has(feature));
+    state.sheets = sheetFormatOf(found);
+    const features = ['indirect-first-instance', 'timestamp-query', SHEETS[state.sheets].feature]
+        .filter(feature => feature && found.features.has(feature));
     state.device = await found.requestDevice({ requiredFeatures: features, requiredLimits: kernelLimits(found) });
     const timed = state.device.features.has('timestamp-query');
     state.drawClock = timed ? new GpuClock(state.device, 'frame') : null;
+    state.axes[AXIS.gpuTimed] = timed ? 1 : 0;
     useDevice(state.device, timed ? new GpuClock(state.device, 'kernels') : null);
     addContext(() => described(found, state.device));
     state.device.addEventListener('uncapturederror', e => fault(`WebGPU: ${e.error.message}`));
@@ -224,6 +295,16 @@ function buildLayout() {
     // A bridge's art, its strips and its fittings a layer each, after them (town.wgsl, BridgeSheet).
     entries.push({ binding: 16, visibility: GPUShaderStage.FRAGMENT, texture: { viewDimension: '2d-array' } });
     state.layout =state.device.createBindGroupLayout({ entries, label: 'town' });
+
+    // The marks' own group (town.wgsl's markVertex): their look, the ring's knots and its words.
+    state.markLayout = state.device.createBindGroupLayout({
+        label: 'marks',
+        entries: [
+            { binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+            { binding: 2, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+        ],
+    });
 }
 
 function buildPipelines(module) {
@@ -283,6 +364,18 @@ function buildPipelines(module) {
         fragment: { module, entryPoint: 'spriteFragment', targets: [{ format: state.format, blend: premultiplied }] },
         primitive: { topology: 'triangle-strip' },
     });
+
+    // The marks (town.wgsl's markVertex): a strip a knot, out of the ring, and no vertex buffer — a draw a level, each of
+    // its own knots alone (drawsRaised).
+    const marksLayout = state.device.createPipelineLayout({ bindGroupLayouts: [state.layout, state.markLayout] });
+    const marksOf = drawsRaised => state.device.createRenderPipeline({
+        layout: marksLayout,
+        vertex: { module, entryPoint: 'markVertex', constants: { drawsRaised: drawsRaised ? 1 : 0 } },
+        fragment: { module, entryPoint: 'spriteFragment', targets: [{ format: state.format, blend: premultiplied }] },
+        primitive: { topology: 'triangle-strip' },
+    });
+    state.pipelines.marks = marksOf(false);
+    state.pipelines.marksAbove = marksOf(true);
 
     // The clouds' shadows (OBJ-8): one triangle out of the vertex index, and no buffer.
     state.pipelines.cloud = state.device.createRenderPipeline({
@@ -411,13 +504,20 @@ function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, und
     pass.drawIndirect(state.indirect, DRAW.underlay);
     engineRuns(pass, [ENGINE.ground]);
 
+    // What the traffic wrote on the ground, under everything that stands on it.
+    const marks = markRing();
+    if (marks) {
+        pass.setPipeline(state.pipelines.marks);
+        pass.setBindGroup(1, marks.group);
+        pass.drawIndirect(marks.ring, 0);
+    }
+
     pass.setPipeline(state.pipelines.sprite);
     pass.setVertexBuffer(0, state.buffers[SLOT.sprites]);
     pass.drawIndirect(state.indirect, DRAW.under);
     pass.setVertexBuffer(0, state.buffers[SLOT.standing]);
     pass.drawIndirect(state.indirect, DRAW.standing);
-    pass.setVertexBuffer(0, state.buffers[SLOT.sprites], overOffset);
-    pass.drawIndirect(state.indirect, DRAW.over);
+    movingRun(pass, MOVING.over, overOffset, DRAW.over);
 
     // The level above, over the bodies on the ground, its marks over it, and the bodies on it over those. A town with
     // nothing above its ground draws nothing in any of them.
@@ -431,9 +531,14 @@ function rebuild(groundIndexCount, aboveIndexCount, overOffset, aboveOffset, und
     pass.drawIndirect(state.indirect, DRAW.underlayAbove);
     engineRuns(pass, [ENGINE.above]);
 
+    if (marks) {
+        pass.setPipeline(state.pipelines.marksAbove);
+        pass.setBindGroup(1, marks.group);
+        pass.drawIndirect(marks.ring, 0);
+    }
+
     pass.setPipeline(state.pipelines.sprite);
-    pass.setVertexBuffer(0, state.buffers[SLOT.sprites], aboveOffset);
-    pass.drawIndirect(state.indirect, DRAW.above);
+    movingRun(pass, MOVING.above, aboveOffset, DRAW.above);
 
     // The clouds' shadows, over everything the town stands and under everything that reads it, where the desktop draws
     // them (TownRenderer.Recording.cs); a clear sky's frame puts the triangle out of the picture (town.wgsl).
@@ -477,11 +582,71 @@ function engine(quads, draws, runBytes) {
     }
 }
 
+// What moves, drawn where the device's emit wrote it (src/app/devicetick/DeviceSprites.cs) — its over run from the first
+// instance and its run above from where the emit says, each as many as the draw the emit wrote — or, with no emit, from
+// the frame's own runs as many as its counts say.
+const MOVING = { over: 0, above: 1 };
+const MOVING_DRAW_BYTES = 16;
+
+function movingRun(pass, run, ownOffset, ownDraw) {
+    const moving = state.moving;
+    const instances = moving && kernelBufferOf(moving.instances);
+    const draws = moving && kernelBufferOf(moving.draws);
+    if (!instances || !draws) {
+        pass.setVertexBuffer(0, state.buffers[SLOT.sprites], ownOffset);
+        pass.drawIndirect(state.indirect, ownDraw);
+        return;
+    }
+
+    pass.setVertexBuffer(0, instances, run === MOVING.above ? moving.aboveBytes : 0);
+    pass.drawIndirect(draws, run * MOVING_DRAW_BYTES);
+}
+
+/// The ring of knots the marks are drawn out of — the device's own where it lays them (deviceMarks), the frame's copy of
+/// the host's where it does not — its words the indirect buffer of the draw, and its group; none before the look is laid.
+function markRing() {
+    const device = state.deviceMarks;
+    const knots = device ? kernelBufferOf(device.knots) : state.buffers[SLOT.markKnots];
+    const ring = device ? kernelBufferOf(device.ring) : state.buffers[SLOT.markRing];
+    const look = state.buffers[SLOT.markLook];
+    if (!knots || !ring || !look) return null;
+
+    const group = state.device.createBindGroup({
+        label: 'marks',
+        layout: state.markLayout,
+        entries: [
+            { binding: 0, resource: { buffer: look } },
+            { binding: 1, resource: { buffer: knots } },
+            { binding: 2, resource: { buffer: ring } },
+        ],
+    });
+    return { group, ring };
+}
+
+/// The device's ring of knots and its words, kernel buffers both, drawn from the next recording on in place of the
+/// frame's copy of the host's.
+function deviceMarks(knots, ring) {
+    state.deviceMarks = { knots, ring };
+    if (state.bundle) {
+        rebuild(state.groundIndexCount, state.aboveIndexCount, state.overOffset, state.aboveOffset, state.underlayAboveOffset);
+    }
+}
+
+/// The emit's instances and draws, kernel buffers both, drawn from the next recording on.
+function moving(instances, draws, aboveBytes) {
+    state.moving = { instances, draws, aboveBytes };
+    if (state.bundle) {
+        rebuild(state.groundIndexCount, state.aboveIndexCount, state.overOffset, state.aboveOffset, state.underlayAboveOffset);
+    }
+}
+
 /// Everything the device is holding for a town that is being taken down. The recording goes with it,
 /// so a frame between this and the next rebuild draws nothing rather than reading a destroyed buffer.
 function release() {
     state.bundle = null;
     state.engine = null;
+    state.moving = null;
+    state.deviceMarks = null;
     for (const slot in state.buffers) state.buffers[slot].destroy();
     for (const slot in state.textures) state.textures[slot].destroy();
     state.buffers = {};
@@ -489,7 +654,7 @@ function release() {
 }
 
 /// The whole frame: the memory the simulation just wrote, then the recording that reads it.
-function frame(camera, under, over, above, overlay, underlay, underlayAbove, frameCounts) {
+function frame(camera, under, over, above, overlay, underlay, underlayAbove, markKnots, markRingWords, frameCounts) {
     if (!state.bundle) return;
 
     const queue = state.device.queue;
@@ -527,6 +692,10 @@ function frame(camera, under, over, above, overlay, underlay, underlayAbove, fra
     if (given[COUNT.underlayAbove] > 0) {
         queue.writeBuffer(state.buffers[SLOT.underlay], state.underlayAboveOffset, bytes(underlayAbove));
     }
+
+    // The host's knots written since the last frame, and the ring's words: none where the device keeps the ring.
+    if (markKnots.byteLength > 0) queue.writeBuffer(state.buffers[SLOT.markKnots], given[COUNT.markKnotsAt], bytes(markKnots));
+    if (markRingWords.byteLength > 0) queue.writeBuffer(state.buffers[SLOT.markRing], 0, bytes(markRingWords));
 
     const encoder = state.device.createCommandEncoder();
     const clock = state.drawClock;
@@ -591,7 +760,7 @@ const DEVICE_SAID_EVERY_MS = 10000;
 /// What the page has seen since the last frame asked, copied into the run's own memory. What is
 /// edge-triggered — a press, a click, a notch, a resize — is handed over and forgotten here, so the
 /// run reads each of them exactly once.
-function pump(keys, axes) {
+function pump(keys, axes, inbox, outbox) {
     [state.axes[AXIS.gpuDrawMs], state.axes[AXIS.gpuDraws]] = state.drawClock?.drain() ?? [0, 0];
     [state.axes[AXIS.gpuKernelsMs], state.axes[AXIS.gpuBatches]] = kernelTimes();
     sayTheDevice();
@@ -601,6 +770,82 @@ function pump(keys, axes) {
     state.axes[AXIS.scroll] = 0;
     state.axes[AXIS.clickButton] = -1;
     state.axes[AXIS.resized] = 0;
+    pumpLink(inbox, outbox);
+}
+
+/// The socket to a served town (MP-3), opened once by the run (ServerLink.Web.cs) and read and written only
+/// inside the pump, so a frame's crossing count is the same joined or not (WEB-2).
+const link = { socket: null, state: 0, queue: [] };
+
+/// ServerLink's states: none asked for, opening, open, closed.
+const LINK = { none: 0, opening: 1, open: 2, closed: 3 };
+
+/// Where a link buffer's messages start: its used length, then (the inbox only) the link's state.
+const LINK_HEAD = 8;
+
+function join(url) {
+    link.socket = new WebSocket(url);
+    link.socket.binaryType = 'arraybuffer';
+    link.state = LINK.opening;
+    link.socket.onopen = () => link.state = LINK.open;
+    link.socket.onmessage = e => link.queue.push(new Uint8Array(e.data));
+    link.socket.onclose = () => link.state = LINK.closed;
+    link.socket.onerror = () => link.state = LINK.closed;
+}
+
+/// Four bytes of scratch a length is said in, kept so a pump makes nothing for the collector.
+const linkWord = new Uint8Array(4);
+const linkWordView = new DataView(linkWord.buffer);
+
+/// A length read off four bytes little-endian.
+function wordAt(array, at) {
+    return (array[at] | (array[at + 1] << 8) | (array[at + 2] << 16) | (array[at + 3] << 24)) >>> 0;
+}
+
+/// What the run wrote since the last pump sent, each message whole; then what arrived, as many whole messages as the
+/// inbox holds, the rest kept for the next pump. Each message is its length, four bytes little-endian, then itself.
+/// **Written straight into the run's memory**, a message at a time: no buffer of the whole is laid and copied again.
+function pumpLink(inbox, outbox) {
+    if (link.socket === null) return;
+
+    // A socket copies what it is handed as it is handed it, so a window onto the run's memory is all a send needs.
+    const out = bytes(outbox);
+    const sent = wordAt(out, 0);
+    if (sent > 0) {
+        for (let at = 4; at + 4 <= 4 + sent;) {
+            const length = wordAt(out, at);
+            if (link.state === LINK.open) link.socket.send(out.subarray(at + 4, at + 4 + length));
+            at += 4 + length;
+        }
+
+        linkWordView.setUint32(0, 0, true);
+        outbox.set(linkWord, 0);
+    }
+
+    let used = 0;
+    const room = inbox.length - LINK_HEAD;
+
+    // A message no inbox could hold is never one the server sends; the link is given up rather than wedged.
+    if (link.queue.length > 0 && 4 + link.queue[0].length > room) {
+        link.queue.length = 0;
+        link.socket.close();
+        link.state = LINK.closed;
+    }
+
+    let taken = 0;
+    while (taken < link.queue.length && used + 4 + link.queue[taken].length <= room) {
+        const message = link.queue[taken++];
+        linkWordView.setUint32(0, message.length, true);
+        inbox.set(linkWord, LINK_HEAD + used);
+        inbox.set(message, LINK_HEAD + used + 4);
+        used += 4 + message.length;
+    }
+
+    if (taken > 0) link.queue.splice(0, taken);
+    linkWordView.setUint32(0, used, true);
+    inbox.set(linkWord, 0);
+    linkWord[0] = link.state;
+    inbox.set(linkWord.subarray(0, 1), 4);
 }
 
 /// The fingers on the glass, by the id the browser gave each, in the order they came down (CTL-9).
@@ -985,7 +1230,7 @@ export { useHeap } from './compute.js'
 
 export const town = {
     ...compute,
-    start, mostPixelRatio, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say, engine,
+    start, mostPixelRatio, reserve, buffer, texture, sheetFormat, sheetBlocks, rebuild, release, frame, pump, join, fullscreen, shut, say, engine, moving, deviceMarks,
     progress: opening.progress, standUp: opening.standUp, standing: opening.standing, painted: opening.painted, prefetch, unpack, grab, grabHeld, park, take, picture, decode, texels,
     ticker: (step, between) => {
         onLanded(between);

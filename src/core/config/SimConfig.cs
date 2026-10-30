@@ -53,6 +53,7 @@ internal sealed partial class SimConfig
     public SimFigures Sim { get; init; } = new();
     public ViewFigures View { get; init; } = new();
     public ControlFigures Control { get; init; } = new();
+    public MultiplayerFigures Multiplayer { get; init; } = new();
 
     /// <summary>
     /// <b>The one group a running session may move</b>, and only ever as a share of what is authored above

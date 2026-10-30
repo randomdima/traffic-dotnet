@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Person.Actions;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
@@ -69,6 +70,7 @@ internal sealed class PersonFleet
         Inside = new Contained[capacity];
         Car = new int[capacity];
         Array.Fill(Car, NoCar);
+        Channels = new byte[capacity];
     }
 
     /// <summary>What a person holds when this trip has no building of its own to be at.</summary>
@@ -351,8 +353,19 @@ internal sealed class PersonFleet
         TimerS[person] = 0f;
         Inside[person] = Contained.Nowhere;
         Car[person] = NoCar;
+        Channels[person] = CityPlan.RoadArrays.GroundChannel;
         return person;
     }
+
+    /// <summary>
+    /// <b>The collision channels the walker is on</b> (PHY-1a): the ground's, but for one put out of a car on a deck over
+    /// other roads, who is on the car's and walks the deck's ways until they lead it back down or it steps off them
+    /// (PHY-1b).
+    /// </summary>
+    public byte[] Channels { get; }
+
+    /// <summary>The level the walker is drawn at and stands on: the highest of its channels', as a car's is.</summary>
+    public byte LevelOf(int person) => (byte)BitOperations.Log2(Channels[person]);
 
     /// <summary>Which of the two grips acts on this body: a sole pressed into the ground, or a body along it.</summary>
     public bool IsOnItsFeet(int person) => !Wounded[person];

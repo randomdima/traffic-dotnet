@@ -201,9 +201,10 @@ behaviour concern and the order is part of what it substitutes, so the order sta
 again from the pose the player leaves the car in.
 
 **CTL-5d** `P7` **A hand may name its car instead of picking it out.** There is one selection and it belongs to
-whoever is watching, so a second driver — a script, a bot, a test — holds **one car by its number**, every
-tick, through the very seam CTL-5 already offers. **Nothing else about it differs**: the same pedals, the
-same envelope, the same beacon (CTL-5c), and the town told nothing about either hand.
+whoever is watching, so every other driver — a script, a bot, a test, a player the town is served to (`MP-4`) —
+takes a **seat** and holds **one car by its number** from it, every tick, through the very seam CTL-5 already
+offers; a served player's seat holds whatever its body is in, and walks the body itself on foot (`MP-13`). A car is one seat's at a time, and the town holds as many seats as `MostSeats`. **Nothing else about it
+differs**: the same pedals, the same envelope, the same beacon (CTL-5c), and the town told nothing about any hand.
 
 - **It reads no selection and moves none of the interface.** Picking units out, orders, the lever and the
   reset are the reader's, and a driver that could reach them would be taking the town out from under
@@ -224,6 +225,14 @@ the ambulance and the evacuator, and nothing else the town stands (CAR-14a) — 
 player has its wheel, and it goes out with the wheel. **It buys nothing**: this is the picture and not the road, so
 there is no right of way, no exemption from a red or a bar and no pace of its own. A hand-driven rescue
 that is also answering a call carries AMB-4 because of the call and never because of the hand.
+
+**CTL-5e** `P7` **Shift is a hand's boost.** Held with the drive keys, every unit under that hand — the reader's
+selection and a seat's alike (CTL-5d, MP-3) — is asked for `HandBoostSpeedShare` of its own speed — a car's gear's
+forward cap, a walker's pace and so its stride, which is stepped by distance — and `HandBoostPullShare` of its own pull:
+a car's forward pull, a locomotive's tractive effort.
+**Nothing is held to it**: let go of, the unit is asked for its own again, and a car above its cap is asked for no pull
+and coasts back down to it on its own resistance. The tyres, the grip and the solver answer a boosted ask as they
+answer any.
 
 **CTL-7** `P7` **The unit's own action.** `E` works each selected unit's **one action**, if it has one, and does
 nothing at all for the ones that have not. It is a **lever and not a pedal**: a press, taken once, on the vehicle's own

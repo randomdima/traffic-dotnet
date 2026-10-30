@@ -39,6 +39,17 @@ public class WalkerFollowerTests
         Assert.Equal(0f, velocityMps.Y, 4);
     }
 
+    /// <summary><b>CTL-5e: a walker under a hand's boost</b> is at its pace times the boost a tick later.</summary>
+    [Fact]
+    public void ABoostedWalkerIsAtItsBoostedPaceATickLater()
+    {
+        var step = WalkerFollower.Step(
+            Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, Vector2.Zero, new Vector2(100f, 0f), moving: true,
+            onFeet: true, WalkerFollower.PaceOf(Config, sprints: true), MassKg, Dt);
+
+        Assert.Equal(Config.PersonWalkSpeedMps * Config.Control.HandBoostSpeedShare, (step.ImpulseNs / MassKg).X, 4);
+    }
+
     /// <summary>
     /// <b>An aim nearer than a tick's walk is stood on at the end of the tick</b>, whichever way the body faces:
     /// it is what makes a walker arrive rather than overshoot and come back.
@@ -151,7 +162,7 @@ public class WalkerFollowerTests
     /// of it</b>, because what is under it is now rubber on tarmac rather than a foot pushing.
     /// </summary>
     /// <remarks>
-    /// <b>Less, and not a stated fraction of it.</b> How much less is <c>Person.SlidingGripInFootGrips</c>
+    /// <b>Less, and not a stated fraction of it.</b> How much less is <c>Person.SlidingFriction</c>
     /// and is a figure somebody may retune; that the declaration survives being knocked over while the
     /// spending does not is the behaviour, and it is what is asserted.
     /// </remarks>

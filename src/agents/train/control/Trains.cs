@@ -47,7 +47,10 @@ internal readonly record struct RailVehicleSeen(Vector2 PositionM, Vector2 Forwa
 /// of its locomotive's traction, forward or back, its brake on every vehicle, and a step through the branches of the next
 /// switch ahead.
 /// </summary>
-/// <param name="Pull">The share of the locomotive's tractive effort asked, nought to one.</param>
+/// <param name="Pull">
+/// The share of the locomotive's tractive effort asked, nought to one — and to <see cref="ControlFigures.HandBoostPullShare"/>
+/// under a hand's boost (CTL-5e).
+/// </param>
 /// <param name="Reverse">Whether it pulls back along its leg rather than on.</param>
 /// <param name="Brake">Every vehicle's wheels braked, sliding at the wheel-rail friction (TRN-8); no pull is asked under it.</param>
 /// <param name="Branch">
@@ -815,7 +818,7 @@ internal sealed class Trains
     void Give(int train, in TrainVehicle locomotive, in TrainControls controls, TrainOrders orders)
     {
         _given[train] = controls;
-        var pullN = controls.Brake ? 0f : Math.Clamp(controls.Pull, 0f, 1f) * locomotive.TractiveEffortN;
+        var pullN = controls.Brake ? 0f : Math.Clamp(controls.Pull, 0f, _config.Control.HandBoostPullShare) * locomotive.TractiveEffortN;
         var loco = _slotOf[train][0];
         orders.Add(new TrainOrder(
             TrainOrderKind.Drive, loco, 0,

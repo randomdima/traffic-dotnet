@@ -6,7 +6,7 @@
 //
 // The including kernel supplies SIGNAL_FIGURES' fields: cycleS, amberTailS, laneCount, crossingCount — and the
 // service's tables (SignalService.Table) as SIGNAL_LANE_AXIS, SIGNAL_LANE_JUNCTION, SIGNAL_OFFSETS, SIGNAL_CROSSING_AXIS
-// and SIGNAL_CROSSING_JUNCTION.
+// and SIGNAL_CROSSING_JUNCTION, each a macro taking the index.
 
 #include "core/geometry/kernels/rounded.glsl"
 
@@ -44,12 +44,12 @@ uint signalForCrossingOver(int roadAxis, float offsetS, float timeS)
 
 int signalAxisOfLane(int lane)
 {
-    return lane >= 0 && lane < int(SIGNAL_FIGURES.laneCount) ? SIGNAL_LANE_AXIS[lane] : SignalNoAxis;
+    return lane >= 0 && lane < int(SIGNAL_FIGURES.laneCount) ? SIGNAL_LANE_AXIS(lane) : SignalNoAxis;
 }
 
 bool signalCrossingIsLit(int crossing)
 {
-    return crossing >= 0 && crossing < int(SIGNAL_FIGURES.crossingCount) && SIGNAL_CROSSING_AXIS[crossing] != SignalNoAxis;
+    return crossing >= 0 && crossing < int(SIGNAL_FIGURES.crossingCount) && SIGNAL_CROSSING_AXIS(crossing) != SignalNoAxis;
 }
 
 uint signalForApproach(int lane, float timeS)
@@ -57,14 +57,14 @@ uint signalForApproach(int lane, float timeS)
     int axis = signalAxisOfLane(lane);
     if (axis == SignalNoAxis) return SignalGreen;
 
-    return signalForAxis(axis, SIGNAL_OFFSETS[SIGNAL_LANE_JUNCTION[lane]], timeS);
+    return signalForAxis(axis, SIGNAL_OFFSETS(SIGNAL_LANE_JUNCTION(lane)), timeS);
 }
 
 uint signalForCrossing(int crossing, float timeS)
 {
     if (!signalCrossingIsLit(crossing)) return SignalRed;
 
-    return signalForCrossingOver(SIGNAL_CROSSING_AXIS[crossing], SIGNAL_OFFSETS[SIGNAL_CROSSING_JUNCTION[crossing]], timeS);
+    return signalForCrossingOver(SIGNAL_CROSSING_AXIS(crossing), SIGNAL_OFFSETS(SIGNAL_CROSSING_JUNCTION(crossing)), timeS);
 }
 
 // SignalHolds.ColourOf: an approach's colour or a crossing's paint's; a stretch is held on anything but green.

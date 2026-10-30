@@ -1,10 +1,11 @@
 using TrafficSimulation.App.Render;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.DeviceTick;
 
-/// <summary>The desktop's draw of what moves, off the world's own state (<see cref="DeviceSprites"/>).</summary>
+/// <summary>The draw of what moves, off the world's own state (<see cref="DeviceSprites"/>).</summary>
 internal sealed partial class DeviceWorld
 {
     /// <summary>What moves, drawn off the device's own state; none until <see cref="DrawWith"/> lays it.</summary>
@@ -28,8 +29,8 @@ internal sealed partial class DeviceWorld
     public (DeviceSmoke.Head[] Heads, DeviceSmoke.Point[] Points) ReadTheSmoke()
     {
         var smoke = Smoke ?? throw new InvalidOperationException("No track is laid until something draws off the world (DrawWith).");
-        using var heads = _vk.CreateBuffer(smoke.Heads.SizeBytes, Silk.NET.Vulkan.BufferUsageFlags.TransferDstBit, HostAccess.Reads);
-        using var points = _vk.CreateBuffer(smoke.Points.SizeBytes, Silk.NET.Vulkan.BufferUsageFlags.TransferDstBit, HostAccess.Reads);
+        using var heads = _vk.CreateBuffer(smoke.Heads.SizeBytes, BufferUse.TransferDst, HostAccess.Reads);
+        using var points = _vk.CreateBuffer(smoke.Points.SizeBytes, BufferUse.TransferDst, HostAccess.Reads);
         using var batch = new ComputeBatch(_vk);
         var commands = batch.Begin();
         _vk.AfterTheSubmitsBefore(commands);
@@ -37,6 +38,24 @@ internal sealed partial class DeviceWorld
         _vk.Copy(commands, smoke.Points, points, smoke.Points.SizeBytes);
         batch.SubmitAndWait();
         return (heads.Span<DeviceSmoke.Head>().ToArray(), points.Span<DeviceSmoke.Point>().ToArray());
+    }
+
+    /// <summary>
+    /// <b>The ground's ring of knots and its words as they stand behind the last step submitted</b>, read back — for an
+    /// instrument: no frame reads them, the marks drawn where they lie (<see cref="GroundMarks"/>).
+    /// </summary>
+    public (DriftKnot[] Knots, DriftMarkRing Ring) ReadTheMarks()
+    {
+        var (knots, ring) = GroundMarks;
+        using var knotsOut = _vk.CreateBuffer(knots.SizeBytes, BufferUse.TransferDst, HostAccess.Reads);
+        using var ringOut = _vk.CreateBuffer(ring.SizeBytes, BufferUse.TransferDst, HostAccess.Reads);
+        using var batch = new ComputeBatch(_vk);
+        var commands = batch.Begin();
+        _vk.AfterTheSubmitsBefore(commands);
+        _vk.Copy(commands, knots, knotsOut, knots.SizeBytes);
+        _vk.Copy(commands, ring, ringOut, ring.SizeBytes);
+        batch.SubmitAndWait();
+        return (knotsOut.Span<DriftKnot>().ToArray(), ringOut.Span<DriftMarkRing>()[0]);
     }
 
     /// <summary>

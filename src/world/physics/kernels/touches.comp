@@ -33,14 +33,14 @@ layout(std430, binding = 7) writeonly buffer NowCount { uint nowCount; };
 // The begun counted a workgroup of contacts at a time, then the held a block at a time — scanned between the modes.
 layout(std430, binding = 8) buffer Counted { uint counted[]; };
 
-// Each begun from 0 on, as many as there is room for (begunRoom): its pair, its normal, and how fast the two closed along
-// it on the motion they brought into the tick (DeviceSolver.BegunRow, ContactArbiter) — the furniture's none.
+// Each begun from 0 on, as many as there is room for (begunRoom): its pair, its normal, and how fast each was moving into
+// the other along it on the motion it brought into the tick (DeviceSolver.BegunRow, Approach) — the furniture's none.
 struct BegunRow
 {
     uvec2 pair;
     vec2 normal;
-    float closingMps;
-    float pad0;
+    float firstIntoMps;
+    float secondIntoMps;
     float pad1;
     float pad2;
 };
@@ -195,9 +195,11 @@ void main()
         if (began && into < begunRoom)
         {
             vec2 normal = contactNormal[at].xy;
-            precise vec2 apartMps = motionIntoTick[pair.x].xy - motionIntoTick[pair.y].xy;
-            precise float closingMps = apartMps.x * normal.x + apartMps.y * normal.y;
-            begun[into] = BegunRow(pair, normal, closingMps, 0.0, 0.0, 0.0);
+            precise vec2 firstMps = motionIntoTick[pair.x].xy;
+            precise vec2 secondMps = motionIntoTick[pair.y].xy;
+            precise float firstIntoMps = firstMps.x * normal.x + firstMps.y * normal.y;
+            precise float secondIntoMps = -(secondMps.x * normal.x + secondMps.y * normal.y);
+            begun[into] = BegunRow(pair, normal, firstIntoMps, secondIntoMps, 0.0, 0.0);
         }
     }
 

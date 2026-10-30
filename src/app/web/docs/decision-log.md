@@ -60,7 +60,8 @@ is stepped by the same device world the desktop's window is (`DeviceWorld`), fro
   them from a copy (`compute.js`), which is the page's business and nobody else's.
 - **The device world is one source, and the runtime has two halves** (WEB-1): its buffers, kernels and batches name
   `Recording`, `BoundSet`, `BufferUse` and `CopyRun` instead of Vulkan's types, the desktop's being Vulkan's own under
-  those names. The emit that draws what moves (`DeviceSprites`) stays the desktop's: it binds nineteen buffers.
+  those names. The emit that draws what moves (`DeviceSprites`) is one source too (WEB-12), its tables packed into one
+  run of words to fit sixteen buffers; only its timed read-back, which waits on the device, is the desktop's.
 - **A page cannot wait**, so a step's read-backs land in pinned memory between frames with the batch's serial after
   them, and a tick that comes first is put off until they have (`WorldLayer.Ready`, WEB-10; `Game.TickBetweenFrames`,
   root log 2026-10-17). A batch is one crossing (WEB-2).

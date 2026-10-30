@@ -135,6 +135,7 @@ internal sealed partial class TownWorld
                 _trainManual[train] = true;
                 _trains.Hand(train, ControlsOf(train, _hands));
             }
+            else if (_players.SeatOfTrain(train) is var seat and >= 0) _trains.Hand(train, ControlsOf(train, _players.HandOf(seat)));
             else if (_trainManual[train]) _trains.Hand(train, StandingBraked);
             else if (_trains.Handed(train)) _trains.LetGo(train);
         }
@@ -202,7 +203,10 @@ internal sealed partial class TownWorld
         var reverse = hand.Throttle < 0f;
         var against = reverse ? alongMps > stopMps : alongMps < -stopMps;
         var brake = hand.Handbrake || (hand.Throttle != 0f && against);
-        return new TrainControls(brake ? 0f : MathF.Abs(hand.Throttle), reverse, brake, MathF.Sign(hand.Steer));
+
+        // A boost (CTL-5e) pulls past the locomotive's own tractive effort.
+        var boost = hand.Boost ? _config.Control.HandBoostPullShare : 1f;
+        return new TrainControls(brake ? 0f : MathF.Abs(hand.Throttle) * boost, reverse, brake, MathF.Sign(hand.Steer));
     }
 
     ControlSignal SignalOf(in TrainOrder order)

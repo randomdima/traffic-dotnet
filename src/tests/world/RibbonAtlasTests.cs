@@ -65,7 +65,7 @@ public class RibbonAtlasTests
     }
 
     static RibbonAtlas Laid(params ArcSeg[][] lines) =>
-        RibbonAtlas.Lay(new Lines(lines), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+        RibbonAtlas.Lay(new Lines(lines), Config.RibbonLevel, Config.RibbonTouchM);
 
     static RibbonAtlas Laid(params (Vector2 FromM, Vector2 ToM)[] lines) =>
         Laid([.. lines.Select(static line => Straight(line.FromM, line.ToM))]);
@@ -149,18 +149,24 @@ public class RibbonAtlasTests
     }
 
     /// <summary>
-    /// <b>A wheel on a lane stands on a way, and a wheel off it on none</b> (TER-7b): what it stands on is whether the
-    /// lattice point nearest it lies inside a band, so either side of the band's edge by the lattice's reach decides it.
+    /// <b>A wheel grips as on a way out to the lattice's reach past its band, and stands on it only inside</b> (TER-7b,
+    /// TER-4c.2): on a lattice point a quarter step past the edge it is on paving and on no way, so the seam two bands
+    /// leave short of each other is not grass; a reach and a step past the edge it is on neither.
     /// </summary>
     [Fact]
-    public void AWheelOnALaneIsOnAWayAndAWheelOffItOnNone()
+    public void AWheelGripsOutToTheReachPastABandAndStandsOnItOnlyInside()
     {
-        var atlas = Laid((new Vector2(0f, 0f), new Vector2(LengthM, 0f)));
-        var edgeM = WidthM * 0.5f;
-        var reachM = RibbonAtlas.ReachOf(atlas.StepM) + ClearM;
+        var level = Config.RibbonLevel;
+        var stepM = level.CellM;
+        var pointM = level.MiddleM(80, 80);
+        var lineY = pointM.Y - (WidthM * 0.5f) - (stepM * 0.25f);
+        var atlas = Laid((new Vector2(0f, lineY), new Vector2(LengthM * 2f, lineY)));
+        Span<WayCover> under = stackalloc WayCover[8];
 
-        Assert.True(OnAWay(atlas, new Vector2(20f, edgeM - reachM)));
-        Assert.False(OnAWay(atlas, new Vector2(20f, edgeM + reachM)));
+        Assert.Equal(0, atlas.UnderWheels([pointM], 0f, under, out var justPast));
+        Assert.Equal(1, justPast);
+        var farM = pointM + new Vector2(0f, RibbonAtlas.ReachOf(stepM) + stepM);
+        Assert.False(OnAWay(atlas, farM));
     }
 
     /// <summary>
@@ -188,8 +194,8 @@ public class RibbonAtlasTests
     }
 
     /// <summary>
-    /// <b>A car with no wheel on a way is on none</b> (TER-4c.2), however near its body is to one: on the grass beside a
-    /// lane it holds nothing of it, and every wheel grips as on grass (TER-7b).
+    /// <b>A car with no wheel on a way is on none</b> (TER-4c.2), however near its body is to one: on the grass past the
+    /// lattice's reach beside a lane it holds nothing of it, and every wheel grips as on grass (TER-7b).
     /// </summary>
     [Fact]
     public void ACarWithNoWheelOnAWayIsOnNone()
@@ -197,7 +203,7 @@ public class RibbonAtlasTests
         const float FrontM = 21.3f, RearM = 18.7f, TrackM = 1.6f, AroundM = 0.9f;
         var atlas = Laid((new Vector2(0f, 0f), new Vector2(LengthM, 0f)));
         Span<WayCover> under = stackalloc WayCover[8];
-        var nearM = (WidthM * 0.5f) + RibbonAtlas.ReachOf(atlas.StepM) + ClearM;
+        var nearM = (WidthM * 0.5f) + RibbonAtlas.ReachOf(atlas.StepM) + atlas.StepM + ClearM;
         Vector2[] wheelsM = [new(FrontM, nearM), new(FrontM, nearM + TrackM), new(RearM, nearM), new(RearM, nearM + TrackM)];
 
         Assert.Equal(0, atlas.UnderWheels(wheelsM, AroundM, under, out var onAWay));
@@ -224,7 +230,7 @@ public class RibbonAtlasTests
         {
             Channels = [first, second],
         };
-        return RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+        return RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM);
     }
 
     static int[] WaysUnderTheCrossing(RibbonAtlas atlas, byte channels)
@@ -293,44 +299,6 @@ public class RibbonAtlasTests
     }
 
     /// <summary>
-    /// A road, a zebra's walking lane across it, and a walk beside the road crossing the zebra's lane — the walk and
-    /// the paint both walked.
-    /// </summary>
-    static Lines RoadZebraAndWalk() =>
-        new(
-            Straight(new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
-            Straight(new Vector2(LengthM * 0.5f, -WidthM), new Vector2(LengthM * 0.5f, WidthM * 4f)),
-            Straight(new Vector2(0f, WidthM * 3f), new Vector2(LengthM, WidthM * 3f)))
-        {
-            Zebras = [RibbonMarks.NoZebra, 0, RibbonMarks.NoZebra], FirstWalked = 1,
-        };
-
-    /// <summary>
-    /// <b>Where nobody walks, a walk is filed only where the traffic crosses it</b> (TER-4c.4): a disc on the walk beside
-    /// the road is over nothing, and one on the zebra's paint is over the paint.
-    /// </summary>
-    [Fact]
-    public void WhereNobodyWalksAWalkIsFiledOnlyOnTheTrafficsPaint()
-    {
-        var atlas = RibbonAtlas.Lay(RoadZebraAndWalk(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: false);
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-
-        Assert.Equal(0, atlas.UnderDisc(new Vector2(LengthM * 0.25f, WidthM * 3f), 0.5f, under));
-        var onThePaint = atlas.UnderDisc(new Vector2(LengthM * 0.5f, WidthM * 1.5f), 0.5f, under);
-        Assert.Equal([1], under[..onThePaint].ToArray().Select(cover => cover.Way));
-    }
-
-    /// <summary><b>The marks hold a walk nobody walks</b> (TER-5c): they are worked out from the ribbons, not the lattice.</summary>
-    [Fact]
-    public void WhereNobodyWalksTheWalksAreMarkedAllTheSame()
-    {
-        var walked = RibbonAtlas.Lay(RoadZebraAndWalk(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
-        var nobody = RibbonAtlas.Lay(RoadZebraAndWalk(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: false);
-
-        for (var way = 0; way < 3; way++) Assert.Equal(walked.Marks.Of(way).ToArray(), nobody.Marks.Of(way).ToArray());
-    }
-
-    /// <summary>
     /// <b>A zebra is marked whole</b> (TER-5c.3): each of its two walking lanes, a band apart, against both
     /// lanes of the carriageway — all of the walking lane against the whole of what the zebra covers of each
     /// lane, from the near edge of the one to the far edge of the other.
@@ -347,7 +315,7 @@ public class RibbonAtlasTests
         {
             Zebras = [RibbonMarks.NoZebra, RibbonMarks.NoZebra, 0, 0], FirstWalked = 2,
         };
-        var marks = RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true).Marks;
+        var marks = RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM).Marks;
 
         var paintM = WidthM * 3f;
         var nearM = AtM - (WidthM * 0.5f) + Config.RibbonTouchM;

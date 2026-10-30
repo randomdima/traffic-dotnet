@@ -11,9 +11,17 @@ open one, and the only way to do that without a person sitting there is to drive
     qq web --shot F --ui frame      with the read-out open, which is the query string doing --ui
     qq web --shot F --at 3028,13339 opening looking there rather than at OBS-1b's own framing
     qq web --shot F --click 40,28   clicking there first, since the interface is inside the canvas
+    qq web --shot F --key KeyM      pressing that key first, after any click, by its KeyboardEvent.code
     qq web --shot F --drag A:B      a finger drawn from A to B, which is how the touch gestures are asked for
     qq web --shot F --device 390,844  as a handset sees it: a phone's points at a phone's pixel ratio
     qq web --shot F --debug         the Debug build laid beside the binary: seconds, not ten minutes
+    qq web --shot F --join ws://127.0.0.1:8740
+                                    as a player of the town a `--serve` run is serving there (MP-1…9)
+    qq web --shot F --join ws://127.0.0.1:8740 --name "Jane Doe" --colour ff8800
+                                    as that player, named and coloured as the lobby would send it (MP-15);
+                                    a second at once wants its own --debug-port and --profile
+    qq web --shot F --url http://127.0.0.1:8740 --no-build --click 450,613 --after 40 --width 900 --height 800
+                                    a served town's own page: its lobby, CONNECT clicked, and the town it joins
     qq web --shot F --ui frame --hz 30
                                     frames offered at 30 Hz, as a slow display would: the town keeps real time
     qq web --shot F --map OdesaOsm --cpu .tmp/web/cpu.md
@@ -262,9 +270,17 @@ def shoot(base: Path, bundle: Path | None, a) -> int:
         asked.append("at=" + "%20".join(a.at.split(",")))
     if a.managed_world:
         asked.append("managed-world")
+    if a.join:
+        asked.append(f"join={a.join}")
+    if a.join and a.name:
+        asked.append("name=" + urllib.parse.quote(a.name))
+    if a.join and a.colour:
+        asked.append(f"colour={a.colour.lstrip('#')}")
+    if a.sheets:
+        asked.append(f"sheets={a.sheets}")
     query = "?" + "&".join(asked) if asked else ""
     browser = subprocess.Popen(
-        [*command, *FLAGS, f"--user-data-dir={profile}", f"--remote-debugging-port={a.debug_port}",
+        [*command, *FLAGS, *a.chrome_flag, f"--user-data-dir={profile}", f"--remote-debugging-port={a.debug_port}",
          f"--window-size={a.width},{a.height}", "about:blank"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -274,7 +290,7 @@ def shoot(base: Path, bundle: Path | None, a) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         cpu = (Path(a.cpu), a.limit, bundle, a.cpu_steady) if a.cpu else None
         address = a.url.rstrip("/") + "/" if a.url else f"http://localhost:{a.port}/"
-        capture(page, address + query, out, a.seconds, a.click, a.drag, a.ask, a.device, cpu, a.hz)
+        capture(page, address + query, out, a.seconds, a.click, a.drag, a.ask, a.device, cpu, a.hz, a.key, a.after)
         print(f"{out} written after {a.seconds:g} s on {a.map or 'the start menu over the idle ring'}")
         return 0
     finally:
@@ -365,7 +381,8 @@ new Promise(done => {
 
 def capture(page: dict, url: str, out: Path, seconds: float, click: str | None = None,
             pull: str | None = None, ask: str | None = None, device: str | None = None,
-            cpu: tuple[Path, int, Path, bool] | None = None, hz: float | None = None):
+            cpu: tuple[Path, int, Path, bool] | None = None, hz: float | None = None, key: str | None = None,
+            after: float = 0.0):
     """Navigate, let the town run for real seconds, then ask what it is painting at and photograph it."""
     sock = connect(page["webSocketDebuggerUrl"])
     send(sock, {"id": 1, "method": "Runtime.enable"})
@@ -401,10 +418,19 @@ def capture(page: dict, url: str, out: Path, seconds: float, click: str | None =
         front(sock)
         press(sock, click)
 
+    if key:
+        front(sock)
+        type_key(sock, key)
+
     # After the click, so a gesture can be aimed at a panel the click opened.
     if pull:
         front(sock)
         drag(sock, pull)
+
+    # What the click started — a lobby's CONNECT, a town opened off the menu — given its own time to stand.
+    if after and (click or key or pull):
+        front(sock)
+        settle(sock, after)
 
     # **A window nobody can see is never asked to paint**, so this answers only if it is on top: the
     # promise waits on an animation callback that a hidden or fully covered window does not get. That
@@ -658,6 +684,25 @@ def press(sock: socket.socket, point: str):
         await_reply(sock, 90)
 
     print(f"   clicked {where['x']:.0f},{where['y']:.0f}")
+    settle(sock, 4.0)
+
+
+def type_key(sock: socket.socket, code: str):
+    """
+    One key pressed and let go, named by its `KeyboardEvent.code` (`KeyM`, `Escape`, `F11`) — the field the page's
+    key table reads (town.js `KEYS`), so a key it does not name is pressed into nothing.
+    """
+    sock.settimeout(30.0)
+    letter = code[3:] if code.startswith("Key") and len(code) == 4 else None
+    named = {"code": code, "key": letter.lower() if letter else code}
+    if letter:
+        named["windowsVirtualKeyCode"] = ord(letter)
+
+    for kind in ("keyDown", "keyUp"):
+        send(sock, {"id": 91, "method": "Input.dispatchKeyEvent", "params": {"type": kind, **named}})
+        await_reply(sock, 91)
+
+    print(f"   pressed {code}")
     settle(sock, 4.0)
 
 
@@ -954,7 +999,24 @@ def parse_args():
                                                     "(`qq meta --at LAT,LON` says where a place stands)")
     parser.add_argument("--managed-world", action="store_true",
                         help="step the world in managed code rather than on the page's device, as --managed-world does")
+    parser.add_argument("--sheets", choices=("rgba", "bc7", "astc"),
+                        help="hold the atlas in this format rather than the best the adapter offers (BakedSheets); "
+                             "one the adapter lacks falls back to rgba")
+    parser.add_argument("--chrome-flag", action="append", default=[], metavar="FLAG",
+                        help="one more flag for the browser, as --chrome-flag=--use-webgpu-adapter=swiftshader "
+                             "(a software adapter, which offers ASTC where this GPU does not)")
+    parser.add_argument("--join", metavar="WS_URL",
+                        help="be a player of the town served there (ws://127.0.0.1:8740 for a local --serve; MP-1…9) "
+                             "rather than open a map")
+    parser.add_argument("--name", help="of --join, the name the player joins as (MP-15), as the lobby sends it")
+    parser.add_argument("--colour", metavar="RRGGBB", help="of --join, the colour the player joins as (MP-15)")
     parser.add_argument("--click", metavar="X,Y", help="click here before the picture, in interface pixels")
+    parser.add_argument("--after", type=float, default=0.0, metavar="SECONDS",
+                        help="of --click, --key or --drag, how long the page runs on after it before the picture: "
+                             "a lobby's CONNECT, then the town it joins standing up")
+    parser.add_argument("--key", metavar="CODE",
+                        help="press and let go of this key before the picture, after any click, by its "
+                             "KeyboardEvent.code (KeyM, Escape)")
     parser.add_argument("--drag", metavar="X,Y:X,Y",
                         help="draw a finger from one point to the other, in interface pixels: the touch "
                              "gestures, which a click cannot stand in for")

@@ -27,10 +27,9 @@ meanwhile; a light holds where it is against now or will be before its next turn
 **TER-4c.4** `P3` **Every way of the town is a ribbon, and the ribbons are laid once.** A ribbon is its way's
 line swept to **the way's own width** — a lane's, a join's, a bay's, a pavement's, the paint of a crossing —
 with square ends. There is no other width a ribbon is laid at: what travels a way is a body on it (TER-4c.2),
-and not a second, narrower ribbon inside it. The town samples every ribbon a body can be read onto onto a
-lattice of points when it is laid — **a walked one only in a town anybody walks, or where the traffic crosses
-it**, a zebra's paint — and each point knows which ways it lies under, how far along each of them it stands
-and how far outside each one's band. **That lattice is how the world reads a body onto ways** (TER-4c.2): which ways
+and not a second, narrower ribbon inside it. The town samples every ribbon onto a lattice of points when it is
+laid — **a walk in a town nobody walks included**, because a wheel on it grips as on any way (TER-7b) — and each
+point knows which ways it lies under, how far along each of them it stands and how far outside each one's band. **That lattice is how the world reads a body onto ways** (TER-4c.2): which ways
 a wheel stands on is a look-up of the point nearest it. **It is the world's and no actor's**: an actor knows the lane
 or way it is on and where along it, is handed the ways its body is on by the world, and looks nothing up (the root
 decision log, 2026-10-13). Which ways share ground is worked out from the ribbons themselves (TER-5c), every one of

@@ -10,6 +10,7 @@
 import './log.js'
 import { adapter, prefetch, town, useHeap } from './town.js'
 import { counting, detail, stage, trouble } from './loading.js'
+import { lobby, servedHere } from './lobby.js'
 
 /// What every run asks for whatever else it does, started before the engine that will ask for it: the
 /// map list the menu is drawn from, and the whole of the town's art (WEB-9).
@@ -33,6 +34,7 @@ if (refused) {
     stage('asking for a graphics device…');
     const asked = adapter();
     const engine = import('./_framework/dotnet.js');
+    const served = servedHere();
 
     if (await asked === null) {
         trouble(
@@ -40,10 +42,15 @@ if (refused) {
             'That is usually a driver the browser has blocklisted, or hardware acceleration switched ' +
             'off. On Linux it is often behind chrome://flags/#enable-unsafe-webgpu.');
     } else {
+        // **A page a town handed out joins it**, as whoever the lobby settles on (MP-15) — asked only once the
+        // browser has proved it can draw, so nobody picks a name to be told it cannot. A page asked for a map or
+        // a join in its address is not asked.
+        const args = arguments_();
+        if (!args.includes('--join') && !args.includes('--map') && await served) args.push(...await lobby());
+
         // **Nothing is prefetched until the browser has proved it can draw**, which is the same rule
         // that makes the import above dynamic: a page that cannot run this spends the four questions
         // and no bytes at all.
-        const args = arguments_();
         const wanted = args.includes('--map');
         prefetch(LISTING);
 

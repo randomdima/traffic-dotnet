@@ -27,6 +27,8 @@ const uint SignalTow = 7u;
 const uint SignalClearWheels = 8u;
 const uint SignalShow = 9u;
 const uint SignalFollow = 10u;
+const uint SignalHang = 13u;
+const uint SignalShove = 14u;
 
 // ControlSignal's flags.
 const uint DriveHandbrake = 1u;
@@ -35,6 +37,10 @@ const uint DriveUnderAHand = 4u;
 const uint WalkMoving = 1u;
 const uint WalkOnFeet = 2u;
 const uint WalkFaces = 4u;
+const uint WalkSprints = 16u;
+
+// The ground's collision channel (CityPlan.RoadArrays.GroundChannel).
+const uint GroundChannel = 1u;
 const uint TowByTheTail = 1u;
 
 // The host's mark on a command or an aim to be taken in order with the events (DeviceWorld.SignalInOrder).
@@ -139,7 +145,7 @@ struct WalkerViewRow
     float headingRad;
     float overlapM;
     float distanceWalkedM;
-    float unused;
+    uint channels;
 };
 
 #endif

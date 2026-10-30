@@ -17,13 +17,14 @@ other only in the one direction the tier's own row gives.
 | Tier | Slices | May know about |
 |---|---|---|
 | **Kernel** | `core/` — config, geometry, simulation | Nothing else in the project. **Not a town** |
+| **Wire** | `multiplayer/wire/` — the messages a served town and its players exchange, packed to bits | core. **Numbers only: handed data, never a town type** |
 | **Plan** | `citygen/` — the plan, its ground vocabulary, the lines a car is driven on, the map file a town is laid off and the zones that lay it, the wheel that lays a brief's streets, and the tracing that lays a real place's | core |
 | **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking, rail | core, citygen, and each other in one direction |
 | **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight, train | core, citygen, world |
 | **Composition** | `world/town/` | Everything before it. **This is the seam, and it is the only thing allowed to be** |
 | **Machine** | `runtime/` — the window, the device, the swapchain, and `runtime/web/` — the canvas and WebGPU | core. **Not the shell, not an agent, not a town** |
 | **Chrome** | `app/screen/` — the quad, the glyphs, the theme, the text buffer | Nothing. It is the vocabulary a frame's overlay is written in |
-| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, drive, web, devicetick | Everything |
+| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, drive, web, devicetick; `multiplayer/server/` and `multiplayer/client/` | Everything |
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →

@@ -83,6 +83,32 @@ internal readonly ref struct SpriteRings(ReadOnlySpan<uint> words, int people, i
         }
     }
 
+    /// <summary>
+    /// One unit picked out and nothing else — a player's own (MP-9): a walker, a car, or a rail vehicle by its slot — into
+    /// <paramref name="into"/>, <see cref="Length"/> long for <paramref name="people"/> walkers and <paramref name="cars"/>
+    /// cars; nothing at all for no unit.
+    /// </summary>
+    public static void MarkOne(Span<uint> into, int people, int cars, Selection unit)
+    {
+        into.Clear();
+        into[0] = uint.MaxValue;
+        if (!unit.Any) return;
+
+        var carsFrom = 1 + WordsFor(people);
+        switch (unit.Kind)
+        {
+            case SelectionKind.Person:
+                Set(into, 1, unit.Index);
+                break;
+            case SelectionKind.Car:
+                Set(into, carsFrom, unit.Index);
+                break;
+            case SelectionKind.Wagon:
+                Set(into, carsFrom + WordsFor(cars), unit.Index);
+                break;
+        }
+    }
+
     static void Set(Span<uint> into, int from, int unit) => into[from + (unit >> 5)] |= 1u << (unit & 31);
 }
 
@@ -97,14 +123,15 @@ internal readonly record struct RingLook(uint Selected, uint SecondHand, uint Ed
     /// <summary>
     /// The look at one frame's zoom, its ring <see cref="ViewFigures.SelectionRingPx"/> or
     /// <see cref="ViewFigures.SelectionRingM"/> of the town, whichever is wider; the zoom read as the vertex stage reads
-    /// it (<c>quad.glsl</c>'s <c>pxPerM</c>).
+    /// it (<c>quad.glsl</c>'s <c>pxPerM</c>); the selection's in <paramref name="selected"/>, which a player's page makes its
+    /// own colour (MP-15).
     /// </summary>
-    public static RingLook At(ViewFigures view, Vector2 clipPerM, Vector2 uiPx)
+    public static RingLook At(ViewFigures view, Vector2 clipPerM, Vector2 uiPx, Vector4 selected)
     {
         var pxPerM = MathF.Abs(clipPerM.X) * uiPx.X * 0.5f;
         var ringPx = MathF.Max(view.SelectionRingPx, view.SelectionRingM * pxPerM);
         return new(
-            SpriteTint.Pack(Theme.SelectionMark), SpriteTint.Pack(Theme.SecondHandMark), SpriteTint.Pack(Theme.MarkOutline),
+            SpriteTint.Pack(selected), SpriteTint.Pack(Theme.SecondHandMark), SpriteTint.Pack(Theme.MarkOutline),
             Halves.Pack(new Vector2(ringPx, view.SelectionRingEdgePx)));
     }
 }

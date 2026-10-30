@@ -352,6 +352,12 @@ fetches the town behind it.
 it has not got one. **Build it Release**: `RunAOTCompilation`
 is on there and off in Debug, and the interpreter is about ten times off a 60 Hz loop.
 
+**The atlas is compressed where the build has [KTX-Software](https://github.com/KhronosGroup/KTX-Software)'s
+`ktx`**: the web build bakes every sheet to BC7 and ASTC blocks (`--bake-sheets`, into `obj/baked/`), and a page fetches
+the format its device samples — `?sheets=rgba|bc7|astc` asks for one — or the pictures where it samples neither. The
+desktop head draws BC7 off the same bake, once there is one: `dotnet run --project traffic-dotnet.csproj -- --bake-sheets`,
+and `--sheets rgba` packs the pictures regardless. Without `ktx` nothing is baked and both heads pack pictures.
+
 **`qq web` publishes it, `qq web --serve` serves it, and `qq web --shot FILE` takes its picture** —
 the browser head's answer to `--shot`, which drives a real browser because headless Chromium runs all
 of this except presenting a WebGPU canvas ([decision log](src/app/web/docs/decision-log.md)). **Add
@@ -369,6 +375,23 @@ that can exit.
 on a fetch, so the menu's click writes a name down and the boot's own loop — the one place a browser run
 may wait — awaits the art and the map's file and stands the town up off it
 ([decision log](src/app/web/docs/decision-log.md)).
+
+## One town, several players
+
+**`--serve` runs a town with no window for players to join, and hands out the page they join it from**: open
+`http://host:8740/` and the page lays the town the server names, is seated in a car of the town's, and drives it with
+WASD and Space while the camera follows it — sent only what moves round that car, and drawing no interface at all
+([multiplayer](src/multiplayer/docs/requirements.md), [the plan](network/index.md)). The page is the build's published
+one (`qq web` publishes it), or `--page DIR`; a page served anywhere else joins with `?join=ws://host:port`.
+
+```
+qq web                                                                               # publish the page once
+dotnet run --project traffic-dotnet.csproj -c Release -- --serve --map Saltbay      # port 8740, or --port N
+qq web --shot .tmp/mp/join.png --join ws://127.0.0.1:8740 --no-build                 # a picture of a player's page
+```
+
+A page on HTTPS can reach a server only over `wss://`, which the server does not speak itself: put a TLS-terminating
+proxy in front of it.
 
 ## Layout
 

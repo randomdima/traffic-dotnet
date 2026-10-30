@@ -58,8 +58,10 @@ as its own record, or it is ground that is drawn from nothing and answered for b
 readers of that record, the picture and the query, take it off the one array.
 
 **A wheel is the one asker that reads no shape** (TER-7b): it is answered off the ribbons, to within the atlas's
-lattice and as of the world's last step, so a wheel on paving no ribbon covers — a pocket inside the kerb, a car
-park's apron, the pavement of a town nobody walks — grips as on grass, and so does a wheel in the water.
+lattice and as of the world's last step. **Any ribbon is paving, a walk's as much as a lane's**, and so is the ground
+within the lattice's reach of one (`RibbonAtlas.UnderWheels`), so the seam two bands leave short of each other at a
+kerb's corner grips as both sides do. A wheel on paving no ribbon comes near — a promenade along the water with no
+walk struck down it, a verge's shoulder — grips as on grass, and so does a wheel in the water.
 
 **A raster is scratch and never an answer.** The generator keeps one of what its statics have taken
 (`GenClaims`); it agrees with the shapes only to within a cell, it is never shipped, and no rule about a
@@ -236,7 +238,7 @@ its own is a deck the street's pavement does not fit on, which is what the width
 but a deck that lays that walk itself is a line beside a road struck by arithmetic of its own, which is the one
 thing no line beside a road may be (TER-3c.3). **The walk across a deck is the street's own, carried over it
 because the street is** (WLK-1): a road over water is a road, and what is walked beside it is walked beside it
-there as anywhere else.
+there as anywhere else. Over another road the street is on the level above, and so is its walk (WLK-1b).
 
 **TER-3b.2** `P7` **A bridge is dressed as one, and the dressing is drawn and stands nothing.** Laid along its
 straight span from art of its own (`BridgeLooks`): its walkway either side and its carriageway, each a picture

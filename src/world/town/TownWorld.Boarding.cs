@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Foot;
@@ -114,7 +115,9 @@ internal sealed partial class TownWorld
 
     /// <summary>And back out, where the container put them down — the one place a walker's pose is written by anything but the solver.</summary>
     /// <param name="place">The pavement the container stands beside, which the body's next walk is laid from.</param>
-    void Place(int person, Vector2 atM, float headingRad, in FootPlace place)
+    /// <param name="channels">The channels it is put on: the ground's, but out of a car on a deck the car's.</param>
+    void Place(
+        int person, Vector2 atM, float headingRad, in FootPlace place, byte channels = CityPlan.RoadArrays.GroundChannel)
     {
         People.DestinationM[person] = atM;
         People.GoalM[person] = atM;
@@ -123,7 +126,7 @@ internal sealed partial class TownWorld
         SetWalking(person, false);
         People.ClearRoute(person);
         _progress.Restart(person);
-        PlaceTheWalker(person, atM, headingRad);
+        PlaceTheWalker(person, atM, headingRad, channels);
     }
 
     /// <summary>

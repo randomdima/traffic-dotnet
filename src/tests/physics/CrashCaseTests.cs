@@ -116,9 +116,11 @@ public class CrashCaseTests
     /// was handed and the fact that it declares nothing to spend on stopping.
     /// </summary>
     [Fact]
-    public void ACasualtyStruckWellOverTheBandIsSentFurtherThanItsOwnBody()
+    public void ACasualtyStruckAtStreetSpeedIsSentFurtherThanItsOwnBody()
     {
-        var carriedMps = ToleranceClosingMps(9f) * Config.Car.MassKg / (Config.Car.MassKg + Config.Person.MassKg);
+        // What a car at street speed leaves in a body it strikes: the pair's common speed.
+        const float StruckAtMps = 15f;
+        var carriedMps = StruckAtMps * Config.Car.MassKg / (Config.Car.MassKg + Config.Person.MassKg);
 
         using var rig = new CrashSandbox(Config);
         var person = rig.AddPerson(Vector2.Zero);
@@ -132,63 +134,4 @@ public class CrashCaseTests
         Assert.True(sentM > Config.PersonDiameterM,
             $"a body carried {sentM:F2} m against its own {Config.PersonDiameterM:F2} m is not being sent anywhere");
     }
-
-    /// <summary>
-    /// PER-23 through the solver rather than asserted of the arithmetic: a car meeting a standing body
-    /// over the tolerance puts it down, and one under the tolerance leaves it on its feet.
-    /// </summary>
-    /// <remarks>
-    /// <b>Only the outcome is asked, and deliberately not the distance.</b> A car below the tolerance
-    /// still <em>pushes</em> — a braced walker weighs a seventeenth of what is leaning on it and gets
-    /// shoved several metres without ever going down, which is the foot model's own stated wrongness and
-    /// not this band's business. What the half metre sizes is the energy, and
-    /// <see cref="ABodyPutDownAtTheToleranceSlidesTheAuthoredDistance"/> is where that is measured.
-    /// </remarks>
-    [Theory]
-    [InlineData(1.5f, true)]
-    [InlineData(0.5f, false)]
-    public void TheBandIsWhereTheAuthoredSlideIs(float ofTheTolerance, bool goesDown)
-    {
-        var closingMps = ToleranceClosingMps(ofTheTolerance);
-
-        using var rig = new CrashSandbox(Config);
-        var car = rig.AddCar(Vector2.Zero, 0f);
-        var person = rig.AddPerson(
-            new Vector2(
-                (Config.Car.LengthM * 0.5f) + (closingMps * 0.05f) + (Config.PersonDiameterM * 0.5f), 0f));
-
-        rig.Launch(new BodyTag(BodyKind.Car, car), new Vector2(closingMps, 0f));
-        new SimLoop<CrashSandbox>(rig, Config).Advance(240);
-
-        Assert.Equal(goesDown, rig.People.Wounded[person]);
-    }
-
-    /// <summary>
-    /// And the other half of PER-23: <b>the tolerance is the authored distance</b>. A body put down
-    /// carrying exactly what a contact at the tolerance hands it slides about that far and stops.
-    /// </summary>
-    [Fact]
-    public void ABodyPutDownAtTheToleranceSlidesTheAuthoredDistance()
-    {
-        // What the contact leaves in the body: the pair's common speed, which for a car of seventeen
-        // times the mass is nearly all of the closing speed.
-        var carriedMps = ToleranceClosingMps(1f) * Config.Car.MassKg / (Config.Car.MassKg + Config.Person.MassKg);
-
-        using var rig = new CrashSandbox(Config);
-        var person = rig.AddPerson(Vector2.Zero);
-        rig.Apply(new BodyTag(BodyKind.Person, person), DamageOutcome.Wounded);
-        rig.Launch(new BodyTag(BodyKind.Person, person), new Vector2(carriedMps, 0f));
-
-        var slidFromM = rig.People.PositionM[person].X;
-        new SimLoop<CrashSandbox>(rig, Config).Advance(600);
-
-        var slidM = rig.People.PositionM[person].X - slidFromM;
-        Assert.InRange(slidM, Config.Damage.SlideToCasualtyM * 0.6f, Config.Damage.SlideToCasualtyM * 1.2f);
-    }
-
-    /// <summary>The closing speed a car and a standing body meet at, at a given share of the person's own tolerance.</summary>
-    static float ToleranceClosingMps(float ofTheTolerance) =>
-        MathF.Sqrt(
-            2f * Config.PersonCasualtyKj * ofTheTolerance * 1_000f
-            / DamageResolver.ReducedMassKg(Config.Car.MassKg, Config.Person.MassKg));
 }

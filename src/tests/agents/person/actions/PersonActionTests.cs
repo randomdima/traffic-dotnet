@@ -98,6 +98,8 @@ public class PersonActionTests
     /// <remarks>
     /// <b>Never one whose decision comes round on the next tick</b>: a walker deciding there lays its walk again from
     /// where it stands, which is the other way back onto the network (PER-25), and walks it for that tick.
+    /// <b>Nor one put down near a lane's end</b>: there the straight back meets a junction's corner pavement before its own
+    /// way, and a walker standing on any pavement walks its route again rather than walking back.
     /// </remarks>
     static (int Walker, int Way) PutAWalkerInTheRoad(SimLoop<TownWorld> loop)
     {
@@ -111,7 +113,7 @@ public class PersonActionTests
             if (world.IsTheCrossing(people.OnWay[walker])) continue;
 
             var lane = world.Roads.NearestStreetLane(people.PositionM[walker], out var alongM);
-            if (lane < 0) continue;
+            if (lane < 0 || alongM < NearALaneM || alongM > world.Roads.LaneLengthM[lane] - NearALaneM) continue;
 
             var at = Spline.SampleAt(world.Roads.ArcsOf(lane), alongM);
             if ((at.PositionM - people.PositionM[walker]).Length() > NearALaneM) continue;

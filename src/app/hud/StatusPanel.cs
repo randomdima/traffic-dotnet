@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Bench;
+using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Hud;
@@ -348,7 +349,7 @@ internal sealed class StatusPanel
     }
 
     /// <summary>The device's own rows under the frame's, each only where the window timed any (<see cref="FrameSection"/>).</summary>
-    static int GpuRows(in FrameFigures frame) => (frame.Gpu.Draws > 0 ? 1 : 0) + (frame.Gpu.Batches > 0 ? 1 : 0);
+    static int GpuRows(in FrameFigures frame) => (frame.Gpu.Clock == GpuClock.None ? 0 : 1) + (frame.Gpu.Batches > 0 ? 1 : 0);
 
     /// <summary>
     /// What the claims come to when they are showing: a heading a watch, and <b>two rows a claim</b> —
@@ -421,8 +422,18 @@ internal sealed class StatusPanel
         Row(ref draw, ref row, text, "  blocked", frame.BlockedMs, "ms", "F2");
         Row(ref draw, ref row, text, "  slowest", frame.WorstMs, "ms", "F2");
 
-        // The device's own time, where the head takes it (GpuTimes): a pass a frame, and a batch of kernels each.
-        if (frame.Gpu.Draws > 0) Row(ref draw, ref row, text, "  gpu frame", frame.GpuDrawMs, "ms", "F2");
+        // The device's own time, where the head takes it (GpuTimes): a pass a frame, and a batch of kernels each — or,
+        // where the browser offers no timestamps, a row saying so rather than no row.
+        if (frame.Gpu.Clock == GpuClock.Refused)
+        {
+            var line = new TextBuffer(text);
+            line.Add("  gpu");
+            line.PadTo(ValueColumn);
+            line.Add("not offered");
+            Write(ref draw, ref row, line.Written);
+        }
+
+        if (frame.Gpu.Clock == GpuClock.Timed) Row(ref draw, ref row, text, "  gpu frame", frame.GpuDrawMs, "ms", "F2");
         if (frame.Gpu.Batches > 0) Row(ref draw, ref row, text, "  gpu batch", frame.GpuBatchMs, "ms", "F2");
     }
 

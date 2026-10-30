@@ -35,13 +35,42 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
+    /// <b>What a town that steps nothing draws of itself</b>, laid a stage at a time (<see cref="TownScene"/>): the
+    /// groundwork as far as its lights and its crossings' lamps, and nothing stood on it.
+    /// </summary>
+    public static Staged<TownScene> LayingTheScene(CityPlan plan, SimConfig config) =>
+        new(made => LayingTheScene(plan, config, made));
+
+    static IEnumerable<string> LayingTheScene(CityPlan plan, SimConfig config, Action<TownScene> made)
+    {
+        var groundwork = new Groundwork(plan, config, worldMaker: null, drawnOnly: true);
+        foreach (var stage in groundwork.Lay()) yield return stage;
+
+        var lights = plan.Rails.Count == 0
+            ? []
+            : CrossingHolds.Of(plan, groundwork.Lines, groundwork.Ways, groundwork.Roads, config).Lights;
+        made(new TownScene(
+            plan, config, groundwork.Levelled, groundwork.Uses, groundwork.Signals, groundwork.Heads,
+            CrossingGear.Of(plan, LevelCrossings.Of(plan, config), lights, config),
+            Stopwatch.GetElapsedTime(groundwork.StartedAt).TotalMilliseconds));
+    }
+
+    /// <summary>
     /// <b>What a town stands on, laid ahead of it</b>: its networks, its zebras, bars and lights, its ways in one numbering
     /// and the lines they are travelled on, and their marks and atlas — the open's long half, laid a stage at a time
     /// (<see cref="Lay"/>) so a page paints between stages, and handed whole to the town's constructor.
     /// </summary>
-    sealed class Groundwork(CityPlan plan, SimConfig config, IWorldMaker? worldMaker)
+    /// <param name="playerBodies">The bodies laid offstage for a served town's players (MP-4), or none.</param>
+    /// <param name="drawnOnly">
+    /// Only what a town that steps nothing draws (<see cref="TownScene"/>): the roads, the zebras, bars and lights, and —
+    /// where a railway crosses them — the ways its crossings' lamps stand on. No network a car or a walker is routed over,
+    /// no roster, no atlas.
+    /// </param>
+    sealed class Groundwork(CityPlan plan, SimConfig config, IWorldMaker? worldMaker, int playerBodies = 0, bool drawnOnly = false)
     {
         public CityPlan Plan => plan;
+
+        public int PlayerBodies => playerBodies;
 
         public SimConfig Config => config;
 
@@ -93,7 +122,10 @@ internal sealed partial class TownWorld
 
         public SignalHolds SignalHolds { get; private set; } = null!;
 
-        /// <summary>The walkers and cars the town lays room for: the plan's, and a crew and a vehicle for every service bay.</summary>
+        /// <summary>
+        /// The walkers and cars the town lays room for: the plan's, a crew and a vehicle for every service bay, and its
+        /// players' bodies.
+        /// </summary>
         public int Walkers { get; private set; }
 
         public int Drivers { get; private set; }
@@ -110,9 +142,9 @@ internal sealed partial class TownWorld
         public double AtlasMs { get; private set; }
 
         /// <summary>Every stage laid at once, for a town stood in one call.</summary>
-        public static Groundwork Through(CityPlan plan, SimConfig config, IWorldMaker? worldMaker)
+        public static Groundwork Through(CityPlan plan, SimConfig config, IWorldMaker? worldMaker, int playerBodies)
         {
-            var laid = new Groundwork(plan, config, worldMaker);
+            var laid = new Groundwork(plan, config, worldMaker, playerBodies);
             foreach (var _ in laid.Lay())
             {
             }
@@ -131,11 +163,15 @@ internal sealed partial class TownWorld
             // The bays' streets come before the network that prices them: the one movement a route may make that
             // no junction admits is a turn back — at a car park (GEN-4l) or at a dead end — and whether a frontage
             // has a bay to make one in is a question about which bays it works.
-            BayStreets = BayStreets.Build(plan, Roads);
+            if (!drawnOnly)
+            {
+                BayStreets = BayStreets.Build(plan, Roads);
 
-            // Laid with the town rather than on demand: a structure the tick reads belongs to the town's
-            // own standing cost.
-            Driving = DrivingNetwork.Build(Roads, BayStreets.WhereALegMayTurn(Roads, BayStreets, config.TurnAtALotWithinM), config);
+                // Laid with the town rather than on demand: a structure the tick reads belongs to the town's
+                // own standing cost.
+                Driving = DrivingNetwork.Build(Roads, BayStreets.WhereALegMayTurn(Roads, BayStreets, config.TurnAtALotWithinM), config);
+            }
+
             yield return OpenWatch.Passed("town: roads");
 
             // Both networks are read by the tick — cars over one, walkers over the other — so both are laid
@@ -156,9 +192,17 @@ internal sealed partial class TownWorld
             Signals = SignalService.Build(plan, Roads, Zebras, config);
             Heads = SignalHeads.Place(Bars, Zebras, Signals, config);
             OpenWatch.Passed("town: zebras, bars and signals");
+            if (drawnOnly && plan.Rails.Count == 0)
+            {
+                Uses = BuildingUses.Of(plan);
+                yield break;
+            }
+
             CrossingWays = CrossingWays.Of(plan, PavementLanes, Zebras, config);
-            PavementLanes = PavementLanes.EndedAtTheCrossings(CrossingWays, config);
-            Foot = FootGraph.Build(PavementLanes, CrossingWays, config);
+            // <b>And the walk over the decks over other roads</b> (WLK-1b): the ground's pavement walked by nobody under a
+            // deck's ends, and joined there to the deck's own.
+            (PavementLanes, var decks) = DeckWalks.Of(plan, PavementLanes.EndedAtTheCrossings(CrossingWays, config), config);
+            Foot = FootGraph.Build(PavementLanes, CrossingWays, config, decks);
             FootMs = Stopwatch.GetElapsedTime(footAt).TotalMilliseconds;
             yield return OpenWatch.Passed("town: pavement");
 
@@ -172,8 +216,15 @@ internal sealed partial class TownWorld
             Rails = RailGraph.Of(plan.Rails, plan.WorldSizeM);
             RailLines = Rails.WayLines(TrainCatalog.Shared.RibbonWidthM(config.Rail));
             Ways = TownWays.Of(Roads, PavementLengthsM(Walking, out var mitreLengthM), mitreLengthM, RailLines.LengthsM());
-            Furniture = LaneFurniture.Project(Bars, Roads);
             CrossingEdges = CrossingEdges.Of(Zebras, Walking.Foot, config.Grid.Main);
+            if (drawnOnly)
+            {
+                Uses = BuildingUses.Of(plan);
+                Lines = new WayLines(Roads, Walking, Ways, CrossingEdges, config, RailLines);
+                yield break;
+            }
+
+            Furniture = LaneFurniture.Project(Bars, Roads);
             SignalHolds = SignalHolds.Of(Signals, Bars, CrossingEdges, Roads, Ways);
 
             // The service vehicles are laid on top of the plan's own spawns: a vehicle for every bay of every
@@ -184,7 +235,7 @@ internal sealed partial class TownWorld
             // one carries</b> (SRV-3) — laid now, since a roster is never grown once the town stands.
             Uses = BuildingUses.Of(plan);
             var served = (Uses.Hospitals.Count + Uses.PoliceStations.Count + Uses.Depots.Count) * config.Service.ApronBays;
-            Walkers = PeopleIn(plan) + (served * CrewAboard(config));
+            Walkers = PeopleIn(plan) + (served * CrewAboard(config)) + playerBodies;
             Drivers = CarsOfThePlan(plan) + served;
 
             // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
@@ -207,13 +258,13 @@ internal sealed partial class TownWorld
             // works them out, and the furniture checked on the device against what it filed; on the host whole otherwise.
             if (worldMaker is null)
             {
-                Atlas = RibbonAtlas.Lay(Lines, config.RibbonLevel, config.RibbonTouchM, anyoneWalks: Walkers > 0, AfterTheMarks);
+                Atlas = RibbonAtlas.Lay(Lines, config.RibbonLevel, config.RibbonTouchM, AfterTheMarks);
                 Marks = Atlas.Marks;
                 RefuseFurnitureOnTheRoad(Atlas);
             }
             else if (worldMaker.Marker is not { } marker)
             {
-                var lengthM = FileTheAtlas(worldMaker.Atlas, anyoneWalks: Walkers > 0);
+                var lengthM = FileTheAtlas(worldMaker.Atlas);
                 Marks = RibbonAtlas.MarksOf(Lines, lengthM, config.RibbonLevel, config.RibbonTouchM);
                 AfterTheMarks();
             }
@@ -221,7 +272,7 @@ internal sealed partial class TownWorld
             {
                 // <b>And the marks worked out there too</b>, the host waiting on the device's answer a stage at a time — a
                 // frame each on a page, which cannot wait.
-                var lengthM = FileTheAtlas(worldMaker.Atlas, anyoneWalks: Walkers > 0);
+                var lengthM = FileTheAtlas(worldMaker.Atlas);
                 using var marking = marker.Mark(
                     RibbonMarks.Filing(Lines, config.RibbonLevel.CellM, config.RibbonTouchM, config.RibbonLevel.Grid.Main));
                 yield return OpenWatch.Passed("town: the marks on the device");
@@ -273,9 +324,9 @@ internal sealed partial class TownWorld
         /// method of its own, so the pieces it laid are let go of with its frame. Every way's length, which the marks are
         /// worked out over.
         /// </summary>
-        float[] FileTheAtlas(IAtlasFiler filer, bool anyoneWalks)
+        float[] FileTheAtlas(IAtlasFiler filer)
         {
-            var filing = RibbonAtlas.Filing(Lines, config.RibbonLevel, anyoneWalks);
+            var filing = RibbonAtlas.Filing(Lines, config.RibbonLevel);
             filer.File(filing, FurnitureForTheDevice());
             return filing.LengthM;
         }

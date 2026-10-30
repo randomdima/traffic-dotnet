@@ -75,6 +75,9 @@ internal sealed unsafe partial class Vk : IDisposable
 
     public uint DeviceApiVersion { get; }
 
+    /// <summary>Whether the device was opened sampling BC-compressed textures (<c>textureCompressionBC</c>).</summary>
+    public bool CompressesBc { get; private set; }
+
     /// <summary>What one tick of the device's timestamp counter is, in nanoseconds.</summary>
     public float TimestampPeriodNs
     {
@@ -640,12 +643,17 @@ internal sealed unsafe partial class Vk : IDisposable
         // An indirect draw that starts part way into its buffer: the stretch of a town's buildings and props a
         // frame can see is a first instance the CPU writes, and the recording never changes. No kernel asks for doubles:
         // WebGPU has none, and the kernels are one source for both (core/geometry/kernels/rounded.glsl).
+        // BC where the device has it, which every desktop GPU does: the sheet atlas is held in BC7 then (BakedSheets).
+        Count();
+        _api.GetPhysicalDeviceFeatures(Physical, out var offered);
+        CompressesBc = offered.TextureCompressionBC;
+
         Count();
         var features = new PhysicalDeviceFeatures2
         {
             SType = StructureType.PhysicalDeviceFeatures2,
             PNext = &twelve,
-            Features = new PhysicalDeviceFeatures { DrawIndirectFirstInstance = true },
+            Features = new PhysicalDeviceFeatures { DrawIndirectFirstInstance = true, TextureCompressionBC = CompressesBc },
         };
 
         var extensionsPtr = withSwapchain ? SilkMarshal.StringArrayToPtr(new[] { KhrSwapchain.ExtensionName }) : 0;

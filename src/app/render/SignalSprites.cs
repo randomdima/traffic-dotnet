@@ -1,7 +1,7 @@
 using System.Numerics;
+using TrafficSimulation.Agents.TrafficLight.Body;
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Render;
 
@@ -30,21 +30,21 @@ internal static class SignalSprites
     /// <summary>Dark, red, green.</summary>
     public const int WalkFrames = 3;
 
+    /// <param name="timeS">The town's clock the heads are shown at — its own, or the instant a player draws (MP-6).</param>
     public static int Fill(
-        TownWorld world, SimConfig config, int firstSheet, Vector2 viewCentreM, Vector2 viewSpanM,
-        Span<SpriteInstance> into)
+        SignalHeads signalHeads, SignalService signals, float timeS, SimConfig config, int firstSheet, Vector2 viewCentreM,
+        Vector2 viewSpanM, Span<SpriteInstance> into)
     {
-        var heads = world.Heads.Heads;
+        var heads = signalHeads.Heads;
         if (heads.Length == 0) return 0;
 
-        var timeS = world.ElapsedS;
         var halfView = viewSpanM * 0.5f;
         var carHalfM = new Vector2(config.Signals.CarHeadLengthM, config.Signals.CarHeadWidthM) * 0.5f;
         var walkHalfM = new Vector2(config.Signals.WalkHeadWidthM, config.Signals.WalkHeadLengthM) * 0.5f;
         var reachM = MathF.Max(carHalfM.Length(), walkHalfM.Length());
 
         // Only the rows the view reaches (SignalHeads.ByRow), each culled across.
-        var byRow = world.Heads.ByRow;
+        var byRow = signalHeads.ByRow;
         var leastYM = viewCentreM.Y - halfView.Y - reachM;
         var mostYM = viewCentreM.Y + halfView.Y + reachM;
         if (!byRow.TryRows(leastYM, mostYM, out var fromRow, out var toRow)) return 0;
@@ -63,8 +63,8 @@ internal static class SignalSprites
 
                 var forCars = head.ForCars;
                 var colour = forCars
-                    ? world.Signals.ForApproach(head.Subject, timeS)
-                    : world.Signals.ForCrossing(head.Subject, timeS);
+                    ? signals.ForApproach(head.Subject, timeS)
+                    : signals.ForCrossing(head.Subject, timeS);
 
                 into[written++] = new SpriteInstance(
                     centreM, forCars ? carHalfM : walkHalfM, CellOf(forCars, colour), SpriteTint.Plain,

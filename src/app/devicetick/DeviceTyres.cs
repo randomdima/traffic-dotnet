@@ -41,7 +41,10 @@ internal sealed class DeviceTyres : IDisposable
             new(command.SteerRad, command.ThrottleMps2, command.BrakeMps2, (command.Handbrake ? 1u : 0u) | (command.Reverse ? 2u : 0u));
     }
 
-    /// <summary>One car's own figures and flags (<c>TyreCarRow</c>): <see cref="Flags"/> holds what <see cref="FlagsOf"/> packs.</summary>
+    /// <summary>
+    /// One car's own figures and flags (<c>TyreCarRow</c>): <see cref="Flags"/> holds what <see cref="FlagsOf"/> packs, and
+    /// the wheels standing on nothing over bits 16–23, as the town last said (<see cref="World.Town.ControlAction.Hang"/>).
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CarRow(float InertiaKgM2, float SlipThrottle, uint Flags)
     {
@@ -82,15 +85,21 @@ internal sealed class DeviceTyres : IDisposable
         float PloughCrawlMps, float EngineBrakingMps2, float SlipBackOffPerTick, float SlipRecoverPerTick,
         float MinSlipThrottleFraction, float TractionThrottleFraction, float NominalGripMps2, float MarkOnsetM,
         float MarkPloughFloor, float MarkSpacingM, float WorkingSlipTangent, float AlongSlipEpsilonMps,
-        float LiftedAxleLoadShare, float AckermannLeastSteerRad, float InnerWheelLeastRadiusM)
+        float LiftedAxleLoadShare, float AckermannLeastSteerRad, float InnerWheelLeastRadiusM, float KnotTurnCos,
+        float KnotMostM, float KnotStrengthStep, float Pad)
     {
-        public static Figures Of(SimConfig config) => new(
-            config.TickSeconds, config.Tyre.WheelSpinFadeMps, config.Tyre.WheelSpinAllowanceMps, config.Marks.SlipMps,
-            config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2,
-            config.TyreSlipBackOffPerTick, config.TyreSlipRecoverPerTick, config.Tyre.MinSlipThrottleFraction,
-            config.Tyre.TractionThrottleFraction, config.TyreGripMps2, config.Marks.OnsetM, config.Marks.PloughFloor,
-            config.Marks.SpacingM, config.Tyre.WorkingSlipTangent, config.Tyre.AlongSlipEpsilonMps,
-            config.Tyre.LiftedAxleLoadShare, config.Tyre.AckermannLeastSteerRad, config.Tyre.InnerWheelLeastRadiusM);
+        public static Figures Of(SimConfig config)
+        {
+            var fit = StrokeFit.Of(config);
+            return new Figures(
+                config.TickSeconds, config.Tyre.WheelSpinFadeMps, config.Tyre.WheelSpinAllowanceMps, config.Marks.SlipMps,
+                config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2,
+                config.TyreSlipBackOffPerTick, config.TyreSlipRecoverPerTick, config.Tyre.MinSlipThrottleFraction,
+                config.Tyre.TractionThrottleFraction, config.TyreGripMps2, config.Marks.OnsetM, config.Marks.PloughFloor,
+                config.Marks.SpacingM, config.Tyre.WorkingSlipTangent, config.Tyre.AlongSlipEpsilonMps,
+                config.Tyre.LiftedAxleLoadShare, config.Tyre.AckermannLeastSteerRad, config.Tyre.InnerWheelLeastRadiusM,
+                fit.TurnCos, fit.MostM, fit.StrengthStep, 0f);
+        }
     }
 
     /// <summary>The kernel's push constants: the figures, then how many cars and whether the scrub is written.</summary>
@@ -161,16 +170,18 @@ internal sealed class DeviceTyres : IDisposable
         _markCountOut = _held.Readback<uint>(1);
 
         var drawnCapacity = Math.Max(1, config.Marks.Capacity);
-        GroundMarks = _held.Own(_vk.CreateBuffer(Bytes<DriftMarkRow>(drawnCapacity), BufferUse.Storage, HostAccess.None));
+        GroundMarks = _held.Own(_vk.CreateBuffer(Bytes<DriftKnot>(drawnCapacity), BufferUse.Storage, HostAccess.None));
         GroundMarkRing = _held.Own(_vk.CreateBuffer(
             Bytes<DriftMarkRing>(1), BufferUse.Storage | BufferUse.Indirect | BufferUse.TransferDst, HostAccess.None));
         GroundMarkRing.Upload<DriftMarkRing>(1, into => into[0] = DriftMarkRing.After(0, drawnCapacity));
+        var strokeLasts = _held.Room<uint>(wheels);
+        strokeLasts.Upload<uint>(wheels, into => into.Fill(DriftMarks.NoKnot));
 
         Table = (buildBuffer, _buildOf, _poses, _commands, _carRows, _wheels);
         GpuBuffer[] bound =
         [
             buildBuffer, _buildOf.Device, _poses.Device, _commands.Device, _carRows.Device, _wheels.Device, _impulses.Device,
-            _scrubs.Device, _markCount, _marks, wheelGroundsBuffer, GroundMarks, GroundMarkRing,
+            _scrubs.Device, _markCount, _marks, wheelGroundsBuffer, GroundMarks, GroundMarkRing, strokeLasts,
         ];
         _kernel = new ComputeKernel(vk, "tyre_pass.comp", bound.Length, (uint)Marshal.SizeOf<PassPush>());
         _set = _kernel.Bind(bound);
@@ -181,13 +192,14 @@ internal sealed class DeviceTyres : IDisposable
     public int Capacity { get; }
 
     /// <summary>
-    /// <b>The ground's ring of marks, on the device and drawn from there</b> (<see cref="DriftMarkRow"/>,
-    /// <c>drift_marks.glsl</c>): every pass lays its marks into it, and nothing of it crosses to the host.
+    /// <b>The ground's ring of knots, on the device and drawn from there</b> (<see cref="DriftKnot"/>,
+    /// <c>drift_marks.glsl</c>): every pass lays its wheels' strokes into it, each wheel's last knot kept beside it, and
+    /// nothing of it crosses to the host.
     /// </summary>
     public GpuBuffer GroundMarks { get; }
 
     /// <summary>
-    /// And its words (<see cref="DriftMarkRing"/>), whose head a pass after the tyres' moves past the tick's marks
+    /// And its words (<see cref="DriftMarkRing"/>), whose count a pass after the tyres' moves past the tick's knots
     /// (<c>world_view.comp</c>) — the indirect buffer of a frame's draw of the ring.
     /// </summary>
     public GpuBuffer GroundMarkRing { get; }

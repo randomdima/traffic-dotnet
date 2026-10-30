@@ -4,6 +4,7 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.Train.Body;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Physics;
@@ -40,8 +41,13 @@ internal sealed class ManagedWorld : WorldLayer
     WorldView? _stepInto;
     bool _stepReadsCovers;
 
-    /// <summary>The marks the step in flight laid, in the order it laid them, for <see cref="Finish"/> to write on the ground.</summary>
+    /// <summary>
+    /// The marks the step in flight laid, in the order it laid them, and the car of each, for <see cref="Finish"/> to write
+    /// on the ground.
+    /// </summary>
     TyreMark[] _marksLaid = new TyreMark[64];
+
+    int[] _marksLaidBy = new int[64];
 
     int _marksLaidCount;
 
@@ -63,6 +69,9 @@ internal sealed class ManagedWorld : WorldLayer
     readonly TyreCarries _tyres;
     readonly WheelScratch _wheels;
     readonly byte[] _wheelsOnAWay;
+
+    /// <summary>Each car's wheels standing on nothing, as the town last said (<see cref="ControlAction.Hang"/>).</summary>
+    readonly byte[] _wheelsOverNothing;
     readonly SprungBody[] _sprung;
 
     /// <summary>
@@ -196,6 +205,7 @@ internal sealed class ManagedWorld : WorldLayer
         _tyres = new TyreCarries(count);
         _wheels = new WheelScratch(count);
         _wheelsOnAWay = new byte[count];
+        _wheelsOverNothing = new byte[count];
         _sprung = new SprungBody[count];
         _towLoad = new int[count];
         _towByTheTail = new bool[count];
@@ -336,9 +346,13 @@ internal sealed class ManagedWorld : WorldLayer
     {
         Settle();
         CountTheBodies();
-        foreach (ref readonly var mark in _marksLaid.AsSpan(0, _marksLaidCount))
+        for (var at = 0; at < _marksLaidCount; at++)
         {
-            Marks.Mark(mark.FromM, mark.ToM, mark.WidthM, mark.Intensity, mark.Ploughed);
+            ref readonly var mark = ref _marksLaid[at];
+            var car = _marksLaidBy[at];
+            Marks.Lay(
+                (car * TyreModel.MostWheels) + mark.Wheel, mark.FromM, mark.ToM, mark.WidthM, mark.Intensity, mark.Ploughed,
+                (_physics.ChannelsOf(_carBody[car]) & ~CityPlan.RoadArrays.GroundChannel) != 0);
         }
 
         _marksLaidCount = 0;
@@ -446,6 +460,9 @@ internal sealed class ManagedWorld : WorldLayer
 
             case ControlAction.Channels:
                 _physics.PutOnChannels(body, (byte)signal.Flags);
+
+                // A walker standing where it stood is read on its new channels, not handed the covers of its old.
+                if (person >= 0) _walkerStoodAt[person] = new Vector2(float.NaN);
                 break;
 
             case ControlAction.Tow:
@@ -459,6 +476,14 @@ internal sealed class ManagedWorld : WorldLayer
 
             case ControlAction.Follow:
                 _followed[car] = signal.Followed;
+                break;
+
+            case ControlAction.Hang:
+                _wheelsOverNothing[car] = (byte)signal.Flags;
+                break;
+
+            case ControlAction.Shove:
+                _physics.Shove(body, new Vector2(signal.Params.X, signal.Params.Y));
                 break;
         }
     }
@@ -588,7 +613,8 @@ internal sealed class ManagedWorld : WorldLayer
         var step = WalkerFollower.Step(
             Config, _headingRad[person], positionM, _physics.VelocityOf(body), _declaredMps[person],
             (flags & ControlSignal.Faces) != 0 ? _aimM[person] : positionM, (flags & ControlSignal.Moving) != 0,
-            (flags & ControlSignal.OnFeet) != 0, _physics.MassOf(body), dtS);
+            (flags & ControlSignal.OnFeet) != 0, WalkerFollower.PaceOf(Config, (flags & ControlSignal.Sprints) != 0),
+            _physics.MassOf(body), dtS);
         _headingRad[person] = step.HeadingRad;
         _declaredMps[person] = step.DesiredMps;
         _physics.ApplyCentralImpulse(body, step.ImpulseNs);
@@ -624,13 +650,18 @@ internal sealed class ManagedWorld : WorldLayer
             }
 
             // Room for every wheel's mark is made first, so the pass writes them where they are kept.
-            if (_marksLaidCount + count > _marksLaid.Length) Array.Resize(ref _marksLaid, _marksLaid.Length * 2);
+            if (_marksLaidCount + count > _marksLaid.Length)
+            {
+                Array.Resize(ref _marksLaid, _marksLaid.Length * 2);
+                Array.Resize(ref _marksLaidBy, _marksLaid.Length);
+            }
 
             TyrePass.Step(
                 Config, _grounds, _build[car], PoseOf(car), _command[car], _underAHand[car],
-                1f / _physics.InverseInertiaOf(body), _wheelsOnAWay[car], carry, _wheels.GroundUnder(car, count),
+                1f / _physics.InverseInertiaOf(body), _wheelsOnAWay[car], _wheelsOverNothing[car], carry, _wheels.GroundUnder(car, count),
                 _wheels.ImpulsesOf(car, count), _wheels.ScrubOf(car, count), _marksLaid.AsSpan(_marksLaidCount, count),
                 out var laid);
+            _marksLaidBy.AsSpan(_marksLaidCount, laid).Fill(car);
             _marksLaidCount += laid;
         }
 
@@ -689,7 +720,8 @@ internal sealed class ManagedWorld : WorldLayer
             _sprung[car] = _physics.FrozenThroughLastStep(body)
                 ? default
                 : Suspension.Step(
-                    _build[car], _sprung[car], TyreModel.PushN(_wheels.ImpulsesOf(car, _build[car].WheelCount), _physics.RotationOf(body), dtS), dtS);
+                    _build[car], _sprung[car], TyreModel.PushN(_wheels.ImpulsesOf(car, _build[car].WheelCount), _physics.RotationOf(body), dtS), dtS,
+                    _wheelsOverNothing[car], Config.CarTiltOverNothingMostRad);
         }
     }
 
@@ -751,6 +783,7 @@ internal sealed class ManagedWorld : WorldLayer
             row.OverlapM = _physics.OverlapOf(body);
             if (stepped && !_inside[person]) _distanceWalkedM[person] += row.VelocityMps.Length() * _stepDtS;
             row.DistanceWalkedM = _distanceWalkedM[person];
+            row.Channels = _physics.ChannelsOf(body);
         }
 
         var wagons = view.Wagons;
@@ -810,15 +843,14 @@ internal sealed class ManagedWorld : WorldLayer
     /// </summary>
     public KeptBodies? BodiesAtTheView => _keptAtView is { } kept && Volatile.Read(ref _keptOwedWhole) == 0 ? kept[View.Slot] : null;
 
-    /// <summary>Every pair the step began touching, each with the speed it closed at off the motion carried into the step.</summary>
+    /// <summary>Every pair the step began touching, each with how its bodies came into it off the motion carried into the step.</summary>
     void WriteTheTouches(WorldView view)
     {
         view.TouchCount = 0;
         foreach (var touch in _physics.BeganTouchingThisStep())
         {
-            var closingMps = touch.ClosingMps
-                             ?? Vector2.Dot(IntoTheStepMps(touch.First) - IntoTheStepMps(touch.Second), touch.Normal);
-            view.AddTouch(touch with { ClosingMps = closingMps });
+            var into = touch.Into ?? Approach.Of(IntoTheStepMps(touch.First), IntoTheStepMps(touch.Second), touch.Normal);
+            view.AddTouch(touch with { Into = into });
         }
     }
 
@@ -857,6 +889,13 @@ internal sealed class ManagedWorld : WorldLayer
                 TyreModel.WheelPointsM(_build[car], PoseOf(car), wheelsM);
                 count = _atlas.UnderWheels(
                     wheelsM[.._build[car].WheelCount], _heldAroundAWheelM, under, out _wheelsOnAWay[car], stands.Channels);
+
+                // Off the ground, a wheel stands wherever it is on its deck — its pavement too, which carries no way — and
+                // nowhere else, so what is not under a way is air (ControlAction.Hang, PHY-1b).
+                if ((stands.Channels & CityPlan.RoadArrays.GroundChannel) == 0)
+                {
+                    _wheelsOnAWay[car] = (byte)(~_wheelsOverNothing[car] & ((1 << _build[car].WheelCount) - 1));
+                }
                 written = Append(ref _carCovers, written, under[..count]);
                 _carStoodAt[car] = stands;
                 _carCoverCount[car] = count;
@@ -896,7 +935,7 @@ internal sealed class ManagedWorld : WorldLayer
             }
             else
             {
-                count = _atlas.UnderAWheel(atM, walkerRadiusM, under);
+                count = _atlas.UnderAWheel(atM, walkerRadiusM, under, _physics.ChannelsOf(_walkerBody[person]));
                 written = Append(ref _walkerCovers, written, under[..count]);
                 _walkerStoodAt[person] = atM;
                 _walkerCoverCount[person] = count;

@@ -121,10 +121,58 @@ public class TownWorldTests
         var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
         var car = ADrivenCar(world);
 
-        world.HandOnCar(car, new HandInput(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
+        world.HandOnCar(0, car, new HandInput(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
         loop.Advance(30);
 
         Assert.False(world.IsUnderOrders(car));
+    }
+
+    /// <summary>CTL-5d, MP-3: <b>each seat's keys reach its own car and no other</b>.</summary>
+    [Fact]
+    public void EachSeatDrivesOnlyItsOwnCar()
+    {
+        using var world = Open(Towns.Fixture);
+        var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
+        var first = ADrivenCar(world);
+        var second = AnotherDrivenCar(world, first);
+        var floored = new HandInput(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero);
+        var braked = new HandInput(Held: true, Throttle: 0f, Steer: 0f, Handbrake: true, WalkDirection: Vector2.Zero);
+
+        world.HandOnCar(0, first, floored);
+        world.HandOnCar(1, second, braked);
+        loop.Advance(30);
+
+        Assert.True(world.Cars.Command[first].ThrottleMps2 > 0f, "the first seat's throttle did not reach its car");
+        Assert.False(world.Cars.Command[first].Handbrake, "the second seat's handbrake reached the first seat's car");
+        Assert.True(world.Cars.Command[second].Handbrake, "the second seat's handbrake did not reach its car");
+        Assert.Equal(0f, world.Cars.Command[second].ThrottleMps2);
+    }
+
+    /// <summary>CTL-5e: <b>a floored hand's boost asks for its pull share of the car's own pull</b>.</summary>
+    [Fact]
+    public void ABoostedHandAsksForItsShareMoreOfTheCarsPull()
+    {
+        using var world = Open(Towns.Fixture);
+        var config = SimConfig.Shipped();
+        var loop = new SimLoop<TownWorld>(world, config);
+        var car = ADrivenCar(world);
+        var build = world.Cars.BuildOf(car);
+
+        world.HandOnCar(0, car, new HandInput(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero, Boost: true));
+        loop.Advance(60);
+
+        Assert.Equal(build.AccelerationMps2 * config.Control.HandBoostPullShare, world.Cars.Command[car].ThrottleMps2, 3);
+    }
+
+    static int AnotherDrivenCar(TownWorld world, int not)
+    {
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (car != not && world.Cars.Driven[car] && !world.Cars.Broken[car]) return car;
+        }
+
+        Assert.Fail("the fixture stands one driven car only");
+        return -1;
     }
 
     static int ADrivenCar(TownWorld world)

@@ -13,16 +13,15 @@ namespace TrafficSimulation.App.Render;
 /// <remarks>
 /// <para>
 /// <b>The rotation belongs to whatever the art draws one frame of</b>, and is zero for everything else.
-/// A walker on its feet does not turn with the body: the sheet draws all eight facings and every one of
-/// them is drawn upright, so heading is shown by <em>which cell</em> is sampled. A car's art is one frame
-/// with its nose along <c>+x</c>, and so is a body lying in the road (PER-18), so for those the heading
-/// is the quad's own rotation — one float, whose sine and cosine are taken in the shader where the quad
-/// is built anyway.
+/// A walker does not turn with the body, on its feet or down (PER-18): the sheet draws all eight facings and
+/// every one of them is drawn upright, so heading is shown by <em>which cell</em> is sampled. A car's art is
+/// one frame with its nose along <c>+x</c>, so for it the heading is the quad's own rotation — one float,
+/// whose sine and cosine are taken in the shader where the quad is built anyway.
 /// </para>
 /// <para>
-/// <b>The tint is a colour and an opacity</b>, and everything the town draws but a mark and a glow leaves both
-/// alone: a mark is the same quad laid at whatever strength the tyre that made it earned, and a picture
-/// cannot carry a per-instance strength. <b>"Selected" is no tint</b>: it is a ring round the picture
+/// <b>The tint is a colour and an opacity</b>, and everything the town draws but a mark, a glow and a casualty
+/// leaves both alone: a mark is the same quad laid at whatever strength the tyre that made it earned, and a
+/// picture cannot carry a per-instance strength; a casualty is its stance reddened (PER-18). <b>"Selected" is no tint</b>: it is a ring round the picture
 /// (<see cref="Ring"/>, <see cref="SpriteRings"/>), carried in the sheet's half-word above every slot the atlas has.
 /// </para>
 /// <para>
@@ -116,7 +115,7 @@ internal readonly record struct SpriteCell(byte Column, byte Row, byte Columns, 
 /// <summary>A tint as an instance carries it: four bytes, each a channel's share of full rounded to the nearest of 255 steps.</summary>
 internal static class SpriteTint
 {
-    /// <summary>Untinted and opaque: everything the town draws but a mark and a glow.</summary>
+    /// <summary>Untinted and opaque: everything the town draws but a mark, a glow and a casualty.</summary>
     public const uint Plain = uint.MaxValue;
 
     public static uint Pack(Vector4 tint) => Byte(tint.X) | (Byte(tint.Y) << 8) | (Byte(tint.Z) << 16) | (Byte(tint.W) << 24);

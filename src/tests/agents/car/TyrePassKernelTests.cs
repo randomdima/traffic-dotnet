@@ -62,7 +62,7 @@ public sealed class StagedTyrePass : IDisposable
             var impulses = new WheelImpulse[car.Build.WheelCount];
             var scrub = new TyreScrub[car.Build.WheelCount];
             var atRest = TyrePass.Step(
-                Config, grounds, car.Build, car.Pose, car.Command, car.Hand, car.InertiaKgM2, car.WheelsOnAWay,
+                Config, grounds, car.Build, car.Pose, car.Command, car.Hand, car.InertiaKgM2, car.WheelsOnAWay, overNothing: 0,
                 new TyreCarry(spin, travel, marking, from, intensity, ref slipThrottle, ref slipping), ground, impulses, scrub, laid,
                 out var count);
             for (var mark = 0; mark < count; mark++) marks.Add((at, laid[mark]));

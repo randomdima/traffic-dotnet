@@ -106,14 +106,35 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
     /// and the debug layers' readings all have the one problem and <b>must not solve it differently</b> —
     /// two outlines of different weights over one town read as two kinds of figure.
     /// </remarks>
-    public void OutlinedText(Vector2 atPx, scoped ReadOnlySpan<char> text, float heightPx)
+    public void OutlinedText(Vector2 atPx, scoped ReadOnlySpan<char> text, float heightPx) =>
+        OutlinedText(atPx, text, heightPx, Theme.Legend);
+
+    /// <summary>The same line in <paramref name="colour"/> over the same shadow — a player's name in its own (MP-15).</summary>
+    public void OutlinedText(Vector2 atPx, scoped ReadOnlySpan<char> text, float heightPx, Vector4 colour)
     {
         // OutlinedTextPasses counts these.
         Text(atPx + new Vector2(-1f, 0f), text, heightPx, Theme.LegendShadow);
         Text(atPx + new Vector2(1f, 0f), text, heightPx, Theme.LegendShadow);
         Text(atPx + new Vector2(0f, -1f), text, heightPx, Theme.LegendShadow);
         Text(atPx + new Vector2(0f, 1f), text, heightPx, Theme.LegendShadow);
-        Text(atPx, text, heightPx, Theme.Legend);
+        Text(atPx, text, heightPx, colour);
+    }
+
+    /// <summary>The outlined line kept inside <paramref name="widthPx"/>, cut as <see cref="TextFitted"/> cuts one.</summary>
+    public void OutlinedTextFitted(Vector2 atPx, scoped ReadOnlySpan<char> text, float heightPx, Vector4 colour, float widthPx)
+    {
+        var advance = GlyphSheet.AdvancePx(heightPx);
+        var fits = advance > 0f ? (int)(widthPx / advance) : 0;
+        if (fits >= text.Length)
+        {
+            OutlinedText(atPx, text, heightPx, colour);
+            return;
+        }
+
+        if (fits < 4) return;
+
+        OutlinedText(atPx, text[..(fits - 3)], heightPx, colour);
+        OutlinedText(atPx + new Vector2((fits - 3) * advance, 0f), "...", heightPx, colour);
     }
 
     /// <summary>

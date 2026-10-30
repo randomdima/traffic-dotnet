@@ -396,8 +396,13 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>
     /// <b>The ways anything has been laid on, each once, and a row each</b> — numbered as they were first laid on and kept,
-    /// so what answering reads of the ways is a few megabytes and not a row of every way in the town.
+    /// so what answering reads of the ways is the few megabytes at the front and not a row of every way in the town.
     /// </summary>
+    /// <remarks>
+    /// <b>Laid for every way the town has, and never grown</b>: what a town touches over its life is how far its holders
+    /// have been, which a faster walk or a longer run moves, so a table laid for its holders grew on the tick the first
+    /// way past it was claimed — the steady state allocating (rule 2). Twenty bytes a way: 22 MB on OdesaOsm.
+    /// </remarks>
     int[] _touched;
     WayRow[] _rows;
     int _touchedCount;
@@ -415,13 +420,6 @@ internal sealed partial class LaneOccupancy
 
     /// <inheritdoc cref="SlotsPerHolder"/>
     const int WishesPerHolder = 6;
-
-    /// <summary>
-    /// <b>How many ways' rows are first laid for a holder</b>: a way keeps its row from the first thing laid on it, so
-    /// this is what the town touches over its life — 3.2 a holder on OdesaOsm (260 000 of its 1.1 million ways). A start
-    /// and not a bound.
-    /// </summary>
-    const int WaysPerHolder = 4;
 
     /// <param name="ways">Every way in the town, in one numbering.</param>
     /// <param name="marks">
@@ -465,7 +463,7 @@ internal sealed partial class LaneOccupancy
             _marksDm[at] = new MarkDm(mark.OnWay, DmDownOf(mark.FromM), DmOf(mark.ToM), DmOf(mark.MineFromM), DmOf(mark.MineToM));
         }
 
-        _rows = new WayRow[Math.Min(ways.Count, WaysPerHolder * room)];
+        _rows = new WayRow[ways.Count];
         _touched = new int[_rows.Length];
         _claimsChangedAt = new int[_rows.Length];
         _rowOf = new int[ways.Count];
@@ -512,13 +510,6 @@ internal sealed partial class LaneOccupancy
     {
         var row = _rowOf[way];
         if (row != NoRow) return row;
-
-        if (_touchedCount == _rows.Length)
-        {
-            Array.Resize(ref _rows, Math.Min(_rowOf.Length, 2 * _rows.Length));
-            Array.Resize(ref _touched, _rows.Length);
-            Array.Resize(ref _claimsChangedAt, _rows.Length);
-        }
 
         row = _touchedCount++;
         _rowOf[way] = row;

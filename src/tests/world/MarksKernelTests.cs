@@ -42,7 +42,7 @@ public class MarksKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             Config);
         var host = world.Atlas.Marks;
         var lines = world.Lines;
-        var lengthM = RibbonAtlas.Filing(lines, Config.RibbonLevel, anyoneWalks: world.People.Capacity > 0).LengthM;
+        var lengthM = RibbonAtlas.Filing(lines, Config.RibbonLevel).LengthM;
 
         using var marking = new DeviceMarks(device.Vk).Mark(
             RibbonMarks.Filing(lines, Config.RibbonLevel.CellM, Config.RibbonTouchM, Config.RibbonLevel.Grid.Main));

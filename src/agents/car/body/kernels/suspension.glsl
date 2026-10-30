@@ -44,8 +44,12 @@ float suspensionAlong(vec3 plane, vec2 atM)
 
 float suspensionNormal(float figure) { return abs(figure) < SuspensionLeastState ? 0.0 : figure; }
 
+// Whether a wheel stands on something: its bit of `overNothing` clear (Suspension.Stands).
+bool suspensionStands(uint overNothing, int wheel) { return ((overNothing >> uint(wheel)) & 1u) == 0u; }
+
 // What each wheel carries as its share of the car, and the acceleration across it its springs are carrying (Suspension.Loads).
-float suspensionLoads(CarBuildRow car, SprungBody body, out float shareInto[CarMostWheels])
+// A wheel standing on nothing carries nothing.
+float suspensionLoads(CarBuildRow car, SprungBody body, uint overNothing, out float shareInto[CarMostWheels])
 {
     vec3 plane = suspensionDeviation(car, body);
     precise float totalN = 0.0;
@@ -58,7 +62,7 @@ float suspensionLoads(CarBuildRow car, SprungBody body, out float shareInto[CarM
         vec2 atM = suspensionFromCentreOfMassM(car, wheel);
         float standingN = suspensionStanding(car, atM);
         precise float pushed = standingN + suspensionAlong(plane, atM);
-        float pushN = max(0.0, pushed);
+        float pushN = suspensionStands(overNothing, wheel) ? max(0.0, pushed) : 0.0;
         shareInto[wheel] = pushN;
         totalN += pushN;
         acrossNm += (pushN - standingN) * atM.y;
@@ -77,10 +81,36 @@ float suspensionLoads(CarBuildRow car, SprungBody body, out float shareInto[CarM
     return acrossMps2;
 }
 
-// The body carried on by one step under what its tyres pushed it with at the ground, along it and to its right (Suspension.Step).
-SprungBody suspensionStep(CarBuildRow car, SprungBody body, vec2 pushN, float dtS)
+// Where the body's springs rest over wheels standing on nothing: leaning the most tilt over them, nose down and right side
+// down (Suspension.LeanOver).
+vec2 suspensionLeanOver(CarBuildRow car, uint overNothing, float mostTiltRad)
 {
-    vec3 plane = suspensionDeviation(car, body);
+    precise float alongM = 0.0;
+    precise float acrossM = 0.0;
+    for (int wheel = 0; wheel < CarMostWheels; wheel++)
+    {
+        if (wheel >= int(car.wheelCount)) break;
+        if (suspensionStands(overNothing, wheel)) continue;
+
+        vec2 atM = suspensionFromCentreOfMassM(car, wheel);
+        alongM += atM.x;
+        acrossM += atM.y;
+    }
+
+    precise float pitchRad = sign(alongM) * mostTiltRad;
+    precise float rollRad = sign(acrossM) * mostTiltRad;
+    return vec2(pitchRad, rollRad);
+}
+
+// The body carried on by one step under what its tyres pushed it with at the ground, along it and to its right (Suspension.Step),
+// its springs at rest leaning the most tilt over any wheel standing on nothing.
+SprungBody suspensionStep(CarBuildRow car, SprungBody body, vec2 pushN, float dtS, uint overNothing, float mostTiltRad)
+{
+    vec2 lean = overNothing == 0u ? vec2(0.0) : suspensionLeanOver(car, overNothing, mostTiltRad);
+    precise float pitchOffRad = body.pitchRad - lean.x;
+    precise float rollOffRad = body.rollRad - lean.y;
+    SprungBody fromRest = SprungBody(body.heaveM, pitchOffRad, rollOffRad, body.heaveMps, body.pitchRadPerS, body.rollRadPerS);
+    vec3 plane = suspensionDeviation(car, fromRest);
     precise float heaveN = 0.0;
     precise float pitchNm = 0.0;
     precise float rollNm = 0.0;

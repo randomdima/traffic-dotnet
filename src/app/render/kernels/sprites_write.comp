@@ -44,7 +44,7 @@ void writeCar(uint car)
     {
         uint variant = row.variant % figures.carSheets;
         uint at = starts[slot];
-        for (uint pipe = 0u; pipe < carLooks[variant].exhaustCount; pipe++)
+        for (uint pipe = 0u; pipe < spritesCarLook(variant).exhaustCount; pipe++)
         {
             PuffRun puffs = spritesPuffRun(car, pipe);
             SmokePipe tailpipe = spritesTailpipe(variant, pipe);
@@ -82,7 +82,7 @@ void writeCar(uint car)
     {
         if ((shown.x & (1u << lens)) == 0u) continue;
 
-        LensRow at = lenses[variant * figures.mostLenses + lens];
+        LensRow at = spritesLensRow(variant * figures.mostLenses + lens);
         uint colour = (shown.y >> (3u * lens)) & 7u;
         put(run, glowAt++, spritesGlow(row, at, colour));
         put(run, lensAt++, spritesLens(row, at, colour));
@@ -101,10 +101,13 @@ void main()
         draws[1] = SpriteDraw(SpriteQuadCorners, min(total - overTotal, figures.roomAbove), 0u, 0u);
     }
 
-    // A walker is built aside, and sprites_order.comp puts it where it is drawn among the others (PER-31).
+    // A walker on the ground is built aside, and sprites_order.comp puts it where it is drawn among the others (PER-31);
+    // one on the level above is laid in roster order (TownSprites.FillMoving).
     if (unit < figures.personCapacity)
     {
         if (countAt(unit) != 0u) walkersShown[starts[unit]] = spritesPerson(unit);
+        uint aboveSlot = aboveFrom + unit;
+        if (figures.levelled != 0u && countAt(aboveSlot) != 0u) put(RunAbove, starts[aboveSlot], spritesPerson(unit));
         return;
     }
 
@@ -136,7 +139,7 @@ void main()
         if (countAt(smokeSlot) == 0u) return;
 
         uint track = figures.firstWagonTrack + unit;
-        TrainLook look = trainLooks[spritesWagonLook(unit)];
+        TrainLook look = spritesTrainLook(spritesWagonLook(unit));
         uint at = starts[smokeSlot];
         for (uint stack = 0u; stack < look.exhaustCount; stack++)
         {

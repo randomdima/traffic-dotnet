@@ -77,6 +77,13 @@ internal sealed partial class TownWorld
         People.TimerS[person] -= sinceLastDecisionS;
         if (People.TimerS[person] > 0f) return;
 
+        // MP-4: a player's body treated in a hospital leaves it offstage, to be somebody new for its seat.
+        if (_players.IsOne(person))
+        {
+            TakeOffstage(person);
+            return;
+        }
+
         // PHY-7a: refused means every spot outside the door is taken. That is not a stall — the
         // doorway empties as soon as whoever is standing in it walks off.
         if (!TryLeaveTheBuilding(person)) return;

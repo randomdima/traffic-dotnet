@@ -89,7 +89,7 @@ internal sealed partial class TownWorld
     /// </summary>
     void TakeUpTheHands()
     {
-        var anyHeld = _hands.Held || _otherHand.Held;
+        var anyHeld = _hands.Held || _seats.AnyHeld || _players.Count > 0;
         if (!anyHeld && _allHandsLetGo) return;
 
         // Nothing but this enters a hand, so once a pass with no hand held has let every one go, the next has nothing to do.
@@ -99,7 +99,7 @@ internal sealed partial class TownWorld
             var action = People.Action[person];
             if (action is PersonAction.Inside or PersonAction.Down) continue;
 
-            var held = _hands.Held && _selected.Holds(SelectionKind.Person, person);
+            var held = (_hands.Held && _selected.Holds(SelectionKind.Person, person)) || PlayerWalks(person, out _);
             if (held == (action == PersonAction.Hand)) continue;
 
             if (held) Enter(person, PersonAction.Hand);
@@ -121,8 +121,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>A car a hand has taken.</b> The player's hand puts it in manual mode as an order does (CTL-5b), so letting go
-    /// leaves it waiting rather than back on whatever it was doing. A second driver's does not: the reset is the
-    /// reader's, and a mode nobody but the reader can end is not one a script may enter (CTL-5d).
+    /// leaves it waiting rather than back on whatever it was doing. A seat's does not: the reset is the reader's,
+    /// and a mode nobody but the reader can end is not one a script or a served player may enter (CTL-5d).
     /// </summary>
     void HandTakesTheWheel(int car)
     {

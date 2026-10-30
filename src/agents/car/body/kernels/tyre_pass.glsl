@@ -119,12 +119,13 @@ bool tyrePassLayMark(vec2 atM, TyreSurface surface, TyreScrub scrub, int wheel, 
 }
 
 // One car's patches for this tick (TyrePass.Step): true where the car was at rest and nothing was asked of its tyres.
-// `wheelsOnAWay` has a bit a wheel that stood on a way when the car's body was last laid; `laid` has a bit a wheel that
-// laid a mark, which is then that wheel's of `marks`.
+// `wheelsOnAWay` has a bit a wheel that stood on a way when the car's body was last laid, and `overNothing` one that
+// stands on nothing (ControlAction.Hang); `laid` has a bit a wheel that laid a mark, which is then that wheel's of
+// `marks`.
 bool tyrePass(
-    CarBuildRow car, TyrePose pose, TyreCommand command, bool hand, float inertiaKgM2, uint wheelsOnAWay, float dtS,
-    inout TyreCarry carry, out vec4 impulses[TyreWheels], out TyreScrub scrub[TyreWheels], out TyreMark marks[TyreWheels],
-    out uint laid)
+    CarBuildRow car, TyrePose pose, TyreCommand command, bool hand, float inertiaKgM2, uint wheelsOnAWay,
+    uint overNothing, float dtS, inout TyreCarry carry, out vec4 impulses[TyreWheels], out TyreScrub scrub[TyreWheels],
+    out TyreMark marks[TyreWheels], out uint laid)
 {
     laid = 0u;
     for (int wheel = 0; wheel < TyreWheels; wheel++)
@@ -143,7 +144,7 @@ bool tyrePass(
 
     int wheels = int(car.wheelCount);
     float loadShare[TyreWheels];
-    float acrossMps2 = suspensionLoads(car, pose.sprung, loadShare);
+    float acrossMps2 = suspensionLoads(car, pose.sprung, overNothing, loadShare);
     float ceilingMps2 = tyrePassCeilingMps2(car, hand, acrossMps2, carry.slipThrottle);
     vec2 atM[TyreWheels];
     tyreWheelPointsM(car, pose, atM);

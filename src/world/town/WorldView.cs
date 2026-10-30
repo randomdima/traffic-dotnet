@@ -91,7 +91,8 @@ internal struct WalkerView
     /// </summary>
     public float DistanceWalkedM;
 
-    public float Unused;
+    /// <summary>The collision channels it is on (PHY-1a), which say the level it is drawn at.</summary>
+    public uint Channels;
 }
 
 /// <summary>One rail vehicle as the world's last step left it (TRN-7): where it is, how it points and moves, and what it shows.</summary>

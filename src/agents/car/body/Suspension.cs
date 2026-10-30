@@ -55,12 +55,13 @@ internal static class Suspension
     /// shares are the whole car (CAR-3e) and a wheel off the ground has none.
     /// </summary>
     /// <param name="shareInto">A share a wheel, in <see cref="CarBuild.Wheels"/> order.</param>
+    /// <param name="overNothing">A bit a wheel standing on nothing — past a deck's edge (PHY-1b) — which carries nothing.</param>
     /// <returns>
     /// <b>The acceleration across the car its springs are carrying</b>, to the driver's right: the roll moment the
     /// wheels push back with over the height it acts through — the corner a driven axle has already paid for
     /// (<c>TyrePass.DriveCeilingMps2</c>), which at a steady corner is the corner itself.
     /// </returns>
-    public static float Loads(in CarBuild car, in SprungBody body, Span<float> shareInto)
+    public static float Loads(in CarBuild car, in SprungBody body, Span<float> shareInto, byte overNothing = 0)
     {
         var plane = Deviation(car, body);
         var totalN = 0f;
@@ -69,7 +70,7 @@ internal static class Suspension
         {
             var atM = FromCentreOfMassM(car, wheel);
             var standingN = Standing(car, atM);
-            var pushN = MathF.Max(0f, standingN + Along(plane, atM));
+            var pushN = Stands(overNothing, wheel) ? MathF.Max(0f, standingN + Along(plane, atM)) : 0f;
             shareInto[wheel] = pushN;
             totalN += pushN;
             acrossNm += (pushN - standingN) * atM.Y;
@@ -85,11 +86,14 @@ internal static class Suspension
 
     /// <summary>
     /// <b>The body carried on by one step</b> under what its tyres pushed it with at the ground this step, along it and to
-    /// its right (<paramref name="pushN"/>, the patches' impulses over the step).
+    /// its right (<paramref name="pushN"/>, the patches' impulses over the step) — its springs at rest leaning
+    /// <paramref name="mostTiltRad"/> over any wheel standing on nothing (<see cref="LeanOver"/>).
     /// </summary>
-    public static SprungBody Step(in CarBuild car, in SprungBody body, Vector2 pushN, float dtS)
+    public static SprungBody Step(
+        in CarBuild car, in SprungBody body, Vector2 pushN, float dtS, byte overNothing = 0, float mostTiltRad = 0f)
     {
-        var plane = Deviation(car, body);
+        var lean = overNothing == 0 ? Vector2.Zero : LeanOver(car, overNothing, mostTiltRad);
+        var plane = Deviation(car, body with { PitchRad = body.PitchRad - lean.X, RollRad = body.RollRad - lean.Y });
         var heaveN = 0f;
         var pitchNm = 0f;
         var rollNm = 0f;
@@ -115,6 +119,31 @@ internal static class Suspension
         return new SprungBody(
             Normal(body.HeaveM + (heaveMps * dtS)), Normal(body.PitchRad + (pitchRadPerS * dtS)),
             Normal(body.RollRad + (rollRadPerS * dtS)), heaveMps, pitchRadPerS, rollRadPerS);
+    }
+
+    static bool Stands(byte overNothing, int wheel) => ((overNothing >> wheel) & 1) == 0;
+
+    /// <summary>
+    /// <b>Where the body's springs rest over wheels standing on nothing</b> (PHY-1b): leaning <paramref name="mostTiltRad"/>
+    /// nose down where they are ahead of its centre of mass and right side down where they are to its right, as though the
+    /// ground under the car were tilted so — so the body swings over to it and settles there on its springs and dampers as
+    /// it does over any ground, rather than at once. The springs alone would hold it short: the wheels standing carry it.
+    /// </summary>
+    /// <remarks>Line for line with <c>suspensionLeanOver</c> (<c>kernels/suspension.glsl</c>).</remarks>
+    static Vector2 LeanOver(in CarBuild car, byte overNothing, float mostTiltRad)
+    {
+        var alongM = 0f;
+        var acrossM = 0f;
+        for (var wheel = 0; wheel < car.WheelCount; wheel++)
+        {
+            if (Stands(overNothing, wheel)) continue;
+
+            var atM = FromCentreOfMassM(car, wheel);
+            alongM += atM.X;
+            acrossM += atM.Y;
+        }
+
+        return new Vector2(MathF.Sign(alongM) * mostTiltRad, MathF.Sign(acrossM) * mostTiltRad);
     }
 
     /// <summary>

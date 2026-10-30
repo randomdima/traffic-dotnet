@@ -1,5 +1,42 @@
 # Terrain — decision log
 
+## 2026-10-30 — any ribbon is paving to a wheel, and so is its seam
+
+**The owner, on brown plough strips at a kerb's corner: "any ribbon = full traction and road mark", a walk's as much
+as a lane's.** That was already the rule; the strips were wheels on **no** ribbon. Probed against the ground shapes,
+Saltbay left 0.8 % of its carriageway and 33.5 % of its pavement on none, and `Towns.City`, which nobody walks, 98.6 %
+of its pavement.
+
+- **A walk is filed in every town** (`RibbonAtlas.Files`): only a walked town filed its walks before, to keep a
+  traced city's atlas small while nobody walked it. Every traced city has walkers now; a generated town nobody walks
+  pays for it, `Towns.City`'s atlas going from 19 MB to 38 MB.
+- **A wheel is on paving within the lattice's reach of a band** (`RibbonAtlas.UnderWheels`, `atlasGrowOverTheRun`): the
+  wedge a kerb's corner leaves between the corner's walk and the carriageway was a lattice point or two of no band, and
+  the entries already filed past each band are what closes it. **A body still stands only on the ways whose bands hold
+  its points** (TER-4c.2): the reach is the tyre's alone.
+- **What is left on grass is paving no ribbon comes near**: a promenade along the water with no walk struck down it,
+  the bulk of Saltbay's 29.6 % still left, and a verge's shoulder. After: carriageway 0.3–0.5 % (a lattice point
+  at a corner here and there), car parks 0.1–0.4 %, a walked town's street pavement whole.
+
+## 2026-10-30 — a wheel's marks are a stroke of knots
+
+**The owner: "normalize and compact marks to be neat splines instead of storing tons of points. We need it for
+netcode optimizations."** A wheel had laid a quad every `Marks.SpacingM` of its travel, each standing alone. Now its
+stretches carry one stroke on (`DriftMarks.Lay`, `drift_marks.glsl`): the last knot moves with the wheel and is left
+where it stands only once the stroke would turn, run or darken past `KnotTurnDeg`, `KnotMostM` or `KnotStrengthStep` from
+the knot before; a knot is drawn as the cubic from the knot before, leaving and meeting each along the way the wheel
+went (`mark.vert`, `town.wgsl`'s `markVertex`).
+
+- **The compaction is the store's, and not the carry's**: `TyrePass` and `tyre_pass.glsl` still hand over a stretch
+  every spacing, line for line with each other, and the stroke is folded on the side that keeps the ring, by wheel.
+- **A knot is a quad's 24 bytes**, so the saving is the count: 131 stretches to 49 knots over a minute of the fixture
+  town's staged stops, which are short and turning; a straight skid of `KnotMostM` is its stretches to two.
+- **Every place written is logged** (`DriftMarks.Written`), a knot laid or a last knot moved alike, so a copy — a frame
+  now, a player's snapshot later — takes only what changed (`CopyChangedInto`). How a snapshot carries them is
+  `multiplayer/`'s to settle.
+- **Both heads draw the ring**: a page draws the device's, or its frame's copy of the host's, through the same pass, and
+  the CPU stamp of marks (`MarkSprites.Fill`) and the ring's filing by row are gone (WEB-12).
+
 ## 2026-10-26 — the walk is struck off the walked roads, and an intercity road has a shoulder
 
 **The owner: "intercity roads must not have parkings or sidewalk (meaning also no connected buildings)"**, and, asked how

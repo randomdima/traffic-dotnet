@@ -1,4 +1,5 @@
 using System.Text;
+using TrafficSimulation.App.Render;
 
 namespace TrafficSimulation.App.Main;
 
@@ -62,6 +63,27 @@ internal static class Data
     static readonly Dictionary<string, string> Archives = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// <b>The sheets the build published apart from the art</b>, by archive: the pictures only the atlas reads, and the same
+    /// sheets as BC7 and as ASTC blocks (<see cref="BakedSheets"/>). None where the build had no encoder, and then
+    /// <see cref="Pack"/> holds every picture.
+    /// </summary>
+    static readonly HashSet<string> SheetPacks = new(StringComparer.Ordinal);
+
+    /// <summary>Where a sheet archive's line in the manifest starts, which is the folder the build publishes them in.</summary>
+    const string Sheets = "sheets/";
+
+    /// <summary>The sheet archive this device takes — its blocks, or the pictures — and the format it holds; nothing when there is none.</summary>
+    static (string? Pack, SheetFormat Format) SheetPack()
+    {
+        var format = (SheetFormat)Runtime.WebGpu.SheetFormat();
+        var blocks = $"{Sheets}{format.ToString().ToLowerInvariant()}.tar.gz";
+        if (format != SheetFormat.Rgba && SheetPacks.Contains(blocks)) return (blocks, format);
+
+        var pictures = $"{Sheets}webp.tar.gz";
+        return (SheetPacks.Contains(pictures) ? pictures : null, SheetFormat.Rgba);
+    }
+
+    /// <summary>
     /// The few files the menu is drawn from — the figures and every map's head. <b>This is the whole of
     /// what stands between a page opening and a menu on it</b>: a handful of small files, so the wait is
     /// one round trip and not three hundred. Everything else is <see cref="Art"/>'s.
@@ -94,6 +116,7 @@ internal static class Data
             // has to survive — every one of those lines through the reading below is a path with three
             // characters off the end of it.
             var path = line.Replace('\\', '/');
+            if (path.StartsWith(Sheets, StringComparison.Ordinal)) SheetPacks.Add(path);
             if (!path.StartsWith(Towns + "/", StringComparison.Ordinal)) continue;
 
             // **A map's head comes down now**: it is a few kilobytes and the menu reads a map's description
@@ -133,15 +156,38 @@ internal static class Data
     /// a loop awaiting one decode at a time is one decode at a time and the browser will do them all
     /// at once.
     /// </para>
+    /// <para>
+    /// <b>And the sheets the device holds best, from an archive of their own</b> (<see cref="SheetPack"/>): blocks where
+    /// it samples a compressed format, which go to the device out of the archive and never into the file system — only
+    /// their record is laid, and every picture's size told from it — or else the pictures.
+    /// </para>
     /// </remarks>
     public static async Task Art(Action<string> say)
     {
         if (_laid) return;
 
         const string saying = "laying the town's art…";
+        var (sheetPack, format) = SheetPack();
+        if (sheetPack is not null) Runtime.WebGpu.Prefetch(sheetPack);
+
         say("unpacking the town's art…");
         var listed = await Runtime.WebGpu.Unpack(Pack);
-        var batch = listed.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var batch = new List<string>(listed.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        if (sheetPack is not null)
+        {
+            say("unpacking the town's sheets…");
+            var unpacked = (await Runtime.WebGpu.Unpack(sheetPack)).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (format == SheetFormat.Rgba)
+            {
+                batch.AddRange(unpacked);
+            }
+            else
+            {
+                await Lay([Page(BakedSheets.RecordFile)], saying, say);
+                BakedSheets.Fetched = BakedSheets.Open(format);
+                BakedSheets.Fetched?.TellTheSizes();
+            }
+        }
 
         var sheets = new StringBuilder();
         foreach (var path in batch)
@@ -160,13 +206,16 @@ internal static class Data
     /// a run that did not is showing a menu that draws none of it.
     /// </summary>
     /// <remarks>
-    /// <b>The menu waits for nothing, and that includes an unawaited fetch.</b> Three megabytes on the
+    /// <b>The menu waits for nothing, and that includes an unawaited fetch.</b> The art's tens of megabytes on the
     /// same wire as the few small files a menu stands on is a menu that comes up later, so the archive
     /// is not asked for until there is something to look at.
     /// </remarks>
     public static void ExpectArt()
     {
-        if (!_laid) Runtime.WebGpu.Prefetch(Pack);
+        if (_laid) return;
+
+        Runtime.WebGpu.Prefetch(Pack);
+        if (SheetPack().Pack is { } sheets) Runtime.WebGpu.Prefetch(sheets);
     }
 
     /// <summary>

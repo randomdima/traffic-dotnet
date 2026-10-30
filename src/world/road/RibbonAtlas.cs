@@ -260,12 +260,15 @@ internal sealed partial class RibbonAtlas
     /// <summary>
     /// <b>Which of a car's wheels stand on a way, and every way they stand on with the stretch its body holds of it</b>
     /// (TER-7b, TER-4c.2): a wheel is on every way on one of <paramref name="channels"/> whose band holds the lattice point
-    /// nearest it, and on none is on the grass. Each way's stretch is the least and most metre its wheels stand at,
-    /// widened by half a lattice step and by <paramref name="aroundAWheelM"/>, and held to the way; the ways are in wheel
-    /// order.
+    /// nearest it. Each way's stretch is the least and most metre its wheels stand at, widened by half a lattice step and by
+    /// <paramref name="aroundAWheelM"/>, and held to the way; the ways are in wheel order.
     /// </summary>
     /// <param name="aroundAWheelM">How far the body is held either side of each wheel (<c>RoadFigures.HeldAroundAWheelM</c>).</param>
-    /// <param name="onAWay">A bit a wheel, in the order <paramref name="wheelsM"/> has them, set for each on a way.</param>
+    /// <param name="onAWay">
+    /// A bit a wheel, in the order <paramref name="wheelsM"/> has them, set for each on paving: a way, driven or walked,
+    /// whose band holds its point <b>or stands within <see cref="ReachOf"/> of it</b> — so the seam where two bands meet
+    /// short of each other, at a kerb's corner or along the walk's outer edge, grips as the ways either side of it do.
+    /// </param>
     /// <returns>How many ways were written — none for a car with no wheel on a way; a way past the room given is dropped and counted.</returns>
     public int UnderWheels(
         ReadOnlySpan<Vector2> wheelsM, float aroundAWheelM, Span<WayCover> into, out byte onAWay, byte channels = Ground)
@@ -288,10 +291,10 @@ internal sealed partial class RibbonAtlas
 
             foreach (ref readonly var entry in entries)
             {
-                if (!OnTheWay(entry, column, channels, wayChannels)) continue;
+                if (!OnTheChannels(entry, column, channels, wayChannels)) continue;
 
-                written = Grow(found, written, entry.Way, entry.Along, ref dropped);
                 wheelsOn |= (byte)(1 << wheel);
+                if (entry.Outside == 0) written = Grow(found, written, entry.Way, entry.Along, ref dropped);
             }
 
             entries = next;
@@ -310,10 +313,13 @@ internal sealed partial class RibbonAtlas
     public int UnderAWheel(Vector2 wheelM, float aroundM, Span<WayCover> into, byte channels = Ground) =>
         UnderWheels(new ReadOnlySpan<Vector2>(in wheelM), aroundM, into, out _, channels);
 
-    /// <summary>Whether an entry of a point at this column of its cell is a way on one of the channels whose band holds the point.</summary>
+    /// <summary>
+    /// Whether an entry of a point at this column of its cell is a way on one of the channels, its band holding the point or
+    /// standing within <see cref="ReachOf"/> of it.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static bool OnTheWay(in Entry entry, int column, byte channels, byte[] wayChannels) =>
-        entry.Column == column && entry.Outside == 0 && (wayChannels.Length == 0 || (wayChannels[entry.Way] & channels) != 0);
+    static bool OnTheChannels(in Entry entry, int column, byte channels, byte[] wayChannels) =>
+        entry.Column == column && (wayChannels.Length == 0 || (wayChannels[entry.Way] & channels) != 0);
 
     /// <summary>
     /// The entries of the run of points holding the lattice point nearest <paramref name="pointM"/>, and that point's
@@ -592,24 +598,18 @@ internal sealed partial class RibbonAtlas
     /// How deep inside both two ribbons have to overlap before they are marked
     /// (<see cref="SimConfig.RibbonTouchM"/>) — what keeps two ribbons laid edge to edge from being marked.
     /// </param>
-    /// <param name="anyoneWalks">
-    /// Whether the town stands anybody on foot. <b>Where nobody is, a walked way is filed only where the traffic
-    /// crosses it</b> — a zebra's paint: the walk is read only under walkers and the claims they hold, and on a
-    /// traced city it is half of every point. The marks are worked out from the ribbons, so they hold every way
-    /// either way.
-    /// </param>
     /// <param name="betweenStages">
     /// Called between the marks and the filing — where a caller laying a town large enough to want it collects what the
     /// marks worked in.
     /// </param>
-    public static RibbonAtlas Lay(IRibbonLines lines, GridLevel level, float touchM, bool anyoneWalks, Action? betweenStages = null)
+    public static RibbonAtlas Lay(IRibbonLines lines, GridLevel level, float touchM, Action? betweenStages = null)
     {
         // The marks before the filing, and what they worked in let go of between: the two working sets are each the
         // size of the entries, and laid the other way round both stood at once at the open's peak.
         var (lengthM, cells) = Framed(lines, level);
         var marks = MarksOf(lines, lengthM, level, touchM);
         betweenStages?.Invoke();
-        return Filed(lines, lengthM, level, cells, anyoneWalks, marks);
+        return Filed(lines, lengthM, level, cells, marks);
     }
 
     /// <summary>
@@ -678,14 +678,13 @@ internal sealed partial class RibbonAtlas
     /// </para>
     /// </remarks>
     static RibbonAtlas Filed(
-        IRibbonLines lines, float[] lengthM, GridLevel level, GridWindow cells, bool anyoneWalks, WayCrossings marks)
+        IRibbonLines lines, float[] lengthM, GridLevel level, GridWindow cells, WayCrossings marks)
     {
         var wayCount = lines.WayCount;
         var shift = level.Depth - cells.Level.Depth;
         var reachM = ReachOf(level.CellM);
         var mask = (1 << shift) - 1;
 
-        bool Files(int way) => anyoneWalks || lines.IsDriven(way) || lines.ZebraOf(way) != RibbonMarks.NoZebra;
         int CellOf(in Sample point) => cells.IndexOf(point.X >> shift, point.Y >> shift);
 
         // Every way's own points, found a way at a time on as many threads as there are, and counted under their cells.
@@ -695,7 +694,7 @@ internal sealed partial class RibbonAtlas
             () => (Found: new List<Sample>(), Places: new List<long>()),
             (working, way) =>
             {
-                if (!Files(way)) return;
+                if (!Files(lines, way, lengthM[way])) return;
 
                 foreach (var point in PointsOf(lines, way, lengthM[way], level, working.Found, working.Places))
                 {
@@ -717,7 +716,7 @@ internal sealed partial class RibbonAtlas
             () => (Found: new List<Sample>(), Places: new List<long>()),
             (working, way) =>
             {
-                if (!Files(way)) return;
+                if (!Files(lines, way, lengthM[way])) return;
 
                 foreach (var point in PointsOf(lines, way, lengthM[way], level, working.Found, working.Places))
                 {

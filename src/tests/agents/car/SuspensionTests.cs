@@ -119,4 +119,50 @@ public class SuspensionTests
         Assert.True(leastRad < 0f, $"the nose came back to {leastRad:E2} rad and no further");
         Assert.InRange(MathF.Abs(Run(Car, body, Vector2.Zero, 3f).PitchRad), 0f, dived.PitchRad * 1e-2f);
     }
+
+    /// <summary>PHY-1b: <b>a wheel standing on nothing carries nothing</b>, and the others the whole car.</summary>
+    [Fact]
+    public void AWheelOverNothingCarriesNothing()
+    {
+        var loads = new float[Car.WheelCount];
+        Suspension.Loads(Car, default, loads, overNothing: 0b0001);
+
+        Assert.Equal(0f, loads[0]);
+        Assert.Equal(1f, loads.Sum(), 1e-5f);
+    }
+
+    /// <summary>
+    /// PHY-1b: <b>a body over a front wheel standing on nothing comes to lean its most</b>, nose down and to that wheel's
+    /// side, as its springs settle it there.
+    /// </summary>
+    [Fact]
+    public void ABodyOverAFrontWheelOnNothingComesToLeanItsMostTowardsIt()
+    {
+        var mostRad = Figures.CarTiltOverNothingMostRad;
+        var body = HungFor(seconds: 3f);
+
+        Assert.Equal(mostRad, body.PitchRad, mostRad * 0.01f);
+        Assert.Equal(MathF.Sign(TyreModel.WheelAtM(Car, 0).Y) * mostRad, body.RollRad, mostRad * 0.01f);
+    }
+
+    /// <summary>PHY-1b: <b>a body over a wheel standing on nothing does not lean its most at once</b>: its springs tip it.</summary>
+    [Fact]
+    public void ABodyOverAWheelOnNothingIsNotLeaningItsMostAfterOneStep()
+    {
+        var body = HungFor(seconds: Figures.TickSeconds);
+
+        Assert.InRange(body.PitchRad, float.Epsilon, Figures.CarTiltOverNothingMostRad * 0.5f);
+    }
+
+    /// <summary>The body at rest, stepped with its front left wheel on nothing for this long.</summary>
+    static SprungBody HungFor(float seconds)
+    {
+        var body = default(SprungBody);
+        for (var step = 0; step < (int)MathF.Round(seconds / Figures.TickSeconds); step++)
+        {
+            body = Suspension.Step(Car, body, Vector2.Zero, Figures.TickSeconds, overNothing: 0b0001, Figures.CarTiltOverNothingMostRad);
+        }
+
+        return body;
+    }
 }

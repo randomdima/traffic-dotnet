@@ -389,6 +389,31 @@ internal sealed class RoadFigures
     /// to get into the lane and across to the next before the lane ends — four car lengths.
     /// </summary>
     public float KerbParkingLaneRunM { get; init; } = 18f;
+
+    /// <summary>
+    /// <b>How far in from each end a deck over other roads stands too low over the ground to pass under</b> (PHY-1b): its
+    /// sides a solid wall on the ground's level, which what comes at the deck from under it meets and what is on it does
+    /// not.
+    /// </summary>
+    public float DeckLowEndM { get; init; } = 10f;
+
+    /// <summary>How thick a side of a deck's low end is.</summary>
+    public float DeckSideThicknessM { get; init; } = 0.3f;
+
+    /// <summary>The longest straight piece a side of a curved deck's low end is laid in.</summary>
+    public float DeckSidePieceM { get; init; } = 2.5f;
+
+    /// <summary>
+    /// <b>How hard what goes over a deck's edge is pushed off it</b> (PHY-1b): a change of velocity straight out from the
+    /// deck's line, so a car or a walker that falls lands clear of the deck rather than under its edge.
+    /// </summary>
+    public float DeckFallShoveMps { get; init; } = 3f;
+
+    /// <summary>
+    /// <b>How long the walk is that steps between the ground's pavement and a deck's</b> at each end of a deck over other
+    /// roads (WLK-1b): a stretch on both levels' channels, as a bridgehead's join is for a car (PHY-1a).
+    /// </summary>
+    public float DeckWalkJointM { get; init; } = 2f;
 }
 
 /// <summary>A building as a trip uses it.</summary>
@@ -757,8 +782,23 @@ internal sealed class MarkFigures
     /// </summary>
     public float OnsetM { get; init; } = 0.5f;
 
-    /// <summary>How far a wheel travels per mark quad: short enough that a corner reads as a curve, long enough that a car lays a handful a second.</summary>
+    /// <summary>
+    /// How far a wheel travels between two looks at its stroke (<c>DriftMarks.Lay</c>): short enough that where a stroke
+    /// bends is found within a tyre's width of it.
+    /// </summary>
     public float SpacingM { get; init; } = 0.4f;
+
+    /// <summary>
+    /// How far a stroke may turn between two knots: past it, its last knot is left where it stands and another laid on.
+    /// A knot's curve meets both ends along the way the wheel went, so this is how far one cubic is asked to bend.
+    /// </summary>
+    public float KnotTurnDeg { get; init; } = 20f;
+
+    /// <summary>The longest a stroke runs between two knots, however straight: what a frame culls and a copy sends by.</summary>
+    public float KnotMostM { get; init; } = 8f;
+
+    /// <summary>How much darker or fainter a stroke may grow between two knots, its strength running straight between them.</summary>
+    public float KnotStrengthStep { get; init; } = 0.1f;
 
     /// <summary>
     /// What a wheel merely crossing soft ground writes, before any question of how hard it is working it.
@@ -773,12 +813,12 @@ internal sealed class MarkFigures
     public float PloughCrawlMps { get; init; } = 0.2f;
 
     /// <summary>
-    /// How many marks the town remembers before the oldest is overwritten. Scenery only: nothing samples a
+    /// How many knots of marks the town remembers before the oldest is overwritten. Scenery only: nothing samples a
     /// mark and no agent sees one.
     /// </summary>
     /// <remarks>
     /// <b>Sized for a crowd marking at once, not for a town.</b> A town's traffic marks the road rarely and
-    /// any figure would do there; this is a couple of turns of ninety-odd cars writing with every wheel, so
+    /// any figure would do there; this is many turns of ninety-odd cars writing with every wheel, so
     /// a circle is not overwritten halfway round before it can be measured.
     /// </remarks>
     public int Capacity { get; init; } = 80000;

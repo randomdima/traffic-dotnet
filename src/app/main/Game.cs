@@ -97,6 +97,9 @@ internal sealed partial class Game : IDisposable
 
     TownWorld? _world;
 
+    /// <summary>The town a player of a served town draws, in place of <see cref="_world"/>: it steps nothing (MP-5, MP-6).</summary>
+    TownScene? _scene;
+
     /// <summary>
     /// The ground the renderer standing was laid from, kept because the wireframe layer draws its
     /// triangles (OBS-2o). <b>The one the town is drawn out of and never a second one</b>: it is handed
@@ -226,8 +229,7 @@ internal sealed partial class Game : IDisposable
 
     /// <summary>
     /// The town about to stand handed the device's world, where this run asked for it, and the last town's let go of —
-    /// or nothing, on a head whose world is always managed. A null town lets the last go of alone. Sets
-    /// <see cref="_movingOnTheDevice"/> where it hands the world over.
+    /// or nothing, on a head whose world is always managed. A null town lets the last go of alone.
     /// </summary>
     partial void TickOnTheDevice(TownWorld? world);
 
@@ -246,8 +248,7 @@ internal sealed partial class Game : IDisposable
 
     /// <summary>
     /// <b>Whether what moves is emitted on the device and drawn where it is written</b>
-    /// (<see cref="EmitTheMoving"/>) rather than filled from the town's copy: a town whose world the device steps, on a
-    /// head that draws with the emit.
+    /// (<see cref="EmitTheMoving"/>) rather than filled from the town's copy: a town whose world the device steps.
     /// </summary>
     bool _movingOnTheDevice;
 
@@ -255,10 +256,24 @@ internal sealed partial class Game : IDisposable
     /// The town just stood's moving runs laid on the device and handed to the renderer to draw — the emit given the
     /// whole of <paramref name="room"/>, which the renderer was not — where <see cref="_movingOnTheDevice"/>.
     /// </summary>
-    partial void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room);
+    void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room)
+    {
+        if (world.World is not DeviceWorld device) return;
+
+        // The marks are the device's: the host's ring is not filled.
+        var (knots, ring) = device.GroundMarks;
+        _renderer.DrawTheMarksFrom(knots, ring);
+        _renderer.DrawTheMovingFrom(device.DrawWith(world, _looks!, room));
+    }
 
     /// <summary>What moves emitted on the device for the frame about to be drawn, where <see cref="_movingOnTheDevice"/>.</summary>
-    partial void EmitTheMoving(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre);
+    void EmitTheMoving(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+    {
+        if (_world is not { World: DeviceWorld { Sprites: { } sprites } device } world) return;
+
+        sprites.WriteTheFrame(FrameSlot(), world, viewCentreM, viewSpanM, pixelsPerMetre, device.SignalsTaken);
+        _renderer.Wrote(sprites.FrameBytes);
+    }
 
     /// <summary>
     /// The ground's triangles let go once every target drawing them holds its own (<see cref="GroundMesh.ForgetTheTriangles"/>).
@@ -454,11 +469,22 @@ internal sealed partial class Game : IDisposable
         // Never over more than a frame: the span carrying a stall is the one after it, and a pan
         // stepped over forty-five seconds of a tab nobody was looking at throws the camera off the map.
         var sinceLastFrameS = MathF.Min((float)_lastFrame.TotalSeconds, (float)(FrameMeter.LongestFrameMs / 1000d));
-        ReadInput(sinceLastFrameS);
-        parts.Mark(ref parts.InputMs);
+        if (_joined is { } joined)
+        {
+            // MP-9: a player's frame reads its own hands, steps nothing and follows nothing but its own car.
+            ReadJoinedInput(joined);
+            parts.Mark(ref parts.InputMs);
+            AdvanceJoined(joined);
+            FollowThePlayer(joined, sinceLastFrameS);
+        }
+        else
+        {
+            ReadInput(sinceLastFrameS);
+            parts.Mark(ref parts.InputMs);
+            Advance(ref parts);
+            FollowTheSelection(sinceLastFrameS);
+        }
 
-        Advance(ref parts);
-        FollowTheSelection(sinceLastFrameS);
         Draw(ref parts);
 
         // The frame is what it cost plus what it waited to start, so a rate taken off it is the rate
@@ -738,7 +764,6 @@ internal sealed partial class Game : IDisposable
     /// </summary>
     public IEnumerable<string> OpenInStages(string map, bool behindTheMenu = false)
     {
-        _movingOnTheDevice = false;
         var maker = WorldMaker();
         var laying = LaidTown.Laying(map, _config, maker, HandTheWorldOver);
         foreach (var stage in laying.Stages) yield return stage;
@@ -749,11 +774,7 @@ internal sealed partial class Game : IDisposable
     }
 
     /// <summary>The town about to stand handed the device's world, where this run asks for one (<see cref="TickOnTheDevice"/>).</summary>
-    void HandTheWorldOver(TownWorld world)
-    {
-        _movingOnTheDevice = false;
-        TickOnTheDevice(world);
-    }
+    void HandTheWorldOver(TownWorld world) => TickOnTheDevice(world);
 
     /// <summary>
     /// A town laid, put on screen: the renderer rebuilt for its ground, its sprites laid out, and the
@@ -772,15 +793,12 @@ internal sealed partial class Game : IDisposable
         _renderer.Dispose();
         LetGoOfTheEngine();
         if (!laid.WorldHandedOver) HandTheWorldOver(laid.World);
-        _sheets = _looks.Sheets;
-        var room = _looks.RoomFor(laid.Plan, _config);
-        _renderer = NewRenderer(laid.Ground, _movingOnTheDevice ? room with { Over = 0, Above = 0 } : room);
-        _looks.ReadAspects(_renderer.Atlas);
-        _looks.Lay(laid.Plan, laid.World.Uses, _config);
-        _renderer.LayTown(_looks, _config.View);
+        _movingOnTheDevice = laid.World.World is DeviceWorld;
+        var room = LayTheRenderer(laid.Plan, laid.Ground, laid.World.Uses, player: false);
         LayTheMovingOnTheDevice(laid.World, room);
 
         _world?.Dispose();
+        _scene = null;
         _world = laid.World;
         _ground = laid.Ground;
         _loop = new SimLoop<TownWorld>(laid.World, _config);
@@ -817,6 +835,23 @@ internal sealed partial class Game : IDisposable
         OpenWatch.Passed("stood: the renderer and the sprites");
         LetGoOfTheTriangles(laid.Ground);
         HandBackTheOpen();
+    }
+
+    /// <summary>
+    /// The renderer laid again for a town's ground, its sheets and its standing sprites, with room for what moves on it
+    /// (<see cref="TownSprites.RoomFor"/>); that room. <b>A player's</b> (MP-9) packs only the sheets its town draws
+    /// (<see cref="TownSprites.SheetsAsShown"/>) and lays room for an area rather than a town.
+    /// </summary>
+    SpriteRoom LayTheRenderer(CityPlan plan, GroundMesh ground, World.Statics.BuildingUses uses, bool player)
+    {
+        var looks = _looks!;
+        _sheets = player ? looks.SheetsAsShown(plan, uses) : looks.Sheets;
+        var room = looks.RoomFor(plan, _config, player ? _config.Multiplayer.MostMoversSent : null);
+        _renderer = NewRenderer(ground, _movingOnTheDevice ? room with { Over = 0, Above = 0 } : room);
+        looks.ReadAspects(_renderer.Atlas);
+        looks.Lay(plan, uses, _config);
+        _renderer.LayTown(looks, _config.View);
+        return room;
     }
 
     /// <summary>
@@ -935,7 +970,7 @@ internal sealed partial class Game : IDisposable
                 if (_bot is { } bot)
                 {
                     bot.Follow(_loop.Tick);
-                    _loop.World.HandOnCar(bot.Hands.Car, bot.Hand);
+                    _loop.World.HandOnCar(BotSeat.Seat, bot.Hands.Car, bot.Hand);
                 }
 
                 _loop.Advance();
@@ -980,7 +1015,19 @@ internal sealed partial class Game : IDisposable
     void Draw(ref FrameParts parts)
     {
         var sprites = default(SpriteCounts);
-        if (_looks is { } looks && _world is not null)
+        if (_looks is { } looks && _scene is { } scene)
+        {
+            // MP-9: a player's town is its statics and what its replica was sent.
+            var cullSpanM = _camera.CullSpanM(_uiPx);
+            _renderer.FillUnder(scene.Marks, _camera.CentreM, cullSpanM, _camera.PixelsPerMetre);
+            sprites = looks.FillStill(_camera.CentreM, cullSpanM);
+            if (_joined?.Replica is { } replica && !double.IsNaN(_joinedDrawnS))
+            {
+                var (over, above) = FillJoined(looks, scene, replica, _camera.CentreM, cullSpanM);
+                sprites = sprites with { Over = over, Above = above };
+            }
+        }
+        else if (_looks is not null && _world is not null)
         {
             // The cull span and not the view span: a turned town shows a diamond, and a body just outside
             // the upright rectangle is inside the picture (OBS-1c).
@@ -988,12 +1035,12 @@ internal sealed partial class Game : IDisposable
             _renderer.FillUnder(_world.Marks, _camera.CentreM, cullSpanM, _camera.PixelsPerMetre);
             if (_movingOnTheDevice)
             {
-                sprites = looks.FillStill(_camera.CentreM, cullSpanM);
+                sprites = _looks.FillStill(_camera.CentreM, cullSpanM);
                 EmitTheMoving(_camera.CentreM, cullSpanM, _camera.PixelsPerMetre);
             }
             else
             {
-                sprites = looks.Fill(
+                sprites = _looks.Fill(
                     _world, _config, _camera.CentreM, cullSpanM, _camera.PixelsPerMetre, _renderer.SpritesOver,
                     _renderer.SpritesAbove);
             }
@@ -1002,10 +1049,21 @@ internal sealed partial class Game : IDisposable
         _renderer.SetSpriteCount(sprites);
         parts.Mark(ref parts.SpritesMs);
 
-        WriteTheEngine();
-        _renderer.SetOverlayCount(
-            _ui.Draw(_renderer.Overlay, _renderer.Underlay, _renderer.UnderlayAbove, Describe(), out var under, out var underAbove));
-        _renderer.SetUnderlayCount(under, underAbove);
+        // MP-9: a player's page draws no interface but its map; what it is told is the page's banner.
+        if (_joined is null)
+        {
+            WriteTheEngine();
+            _renderer.SetOverlayCount(
+                _ui.Draw(_renderer.Overlay, _renderer.Underlay, _renderer.UnderlayAbove, Describe(), out var under, out var underAbove));
+            _renderer.SetUnderlayCount(under, underAbove);
+        }
+        else
+        {
+            _renderer.SetOverlayCount(DrawTheMap(_joined));
+            _renderer.SetUnderlayCount(0, 0);
+        }
+
+        RunTheFrameKernels();
         parts.Mark(ref parts.InterfaceMs);
 
         // OBS-2v: which layers of the ground are drawn, asked every frame and answered by the renderer
@@ -1015,13 +1073,13 @@ internal sealed partial class Game : IDisposable
 
         var (centreM, clipPerM, facing) = _camera.ForShader(_uiPx);
         var before = Crossings();
-        var tick = _loop?.Tick ?? 0;
+        var tick = _joined is null ? _loop?.Tick ?? 0 : JoinedTick;
         var turned = CameraView.Turned(FanTable.TurnsAt(tick, _config), _config.View.FanLeastPx / _camera.PixelsPerMetre);
         _renderer.Frame(new CameraView(
             centreM, clipPerM, _uiPx, facing, Turning: turned,
-            Clouds: _world is null ? default : CloudShadows.At(_world.Clouds, _config, tick),
-            WaterDriftM: _world is null ? default : GroundPatches.DriftAt(_world.Wind, _config, tick),
-            Waves: _world is null ? default : WaterWaves.At(_world.Wind, _config, tick)));
+            Clouds: (_world?.Clouds ?? _scene?.Clouds) is { } clouds ? CloudShadows.At(clouds, _config, tick) : default,
+            WaterDriftM: (_world?.Wind ?? _scene?.Wind) is { } wind ? GroundPatches.DriftAt(wind, _config, tick) : default,
+            Waves: (_world?.Wind ?? _scene?.Wind) is { } waves ? WaterWaves.At(waves, _config, tick) : default));
         parts.Mark(ref parts.SubmitMs);
 
         // The renderer's own account of what it waited for, taken off the frame just drawn and taken
@@ -1063,7 +1121,7 @@ internal sealed partial class Game : IDisposable
             _renderer.DrawTheEngineFrom(_engine);
         }
 
-        var slot = EngineSlot();
+        var slot = FrameSlot();
         _picked = _engine.PickedIn(slot);
         var pinned = _ui.Pick.Pinned;
         _engine.Write(
@@ -1077,8 +1135,6 @@ internal sealed partial class Game : IDisposable
             _renderer.DrawTheEngineFrom(_engine);
             _engine.Recorded();
         }
-
-        RunTheEngine(_engine);
     }
 
     /// <summary>The engine layers, once a layer of them has been turned on over this town; let go of with the town.</summary>
@@ -1090,14 +1146,17 @@ internal sealed partial class Game : IDisposable
     /// <summary>The device the engine layers' kernels run on, or none where this head has none to give them.</summary>
     private partial Runtime.Vk? EngineDevice();
 
-    /// <summary>Which of the engine layers' slots the frame being filled is.</summary>
-    private partial int EngineSlot();
+    /// <summary>Which slot the frame being filled is, of those the frame's kernels — the emit's, the engine layers' — are steered by.</summary>
+    private partial int FrameSlot();
 
-    /// <summary>How many slots <see cref="EngineSlot"/> names, which the engine layers lay a set of each kernel for.</summary>
+    /// <summary>How many slots <see cref="FrameSlot"/> names, which the engine layers lay a set of each kernel for.</summary>
     private partial int EngineSlots();
 
-    /// <summary>The engine layers' kernels run for the frame being filled, where they are not recorded into it.</summary>
-    partial void RunTheEngine(EngineLayers engine);
+    /// <summary>
+    /// The frame's kernels — the emit's (<see cref="EmitTheMoving"/>) and the engine layers' — run for the frame being
+    /// filled, where they are not recorded into it.
+    /// </summary>
+    partial void RunTheFrameKernels();
 
     void LetGoOfTheEngine()
     {

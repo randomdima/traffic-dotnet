@@ -76,14 +76,15 @@ internal sealed class WayLines(
 
     /// <summary>
     /// <b>The collision channels one of the town's ways is on</b>: a lane's road's level, a connector's two lanes'
-    /// (<see cref="LaneLines.ConnectorChannels"/>), and the ground for the walk, which is laid off the ground's own
-    /// boundary.
+    /// (<see cref="LaneLines.ConnectorChannels"/>), a stretch of the walk its own (<see cref="FootGraph.ChannelsOf"/>,
+    /// WLK-1b), and a corner of it the stretch it leads onto's.
     /// </summary>
     public byte ChannelsOf(int way) => ways.KindOf(way) switch
     {
         WayKind.Lane => CityPlan.RoadArrays.ChannelOf(roads.LaneLevel[ways.RoadLaneOf(way)]),
         WayKind.Connector => roads.ConnectorChannels(ways.RoadConnectorOf(way)),
         WayKind.Rail => rails.Channels[ways.RailLaneOf(way)],
-        _ => CityPlan.RoadArrays.GroundChannel,
+        WayKind.Footway => walking.Foot.ChannelsOf(ways.FootwayOf(way)),
+        _ => walking.Foot.ChannelsOf(walking.TurnToEdge(ways.MitreOf(way))),
     };
 }

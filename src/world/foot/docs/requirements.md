@@ -32,9 +32,19 @@ intercity road's (GEN-75) — lay a shape, its outside is one boundary
 road at once, because a boundary has the road between its two hands and the move keeps it. **Nothing here
 asks about a road**: there is no end to stand a corner on, no arm to count, no bay or ring or rank to exclude,
 and **every line the move closes is a lane a walk may run down**. A street's pavement crosses a bridge deck
-because the driven ground does (TER-3b.1) — and does not cross a bridge over a road, which is driven ground of
-its own above the ground's (TER-7b) — the walk goes round the mouth of a rank because the tarmac does,
-and a course round a block is the frontage of every street on it.
+because the driven ground does (TER-3b.1) — and a bridge over a road, which is driven ground of its own above the
+ground's (TER-7b), has a walk of its own struck off it the same way (WLK-1b) — the walk goes round the mouth of a rank
+because the tarmac does, and a course round a block is the frontage of every street on it.
+
+**WLK-1b** `P4` **A deck over other roads is walked, on its own level, and stepped up onto and down off at each of its
+ends.** Its walk is the level above's walked ground moved off itself as the ground's is (WLK-1), on the deck's
+collision channel alone (PHY-1a), and never joined to the walk of the street it carries over. Under each end of the deck
+the ground's courses close round the end of its lanes; that stretch of each, from short of where the deck begins, is
+walked by nobody, and so is the deck's own course round the same end — and down each side of the road a joint
+`DeckWalkJointM` long, on both levels' channels as a bridgehead's join is a car's, runs from the end one level's lane
+arrives at to the end the other's sets off from (`DeckWalks`). **A walker is on the channels of the walk under it**, so
+it is up on the deck from short of where the deck is drawn and down off it past that; off the walk, on a carriageway,
+the ways under it take it onto their channels only where they hold the ground's.
 
 **The move is the whole shape's, taken once for the town, and never a stretch of it moved on its own.** A
 shape's offset is cut against every piece of the shape; a stretch moved by itself can weigh a corner only

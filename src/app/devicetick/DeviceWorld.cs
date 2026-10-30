@@ -86,6 +86,8 @@ internal sealed partial class DeviceWorld : WorldLayer
         public float RailFriction;
         public float RailRolling;
         public float RailGravityMps2;
+        public float HandBoostSpeedShare;
+        public float MostTiltOverNothingRad;
     }
 
     /// <summary>The covers kernel's push constants (<c>world_covers.comp</c>): the atlas's, then the bodies'.</summary>
@@ -291,7 +293,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         _coversSet = BindTheCovers();
 
         _viewKernel = _held.Kernel("world_view.comp", 13 + _lanes.Tables.Length, pushBytes, sets: _viewSets.Length);
-        _walkersViewKernel = _held.Kernel("world_view_walkers.comp", 8, pushBytes, sets: _walkersViewSets.Length);
+        _walkersViewKernel = _held.Kernel("world_view_walkers.comp", 9, pushBytes, sets: _walkersViewSets.Length);
         _wagonsViewKernel = _held.Kernel("world_view_wagons.comp", 6, pushBytes, sets: _wagonsViewSets.Length);
         _rail = new DeviceRail(_held, laying, pose, motion, mass, filter, pushBytes);
         for (var slot = 0; slot < _viewSets.Length; slot++)
@@ -308,7 +310,7 @@ internal sealed partial class DeviceWorld : WorldLayer
                 _solver.Overlap, carViews, _follows, tyres.Builds, tyres.BuildOf.Device, .. _lanes.Tables,
             ]);
             _walkersViewSets[slot] = _walkersViewKernel.Bind(
-                [_walkerRows, pose, motion, _solver.Overlap, walkerViews, _counts, _tyres.GroundMarkRing, _countsOut]);
+                [_walkerRows, pose, motion, _solver.Overlap, walkerViews, _counts, _tyres.GroundMarkRing, _countsOut, filter]);
         }
 
         _push = new WorldPush
@@ -331,6 +333,8 @@ internal sealed partial class DeviceWorld : WorldLayer
             RailFriction = config.Train.WheelRailFriction,
             RailRolling = config.Train.RollingResistance,
             RailGravityMps2 = config.Tyre.StandardGravityMps2,
+            HandBoostSpeedShare = config.Control.HandBoostSpeedShare,
+            MostTiltOverNothingRad = config.CarTiltOverNothingMostRad,
         };
 
         // Every car read off its body as laid, and the first view and covers off the world as it was laid, before any step —
@@ -985,14 +989,15 @@ internal sealed partial class DeviceWorld : WorldLayer
         _coversSet = BindTheCovers();
     }
 
-    /// <summary>Every pair the step began touching, by what each body is, with the speed it closed at.</summary>
+    /// <summary>Every pair the step began touching, by what each body is, with how each came into it.</summary>
     void TakeTheTouches(WorldView view)
     {
         view.TouchCount = 0;
         foreach (ref readonly var begun in _solver.Begun)
         {
             view.AddTouch(new Touch(
-                _laying.TagOf((int)begun.First), _laying.TagOf((int)begun.Second), begun.Normal, begun.ClosingMps));
+                _laying.TagOf((int)begun.First), _laying.TagOf((int)begun.Second), begun.Normal,
+                new Approach(begun.FirstIntoMps, begun.SecondIntoMps)));
         }
     }
 
@@ -1049,8 +1054,8 @@ internal sealed partial class DeviceWorld : WorldLayer
     public DeviceSmoke? Smoke { get; private set; }
 
     /// <summary>
-    /// The smoke's tracks laid behind every step from here on, for whatever draws the smoke off them — the desktop's emit
-    /// (<c>DeviceWorld.Sprites.cs</c>). A world nothing draws smoke off, as a page's, lays none.
+    /// The smoke's tracks laid behind every step from here on, for whatever draws the smoke off them — the emit
+    /// (<c>DeviceWorld.Sprites.cs</c>). A world nothing draws smoke off lays none.
     /// </summary>
     public void LayTheSmoke() =>
         Smoke ??= new DeviceSmoke(

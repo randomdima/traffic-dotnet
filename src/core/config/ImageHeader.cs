@@ -30,9 +30,27 @@ internal static class ImageHeader
     /// <summary>What stands at the head of a lossy WebP's key frame, and only of a key frame.</summary>
     static ReadOnlySpan<byte> KeyFrame => [0x9D, 0x01, 0x2A];
 
+    /// <summary>Pictures this run was told the size of and does not hold, by their full path.</summary>
+    static readonly Dictionary<string, (int WidthPx, int HeightPx)> Told = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// <b>A picture's size, told rather than read</b>: a page handed an atlas's blocks in place of the pictures they were
+    /// made from holds no file to read a header off, and every reader of a size is still asking. Told before the first
+    /// reader asks, and once.
+    /// </summary>
+    public static void Tell(string path, int widthPx, int heightPx)
+    {
+        lock (Told) Told[Path.GetFullPath(path)] = (widthPx, heightPx);
+    }
+
     /// <summary>The size of the picture in <paramref name="path"/>, without decoding a texel of it.</summary>
     public static (int WidthPx, int HeightPx) Measure(string path)
     {
+        lock (Told)
+        {
+            if (Told.TryGetValue(Path.GetFullPath(path), out var told)) return told;
+        }
+
         if (!File.Exists(path)) throw new FileNotFoundException($"No picture at {path}.");
 
         Span<byte> head = stackalloc byte[HeadBytes];

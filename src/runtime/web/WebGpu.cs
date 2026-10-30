@@ -34,6 +34,8 @@ internal static partial class WebGpu
 
     public const int Vertex = 32;
     public const int Uniform = 64;
+    public const int Storage = 128;
+    public const int Indirect = 256;
 
     static long _crossings;
 
@@ -80,6 +82,30 @@ internal static partial class WebGpu
         TextureJs(slot, rgba, width, height, layers, layer, level, levels);
     }
 
+    /// <summary>What the device was opened to hold the atlas in — RGBA, BC7 or ASTC (<c>SheetFormat</c>'s order) — as the page chose it off the adapter.</summary>
+    public static int SheetFormat()
+    {
+        Count();
+        return SheetFormatJs();
+    }
+
+    /// <summary>
+    /// The atlas as blocks, every box written straight out of the block file the page fetched (<paramref name="path"/>,
+    /// relative to the page): six numbers a box in <paramref name="boxes"/> — page, x, y, width, height, offset. Once an
+    /// open, so no frame's crossing.
+    /// </summary>
+    public static void SheetBlocks(int slot, int format, int pages, string path, Span<int> boxes)
+    {
+        Count();
+        SheetBlocksJs(slot, format, pages, path, System.Runtime.InteropServices.MemoryMarshal.AsBytes(boxes));
+    }
+
+    [JSImport("town.sheetFormat", "town.js")]
+    private static partial int SheetFormatJs();
+
+    [JSImport("town.sheetBlocks", "town.js")]
+    static partial void SheetBlocksJs(int slot, int format, int pages, string path, [JSMarshalAs<JSType.MemoryView>] Span<byte> boxes);
+
     /// <summary>The bind group and the recording, made again when a map is opened and never while a frame is drawn.</summary>
     /// <param name="groundIndexCount">The index buffer's first draw: the ground, under every body.</param>
     /// <param name="aboveIndexCount">Its second, straight after the first: the level above, over the bodies on the ground.</param>
@@ -110,30 +136,58 @@ internal static partial class WebGpu
     }
 
     /// <summary>
+    /// What moves, as the emit writes it — its instances and its two draws, kernel buffers both — drawn from the next
+    /// recording on in place of the frame's own runs, the run above <paramref name="aboveBytes"/> into the instances.
+    /// </summary>
+    public static void Moving(int instances, int draws, int aboveBytes)
+    {
+        Count();
+        MovingJs(instances, draws, aboveBytes);
+    }
+
+    /// <summary>
     /// The whole frame: the memory the simulation just wrote, and the counts that say how much of it to read — the
     /// sprites under the buildings, the stretch of the buildings laid once, the sprites over them and those on the level
-    /// above, the interface, and the marks on the ground and on the level above — at <see cref="FrameCount"/>'s places.
+    /// above, the interface, and the marks on the ground and on the level above — at <see cref="FrameCount"/>'s places;
+    /// and the knots of the host's ring written since the last frame, at <see cref="FrameCount.MarkKnotsAt"/> bytes into
+    /// the page's copy, with the ring's words — both empty where the device keeps the ring.
     /// </summary>
     public static void Frame(
         Span<byte> camera, Span<byte> under, Span<byte> over, Span<byte> above, Span<byte> overlay, Span<byte> underlay,
-        Span<byte> underlayAbove, Span<int> counts)
+        Span<byte> underlayAbove, Span<byte> markKnots, Span<byte> markRing, Span<int> counts)
     {
         Count();
-        FrameJs(camera, under, over, above, overlay, underlay, underlayAbove, counts);
+        FrameJs(camera, under, over, above, overlay, underlay, underlayAbove, markKnots, markRing, counts);
     }
 
     /// <summary>Where each of <see cref="Frame"/>'s counts stands (<c>town.js</c>'s <c>COUNT</c>).</summary>
     public static class FrameCount
     {
         public const int Under = 0, StandingFirst = 1, Standing = 2, Over = 3, Above = 4, Overlay = 5, Underlay = 6,
-            UnderlayAbove = 7, Length = 8;
+            UnderlayAbove = 7, MarkKnotsAt = 8, Length = 9;
+    }
+
+    /// <summary>The device's ring of knots and its words — kernel buffers both — drawn from the next recording on.</summary>
+    public static void DeviceMarks(int knots, int ring)
+    {
+        Count();
+        DeviceMarksJs(knots, ring);
     }
 
     /// <summary>What the page has seen since the last frame asked, into the run's own memory.</summary>
-    public static void Pump(Span<byte> keys, Span<double> axes)
+    /// <param name="inbox">Where what reached a served town's link since the last pump is written (<see cref="ServerLink"/>).</param>
+    /// <param name="outbox">And what the run wrote to go, sent and emptied.</param>
+    public static void Pump(Span<byte> keys, Span<double> axes, Span<byte> inbox, Span<byte> outbox)
     {
         Count();
-        PumpJs(keys, axes);
+        PumpJs(keys, axes, inbox, outbox);
+    }
+
+    /// <summary>A served town's socket opened (MP-3) — once a join, so no frame's crossing.</summary>
+    public static void Join(string url)
+    {
+        Count();
+        JoinJs(url);
     }
 
     public static void Fullscreen()
@@ -491,6 +545,9 @@ internal static partial class WebGpu
     [JSImport("town.engine", "town.js")]
     static partial void EngineJs(int quads, int draws, int runBytes);
 
+    [JSImport("town.moving", "town.js")]
+    static partial void MovingJs(int instances, int draws, int aboveBytes);
+
     [JSImport("town.frame", "town.js")]
     static partial void FrameJs(
         [JSMarshalAs<JSType.MemoryView>] Span<byte> camera,
@@ -500,12 +557,22 @@ internal static partial class WebGpu
         [JSMarshalAs<JSType.MemoryView>] Span<byte> overlay,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> underlay,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> underlayAbove,
+        [JSMarshalAs<JSType.MemoryView>] Span<byte> markKnots,
+        [JSMarshalAs<JSType.MemoryView>] Span<byte> markRing,
         [JSMarshalAs<JSType.MemoryView>] Span<int> counts);
+
+    [JSImport("town.deviceMarks", "town.js")]
+    static partial void DeviceMarksJs(int knots, int ring);
 
     [JSImport("town.pump", "town.js")]
     static partial void PumpJs(
         [JSMarshalAs<JSType.MemoryView>] Span<byte> keys,
-        [JSMarshalAs<JSType.MemoryView>] Span<double> axes);
+        [JSMarshalAs<JSType.MemoryView>] Span<double> axes,
+        [JSMarshalAs<JSType.MemoryView>] Span<byte> inbox,
+        [JSMarshalAs<JSType.MemoryView>] Span<byte> outbox);
+
+    [JSImport("town.join", "town.js")]
+    static partial void JoinJs(string url);
 
     [JSImport("town.fullscreen", "town.js")]
     static partial void FullscreenJs();
